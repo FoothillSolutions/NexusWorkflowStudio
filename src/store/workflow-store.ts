@@ -60,10 +60,43 @@ interface WorkflowState {
   reset: () => void;
 }
 
+// ── Helpers ─────────────────────────────────────────────────────────────────
+/** The fixed ID used for the mandatory Start node. */
+export const START_NODE_ID = "start-default";
+/** The fixed ID used for the default End node. */
+export const END_NODE_ID = "end-default";
+
+function createDefaultStartNode(): WorkflowNode {
+  return {
+    ...createNodeFromType("start", { x: 80, y: 200 }),
+    id: START_NODE_ID,
+    deletable: false,
+  } as WorkflowNode;
+}
+
+function createDefaultEndNode(): WorkflowNode {
+  return {
+    ...createNodeFromType("end", { x: 600, y: 200 }),
+    id: END_NODE_ID,
+  } as WorkflowNode;
+}
+
+/** Ensure a workflow's node list always contains the Start node. */
+function ensureStartNode(nodes: WorkflowNode[]): WorkflowNode[] {
+  const hasStart = nodes.some((n) => n.data?.type === "start");
+  return hasStart ? nodes : [createDefaultStartNode(), ...nodes];
+}
+
+/** Ensure a workflow's node list always contains at least one End node. */
+function ensureEndNode(nodes: WorkflowNode[]): WorkflowNode[] {
+  const hasEnd = nodes.some((n) => n.data?.type === "end");
+  return hasEnd ? nodes : [...nodes, createDefaultEndNode()];
+}
+
 // ── Initial state ───────────────────────────────────────────────────────────
 const initialState = {
   name: "Untitled Workflow",
-  nodes: [] as WorkflowNode[],
+  nodes: [createDefaultStartNode(), createDefaultEndNode()] as WorkflowNode[],
   edges: [] as WorkflowEdge[],
   sidebarOpen: true,
   minimapVisible: true,
@@ -92,6 +125,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   setName: (name) => set({ name }),
 
   addNode: (type, position) => {
+    // Only one Start node is allowed and it already exists by default
+    if (type === "start") return;
     const newNode = createNodeFromType(type, position) as WorkflowNode;
     set({ nodes: [...get().nodes, newNode] });
   },
@@ -107,6 +142,9 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   deleteNode: (nodeId) => {
+    // The Start node is protected and cannot be deleted
+    const target = get().nodes.find((n) => n.id === nodeId);
+    if (!target || target.data?.type === "start") return;
     set({
       nodes: get().nodes.filter((n) => n.id !== nodeId),
       edges: get().edges.filter(
@@ -137,7 +175,13 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   setViewport: (viewport) => set({ viewport }),
 
-  setDeleteTarget: (target) => set({ deleteTarget: target }),
+  setDeleteTarget: (target) => {
+    if (target?.type === "node") {
+      const node = get().nodes.find((n) => n.id === target.id);
+      if (node?.data?.type === "start") return; // Start node is undeletable
+    }
+    set({ deleteTarget: target });
+  },
 
   confirmDelete: () => {
     const target = get().deleteTarget;
@@ -152,9 +196,14 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   // ── Persistence ─────────────────────────────────────────────────────────
   loadWorkflow: (json) => {
+    const nodes = ensureEndNode(
+      ensureStartNode(json.nodes).map((n) =>
+        n.data?.type === "start" ? { ...n, deletable: false } : n
+      ) as WorkflowNode[]
+    );
     set({
       name: json.name,
-      nodes: json.nodes,
+      nodes,
       edges: json.edges,
       sidebarOpen: json.ui.sidebarOpen,
       minimapVisible: json.ui.minimapVisible,

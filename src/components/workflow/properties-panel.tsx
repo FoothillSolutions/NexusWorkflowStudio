@@ -494,17 +494,19 @@ export default function PropertiesPanel() {
 
             <Separator className="bg-zinc-800" />
 
-            {/* Delete button */}
-            <Button
-              type="button"
-              variant="destructive"
-              size="sm"
-              className="w-full gap-2"
-              onClick={handleDelete}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              Delete Node
-            </Button>
+            {/* Delete button — hidden for the protected Start node */}
+            {nodeType !== "start" && (
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                className="w-full gap-2"
+                onClick={handleDelete}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Delete Node
+              </Button>
+            )}
           </form>
         </ScrollArea>
       </SheetContent>

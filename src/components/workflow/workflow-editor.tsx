@@ -54,37 +54,12 @@ export default function WorkflowEditor() {
 
       if (!isInput && (e.key === "Delete" || e.key === "Backspace")) {
         if (selectedNodeId) {
-            // If a node is selected, we prompt for deletion
-            // Note: React Flow handles edge deletion via Backspace by default if we don't prevent it
-            // But we want a confirmation dialog for nodes.
-            // For edges, the user might expect standard behavior, but let's stick to the requirement:
-            // "if a node or edge is selected, open delete confirmation"
-            // The store's selectNode handles nodes. React Flow's onEdgeClick handles edge selection (if we tracked it).
-            // Our store currently tracks `selectedNodeId`.
-            // React Flow has its own internal selection state.
-            // If we want to support edge deletion confirmation, we need to know if an edge is selected.
-            // The prompt says "if a node or edge is selected".
-            // Our store has `selectedNodeId`. It doesn't seem to track selected edge ID explicitly in the top-level state
-            // except that `onEdgeClick` deselects nodes.
-            // However, React Flow's `useOnSelectionChange` could be used inside the Canvas to sync selection.
-            // But `workflow-editor.tsx` is outside the ReactFlow provider in the tree? No, it wraps it.
-            // Actually, `WorkflowEditor` renders `ReactFlowProvider`.
-            // So we can't use `useReactFlow` hooks here directly unless we wrap the inner content.
-            
-            // Wait, `WorkflowEditor` *wraps content* in `ReactFlowProvider`. 
-            // So `WorkflowEditor` itself cannot use `useReactFlow` hooks.
-            // But `Canvas` can.
-            
-            // The requirement says: "Keyboard handler: on Delete/Backspace, if a node or edge is selected, open delete confirmation"
-            // Since we can't easily access React Flow's internal selection state here without being inside the context,
-            // AND the store only tracks `selectedNodeId`, I will implement the handler for `selectedNodeId`.
-            // If the user wants edge deletion, they might need to select the edge.
-            // Let's rely on the `deleteTarget` state.
-            
-            // Actually, I can check `selectedNodeId` from the store.
-            if (selectedNodeId) {
-                setDeleteTarget({ type: 'node', id: selectedNodeId });
-            }
+            const selectedNode = useWorkflowStore.getState().nodes.find(
+              (n) => n.id === selectedNodeId
+            );
+            // Start node is protected — ignore delete key
+            if (selectedNode?.data?.type === "start") return;
+            setDeleteTarget({ type: 'node', id: selectedNodeId });
         }
       }
     };

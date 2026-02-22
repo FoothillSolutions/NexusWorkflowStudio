@@ -14,6 +14,12 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { nanoid } from "nanoid";
 
+// ── Node category enum ──────────────────────────────────────────────────────
+export enum NodeCategory {
+  Basic = "basic",
+  ControlFlow = "control-flow",
+}
+
 // ── Node registry entry ─────────────────────────────────────────────────────
 export interface NodeRegistryEntry {
   type: NodeType;
@@ -22,7 +28,7 @@ export interface NodeRegistryEntry {
   icon: LucideIcon;
   accentColor: string;       // Tailwind color class (e.g. "emerald")
   accentHex: string;         // hex for handles / inline styles
-  category: "basic" | "control-flow";
+  category: NodeCategory;
   defaultData: () => WorkflowNodeData;
 }
 
@@ -35,7 +41,7 @@ export const NODE_REGISTRY: Record<NodeType, NodeRegistryEntry> = {
     icon: Play,
     accentColor: "emerald",
     accentHex: "#10b981",
-    category: "basic",
+    category: NodeCategory.Basic,
     defaultData: () => ({
       type: "start" as const,
       label: "Start",
@@ -48,7 +54,7 @@ export const NODE_REGISTRY: Record<NodeType, NodeRegistryEntry> = {
     icon: MessageSquareText,
     accentColor: "blue",
     accentHex: "#3b82f6",
-    category: "basic",
+    category: NodeCategory.Basic,
     defaultData: () => ({
       type: "prompt" as const,
       label: "Prompt",
@@ -63,7 +69,7 @@ export const NODE_REGISTRY: Record<NodeType, NodeRegistryEntry> = {
     icon: Bot,
     accentColor: "violet",
     accentHex: "#8b5cf6",
-    category: "basic",
+    category: NodeCategory.Basic,
     defaultData: () => ({
       type: "sub-agent" as const,
       label: "Sub-Agent",
@@ -78,7 +84,7 @@ export const NODE_REGISTRY: Record<NodeType, NodeRegistryEntry> = {
     icon: GitBranch,
     accentColor: "purple",
     accentHex: "#a855f7",
-    category: "basic",
+    category: NodeCategory.Basic,
     defaultData: () => ({
       type: "sub-agent-flow" as const,
       label: "Sub-Agent Flow",
@@ -93,7 +99,7 @@ export const NODE_REGISTRY: Record<NodeType, NodeRegistryEntry> = {
     icon: Wrench,
     accentColor: "cyan",
     accentHex: "#06b6d4",
-    category: "basic",
+    category: NodeCategory.Basic,
     defaultData: () => ({
       type: "skill" as const,
       label: "Skill",
@@ -108,7 +114,7 @@ export const NODE_REGISTRY: Record<NodeType, NodeRegistryEntry> = {
     icon: Plug,
     accentColor: "teal",
     accentHex: "#14b8a6",
-    category: "basic",
+    category: NodeCategory.Basic,
     defaultData: () => ({
       type: "mcp-tool" as const,
       label: "MCP Tool",
@@ -123,7 +129,7 @@ export const NODE_REGISTRY: Record<NodeType, NodeRegistryEntry> = {
     icon: GitFork,
     accentColor: "amber",
     accentHex: "#f59e0b",
-    category: "control-flow",
+    category: NodeCategory.ControlFlow,
     defaultData: () => ({
       type: "if-else" as const,
       label: "If / Else",
@@ -137,7 +143,7 @@ export const NODE_REGISTRY: Record<NodeType, NodeRegistryEntry> = {
     icon: ArrowRightLeft,
     accentColor: "orange",
     accentHex: "#f97316",
-    category: "control-flow",
+    category: NodeCategory.ControlFlow,
     defaultData: () => ({
       type: "switch" as const,
       label: "Switch",
@@ -152,7 +158,7 @@ export const NODE_REGISTRY: Record<NodeType, NodeRegistryEntry> = {
     icon: HelpCircle,
     accentColor: "pink",
     accentHex: "#ec4899",
-    category: "control-flow",
+    category: NodeCategory.ControlFlow,
     defaultData: () => ({
       type: "ask-user" as const,
       label: "Ask User",
@@ -167,7 +173,7 @@ export const NODE_REGISTRY: Record<NodeType, NodeRegistryEntry> = {
     icon: Square,
     accentColor: "red",
     accentHex: "#ef4444",
-    category: "control-flow",
+    category: NodeCategory.ControlFlow,
     defaultData: () => ({
       type: "end" as const,
       label: "END",
@@ -191,8 +197,8 @@ export function createNodeFromType(
 
 // ── Palette groupings ───────────────────────────────────────────────────────
 export const BASIC_NODES = Object.values(NODE_REGISTRY).filter(
-  (n) => n.category === "basic"
+  (n) => n.category === NodeCategory.Basic
 );
 export const CONTROL_FLOW_NODES = Object.values(NODE_REGISTRY).filter(
-  (n) => n.category === "control-flow"
+  (n) => n.category === NodeCategory.ControlFlow
 );
