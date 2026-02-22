@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 // ── Theme constants ──────────────────────────────────────────────────────────
 // Single source of truth for all recurring background, border, text and
 // surface colors used across the Nexus Workflow Studio UI.
@@ -43,4 +42,8 @@ export const CANVAS_EDGE_STROKE = "#555";
 export const MINIMAP_NODE_COLOR = "#444";
 /** MiniMap mask color */
 export const MINIMAP_MASK_COLOR = "rgba(0,0,0,0.5)";
+
+// ── Node handles ─────────────────────────────────────────────────────────────
+/** Shared className for all node connection handles (balls) */
+export const HANDLE_CLASS = "size-6 border-2 border-zinc-800 rounded-full";
 

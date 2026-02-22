@@ -4,6 +4,7 @@ import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import { BaseNode } from "./base-node";
 import { NODE_REGISTRY } from "@/lib/node-types";
 import type { EndNodeData } from "@/types/workflow";
+import { HANDLE_CLASS } from "@/lib/theme";
 
 export function EndNode({ data, selected }: NodeProps<Node<EndNodeData>>) {
   const { icon, accentHex, displayName } = NODE_REGISTRY[data.type];
@@ -22,7 +23,7 @@ export function EndNode({ data, selected }: NodeProps<Node<EndNodeData>>) {
         type="target"
         position={Position.Left}
         id="input"
-        className="w-3 h-3 border-2 border-zinc-800 rounded-full"
+        className={HANDLE_CLASS}
         style={{ backgroundColor: accentHex }}
       />
     </BaseNode>

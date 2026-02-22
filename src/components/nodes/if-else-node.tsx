@@ -4,6 +4,7 @@ import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import { BaseNode } from "./base-node";
 import { NODE_REGISTRY } from "@/lib/node-types";
 import type { IfElseNodeData } from "@/types/workflow";
+import { HANDLE_CLASS } from "@/lib/theme";
 
 export function IfElseNode({ data, selected }: NodeProps<Node<IfElseNodeData>>) {
   const { icon, accentHex, displayName } = NODE_REGISTRY[data.type];
@@ -24,7 +25,7 @@ export function IfElseNode({ data, selected }: NodeProps<Node<IfElseNodeData>>) 
         type="target"
         position={Position.Left}
         id="input"
-        className="w-3 h-3 border-2 border-zinc-800 rounded-full"
+        className={HANDLE_CLASS}
         style={{ backgroundColor: accentHex }}
       />
 
@@ -35,7 +36,7 @@ export function IfElseNode({ data, selected }: NodeProps<Node<IfElseNodeData>>) 
           type="source"
           position={Position.Right}
           id="true"
-          className="w-3 h-3 border-2 border-zinc-800 rounded-full !bg-amber-500 !right-0 !relative !transform-none"
+          className={`!right-0 !relative !transform-none ${HANDLE_CLASS}`}
           style={{ backgroundColor: accentHex }}
         />
       </div>
@@ -47,7 +48,7 @@ export function IfElseNode({ data, selected }: NodeProps<Node<IfElseNodeData>>) 
           type="source"
           position={Position.Right}
           id="false"
-          className="w-3 h-3 border-2 border-zinc-800 rounded-full !bg-amber-500 !right-0 !relative !transform-none"
+          className={`!right-0 !relative !transform-none ${HANDLE_CLASS}`}
           style={{ backgroundColor: accentHex }}
         />
       </div>

@@ -5,6 +5,7 @@ import { BaseNode } from "./base-node";
 import { NODE_REGISTRY } from "@/lib/node-types";
 import type { SubAgentNodeData } from "@/types/workflow";
 import { Bot } from "lucide-react";
+import { HANDLE_CLASS } from "@/lib/theme";
 
 export function SubAgentNode({ data, selected }: NodeProps<Node<SubAgentNodeData>>) {
   const { icon, accentHex, displayName } = NODE_REGISTRY[data.type];
@@ -38,14 +39,14 @@ export function SubAgentNode({ data, selected }: NodeProps<Node<SubAgentNodeData
         type="target"
         position={Position.Left}
         id="input"
-        className="w-3 h-3 border-2 border-zinc-800 rounded-full"
+        className={HANDLE_CLASS}
         style={{ backgroundColor: accentHex }}
       />
       <Handle
         type="source"
         position={Position.Right}
         id="output"
-        className="w-3 h-3 border-2 border-zinc-800 rounded-full"
+        className={HANDLE_CLASS}
         style={{ backgroundColor: accentHex }}
       />
     </BaseNode>

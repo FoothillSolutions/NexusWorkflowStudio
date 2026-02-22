@@ -18,9 +18,9 @@ import {
   BG_CANVAS_HEX,
   CANVAS_DOT_COLOR,
   CANVAS_EDGE_STROKE,
-  MINIMAP_NODE_COLOR,
   MINIMAP_MASK_COLOR,
 } from "@/lib/theme";
+import { NODE_REGISTRY } from "@/lib/node-types";
 
 // Node components
 import { StartNode } from "@/components/nodes/start-node";
@@ -123,7 +123,9 @@ export default function Canvas() {
         {minimapVisible && (
           <MiniMap
             className="!bg-zinc-900 !border-zinc-700"
-            nodeColor={MINIMAP_NODE_COLOR}
+            nodeColor={(node) =>
+              NODE_REGISTRY[node.type as NodeType]?.accentHex ?? "#52525b"
+            }
             maskColor={MINIMAP_MASK_COLOR}
           />
         )}

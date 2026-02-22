@@ -5,6 +5,7 @@ import { BaseNode } from "./base-node";
 import { NODE_REGISTRY } from "@/lib/node-types";
 import type { SkillNodeData } from "@/types/workflow";
 import { FolderGit2 } from "lucide-react";
+import { HANDLE_CLASS } from "@/lib/theme";
 
 export function SkillNode({ data, selected }: NodeProps<Node<SkillNodeData>>) {
   const { icon, accentHex, displayName } = NODE_REGISTRY[data.type];
@@ -34,14 +35,14 @@ export function SkillNode({ data, selected }: NodeProps<Node<SkillNodeData>>) {
         type="target"
         position={Position.Left}
         id="input"
-        className="w-3 h-3 border-2 border-zinc-800 rounded-full"
+        className={HANDLE_CLASS}
         style={{ backgroundColor: accentHex }}
       />
       <Handle
         type="source"
         position={Position.Right}
         id="output"
-        className="w-3 h-3 border-2 border-zinc-800 rounded-full"
+        className={HANDLE_CLASS}
         style={{ backgroundColor: accentHex }}
       />
     </BaseNode>

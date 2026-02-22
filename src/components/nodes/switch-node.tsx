@@ -4,6 +4,7 @@ import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import { BaseNode } from "./base-node";
 import { NODE_REGISTRY } from "@/lib/node-types";
 import type { SwitchNodeData } from "@/types/workflow";
+import { HANDLE_CLASS } from "@/lib/theme";
 
 export function SwitchNode({ data, selected }: NodeProps<Node<SwitchNodeData>>) {
   const { icon, accentHex, displayName } = NODE_REGISTRY[data.type];
@@ -39,7 +40,7 @@ export function SwitchNode({ data, selected }: NodeProps<Node<SwitchNodeData>>) 
         type="target"
         position={Position.Left}
         id="input"
-        className="w-3 h-3 border-2 border-zinc-800 rounded-full"
+        className={HANDLE_CLASS}
         style={{ backgroundColor: accentHex }}
       />
 
@@ -60,7 +61,7 @@ export function SwitchNode({ data, selected }: NodeProps<Node<SwitchNodeData>>) 
               type="source"
               position={Position.Right}
               id={handleId}
-              className="!relative !right-0 !transform-none w-3 h-3 border-2 border-zinc-800 rounded-full"
+              className={`!relative !right-0 !transform-none ${HANDLE_CLASS}`}
               style={{ backgroundColor: accentHex }}
             />
           </div>
