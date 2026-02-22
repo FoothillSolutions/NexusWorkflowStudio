@@ -9,6 +9,8 @@ import {
   MiniMap,
   useReactFlow,
   type NodeTypes,
+  type EdgeTypes,
+  ConnectionLineType,
 } from "@xyflow/react";
 import { useWorkflowStore } from "@/store/workflow-store";
 import type { NodeType } from "@/types/workflow";
@@ -33,6 +35,7 @@ import { IfElseNode } from "@/components/nodes/if-else-node";
 import { SwitchNode } from "@/components/nodes/switch-node";
 import { AskUserNode } from "@/components/nodes/ask-user-node";
 import { EndNode } from "@/components/nodes/end-node";
+import { DeletableEdge } from "@/components/edges/deletable-edge";
 
 const nodeTypeComponents: NodeTypes = {
   start: StartNode,
@@ -45,6 +48,10 @@ const nodeTypeComponents: NodeTypes = {
   switch: SwitchNode,
   "ask-user": AskUserNode,
   end: EndNode,
+};
+
+const edgeTypeComponents: EdgeTypes = {
+  deletable: DeletableEdge,
 };
 
 export default function Canvas() {
@@ -66,6 +73,7 @@ export default function Canvas() {
 
   // Memoize nodeTypes to prevent re-renders
   const nodeTypes = useMemo(() => nodeTypeComponents, []);
+  const edgeTypes = useMemo(() => edgeTypeComponents, []);
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
@@ -97,6 +105,7 @@ export default function Canvas() {
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         onDrop={onDrop}
         onDragOver={onDragOver}
         onNodeDoubleClick={(_, node) => openPropertiesPanel(node.id)}
@@ -105,10 +114,13 @@ export default function Canvas() {
         onPaneClick={() => selectNode(null)}
         onMoveEnd={(_, viewport) => setViewport(viewport)}
         deleteKeyCode={null}
+        connectionLineType={ConnectionLineType.Bezier}
+        connectionLineStyle={{ stroke: CANVAS_EDGE_STROKE, strokeWidth: 4}}
         fitView
         defaultEdgeOptions={{
-          type: "smoothstep",
-          style: { stroke: CANVAS_EDGE_STROKE, strokeWidth: 2 },
+          type: "deletable",
+          style: { stroke: CANVAS_EDGE_STROKE, strokeWidth: 4 },
+          animated: false,
         }}
         proOptions={{ hideAttribution: true }}
         style={{ backgroundColor: BG_CANVAS_HEX }}

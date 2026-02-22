@@ -93,9 +93,9 @@ export default function WorkflowEditor() {
       <div className={`flex h-screen flex-col ${BG_APP} ${TEXT_PRIMARY} font-sans`}>
         <Header />
         <div className="flex flex-1 overflow-hidden">
-          <NodePalette />
           <div className="flex-1 relative">
             <Canvas />
+            <NodePalette />
             <PropertiesPanel />
           </div>
         </div>

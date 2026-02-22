@@ -1,0 +1,101 @@
+"use client";
+
+import { useState, useCallback } from "react";
+import {
+  BaseEdge,
+  EdgeLabelRenderer,
+  getBezierPath,
+  type EdgeProps,
+} from "@xyflow/react";
+import { Trash2 } from "lucide-react";
+import { useWorkflowStore } from "@/store/workflow-store";
+import { CANVAS_EDGE_STROKE } from "@/lib/theme";
+
+export function DeletableEdge({
+  id,
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  sourcePosition,
+  targetPosition,
+  selected,
+  markerEnd,
+  style,
+}: EdgeProps) {
+  const [hovered, setHovered] = useState(false);
+  const deleteEdge = useWorkflowStore((s) => s.deleteEdge);
+
+  const [edgePath, labelX, labelY] = getBezierPath({
+    sourceX,
+    sourceY,
+    sourcePosition,
+    targetX,
+    targetY,
+    targetPosition,
+  });
+
+  const handleDelete = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      deleteEdge(id);
+    },
+    [id, deleteEdge]
+  );
+
+  const isActive = selected || hovered;
+  const strokeColor = isActive ? "#e4e4e7" : (style?.stroke as string) ?? CANVAS_EDGE_STROKE;
+  const strokeWidth = isActive ? 2.5 : (style?.strokeWidth as number) ?? 2;
+
+  return (
+    <>
+      {/* Wide transparent hit area so the line is easy to click */}
+      <path
+        d={edgePath}
+        fill="none"
+        stroke="transparent"
+        strokeWidth={24}
+        className="cursor-pointer"
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+      />
+
+      <BaseEdge
+        id={id}
+        path={edgePath}
+        markerEnd={markerEnd}
+        style={{
+          stroke: strokeColor,
+          strokeWidth,
+          transition: "stroke 0.12s, stroke-width 0.12s",
+          cursor: "pointer",
+          ...style,
+        }}
+      />
+
+      {/* Delete button — shown when selected or hovered */}
+      {isActive && (
+        <EdgeLabelRenderer>
+          <div
+            style={{
+              position: "absolute",
+              transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
+              pointerEvents: "all",
+              zIndex: 10,
+            }}
+            className="nodrag nopan"
+          >
+            <button
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={handleDelete}
+              className="flex items-center justify-center w-10 h-10 rounded-full bg-zinc-900 border-2 border-red-500/80 text-red-400 hover:bg-red-500 hover:text-white hover:border-red-400 shadow-xl transition-all duration-150 cursor-pointer"
+              title="Delete connection"
+            >
+              <Trash2 size={16} strokeWidth={2.5} />
+            </button>
+          </div>
+        </EdgeLabelRenderer>
+      )}
+    </>
+  );
+}

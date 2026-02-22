@@ -118,7 +118,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     set({ edges: applyEdgeChanges(changes, get().edges) });
   },
   onConnect: (connection) => {
-    set({ edges: addEdge({ ...connection, type: "smoothstep" }, get().edges) });
+    set({ edges: addEdge({ ...connection, type: "deletable" }, get().edges) });
   },
 
   // ── Actions ─────────────────────────────────────────────────────────────
@@ -204,7 +204,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     set({
       name: json.name,
       nodes,
-      edges: json.edges,
+      edges: json.edges.map((e) => ({ ...e, type: "deletable" })),
       sidebarOpen: json.ui.sidebarOpen,
       minimapVisible: json.ui.minimapVisible,
       viewport: json.ui.viewport,
