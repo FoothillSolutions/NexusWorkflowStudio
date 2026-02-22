@@ -45,5 +45,5 @@ export const MINIMAP_MASK_COLOR = "rgba(0,0,0,0.5)";
 
 // ── Node handles ─────────────────────────────────────────────────────────────
 /** Shared className for all node connection handles (balls) */
-export const HANDLE_CLASS = "size-6 border-2 border-zinc-800 rounded-full";
+export const HANDLE_CLASS = "!size-3 !border-1 border-zinc-800 !rounded-full";
 
