@@ -1,58 +1,77 @@
 import { z } from "zod/v4";
 
+// ── Shared field ─────────────────────────────────────────────────────────────
+const nameField = z
+  .string()
+  .min(1, "Name is required")
+  .regex(
+    /^[a-zA-Z0-9_-]+$/,
+    "Only alphanumeric characters, hyphens, and underscores"
+  );
+
 // ── Per-node-type schemas (used in properties panel forms) ──────────────────
 
 export const startSchema = z.object({
+  name: nameField,
   label: z.string().min(1, "Label is required"),
 });
 
 export const promptSchema = z.object({
+  name: nameField,
   label: z.string().min(1, "Label is required"),
   promptText: z.string(),
 });
 
 export const subAgentSchema = z.object({
+  name: nameField,
   label: z.string().min(1, "Label is required"),
   agentName: z.string(),
   taskText: z.string(),
 });
 
 export const subAgentFlowSchema = z.object({
+  name: nameField,
   label: z.string().min(1, "Label is required"),
   flowRef: z.string(),
   nodeCount: z.coerce.number().int().min(0),
 });
 
 export const skillSchema = z.object({
+  name: nameField,
   label: z.string().min(1, "Label is required"),
   skillName: z.string(),
   projectName: z.string(),
 });
 
 export const mcpToolSchema = z.object({
+  name: nameField,
   label: z.string().min(1, "Label is required"),
   toolName: z.string(),
   paramsText: z.string(),
 });
 
 export const ifElseSchema = z.object({
+  name: nameField,
   label: z.string().min(1, "Label is required"),
   expression: z.string(),
 });
 
 export const switchSchema = z.object({
+  name: nameField,
   label: z.string().min(1, "Label is required"),
   switchExpr: z.string(),
   cases: z.array(z.string()),
 });
 
 export const askUserSchema = z.object({
+  name: nameField,
   label: z.string().min(1, "Label is required"),
   questionText: z.string(),
   options: z.array(z.string().min(1, "Option text required")),
 });
 
 export const endSchema = z.object({
+  name: nameField,
   label: z.string().min(1, "Label is required"),
 });
 

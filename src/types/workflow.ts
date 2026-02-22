@@ -20,6 +20,7 @@ export type NodeType = (typeof NODE_TYPES)[number];
 interface BaseNodeData extends Record<string, unknown> {
   type: NodeType;
   label: string;
+  name: string;
 }
 
 export interface StartNodeData extends BaseNodeData {

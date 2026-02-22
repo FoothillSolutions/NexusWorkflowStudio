@@ -1,13 +1,12 @@
 "use client";
 
 import { useEffect, useCallback, useMemo } from "react";
-import { useForm, useFieldArray, useWatch } from "react-hook-form";
+import {useForm, useFieldArray, useWatch, Controller} from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Plus, X, Trash2, SlidersHorizontal } from "lucide-react";
@@ -16,30 +15,33 @@ import { nodeSchemaMap } from "@/lib/schemas";
 import { NODE_REGISTRY } from "@/lib/node-types";
 import type { NodeType, WorkflowNodeData } from "@/types/workflow";
 import { BORDER_DEFAULT, TEXT_MUTED } from "@/lib/theme";
+import {MarkdownEditor} from "@/components/ui/markdown-editor";
 
 // ── Field components per node type ──────────────────────────────────────────
 
 function PromptFields({
-  register,
+  control,
 }: {
   register: ReturnType<typeof useForm>["register"];
+  control: ReturnType<typeof useForm>["control"];
+  errors: ReturnType<typeof useForm>["formState"]["errors"];
+  section?: "top" | "bottom" | "all";
 }) {
   return (
-    <>
-      <div className="space-y-2">
-        <Label htmlFor="promptText">Prompt Text</Label>
-        <Textarea
-          id="promptText"
-          rows={6}
-          placeholder="Enter your prompt template…"
-          className="resize-none font-mono text-sm bg-zinc-800/60 border-zinc-700/60 rounded-xl focus-visible:ring-zinc-600"
-          {...register("promptText")}
-        />
-        <p className="text-xs text-muted-foreground">
-          Use {"{{variable}}"} syntax for template variables.
-        </p>
-      </div>
-    </>
+    <div className="space-y-2">
+      <Label htmlFor="promptText">Prompt</Label>
+      <Controller
+        name="promptText"
+        control={control}
+        render={({ field }) => (
+          <MarkdownEditor
+            value={field.value ?? ""}
+            onChange={field.onChange}
+            height={200}
+          />
+        )}
+      />
+    </div>
   );
 }
 
@@ -327,14 +329,16 @@ function TypeSpecificFields({
   nodeType,
   register,
   control,
+  errors,
 }: {
   nodeType: NodeType;
   register: ReturnType<typeof useForm>["register"];
   control: ReturnType<typeof useForm>["control"];
+  errors: ReturnType<typeof useForm>["formState"]["errors"];
 }) {
   switch (nodeType) {
     case "prompt":
-      return <PromptFields register={register} />;
+      return <PromptFields register={register} control={control} errors={errors} />;
     case "sub-agent":
       return <SubAgentFields register={register} />;
     case "sub-agent-flow":
@@ -463,12 +467,6 @@ export default function PropertiesPanel() {
           <span className="text-sm font-semibold text-zinc-100 truncate flex-1">
             {registryEntry.displayName}
           </span>
-          <Badge
-            variant="outline"
-            className="text-[10px] font-mono text-zinc-500 border-zinc-700 shrink-0"
-          >
-            {selectedNode.id}
-          </Badge>
           <Button
             variant="ghost"
             size="icon"
@@ -482,9 +480,29 @@ export default function PropertiesPanel() {
         {/* Content */}
         <ScrollArea className="flex-1 min-h-0">
           <form className="space-y-4 p-4" onSubmit={(e) => e.preventDefault()}>
-            {/* Common: Label */}
+            {/* Node Name — editable identifier */}
             <div className="space-y-2">
-              <Label htmlFor="node-label" className="text-xs text-zinc-400">Label</Label>
+              <Label htmlFor="node-name">Node Name</Label>
+              <Input
+                id="node-name"
+                placeholder="e.g. my-prompt"
+                className="bg-zinc-800/60 border-zinc-700/60 rounded-xl text-sm font-mono focus-visible:ring-zinc-600"
+                {...register("name")}
+              />
+              {errors.name ? (
+                <p className="text-xs text-destructive">
+                  {errors.name.message as string}
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Only letters, numbers, hyphens, and underscores
+                </p>
+              )}
+            </div>
+
+            {/* Label — shown on the node card */}
+            <div className="space-y-2">
+              <Label htmlFor="node-label">Label</Label>
               <Input
                 id="node-label"
                 placeholder="Node label"
@@ -503,6 +521,7 @@ export default function PropertiesPanel() {
               nodeType={nodeType!}
               register={register}
               control={control}
+              errors={errors}
             />
 
             <Separator className={BORDER_DEFAULT} />

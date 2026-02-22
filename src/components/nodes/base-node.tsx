@@ -12,6 +12,20 @@ import {
   TEXT_MUTED,
 } from "@/lib/theme";
 
+export enum NodeSize {
+  Small  = "small",
+  Medium = "medium",
+  Large  = "large",
+  XL     = "xl",
+}
+
+const SIZE_CLASSES: Record<NodeSize, string> = {
+  [NodeSize.Small]:  "min-w-[160px] max-w-[200px]",
+  [NodeSize.Medium]: "min-w-[220px] max-w-[280px]",
+  [NodeSize.Large]:  "min-w-[320px] max-w-[380px]",
+  [NodeSize.XL]:     "min-w-[400px] max-w-[520px]",
+};
+
 interface BaseNodeProps {
   children?: React.ReactNode;
   accentHex: string;
@@ -19,6 +33,7 @@ interface BaseNodeProps {
   label: string;
   type: string;
   icon: LucideIcon;
+  size?: NodeSize;
 }
 
 export function BaseNode({
@@ -28,11 +43,12 @@ export function BaseNode({
   label,
   type,
   icon: Icon,
+  size = NodeSize.Medium,
 }: BaseNodeProps) {
   return (
     <div
       className={cn(
-        `flex flex-col min-w-[220px] max-w-[280px] rounded-lg ${BG_SURFACE} transition-shadow duration-200`,
+        `flex flex-col ${SIZE_CLASSES[size]} rounded-lg ${BG_SURFACE} transition-shadow duration-200`,
         `border ${BORDER_NODE} shadow-md cursor-pointer`,
         selected && `${BORDER_SELECTED} ring-1 ${RING_SELECTED}`
       )}

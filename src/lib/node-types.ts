@@ -58,7 +58,7 @@ export const NODE_REGISTRY: Record<NodeType, NodeRegistryEntry> = {
     defaultData: () => ({
       type: "prompt" as const,
       label: "Prompt",
-      promptText: "",
+      promptText: "Enter your prompt here.\n\nYou can use variables like {{variableName}}.",
       detectedVariables: [],
     }),
   },
@@ -187,11 +187,15 @@ export function createNodeFromType(
   position: { x: number; y: number }
 ) {
   const entry = NODE_REGISTRY[type];
+  const id = `${type}-${nanoid(8)}`;
   return {
-    id: `${type}-${nanoid(8)}`,
+    id,
     type,
     position,
-    data: entry.defaultData(),
+    data: {
+      ...entry.defaultData(),
+      name: id,
+    },
   };
 }
 
