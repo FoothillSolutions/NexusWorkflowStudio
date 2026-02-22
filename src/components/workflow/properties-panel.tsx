@@ -22,6 +22,7 @@ import { useWorkflowStore } from "@/store/workflow-store";
 import { nodeSchemaMap } from "@/lib/schemas";
 import { NODE_REGISTRY } from "@/lib/node-types";
 import type { NodeType, WorkflowNodeData } from "@/types/workflow";
+import { BG_APP, BORDER_DEFAULT } from "@/lib/theme";
 
 // ── Field components per node type ──────────────────────────────────────────
 
@@ -434,7 +435,7 @@ export default function PropertiesPanel() {
     <Sheet open={propertiesPanelOpen} onOpenChange={(open) => !open && closePropertiesPanel()} modal={false}>
       <SheetContent
         side="right"
-        className="w-[380px] sm:max-w-[380px] overflow-hidden border-zinc-800 bg-zinc-950"
+        className={`w-[380px] sm:max-w-[380px] overflow-hidden ${BORDER_DEFAULT} ${BG_APP}`}
         showCloseButton
       >
         <SheetHeader className="px-4 pt-4 pb-0">
@@ -463,7 +464,7 @@ export default function PropertiesPanel() {
           </SheetDescription>
         </SheetHeader>
 
-        <Separator className="bg-zinc-800" />
+        <Separator className={BORDER_DEFAULT} />
 
         <ScrollArea className="flex-1 px-4 pb-4">
           <form
@@ -492,7 +493,7 @@ export default function PropertiesPanel() {
               control={control}
             />
 
-            <Separator className="bg-zinc-800" />
+            <Separator className={BORDER_DEFAULT} />
 
             {/* Delete button — hidden for the protected Start node */}
             {nodeType !== "start" && (

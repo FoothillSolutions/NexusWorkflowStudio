@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect } from "react";
 import { ReactFlowProvider } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useWorkflowStore } from "@/store/workflow-store";
 import { throttledSave } from "@/lib/persistence";
 import { toast } from "sonner";
+import { BG_APP, TEXT_PRIMARY } from "@/lib/theme";
 import Header from "./header";
 import NodePalette from "./node-palette";
 import Canvas from "./canvas";
@@ -14,10 +15,7 @@ import DeleteDialog from "./delete-dialog";
 
 export default function WorkflowEditor() {
   const {
-    nodes,
-    edges,
     selectedNodeId,
-    deleteTarget,
     setDeleteTarget,
     closePropertiesPanel,
     getWorkflowJSON,
@@ -92,7 +90,7 @@ export default function WorkflowEditor() {
 
   return (
     <ReactFlowProvider>
-      <div className="flex h-screen flex-col bg-zinc-950 text-zinc-100 font-sans">
+      <div className={`flex h-screen flex-col ${BG_APP} ${TEXT_PRIMARY} font-sans`}>
         <Header />
         <div className="flex flex-1 overflow-hidden">
           <NodePalette />

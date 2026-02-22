@@ -11,6 +11,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  BG_SURFACE,
+  BORDER_DEFAULT,
+  TEXT_PRIMARY,
+  TEXT_MUTED,
+  BG_ELEVATED,
+  BORDER_MUTED,
+  TEXT_SECONDARY,
+} from "@/lib/theme";
 
 export default function DeleteDialog() {
   const { deleteTarget, setDeleteTarget, confirmDelete } = useWorkflowStore();
@@ -22,18 +31,18 @@ export default function DeleteDialog() {
         if (!open) setDeleteTarget(null);
       }}
     >
-      <AlertDialogContent className="bg-zinc-900 border-zinc-800 text-zinc-100">
+      <AlertDialogContent className={`${BG_SURFACE} ${BORDER_DEFAULT} ${TEXT_PRIMARY}`}>
         <AlertDialogHeader>
           <AlertDialogTitle>
             Delete this {deleteTarget?.type === "edge" ? "connection" : "node"}?
           </AlertDialogTitle>
-          <AlertDialogDescription className="text-zinc-400">
+          <AlertDialogDescription className={TEXT_MUTED}>
             This action cannot be undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel
-            className="bg-zinc-800 text-zinc-300 border-zinc-700 hover:bg-zinc-700 hover:text-zinc-100"
+            className={`${BG_ELEVATED} ${TEXT_SECONDARY} ${BORDER_MUTED} hover:bg-zinc-700 hover:text-zinc-100`}
             onClick={() => setDeleteTarget(null)}
           >
             Cancel

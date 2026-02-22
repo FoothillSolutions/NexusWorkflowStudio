@@ -14,6 +14,13 @@ import { useWorkflowStore } from "@/store/workflow-store";
 import type { NodeType } from "@/types/workflow";
 import { Button } from "@/components/ui/button";
 import { Map } from "lucide-react";
+import {
+  BG_CANVAS_HEX,
+  CANVAS_DOT_COLOR,
+  CANVAS_EDGE_STROKE,
+  MINIMAP_NODE_COLOR,
+  MINIMAP_MASK_COLOR,
+} from "@/lib/theme";
 
 // Node components
 import { StartNode } from "@/components/nodes/start-node";
@@ -101,25 +108,23 @@ export default function Canvas() {
         fitView
         defaultEdgeOptions={{
           type: "smoothstep",
-          style: { stroke: "#555", strokeWidth: 2 },
+          style: { stroke: CANVAS_EDGE_STROKE, strokeWidth: 2 },
         }}
         proOptions={{ hideAttribution: true }}
-        className="bg-[#181818]"
+        style={{ backgroundColor: BG_CANVAS_HEX }}
       >
         <Background
           variant={BackgroundVariant.Dots}
-          color="#333"
+          color={CANVAS_DOT_COLOR}
           gap={20}
           size={1}
         />
-        <Controls
-          className="!bg-zinc-800 !border-zinc-700 !shadow-lg [&>button]:!bg-zinc-800 [&>button]:!border-zinc-700 [&>button]:!text-zinc-300 [&>button:hover]:!bg-zinc-700"
-        />
+        <Controls className="!bg-zinc-800 !border-zinc-700 !shadow-lg [&>button]:!bg-zinc-800 [&>button]:!border-zinc-700 [&>button]:!text-zinc-300 [&>button:hover]:!bg-zinc-700" />
         {minimapVisible && (
           <MiniMap
             className="!bg-zinc-900 !border-zinc-700"
-            nodeColor="#444"
-            maskColor="rgba(0,0,0,0.5)"
+            nodeColor={MINIMAP_NODE_COLOR}
+            maskColor={MINIMAP_MASK_COLOR}
           />
         )}
       </ReactFlow>

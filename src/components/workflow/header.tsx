@@ -7,6 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Save, FolderOpen, Download } from "lucide-react";
 import { toast } from "sonner";
 import LoadDialog from "./load-dialog";
+import {
+  BG_SURFACE,
+  BORDER_DEFAULT,
+  TEXT_PRIMARY,
+  TEXT_SECONDARY,
+  TEXT_MUTED,
+  BG_ELEVATED,
+} from "@/lib/theme";
 
 export default function Header() {
   const { name, setName, getWorkflowJSON } = useWorkflowStore();
@@ -41,8 +49,8 @@ export default function Header() {
   };
 
   return (
-    <header className="h-12 bg-zinc-900 border-b border-zinc-800 flex items-center px-4 gap-3 shrink-0 z-10">
-      <div className="text-sm font-semibold text-zinc-300 mr-2">
+    <header className={`h-12 ${BG_SURFACE} border-b ${BORDER_DEFAULT} flex items-center px-4 gap-3 shrink-0 z-10`}>
+      <div className={`text-sm font-semibold ${TEXT_SECONDARY} mr-2`}>
         Nexus Workflow Studio
       </div>
 
@@ -55,12 +63,12 @@ export default function Header() {
             onChange={(e) => setName(e.target.value)}
             onBlur={handleNameBlur}
             onKeyDown={handleNameKeyDown}
-            className="text-zinc-100 font-medium bg-transparent border-b border-blue-500 outline-none w-full max-w-sm px-1 py-0.5"
+            className={`${TEXT_PRIMARY} font-medium bg-transparent border-b border-blue-500 outline-none w-full max-w-sm px-1 py-0.5`}
           />
         ) : (
           <div
             onClick={() => setIsEditingName(true)}
-            className="text-zinc-100 font-medium bg-transparent border-b border-transparent hover:border-zinc-600 cursor-text px-1 py-0.5 truncate max-w-sm"
+            className={`${TEXT_PRIMARY} font-medium bg-transparent border-b border-transparent hover:border-zinc-600 cursor-text px-1 py-0.5 truncate max-w-sm`}
           >
             {name}
           </div>
@@ -68,15 +76,15 @@ export default function Header() {
       </div>
 
       <div className="flex items-center gap-1">
-        <Button variant="ghost" size="sm" onClick={handleSave} className="text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800">
+        <Button variant="ghost" size="sm" onClick={handleSave} className={`${TEXT_MUTED} hover:text-zinc-100 hover:${BG_ELEVATED}`}>
           <Save className="h-4 w-4 mr-2" />
           Save
         </Button>
-        <Button variant="ghost" size="sm" onClick={() => setLoadDialogOpen(true)} className="text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800">
+        <Button variant="ghost" size="sm" onClick={() => setLoadDialogOpen(true)} className={`${TEXT_MUTED} hover:text-zinc-100 hover:${BG_ELEVATED}`}>
           <FolderOpen className="h-4 w-4 mr-2" />
           Load
         </Button>
-        <Button variant="ghost" size="sm" onClick={handleExport} className="text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800">
+        <Button variant="ghost" size="sm" onClick={handleExport} className={`${TEXT_MUTED} hover:text-zinc-100 hover:${BG_ELEVATED}`}>
           <Download className="h-4 w-4 mr-2" />
           Export
         </Button>
