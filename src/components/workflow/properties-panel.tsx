@@ -90,7 +90,7 @@ export default function PropertiesPanel() {
   }
 
   const Icon = registryEntry.icon;
-  const nameAsbadge = nodeType === "prompt" || nodeType === "sub-agent";
+  const nameAsbadge = true;
 
   return (
     <div
