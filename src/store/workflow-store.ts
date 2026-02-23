@@ -124,7 +124,16 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     set({ edges: applyEdgeChanges(changes, get().edges) });
   },
   onConnect: (connection) => {
-    set({ edges: addEdge({ ...connection, type: "deletable" }, get().edges) });
+    // Prevent self-loops
+    if (connection.source === connection.target) return;
+
+    // Each source handle may only connect to one target at a time.
+    // Remove any existing edge from the same source handle before adding the new one.
+    const filtered = get().edges.filter(
+      (e) =>
+        !(e.source === connection.source && e.sourceHandle === connection.sourceHandle)
+    );
+    set({ edges: addEdge({ ...connection, type: "deletable" }, filtered) });
   },
 
   // ── Actions ─────────────────────────────────────────────────────────────
