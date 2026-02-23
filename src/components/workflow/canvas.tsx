@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ReactFlow,
   Background,
@@ -11,6 +11,7 @@ import {
   type NodeTypes,
   type EdgeTypes,
   ConnectionLineType,
+  SelectionMode,
 } from "@xyflow/react";
 import { useWorkflowStore } from "@/store/workflow-store";
 import type { NodeType } from "@/types/workflow";
@@ -36,6 +37,7 @@ import { SwitchNode } from "@/components/nodes/switch-node";
 import { AskUserNode } from "@/components/nodes/ask-user-node";
 import { EndNode } from "@/components/nodes/end-node";
 import { DeletableEdge } from "@/components/edges/deletable-edge";
+import { ContextMenu, type ContextMenuTarget } from "@/components/workflow/context-menu";
 
 const nodeTypeComponents: NodeTypes = {
   start: StartNode,
@@ -54,6 +56,12 @@ const edgeTypeComponents: EdgeTypes = {
   deletable: DeletableEdge,
 };
 
+interface CtxMenu {
+  x: number;
+  y: number;
+  target: ContextMenuTarget;
+}
+
 export default function Canvas() {
   const {
     nodes,
@@ -63,10 +71,16 @@ export default function Canvas() {
     onConnect,
     addNode,
     selectNode,
+    selectedNodeId,
     openPropertiesPanel,
     setViewport,
     minimapVisible,
     toggleMinimap,
+    setDeleteTarget,
+    duplicateNode,
+    duplicateSelectedNodes,
+    deleteSelectedNodes,
+    selectAll,
   } = useWorkflowStore();
 
   const { screenToFlowPosition } = useReactFlow();
@@ -75,6 +89,47 @@ export default function Canvas() {
   const nodeTypes = useMemo(() => nodeTypeComponents, []);
   const edgeTypes = useMemo(() => edgeTypeComponents, []);
 
+  // ── Context menu state ──────────────────────────────────────────────────
+  const [ctxMenu, setCtxMenu] = useState<CtxMenu | null>(null);
+
+  const closeMenu = useCallback(() => setCtxMenu(null), []);
+
+  const onNodeContextMenu = useCallback(
+    (event: React.MouseEvent, node: { id: string; data?: { type?: string }; deletable?: boolean }) => {
+      event.preventDefault();
+      setCtxMenu({
+        x: event.clientX,
+        y: event.clientY,
+        target: {
+          kind: "node",
+          nodeId: node.id,
+          isDeletable: node.data?.type !== "start",
+          isDuplicatable: node.data?.type !== "start",
+        },
+      });
+    },
+    []
+  );
+
+  const onSelectionContextMenu = useCallback((event: React.MouseEvent) => {
+    event.preventDefault();
+    setCtxMenu({
+      x: event.clientX,
+      y: event.clientY,
+      target: { kind: "selection" },
+    });
+  }, []);
+
+  const onPaneContextMenu = useCallback((event: React.MouseEvent | MouseEvent) => {
+    event.preventDefault();
+    setCtxMenu({
+      x: (event as React.MouseEvent).clientX,
+      y: (event as React.MouseEvent).clientY,
+      target: { kind: "pane" },
+    });
+  }, []);
+
+  // ── Drag & drop ─────────────────────────────────────────────────────────
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
@@ -96,6 +151,72 @@ export default function Canvas() {
     [screenToFlowPosition, addNode]
   );
 
+  // ── Context menu handlers ────────────────────────────────────────────────
+  const selectedCount = nodes.filter((n) => n.selected).length;
+
+  const handleDelete = useCallback(() => {
+    if (ctxMenu?.target.kind === "node") {
+      setDeleteTarget({ type: "node", id: ctxMenu.target.nodeId });
+    }
+  }, [ctxMenu, setDeleteTarget]);
+
+  const handleDuplicate = useCallback(() => {
+    if (ctxMenu?.target.kind === "node") {
+      duplicateNode(ctxMenu.target.nodeId);
+    }
+  }, [ctxMenu, duplicateNode]);
+
+  const handleDuplicateSelected = useCallback(() => {
+    duplicateSelectedNodes();
+  }, [duplicateSelectedNodes]);
+
+  // ── Keyboard shortcuts ───────────────────────────────────────────────────
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      // Ignore when typing inside an input / textarea / contenteditable
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement).isContentEditable) return;
+
+      const isMod = e.ctrlKey || e.metaKey;
+      const multiSelected = nodes.filter((n) => n.selected).length > 1;
+      const singleSelected = selectedNodeId && !multiSelected;
+
+      // ── Ctrl/Cmd + A → select all ─────────────────────────────────────
+      if (isMod && e.key === "a") {
+        e.preventDefault();
+        selectAll();
+        return;
+      }
+
+      // ── Ctrl/Cmd + D → duplicate ──────────────────────────────────────
+      if (isMod && e.key === "d") {
+        e.preventDefault();
+        if (multiSelected) {
+          duplicateSelectedNodes();
+        } else if (singleSelected) {
+          duplicateNode(selectedNodeId);
+        }
+        return;
+      }
+
+      // ── Delete / Backspace → delete ───────────────────────────────────
+      if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault();
+        if (multiSelected) {
+          deleteSelectedNodes();
+        } else if (singleSelected) {
+          const node = nodes.find((n) => n.id === selectedNodeId);
+          if (node && node.data?.type !== "start") {
+            setDeleteTarget({ type: "node", id: selectedNodeId });
+          }
+        }
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [nodes, selectedNodeId, selectAll, duplicateNode, duplicateSelectedNodes, deleteSelectedNodes, setDeleteTarget]);
+
   return (
     <div className="w-full h-full relative">
       <ReactFlow
@@ -111,11 +232,14 @@ export default function Canvas() {
         onNodeDoubleClick={(_, node) => openPropertiesPanel(node.id)}
         onNodeClick={(_, node) => selectNode(node.id)}
         onEdgeClick={() => selectNode(null)}
-        onPaneClick={() => selectNode(null)}
+        onPaneClick={() => { selectNode(null); closeMenu(); }}
         onMoveEnd={(_, viewport) => setViewport(viewport)}
+        onNodeContextMenu={onNodeContextMenu}
+        onSelectionContextMenu={onSelectionContextMenu}
+        onPaneContextMenu={onPaneContextMenu}
         deleteKeyCode={null}
         connectionLineType={ConnectionLineType.Bezier}
-        connectionLineStyle={{ stroke: CANVAS_EDGE_STROKE, strokeWidth: 4}}
+        connectionLineStyle={{ stroke: CANVAS_EDGE_STROKE, strokeWidth: 4 }}
         fitView
         defaultEdgeOptions={{
           type: "deletable",
@@ -124,6 +248,10 @@ export default function Canvas() {
         }}
         proOptions={{ hideAttribution: true }}
         style={{ backgroundColor: BG_CANVAS_HEX }}
+        // ── Multi-select via drag (marquee / selection box) ─────────────
+        selectionOnDrag
+        selectionMode={SelectionMode.Partial}
+        panOnDrag={[1, 2]}  // only middle-click or right-click pans; left-drag selects
       >
         <Background
           variant={BackgroundVariant.Dots}
@@ -153,6 +281,21 @@ export default function Canvas() {
       >
         <Map size={16} />
       </Button>
+
+      {/* Context menu */}
+      {ctxMenu && (
+        <ContextMenu
+          x={ctxMenu.x}
+          y={ctxMenu.y}
+          target={ctxMenu.target}
+          selectedCount={selectedCount}
+          onClose={closeMenu}
+          onDelete={ctxMenu.target.kind === "node" ? handleDelete : undefined}
+          onDuplicate={ctxMenu.target.kind === "node" ? handleDuplicate : undefined}
+          onDeleteSelected={selectedCount > 1 ? deleteSelectedNodes : undefined}
+          onDuplicateSelected={selectedCount > 1 ? handleDuplicateSelected : undefined}
+        />
+      )}
     </div>
   );
 }

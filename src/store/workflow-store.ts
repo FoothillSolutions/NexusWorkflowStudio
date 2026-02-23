@@ -8,6 +8,7 @@ import {
   type OnConnect,
   type Viewport,
 } from "@xyflow/react";
+import { nanoid } from "nanoid";
 import type {
   NodeType,
   WorkflowNode,
@@ -54,14 +55,19 @@ interface WorkflowState {
   setDeleteTarget: (target: { type: "node" | "edge"; id: string } | null) => void;
   confirmDelete: () => void;
 
+  // Multi-select / bulk actions
+  duplicateNode: (nodeId: string) => void;
+  duplicateSelectedNodes: () => void;
+  deleteSelectedNodes: () => void;
+  selectAll: () => void;
+
   // Persistence
   loadWorkflow: (json: WorkflowJSON) => void;
   getWorkflowJSON: () => WorkflowJSON;
   reset: () => void;
 }
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
-/** The fixed ID used for the mandatory Start node. */
+// ── Helpers ─────────────────────────────────────────────────────────────────/** The fixed ID used for the mandatory Start node. */
 export const START_NODE_ID = "start-default";
 /** The fixed ID used for the default End node. */
 export const END_NODE_ID = "end-default";
@@ -192,6 +198,81 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       get().deleteEdge(target.id);
     }
     set({ deleteTarget: null });
+  },
+
+  duplicateNode: (nodeId) => {
+    const node = get().nodes.find((n) => n.id === nodeId);
+    if (!node || node.data?.type === "start") return;
+    const newId = nanoid();
+    const newName = `${node.data.type}-${nanoid(8)}`;
+    const newNode: WorkflowNode = {
+      ...node,
+      id: newId,
+      selected: true,
+      position: { x: node.position.x + 40, y: node.position.y + 40 },
+      data: {
+        ...node.data,
+        name: newName,
+      } as WorkflowNodeData,
+    };
+    set({
+      nodes: [
+        ...get().nodes.map((n) => ({ ...n, selected: false })),
+        newNode,
+      ],
+      selectedNodeId: newId,
+    });
+  },
+
+  duplicateSelectedNodes: () => {
+    const toDuplicate = get().nodes.filter(
+      (n) => n.selected && n.data?.type !== "start"
+    );
+    if (toDuplicate.length === 0) return;
+
+    const newNodes: WorkflowNode[] = toDuplicate.map((node) => ({
+      ...node,
+      id: nanoid(),
+      selected: true,
+      position: { x: node.position.x + 40, y: node.position.y + 40 },
+      data: {
+        ...node.data,
+        name: `${node.data.type}-${nanoid(8)}`,
+      } as WorkflowNodeData,
+    }));
+    set({
+      nodes: [
+        ...get().nodes.map((n) => ({ ...n, selected: false })),
+        ...newNodes,
+      ],
+    });
+  },
+
+  deleteSelectedNodes: () => {
+    const selectedIds = get().nodes
+      .filter((n) => n.selected && n.data?.type !== "start")
+      .map((n) => n.id);
+    if (selectedIds.length === 0) return;
+    set({
+      // Deselect all remaining nodes so the selection box clears
+      nodes: get().nodes
+        .filter((n) => !selectedIds.includes(n.id))
+        .map((n) => ({ ...n, selected: false })),
+      edges: get().edges.filter(
+        (e) => !selectedIds.includes(e.source) && !selectedIds.includes(e.target)
+      ),
+      selectedNodeId:
+        selectedIds.includes(get().selectedNodeId ?? "") ? null : get().selectedNodeId,
+      propertiesPanelOpen:
+        selectedIds.includes(get().selectedNodeId ?? "") ? false : get().propertiesPanelOpen,
+    });
+  },
+
+  selectAll: () => {
+    set({
+      nodes: get().nodes.map((n) => ({ ...n, selected: true })),
+      selectedNodeId: null,
+    });
   },
 
   // ── Persistence ─────────────────────────────────────────────────────────

@@ -4,9 +4,10 @@ import { useState, useRef, useEffect } from "react";
 import { useWorkflowStore } from "@/store/workflow-store";
 import { saveToLocalStorage, exportWorkflow } from "@/lib/persistence";
 import { Button } from "@/components/ui/button";
-import { Save, FolderOpen, Download } from "lucide-react";
+import { Save, FolderOpen, Download, Keyboard } from "lucide-react";
 import { toast } from "sonner";
 import LoadDialog from "./load-dialog";
+import ShortcutsDialog from "./shortcuts-dialog";
 import {
   BG_SURFACE,
   BORDER_DEFAULT,
@@ -20,6 +21,7 @@ export default function Header() {
   const { name, setName, getWorkflowJSON } = useWorkflowStore();
   const [isEditingName, setIsEditingName] = useState(false);
   const [loadDialogOpen, setLoadDialogOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -76,6 +78,10 @@ export default function Header() {
       </div>
 
       <div className="flex items-center gap-1">
+        <Button variant="ghost" size="sm" onClick={() => setShortcutsOpen(true)} className={`${TEXT_MUTED} hover:text-zinc-100 hover:${BG_ELEVATED}`} title="Keyboard shortcuts">
+          <Keyboard className="h-4 w-4 mr-2" />
+          Shortcuts
+        </Button>
         <Button variant="ghost" size="sm" onClick={handleSave} className={`${TEXT_MUTED} hover:text-zinc-100 hover:${BG_ELEVATED}`}>
           <Save className="h-4 w-4 mr-2" />
           Save
@@ -91,6 +97,7 @@ export default function Header() {
       </div>
 
       <LoadDialog open={loadDialogOpen} onOpenChange={setLoadDialogOpen} />
+      <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
     </header>
   );
 }
