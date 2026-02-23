@@ -13,7 +13,9 @@ import {
   Square,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { nanoid } from "nanoid";
+import { customAlphabet } from "nanoid";
+
+const nanoid = customAlphabet("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", 8);
 
 // ── Node category enum ──────────────────────────────────────────────────────
 export enum NodeCategory {

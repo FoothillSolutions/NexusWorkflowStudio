@@ -70,7 +70,7 @@ function mermaidNodeShape(node: WorkflowNode): string {
       displayLabel = "End";
       break;
     case "sub-agent":
-      displayLabel = `Sub-Agent: ${mermaidLabel((data as SubAgentNodeData).name || data.label)}`;
+      displayLabel = `Sub-Agent: ${mermaidLabel(data.label || (data as SubAgentNodeData).name)}`;
       break;
     case "sub-agent-flow":
       displayLabel = `Sub-Agent Flow: ${mermaidLabel((data as SubAgentFlowNodeData).flowRef || data.label)}`;
@@ -130,6 +130,48 @@ function mermaidEdge(edge: WorkflowEdge): string {
   const showLabel = edge.sourceHandle && !defaultHandles.has(edge.sourceHandle);
   const label = showLabel ? ` -- "${mermaidLabel(edge.sourceHandle!)}" -->` : " -->";
   return `    ${srcId}${label} ${tgtId}`;
+}
+
+// ── Reachability filter ───────────────────────────────────────────────────────
+
+/**
+ * Returns the subset of nodes and edges that are reachable from any "start"
+ * node by following directed edges forward.  Nodes (and their incident edges)
+ * that are not connected to the start of the workflow are silently dropped.
+ */
+function filterReachable(
+  nodes: WorkflowNode[],
+  edges: WorkflowEdge[]
+): { nodes: WorkflowNode[]; edges: WorkflowEdge[] } {
+  // Build adjacency map (directed: source → targets)
+  const adjMap = new Map<string, string[]>();
+  for (const node of nodes) adjMap.set(node.id, []);
+  for (const edge of edges) {
+    adjMap.get(edge.source)?.push(edge.target);
+  }
+
+  // BFS from every start node
+  const visited = new Set<string>();
+  const queue: string[] = nodes
+    .filter((n) => n.data.type === "start")
+    .map((n) => n.id);
+
+  for (const id of queue) visited.add(id);
+
+  while (queue.length > 0) {
+    const id = queue.shift()!;
+    for (const next of adjMap.get(id) ?? []) {
+      if (!visited.has(next)) {
+        visited.add(next);
+        queue.push(next);
+      }
+    }
+  }
+
+  return {
+    nodes: nodes.filter((n) => visited.has(n.id)),
+    edges: edges.filter((e) => visited.has(e.source) && visited.has(e.target)),
+  };
 }
 
 // ── Topological sort (BFS from start) ────────────────────────────────────────
@@ -239,7 +281,7 @@ function buildDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[]): stri
 
       case "sub-agent": {
         const d = data as SubAgentNodeData;
-        const nodeLabel = d.name || d.label;
+        const nodeLabel = d.label || d.name;
         const rows = [
           `#### Sub-Agent: ${nodeLabel}`,
           "",
@@ -262,7 +304,7 @@ function buildDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[]): stri
 
       case "sub-agent-flow": {
         const d = data as SubAgentFlowNodeData;
-        const nodeLabel = d.name || d.label;
+        const nodeLabel = d.label || d.name;
         sections.push([
           `#### Sub-Agent Flow: ${nodeLabel}`,
           "",
@@ -274,7 +316,7 @@ function buildDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[]): stri
 
       case "skill": {
         const d = data as SkillNodeData;
-        const nodeLabel = d.name || d.label;
+        const nodeLabel = d.label || d.name;
         sections.push([
           `#### Skill: ${nodeLabel}`,
           "",
@@ -286,7 +328,7 @@ function buildDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[]): stri
 
       case "mcp-tool": {
         const d = data as McpToolNodeData;
-        const nodeLabel = d.name || d.label;
+        const nodeLabel = d.label || d.name;
         const rows = [
           `#### MCP Tool: ${nodeLabel}`,
           "",
@@ -301,7 +343,7 @@ function buildDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[]): stri
 
       case "if-else": {
         const d = data as IfElseNodeData;
-        const nodeLabel = d.name || d.label;
+        const nodeLabel = d.label || d.name;
         sections.push([
           `#### Branch: ${nodeLabel}`,
           "",
@@ -312,7 +354,7 @@ function buildDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[]): stri
 
       case "switch": {
         const d = data as SwitchNodeData;
-        const nodeLabel = d.name || d.label;
+        const nodeLabel = d.label || d.name;
         const caseList = d.cases.map((c) => `  - ${c}`).join("\n");
         sections.push([
           `#### Switch: ${nodeLabel}`,
@@ -326,7 +368,7 @@ function buildDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[]): stri
 
       case "ask-user": {
         const d = data as AskUserNodeData;
-        const nodeLabel = d.name || d.label;
+        const nodeLabel = d.label || d.name;
         const optList = d.options.map((o) => `  - ${o}`).join("\n");
         sections.push([
           `#### AskUserQuestion: ${nodeLabel}`,
@@ -350,7 +392,10 @@ function buildDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[]): stri
 // ── Main command markdown builder ─────────────────────────────────────────────
 
 function buildCommandMarkdown(workflow: WorkflowJSON): string {
-  const { name, nodes, edges } = workflow;
+  const { name } = workflow;
+
+  // Drop any nodes / edges that are not reachable from a start node
+  const { nodes, edges } = filterReachable(workflow.nodes, workflow.edges);
 
   // ── Mermaid flowchart ──────────────────────────────────────────────────
   // Deduplicate start/end nodes: only one of each type appears in the chart.

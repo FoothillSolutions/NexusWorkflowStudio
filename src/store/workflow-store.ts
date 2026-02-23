@@ -8,7 +8,9 @@ import {
   type OnConnect,
   type Viewport,
 } from "@xyflow/react";
-import { nanoid } from "nanoid";
+import { customAlphabet } from "nanoid";
+
+const nanoid = customAlphabet("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", 8);
 import type {
   NodeType,
   WorkflowNode,
@@ -212,8 +214,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   duplicateNode: (nodeId) => {
     const node = get().nodes.find((n) => n.id === nodeId);
     if (!node || node.data?.type === "start") return;
-    const newId = nanoid();
-    const newName = `${node.data.type}-${nanoid(8)}`;
+    const newId = `${node.data.type}-${nanoid(8)}`;
     const newNode: WorkflowNode = {
       ...node,
       id: newId,
@@ -221,7 +222,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       position: { x: node.position.x + 40, y: node.position.y + 40 },
       data: {
         ...node.data,
-        name: newName,
+        name: newId,
       } as WorkflowNodeData,
     };
     set({
@@ -239,16 +240,19 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     );
     if (toDuplicate.length === 0) return;
 
-    const newNodes: WorkflowNode[] = toDuplicate.map((node) => ({
-      ...node,
-      id: nanoid(),
-      selected: true,
-      position: { x: node.position.x + 40, y: node.position.y + 40 },
-      data: {
-        ...node.data,
-        name: `${node.data.type}-${nanoid(8)}`,
-      } as WorkflowNodeData,
-    }));
+    const newNodes: WorkflowNode[] = toDuplicate.map((node) => {
+      const newId = `${node.data.type}-${nanoid(8)}`;
+      return {
+        ...node,
+        id: newId,
+        selected: true,
+        position: { x: node.position.x + 40, y: node.position.y + 40 },
+        data: {
+          ...node.data,
+          name: newId,
+        } as WorkflowNodeData,
+      };
+    });
     set({
       nodes: [
         ...get().nodes.map((n) => ({ ...n, selected: false })),

@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { X, Trash2, SlidersHorizontal } from "lucide-react";
@@ -90,6 +91,7 @@ export default function PropertiesPanel() {
   }
 
   const Icon = registryEntry.icon;
+  const nameAsbadge = nodeType === "prompt" || nodeType === "sub-agent";
 
   return (
     <div
@@ -104,9 +106,19 @@ export default function PropertiesPanel() {
         >
           <Icon className="h-4 w-4" style={{ color: registryEntry.accentHex }} />
         </div>
-        <span className="text-sm font-semibold text-zinc-100 truncate flex-1">
-          {registryEntry.displayName}
-        </span>
+        <div className="flex flex-col flex-1 min-w-0 gap-0.5">
+          <span className="text-sm font-semibold text-zinc-100 truncate">
+            {registryEntry.displayName}
+          </span>
+          {nameAsbadge && nodeData?.name && (
+            <Badge
+              variant="outline"
+              className="font-mono text-[10px] px-1.5 py-0 h-4 w-fit border-zinc-600 text-zinc-400 truncate max-w-full"
+            >
+              {nodeData.name}
+            </Badge>
+          )}
+        </div>
         <Button
           variant="ghost"
           size="icon"
@@ -120,25 +132,27 @@ export default function PropertiesPanel() {
       {/* Content */}
       <ScrollArea className="flex-1 min-h-0">
         <form className="space-y-4 p-4" onSubmit={(e) => e.preventDefault()}>
-          {/* Node Name */}
-          <div className="space-y-2">
-            <Label htmlFor="node-name">Node Name</Label>
-            <Input
-              id="node-name"
-              placeholder="e.g. my-prompt"
-              className="bg-zinc-800/60 border-zinc-700/60 rounded-xl text-sm font-mono focus-visible:ring-zinc-600"
-              {...register("name")}
-            />
-            {errors.name ? (
-              <p className="text-xs text-destructive">
-                {errors.name.message as string}
-              </p>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                Only letters, numbers, hyphens, and underscores
-              </p>
-            )}
-          </div>
+          {/* Node Name — only shown for non-badge node types */}
+          {!nameAsbadge && (
+            <div className="space-y-2">
+              <Label htmlFor="node-name">Node Name</Label>
+              <Input
+                id="node-name"
+                placeholder="e.g. my-prompt"
+                className="bg-zinc-800/60 border-zinc-700/60 rounded-xl text-sm font-mono focus-visible:ring-zinc-600"
+                {...register("name")}
+              />
+              {errors.name ? (
+                <p className="text-xs text-destructive">
+                  {errors.name.message as string}
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Only letters, numbers, hyphens, and underscores
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Label */}
           <div className="space-y-2">
