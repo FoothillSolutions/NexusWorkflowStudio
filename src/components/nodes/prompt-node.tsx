@@ -5,7 +5,7 @@ import { BaseNode, NodeSize } from "./base-node";
 import { NODE_REGISTRY } from "@/lib/node-types";
 import type { PromptNodeData } from "@/types/workflow";
 import { HANDLE_CLASS } from "@/lib/theme";
-import {Hash, Braces, DollarSign} from "lucide-react";
+import {Braces, DollarSign} from "lucide-react";
 
 const DYNAMIC_VAR_RE = /\$(\d+)/g;
 const STATIC_VAR_RE = /\{\{([^}]+)}}/g;

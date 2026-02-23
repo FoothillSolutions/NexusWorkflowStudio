@@ -45,6 +45,7 @@ export const NODE_REGISTRY: Record<NodeType, NodeRegistryEntry> = {
     defaultData: () => ({
       type: "start" as const,
       label: "Start",
+      name: "",
     }),
   },
   prompt: {
@@ -58,6 +59,7 @@ export const NODE_REGISTRY: Record<NodeType, NodeRegistryEntry> = {
     defaultData: () => ({
       type: "prompt" as const,
       label: "Prompt",
+      name: "",
       promptText: "Enter your prompt here.\n\nYou can use variables like {{variableName}}.",
       detectedVariables: [],
     }),
@@ -73,6 +75,7 @@ export const NODE_REGISTRY: Record<NodeType, NodeRegistryEntry> = {
     defaultData: () => ({
       type: "sub-agent" as const,
       label: "Sub-Agent",
+      name: "",
       agentName: "",
       taskText: "",
     }),
@@ -88,6 +91,7 @@ export const NODE_REGISTRY: Record<NodeType, NodeRegistryEntry> = {
     defaultData: () => ({
       type: "sub-agent-flow" as const,
       label: "Sub-Agent Flow",
+      name: "",
       flowRef: "",
       nodeCount: 0,
     }),
@@ -103,6 +107,7 @@ export const NODE_REGISTRY: Record<NodeType, NodeRegistryEntry> = {
     defaultData: () => ({
       type: "skill" as const,
       label: "Skill",
+      name: "",
       skillName: "",
       projectName: "",
     }),
@@ -118,6 +123,7 @@ export const NODE_REGISTRY: Record<NodeType, NodeRegistryEntry> = {
     defaultData: () => ({
       type: "mcp-tool" as const,
       label: "MCP Tool",
+      name: "",
       toolName: "",
       paramsText: "",
     }),
@@ -133,6 +139,7 @@ export const NODE_REGISTRY: Record<NodeType, NodeRegistryEntry> = {
     defaultData: () => ({
       type: "if-else" as const,
       label: "If / Else",
+      name: "",
       expression: "",
     }),
   },
@@ -147,6 +154,7 @@ export const NODE_REGISTRY: Record<NodeType, NodeRegistryEntry> = {
     defaultData: () => ({
       type: "switch" as const,
       label: "Switch",
+      name: "",
       switchExpr: "",
       cases: ["Case 1", "Case 2"],
     }),
@@ -162,6 +170,7 @@ export const NODE_REGISTRY: Record<NodeType, NodeRegistryEntry> = {
     defaultData: () => ({
       type: "ask-user" as const,
       label: "Ask User",
+      name: "",
       questionText: "",
       options: ["Option 1", "Option 2"],
     }),
@@ -177,6 +186,7 @@ export const NODE_REGISTRY: Record<NodeType, NodeRegistryEntry> = {
     defaultData: () => ({
       type: "end" as const,
       label: "END",
+      name: "",
     }),
   },
 };
