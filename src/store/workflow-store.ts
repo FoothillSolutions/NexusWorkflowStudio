@@ -18,7 +18,7 @@ import type {
   WorkflowNodeData,
   WorkflowJSON,
 } from "@/types/workflow";
-import { createNodeFromType } from "@/lib/node-types";
+import { createNodeFromType } from "@/lib/node-registry";
 
 // ── State shape ─────────────────────────────────────────────────────────────
 interface WorkflowState {

@@ -1,12 +1,11 @@
-export { PromptFields } from "./prompt-fields";
-export { SubAgentFields } from "./sub-agent-fields";
-export { SubAgentFlowFields } from "./sub-agent-flow-fields";
-export { SkillFields } from "./skill-fields";
-export { McpToolFields } from "./mcp-tool-fields";
-export { IfElseFields } from "./if-else-fields";
-export { SwitchFields } from "./switch-fields";
-export { AskUserFields } from "./ask-user-fields";
-export { TypeSpecificFields } from "./type-specific-fields";
-export { detectVariables, detectVarCounts, DetectedVariablesPanel } from "./variable-utils";
-export type { FormRegister, FormControl, FormSetValue, FormErrors } from "./types";
-
+export { Fields as PromptFields }       from "@/nodes/prompt/fields";
+export { Fields as SubAgentFields }     from "@/nodes/sub-agent/fields";
+export { Fields as SubAgentFlowFields } from "@/nodes/sub-agent-flow/fields";
+export { Fields as SkillFields }        from "@/nodes/skill/fields";
+export { Fields as McpToolFields }      from "@/nodes/mcp-tool/fields";
+export { Fields as IfElseFields }       from "@/nodes/if-else/fields";
+export { Fields as SwitchFields }       from "@/nodes/switch/fields";
+export { Fields as AskUserFields }      from "@/nodes/ask-user/fields";
+export { TypeSpecificFields }           from "./type-specific-fields";
+export { detectVariables, detectVarCounts, DetectedVariablesPanel } from "@/nodes/shared/variable-utils";
+export type { FormRegister, FormControl, FormSetValue, FormErrors } from "@/nodes/shared/form-types";

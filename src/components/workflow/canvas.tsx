@@ -8,7 +8,6 @@ import {
   Controls,
   MiniMap,
   useReactFlow,
-  type NodeTypes,
   type EdgeTypes,
   ConnectionLineType,
   SelectionMode,
@@ -23,34 +22,10 @@ import {
   CANVAS_EDGE_STROKE,
   MINIMAP_MASK_COLOR,
 } from "@/lib/theme";
-import { NODE_REGISTRY } from "@/lib/node-types";
-
-// Node components
-import { StartNode } from "@/components/nodes/start-node";
-import { PromptNode } from "@/components/nodes/prompt-node";
-import { SubAgentNode } from "@/components/nodes/sub-agent-node";
-import { SubAgentFlowNode } from "@/components/nodes/sub-agent-flow-node";
-import { SkillNode } from "@/components/nodes/skill-node";
-import { McpToolNode } from "@/components/nodes/mcp-tool-node";
-import { IfElseNode } from "@/components/nodes/if-else-node";
-import { SwitchNode } from "@/components/nodes/switch-node";
-import { AskUserNode } from "@/components/nodes/ask-user-node";
-import { EndNode } from "@/components/nodes/end-node";
+import { NODE_REGISTRY, NODE_TYPE_COMPONENTS } from "@/lib/node-registry";
 import { DeletableEdge } from "@/components/edges/deletable-edge";
 import { ContextMenu, type ContextMenuTarget } from "@/components/workflow/context-menu";
 
-const nodeTypeComponents: NodeTypes = {
-  start: StartNode,
-  prompt: PromptNode,
-  "sub-agent": SubAgentNode,
-  "sub-agent-flow": SubAgentFlowNode,
-  skill: SkillNode,
-  "mcp-tool": McpToolNode,
-  "if-else": IfElseNode,
-  switch: SwitchNode,
-  "ask-user": AskUserNode,
-  end: EndNode,
-};
 
 const edgeTypeComponents: EdgeTypes = {
   deletable: DeletableEdge,
@@ -86,7 +61,7 @@ export default function Canvas() {
   const { screenToFlowPosition } = useReactFlow();
 
   // Memoize nodeTypes to prevent re-renders
-  const nodeTypes = useMemo(() => nodeTypeComponents, []);
+  const nodeTypes = useMemo(() => NODE_TYPE_COMPONENTS, []);
   const edgeTypes = useMemo(() => edgeTypeComponents, []);
 
   // ── Context menu state ──────────────────────────────────────────────────
