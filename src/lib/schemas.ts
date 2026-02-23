@@ -20,6 +20,7 @@ export const promptSchema = z.object({
   name: nameField,
   label: z.string().min(1, "Label is required"),
   promptText: z.string(),
+  detectedVariables: z.array(z.string()).optional().default([]),
 });
 
 export const subAgentSchema = z.object({

@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Plus, X, Trash2, SlidersHorizontal } from "lucide-react";
+import {Plus, X, Trash2, SlidersHorizontal, Braces, Hash, DollarSign} from "lucide-react";
 import { useWorkflowStore } from "@/store/workflow-store";
 import { nodeSchemaMap } from "@/lib/schemas";
 import { NODE_REGISTRY } from "@/lib/node-types";
@@ -17,30 +17,100 @@ import type { NodeType, WorkflowNodeData } from "@/types/workflow";
 import { BORDER_DEFAULT, TEXT_MUTED } from "@/lib/theme";
 import {MarkdownEditor} from "@/components/ui/markdown-editor";
 
+// ── Variable detection helpers ───────────────────────────────────────────────
+/** Dynamic positional variables: $1  $2  $3 … */
+const DYNAMIC_VAR_RE = /\$(\d+)/g;
+/** Static named references: {{variableName}} */
+const STATIC_VAR_RE = /\{\{([^}]+)}}/g;
+
+function detectVariables(text: string): { dynamic: string[]; static: string[] } {
+  const dynamic = [...new Set([...text.matchAll(DYNAMIC_VAR_RE)].map((m) => `$${m[1]}`))];
+  const staticVars = [...new Set([...text.matchAll(STATIC_VAR_RE)].map((m) => m[1].trim()))];
+  return { dynamic, static: staticVars };
+}
+
 // ── Field components per node type ──────────────────────────────────────────
 
 function PromptFields({
   control,
+  setValue,
 }: {
   register: ReturnType<typeof useForm>["register"];
   control: ReturnType<typeof useForm>["control"];
+  setValue: ReturnType<typeof useForm>["setValue"];
   errors: ReturnType<typeof useForm>["formState"]["errors"];
   section?: "top" | "bottom" | "all";
 }) {
+  const promptText: string = useWatch({ control, name: "promptText" }) ?? "";
+  const { dynamic, static: staticVars } = detectVariables(promptText);
+  const allVars = [...dynamic, ...staticVars];
+
+  // Sync detectedVariables after render — never during render
+  useEffect(() => {
+    setValue("detectedVariables" as never, allVars as never, { shouldDirty: false });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [promptText]);
+
   return (
-    <div className="space-y-2">
-      <Label htmlFor="promptText">Prompt</Label>
-      <Controller
-        name="promptText"
-        control={control}
-        render={({ field }) => (
-          <MarkdownEditor
-            value={field.value ?? ""}
-            onChange={field.onChange}
-            height={200}
-          />
-        )}
-      />
+    <div className="space-y-3">
+      <div className="space-y-2">
+        <Label htmlFor="promptText">Prompt</Label>
+        <Controller
+          name="promptText"
+          control={control}
+          render={({ field }) => (
+            <MarkdownEditor
+              value={field.value ?? ""}
+              onChange={field.onChange}
+              height={200}
+            />
+          )}
+        />
+      </div>
+
+      {allVars.length > 0 && (
+        <div className="space-y-2">
+          <Label className="text-xs text-zinc-400">Detected Variables</Label>
+          <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/30 p-3 space-y-2">
+            {dynamic.length > 0 && (
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1.5 text-[10px] font-medium text-zinc-500 uppercase tracking-wide">
+                  <DollarSign className="h-3 w-3" />
+                  Dynamic
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {dynamic.map((v) => (
+                    <span
+                      key={v}
+                      className="inline-flex items-center text-[11px] font-mono bg-blue-950/60 text-blue-300 border border-blue-800/40 px-2 py-0.5 rounded-md"
+                    >
+                      {v}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {staticVars.length > 0 && (
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1.5 text-[10px] font-medium text-zinc-500 uppercase tracking-wide">
+                  <Braces className="h-3 w-3" />
+                  Static References
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {staticVars.map((v) => (
+                    <span
+                      key={v}
+                      className="inline-flex items-center text-[11px] font-mono bg-amber-950/60 text-amber-300 border border-amber-800/40 px-2 py-0.5 rounded-md"
+                    >
+                      {`{{${v}}}`}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -329,16 +399,18 @@ function TypeSpecificFields({
   nodeType,
   register,
   control,
+  setValue,
   errors,
 }: {
   nodeType: NodeType;
   register: ReturnType<typeof useForm>["register"];
   control: ReturnType<typeof useForm>["control"];
+  setValue: ReturnType<typeof useForm>["setValue"];
   errors: ReturnType<typeof useForm>["formState"]["errors"];
 }) {
   switch (nodeType) {
     case "prompt":
-      return <PromptFields register={register} control={control} errors={errors} />;
+      return <PromptFields register={register} control={control} setValue={setValue} errors={errors} />;
     case "sub-agent":
       return <SubAgentFields register={register} />;
     case "sub-agent-flow":
@@ -390,6 +462,7 @@ export default function PropertiesPanel() {
     register,
     control,
     reset,
+    setValue,
     formState: { errors },
   } = useForm({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -521,6 +594,7 @@ export default function PropertiesPanel() {
               nodeType={nodeType!}
               register={register}
               control={control}
+              setValue={setValue}
               errors={errors}
             />
 
