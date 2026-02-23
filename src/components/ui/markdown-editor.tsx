@@ -10,12 +10,16 @@ interface MarkdownEditorProps {
   value: string;
   onChange: (val: string) => void;
   height?: number;
+  placeholder?: string;
+  hideToolbar?: boolean;
 }
 
 export function MarkdownEditor({
   value,
   onChange,
   height = 200,
+  placeholder = "Write your prompt in Markdown…",
+  hideToolbar = true,
 }: MarkdownEditorProps) {
   return (
     <div data-color-mode="dark" className="rounded-xl overflow-hidden border border-zinc-700/60">
@@ -24,10 +28,10 @@ export function MarkdownEditor({
         onChange={(val) => onChange(val ?? "")}
         height={height}
         preview="edit"
-        hideToolbar={true}
+        hideToolbar={hideToolbar}
         visibleDragbar={false}
         textareaProps={{
-          placeholder: "Write your prompt in Markdown…",
+          placeholder,
           style: { fontFamily: "var(--font-mono, monospace)", fontSize: 13 },
         }}
         style={{
@@ -37,4 +41,3 @@ export function MarkdownEditor({
     </div>
   );
 }
-

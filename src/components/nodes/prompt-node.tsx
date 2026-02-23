@@ -5,16 +5,8 @@ import { BaseNode, NodeSize } from "./base-node";
 import { NODE_REGISTRY } from "@/lib/node-types";
 import type { PromptNodeData } from "@/types/workflow";
 import { HANDLE_CLASS } from "@/lib/theme";
-import {Braces, DollarSign} from "lucide-react";
-
-const DYNAMIC_VAR_RE = /\$(\d+)/g;
-const STATIC_VAR_RE = /\{\{([^}]+)}}/g;
-
-function detectVarCounts(text: string): { dynamic: number; static: number } {
-  const dynamic = new Set([...text.matchAll(DYNAMIC_VAR_RE)].map((m) => m[1])).size;
-  const staticCount = new Set([...text.matchAll(STATIC_VAR_RE)].map((m) => m[1].trim())).size;
-  return { dynamic, static: staticCount };
-}
+import { Braces, DollarSign } from "lucide-react";
+import { detectVarCounts } from "@/components/workflow/properties/variable-utils";
 
 export function PromptNode({ data, selected }: NodeProps<Node<PromptNodeData>>) {
   const { icon, accentHex, displayName } = NODE_REGISTRY[data.type];

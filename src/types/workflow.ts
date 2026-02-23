@@ -1,5 +1,20 @@
 import type { Node, Edge, Viewport } from "@xyflow/react";
 
+// ── Sub-Agent enums ─────────────────────────────────────────────────────────
+export enum SubAgentModel {
+  Inherit = "inherit",
+  Haiku   = "haiku",
+  Sonnet  = "sonnet",
+  Opus    = "opus",
+}
+
+export enum SubAgentMemory {
+  Default = "-",
+  Local   = "local",
+  User    = "user",
+  Project = "project",
+}
+
 // ── Node Types ──────────────────────────────────────────────────────────────
 export const NODE_TYPES = [
   "start",
@@ -35,8 +50,11 @@ export interface PromptNodeData extends BaseNodeData {
 
 export interface SubAgentNodeData extends BaseNodeData {
   type: "sub-agent";
-  agentName: string;
-  taskText: string;
+  promptText: string;
+  detectedVariables: string[];
+  model: SubAgentModel;
+  memory: SubAgentMemory;
+  tools: string;
 }
 
 export interface SubAgentFlowNodeData extends BaseNodeData {

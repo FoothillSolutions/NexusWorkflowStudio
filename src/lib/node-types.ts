@@ -1,4 +1,5 @@
 import type { NodeType, WorkflowNodeData } from "@/types/workflow";
+import { SubAgentModel, SubAgentMemory } from "@/types/workflow";
 import {
   Play,
   MessageSquareText,
@@ -76,8 +77,11 @@ export const NODE_REGISTRY: Record<NodeType, NodeRegistryEntry> = {
       type: "sub-agent" as const,
       label: "Sub-Agent",
       name: "",
-      agentName: "",
-      taskText: "",
+      promptText: "",
+      detectedVariables: [] as string[],
+      model: SubAgentModel.Inherit,
+      memory: SubAgentMemory.Default,
+      tools: "",
     }),
   },
   "sub-agent-flow": {

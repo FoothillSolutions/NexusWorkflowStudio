@@ -1,4 +1,5 @@
 import { z } from "zod/v4";
+import { SubAgentModel, SubAgentMemory } from "@/types/workflow";
 
 // ── Shared field ─────────────────────────────────────────────────────────────
 const nameField = z
@@ -26,8 +27,11 @@ export const promptSchema = z.object({
 export const subAgentSchema = z.object({
   name: nameField,
   label: z.string().min(1, "Label is required"),
-  agentName: z.string(),
-  taskText: z.string(),
+  promptText: z.string(),
+  detectedVariables: z.array(z.string()).optional().default([]),
+  model: z.nativeEnum(SubAgentModel).default(SubAgentModel.Inherit),
+  memory: z.nativeEnum(SubAgentMemory).default(SubAgentMemory.Default),
+  tools: z.string().default(""),
 });
 
 export const subAgentFlowSchema = z.object({

@@ -29,7 +29,7 @@ export function TypeSpecificFields({
     case "prompt":
       return <PromptFields control={control} setValue={setValue} />;
     case "sub-agent":
-      return <SubAgentFields register={register} />;
+      return <SubAgentFields control={control} setValue={setValue} />;
     case "sub-agent-flow":
       return <SubAgentFlowFields register={register} />;
     case "skill":
