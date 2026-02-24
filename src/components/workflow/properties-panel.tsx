@@ -54,8 +54,11 @@ export default function PropertiesPanel() {
   const watchedValues = useWatch({ control });
 
   useEffect(() => {
-    if (nodeData) {
-      reset(nodeData as Record<string, unknown>);
+    if (nodeData && registryEntry) {
+      // Merge defaultData so fields added after a node was saved get proper defaults
+      const defaults = registryEntry.defaultData() as Record<string, unknown>;
+      const merged = { ...defaults, ...nodeData } as Record<string, unknown>;
+      reset(merged);
     }
   }, [selectedNodeId, reset]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -94,8 +97,8 @@ export default function PropertiesPanel() {
 
   return (
     <div
-      className="absolute top-4 right-4 z-20 flex flex-col rounded-2xl border border-zinc-700/50 bg-zinc-900/85 backdrop-blur-md shadow-2xl"
-      style={{ width: 320, maxHeight: "calc(100vh - 112px)" }}
+      className="absolute top-4 right-4 z-20 flex flex-col rounded-2xl border border-zinc-700/50 bg-zinc-900/85 backdrop-blur-md shadow-2xl overflow-hidden"
+      style={{ width: 320, height: "calc(100vh - 112px)" }}
     >
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-700/50 shrink-0">

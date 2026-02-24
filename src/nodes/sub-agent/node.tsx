@@ -3,19 +3,27 @@ import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import { BaseNode, NodeSize } from "@/nodes/shared/base-node";
 import { detectVarCounts } from "@/nodes/shared/variable-utils";
 import { HANDLE_CLASS } from "@/lib/theme";
-import { DollarSign, Braces, Cpu, Database, Wrench } from "lucide-react";
+import { DollarSign, Braces, Cpu, Thermometer, Wrench } from "lucide-react";
 import { subAgentRegistryEntry } from "./constants";
-import { SubAgentModel, SubAgentMemory } from "./types";
+import { SubAgentModel } from "./types";
 import type { SubAgentNodeData } from "./types";
+import { MODEL_DISPLAY_NAMES } from "./enums";
+
 const truncate = (str: string, n: number) => str?.length > n ? str.slice(0, n) + "..." : str;
+
 export function SubAgentNode({ data, selected }: NodeProps<Node<SubAgentNodeData>>) {
-  const { icon, accentHex, displayName } = subAgentRegistryEntry;
+  const { icon, accentHex: defaultAccent, displayName } = subAgentRegistryEntry;
+  const accentHex = data.color?.trim() ? data.color : defaultAccent;
+  const temperature = Number(data.temperature ?? 0);
+
   const varCounts = data.promptText ? detectVarCounts(data.promptText) : { dynamic: 0, static: 0 };
   const totalVars = varCounts.dynamic + varCounts.static;
-  const hasModel  = data.model  && data.model  !== SubAgentModel.Inherit;
-  const hasMemory = data.memory && data.memory !== SubAgentMemory.Default;
-  const hasTools  = !!data.tools?.trim();
-  const hasMeta   = hasModel || hasMemory || hasTools;
+
+  const hasModel    = data.model && data.model !== SubAgentModel.Inherit;
+  const hasTemp     = temperature > 0;
+  const hasDisabled = Array.isArray(data.disabledTools) && data.disabledTools.length > 0;
+  const hasMeta        = hasModel || hasTemp || hasDisabled;
+
   return (
     <BaseNode accentHex={accentHex} selected={selected} label={data.label || displayName} type={data.type} icon={icon} size={NodeSize.Large}>
       <div className="flex flex-col gap-2">
@@ -48,17 +56,18 @@ export function SubAgentNode({ data, selected }: NodeProps<Node<SubAgentNodeData
           <div className="flex flex-wrap gap-1 mt-0.5">
             {hasModel && (
               <span className="inline-flex items-center gap-1 text-[10px] font-mono bg-violet-950/60 text-violet-300 border border-violet-800/40 px-1.5 py-0.5 rounded-md">
-                <Cpu className="h-2.5 w-2.5" />{data.model}
+                <Cpu className="h-2.5 w-2.5" />
+                {truncate(MODEL_DISPLAY_NAMES[data.model] ?? data.model, 18)}
               </span>
             )}
-            {hasMemory && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-mono bg-emerald-950/60 text-emerald-300 border border-emerald-800/40 px-1.5 py-0.5 rounded-md">
-                <Database className="h-2.5 w-2.5" />{data.memory}
-              </span>
-            )}
-            {hasTools && (
+            {hasTemp && (
               <span className="inline-flex items-center gap-1 text-[10px] font-mono bg-orange-950/60 text-orange-300 border border-orange-800/40 px-1.5 py-0.5 rounded-md">
-                <Wrench className="h-2.5 w-2.5" />{truncate(data.tools, 20)}
+                <Thermometer className="h-2.5 w-2.5" />{temperature.toFixed(1)}
+              </span>
+            )}
+            {hasDisabled && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-mono bg-red-950/60 text-red-300 border border-red-800/40 px-1.5 py-0.5 rounded-md">
+                <Wrench className="h-2.5 w-2.5" />{data.disabledTools.length} off
               </span>
             )}
           </div>

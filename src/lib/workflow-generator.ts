@@ -99,11 +99,27 @@ function buildPromptDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[])
   if (sections.length === 0) return "";
   return "### Prompt Node Details\n\n" + sections.join("\n\n");
 }
+function buildSubAgentDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[]): string {
+  const order = topologicalOrder(nodes, edges);
+  const nodeById = new Map<string, WorkflowNode>(nodes.map((n) => [n.id, n]));
+  const sections: string[] = [];
+  for (const id of order) {
+    const node = nodeById.get(id);
+    if (!node || node.data.type !== "sub-agent") continue;
+    const gen = NODE_GENERATORS["sub-agent"];
+    if (gen) {
+      const detail = gen.getDetailsSection(node.id, node.data);
+      if (detail) sections.push(detail);
+    }
+  }
+  if (sections.length === 0) return "";
+  return "## Sub-Agent Node Details\n\n" + sections.join("\n\n");
+}
 function buildDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[]): string {
   const order = topologicalOrder(nodes, edges);
   const nodeById = new Map<string, WorkflowNode>(nodes.map((n) => [n.id, n]));
   const sections: string[] = [];
-  const SKIP = new Set(["start", "end", "prompt"]);
+  const SKIP = new Set(["start", "end", "prompt", "sub-agent"]);
   for (const id of order) {
     const node = nodeById.get(id);
     if (!node || SKIP.has(node.data.type)) continue;
@@ -115,6 +131,19 @@ function buildDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[]): stri
   }
   if (sections.length === 0) return "";
   return ["## Node Details", "", ...sections].join("\n\n");
+}
+function collectAgentFiles(nodes: WorkflowNode[], edges: WorkflowEdge[]): GeneratedFile[] {
+  const { nodes: reachable } = filterReachable(nodes, edges);
+  const files: GeneratedFile[] = [];
+  for (const node of reachable) {
+    if (node.data.type !== "sub-agent") continue;
+    const gen = NODE_GENERATORS["sub-agent"];
+    if (gen?.getAgentFile) {
+      const f = gen.getAgentFile(node.id, node.data);
+      if (f) files.push(f);
+    }
+  }
+  return files;
 }
 function buildCommandMarkdown(workflow: WorkflowJSON): string {
   const { name } = workflow;
@@ -150,16 +179,18 @@ function buildCommandMarkdown(workflow: WorkflowJSON): string {
 Follow the Mermaid flowchart above to execute the workflow. Each node type has specific execution methods as described below.
 ### Execution Methods by Node Type
 - **Stadium nodes (Start / End)**: Entry and exit points of the workflow
-- **Rectangle nodes (Sub-Agent: ...)**: Execute Sub-Agents
+- **Rectangle nodes (Sub-Agent: ...)**: Execute Sub-Agents via the spawn agent delegation system
 - **Diamond nodes (AskUserQuestion:...)**: Use the AskUserQuestion tool to prompt the user and branch based on their response
 - **Diamond nodes (Branch/Switch:...)**: Automatically branch based on the results of previous processing (see details section)
 - **Rectangle nodes (Prompt nodes)**: Execute the prompts described in the details section below`;
-  const promptDetails = buildPromptDetailsSection(nodes, edges);
-  const otherDetails  = buildDetailsSection(nodes, edges);
-  const frontmatter   = `---\ndescription: ${name}\n---`;
+  const promptDetails    = buildPromptDetailsSection(nodes, edges);
+  const subAgentDetails  = buildSubAgentDetailsSection(nodes, edges);
+  const otherDetails     = buildDetailsSection(nodes, edges);
+  const frontmatter      = `---\ndescription: ${name}\n---`;
   const parts = [frontmatter, mermaidBlock, "", executionGuide];
-  if (promptDetails) parts.push("", promptDetails);
-  if (otherDetails)  parts.push("", otherDetails);
+  if (promptDetails)   parts.push("", promptDetails);
+  if (subAgentDetails) parts.push("", subAgentDetails);
+  if (otherDetails)    parts.push("", otherDetails);
   return parts.join("\n") + "\n";
 }
 export function generateWorkflowFiles(workflow: WorkflowJSON): GeneratedFile[] {
@@ -168,7 +199,12 @@ export function generateWorkflowFiles(workflow: WorkflowJSON): GeneratedFile[] {
     .trim()
     .replace(/\s+/g, "-")
     .toLowerCase() || "workflow";
-  return [{ path: `commands/${safeName}.md`, content: buildCommandMarkdown(workflow) }];
+  const commandFile: GeneratedFile = {
+    path: `.opencode/commands/${safeName}.md`,
+    content: buildCommandMarkdown(workflow),
+  };
+  const agentFiles = collectAgentFiles(workflow.nodes, workflow.edges);
+  return [commandFile, ...agentFiles];
 }
 export function getCommandMarkdown(workflow: WorkflowJSON): string {
   return buildCommandMarkdown(workflow);

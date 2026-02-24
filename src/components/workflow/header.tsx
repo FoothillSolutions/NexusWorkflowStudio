@@ -66,8 +66,6 @@ export default function Header() {
         zip.file(file.path, file.content);
       }
 
-      // Ensure the agents folder always exists (placeholder for future use)
-      zip.folder("agents");
 
       const blob = await zip.generateAsync({ type: "blob" });
       const url = URL.createObjectURL(blob);

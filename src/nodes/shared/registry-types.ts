@@ -33,5 +33,11 @@ export interface NodeGeneratorModule {
    * if the node type has no details to show (e.g. start / end).
    */
   getDetailsSection(nodeId: string, data: WorkflowNodeData): string;
+
+  /**
+   * Optionally returns an extra file to generate alongside the workflow file.
+   * e.g. `.opencode/agents/<name>.md` for sub-agent nodes.
+   */
+  getAgentFile?(nodeId: string, data: WorkflowNodeData): { path: string; content: string } | null;
 }
 

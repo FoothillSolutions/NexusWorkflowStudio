@@ -1,7 +1,7 @@
 import type { Node, Edge, Viewport } from "@xyflow/react";
 
 // ── Sub-Agent enums (canonical source: @/nodes/sub-agent/enums) ────────────
-export { SubAgentModel, SubAgentMemory } from "@/nodes/sub-agent/enums";
+export { SubAgentModel, SubAgentMemory, MODEL_DISPLAY_NAMES } from "@/nodes/sub-agent/enums";
 import { SubAgentModel, SubAgentMemory } from "@/nodes/sub-agent/enums";
 
 // ── Node Types ──────────────────────────────────────────────────────────────
@@ -39,11 +39,15 @@ export interface PromptNodeData extends BaseNodeData {
 
 export interface SubAgentNodeData extends BaseNodeData {
   type: "sub-agent";
+  description: string;
   promptText: string;
   detectedVariables: string[];
   model: SubAgentModel;
   memory: SubAgentMemory;
-  tools: string;
+  temperature: number;
+  color: string;
+  /** Tool names that are DISABLED (empty = all enabled) */
+  disabledTools: string[];
 }
 
 export interface SubAgentFlowNodeData extends BaseNodeData {
