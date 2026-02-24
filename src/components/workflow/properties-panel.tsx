@@ -179,6 +179,7 @@ export default function PropertiesPanel() {
             control={control}
             setValue={setValue}
             errors={errors}
+            selectedNodeId={selectedNodeId ?? undefined}
           />
 
           <Separator className={BORDER_DEFAULT} />

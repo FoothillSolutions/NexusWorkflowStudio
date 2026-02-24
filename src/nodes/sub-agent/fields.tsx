@@ -10,8 +10,9 @@ import type { FormControl, FormSetValue } from "@/nodes/shared/form-types";
 import { SubAgentModel, SubAgentMemory, MODEL_DISPLAY_NAMES } from "./types";
 import { AGENT_TOOLS, PRESET_COLORS } from "./constants";
 import type { AgentTool } from "./constants";
-import { Check } from "lucide-react";
+import { Check, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useWorkflowStore } from "@/store/workflow-store";
 
 const MODEL_GROUPS = [
 	{
@@ -61,14 +62,25 @@ const SELECT_CLASS =
 interface SubAgentFieldsProps {
 	control: FormControl;
 	setValue: FormSetValue;
+	nodeId?: string;
 }
 
-export function Fields({ control, setValue }: SubAgentFieldsProps) {
+export function Fields({ control, setValue, nodeId }: SubAgentFieldsProps) {
   const promptText: string  = useWatch({ control, name: "promptText" }) ?? "";
   const rawTemp             = useWatch({ control, name: "temperature" });
   const temperature         = rawTemp != null ? Number(rawTemp) : 0;
   const color: string       = useWatch({ control, name: "color" }) || "#5f27cd";
   const disabledTools: string[] = useWatch({ control, name: "disabledTools" }) ?? [];
+
+  // Derive connected skill nodes from the store
+  const edges = useWorkflowStore((s) => s.edges);
+  const nodes = useWorkflowStore((s) => s.nodes);
+  const connectedSkills = nodeId
+    ? edges
+        .filter((e) => e.target === nodeId && e.targetHandle === "skills")
+        .map((e) => nodes.find((n) => n.id === e.source))
+        .filter(Boolean)
+    : [];
 
 	const { dynamic, static: staticVars } = detectVariables(promptText);
 	const allVars = [...dynamic, ...staticVars];
@@ -123,6 +135,34 @@ export function Fields({ control, setValue }: SubAgentFieldsProps) {
 				/>
 			</div>
 			<DetectedVariablesPanel dynamic={dynamic} staticVars={staticVars} />
+
+			{/* Connected Skills — shown after prompt & variables */}
+			{connectedSkills.length > 0 && (
+				<div className="space-y-2">
+					<div className="flex items-center gap-1.5">
+						<Zap size={12} className="text-cyan-400" />
+						<Label className="text-cyan-300">Connected Skills ({connectedSkills.length})</Label>
+					</div>
+					<div className="flex flex-col gap-1">
+						{connectedSkills.map((skillNode) => {
+							if (!skillNode) return null;
+							const d = skillNode.data as { skillName?: string; projectName?: string; label?: string };
+							return (
+								<div
+									key={skillNode.id}
+									className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-cyan-950/30 border border-cyan-800/30 text-xs"
+								>
+									<Zap size={10} className="text-cyan-500 shrink-0" />
+									<span className="text-cyan-200 font-medium truncate">{d.skillName || d.label || skillNode.id}</span>
+									{d.projectName && (
+										<span className="text-cyan-600 truncate ml-auto">{d.projectName}</span>
+									)}
+								</div>
+							);
+						})}
+					</div>
+				</div>
+			)}
 
 			{/* Model */}
 			<div className="space-y-2">

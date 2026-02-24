@@ -129,6 +129,26 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     // Prevent self-loops
     if (connection.source === connection.target) return;
 
+    const currentNodes = get().nodes;
+    const sourceNode = currentNodes.find((n) => n.id === connection.source);
+    const targetNode = currentNodes.find((n) => n.id === connection.target);
+
+    // Skill nodes can ONLY connect to sub-agent nodes (as source)
+    if (sourceNode?.data?.type === "skill") {
+      if (targetNode?.data?.type !== "sub-agent") return;
+      // Force the target handle to be the dedicated "skills" handle
+      const skillConnection = { ...connection, targetHandle: "skills", type: "deletable" };
+      // Multiple skills allowed — no dedup on this handle
+      set({ edges: addEdge(skillConnection, get().edges) });
+      return;
+    }
+
+    // No node can connect TO a skill node
+    if (targetNode?.data?.type === "skill") return;
+
+    // The "skills" target handle only accepts skill nodes — block everything else
+    if (connection.targetHandle === "skills") return;
+
     // Each source handle may only connect to one target at a time.
     // Remove any existing edge from the same source handle before adding the new one.
     const filtered = get().edges.filter(

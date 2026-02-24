@@ -60,6 +60,10 @@ export interface SkillNodeData extends BaseNodeData {
   type: "skill";
   skillName: string;
   projectName: string;
+  description: string;
+  promptText: string;
+  detectedVariables: string[];
+  metadata: Array<{ key: string; value: string }>;
 }
 
 export interface McpToolNodeData extends BaseNodeData {

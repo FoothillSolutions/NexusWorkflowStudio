@@ -26,4 +26,3 @@ export const startSchema = z.object({
     .regex(/^[a-zA-Z0-9_-]+$/, "Only alphanumeric characters, hyphens, and underscores"),
   label: z.string().min(1, "Label is required"),
 });
-

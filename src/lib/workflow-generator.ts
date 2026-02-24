@@ -35,6 +35,7 @@ const NODE_GENERATORS: Record<string, NodeGeneratorModule> = {
   "ask-user":       askUserGen,
 };
 function mermaidNodeShape(node: WorkflowNode): string {
+  if (node.data.type === "skill") return "";
   const gen = NODE_GENERATORS[node.data.type];
   if (gen) return gen.getMermaidShape(node.id, node.data);
   return `    ${mermaidId(node.id)}["${mermaidLabel(node.data.label ?? node.data.type)}"]`;
@@ -119,7 +120,7 @@ function buildDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[]): stri
   const order = topologicalOrder(nodes, edges);
   const nodeById = new Map<string, WorkflowNode>(nodes.map((n) => [n.id, n]));
   const sections: string[] = [];
-  const SKIP = new Set(["start", "end", "prompt", "sub-agent"]);
+  const SKIP = new Set(["start", "end", "prompt", "sub-agent", "skill"]);
   for (const id of order) {
     const node = nodeById.get(id);
     if (!node || SKIP.has(node.data.type)) continue;
@@ -136,11 +137,21 @@ function collectAgentFiles(nodes: WorkflowNode[], edges: WorkflowEdge[]): Genera
   const { nodes: reachable } = filterReachable(nodes, edges);
   const files: GeneratedFile[] = [];
   for (const node of reachable) {
-    if (node.data.type !== "sub-agent") continue;
-    const gen = NODE_GENERATORS["sub-agent"];
-    if (gen?.getAgentFile) {
-      const f = gen.getAgentFile(node.id, node.data);
-      if (f) files.push(f);
+    if (node.data.type === "sub-agent") {
+      const gen = NODE_GENERATORS["sub-agent"];
+      if (gen?.getAgentFile) {
+        const f = gen.getAgentFile(node.id, node.data);
+        if (f) files.push(f);
+      }
+    }
+    if (node.data.type === "skill") {
+      const gen = NODE_GENERATORS["skill"] as typeof NODE_GENERATORS["skill"] & {
+        getSkillFile?(id: string, d: WorkflowNode["data"]): { path: string; content: string } | null;
+      };
+      if (gen?.getSkillFile) {
+        const f = gen.getSkillFile(node.id, node.data);
+        if (f) files.push(f);
+      }
     }
   }
   return files;
@@ -152,6 +163,7 @@ function buildCommandMarkdown(workflow: WorkflowJSON): string {
   const endNodeIdMap = new Map<string, string>();
   let canonicalEndId: string | null = null;
   const dedupedNodes = nodes.filter((n) => {
+    if (n.data.type === "skill") return false; // skills excluded from workflow.md
     if (n.data.type === "start" || n.data.type === "end") {
       if (!seenTypes.has(n.data.type)) {
         seenTypes.add(n.data.type);
@@ -163,15 +175,22 @@ function buildCommandMarkdown(workflow: WorkflowJSON): string {
     }
     return true;
   });
-  const remappedEdges = edges.map((e) => {
-    const remappedTarget = endNodeIdMap.get(e.target);
-    const remappedSource = endNodeIdMap.get(e.source);
-    if (remappedTarget || remappedSource) {
-      return { ...e, target: remappedTarget ?? e.target, source: remappedSource ?? e.source };
-    }
-    return e;
-  });
-  const nodeLines = dedupedNodes.map(mermaidNodeShape);
+
+  // Build set of skill node IDs so we can exclude their edges
+  const skillNodeIds = new Set(nodes.filter((n) => n.data.type === "skill").map((n) => n.id));
+
+  const remappedEdges = edges
+    .filter((e) => !skillNodeIds.has(e.source) && !skillNodeIds.has(e.target))
+    .map((e) => {
+      const remappedTarget = endNodeIdMap.get(e.target);
+      const remappedSource = endNodeIdMap.get(e.source);
+      if (remappedTarget || remappedSource) {
+        return { ...e, target: remappedTarget ?? e.target, source: remappedSource ?? e.source };
+      }
+      return e;
+    });
+
+  const nodeLines = dedupedNodes.map(mermaidNodeShape).filter(Boolean);
   const edgeLines = remappedEdges.map((e) => mermaidEdge(e));
   const mermaidInner = edgeLines.length > 0 ? [...nodeLines, "", ...edgeLines] : nodeLines;
   const mermaidBlock = ["```mermaid", "flowchart TD", ...mermaidInner, "```"].join("\n");
@@ -186,7 +205,10 @@ Follow the Mermaid flowchart above to execute the workflow. Each node type has s
   const promptDetails    = buildPromptDetailsSection(nodes, edges);
   const subAgentDetails  = buildSubAgentDetailsSection(nodes, edges);
   const otherDetails     = buildDetailsSection(nodes, edges);
-  const frontmatter      = `---\ndescription: ${name}\n---`;
+
+  // Build frontmatter
+  const frontmatter = `---\ndescription: ${name}\n---`;
+
   const parts = [frontmatter, mermaidBlock, "", executionGuide];
   if (promptDetails)   parts.push("", promptDetails);
   if (subAgentDetails) parts.push("", subAgentDetails);

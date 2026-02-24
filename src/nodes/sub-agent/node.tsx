@@ -3,18 +3,26 @@ import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import { BaseNode, NodeSize } from "@/nodes/shared/base-node";
 import { detectVarCounts } from "@/nodes/shared/variable-utils";
 import { HANDLE_CLASS } from "@/lib/theme";
-import { DollarSign, Braces, Cpu, Thermometer, Wrench } from "lucide-react";
+import { DollarSign, Braces, Cpu, Thermometer, Wrench, Zap } from "lucide-react";
 import { subAgentRegistryEntry } from "./constants";
 import { SubAgentModel } from "./types";
 import type { SubAgentNodeData } from "./types";
 import { MODEL_DISPLAY_NAMES } from "./enums";
+import { useWorkflowStore } from "@/store/workflow-store";
 
 const truncate = (str: string, n: number) => str?.length > n ? str.slice(0, n) + "..." : str;
 
-export function SubAgentNode({ data, selected }: NodeProps<Node<SubAgentNodeData>>) {
+export function SubAgentNode({ data, selected, id }: NodeProps<Node<SubAgentNodeData>>) {
   const { icon, accentHex: defaultAccent, displayName } = subAgentRegistryEntry;
   const accentHex = data.color?.trim() ? data.color : defaultAccent;
   const temperature = Number(data.temperature ?? 0);
+
+  // Count connected skill nodes (via dedicated "skills" handle)
+  const edges = useWorkflowStore((s) => s.edges);
+  const nodes = useWorkflowStore((s) => s.nodes);
+  const skillCount = edges.filter(
+    (e) => e.target === id && e.targetHandle === "skills"
+  ).length;
 
   const varCounts = data.promptText ? detectVarCounts(data.promptText) : { dynamic: 0, static: 0 };
   const totalVars = varCounts.dynamic + varCounts.static;
@@ -22,7 +30,7 @@ export function SubAgentNode({ data, selected }: NodeProps<Node<SubAgentNodeData
   const hasModel    = data.model && data.model !== SubAgentModel.Inherit;
   const hasTemp     = temperature > 0;
   const hasDisabled = Array.isArray(data.disabledTools) && data.disabledTools.length > 0;
-  const hasMeta        = hasModel || hasTemp || hasDisabled;
+  const hasMeta     = hasModel || hasTemp || hasDisabled;
 
   return (
     <BaseNode accentHex={accentHex} selected={selected} label={data.label || displayName} type={data.type} icon={icon} size={NodeSize.Large}>
@@ -52,7 +60,7 @@ export function SubAgentNode({ data, selected }: NodeProps<Node<SubAgentNodeData
             )}
           </div>
         )}
-        {hasMeta && (
+        {(hasMeta || skillCount > 0) && (
           <div className="flex flex-wrap gap-1 mt-0.5">
             {hasModel && (
               <span className="inline-flex items-center gap-1 text-[10px] font-mono bg-violet-950/60 text-violet-300 border border-violet-800/40 px-1.5 py-0.5 rounded-md">
@@ -70,11 +78,37 @@ export function SubAgentNode({ data, selected }: NodeProps<Node<SubAgentNodeData
                 <Wrench className="h-2.5 w-2.5" />{data.disabledTools.length} off
               </span>
             )}
+            {skillCount > 0 && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-mono bg-cyan-950/60 text-cyan-300 border border-cyan-800/40 px-1.5 py-0.5 rounded-md">
+                <Zap className="h-2.5 w-2.5" />{skillCount}
+              </span>
+            )}
           </div>
         )}
       </div>
+
+      {/* Skills handle footer — inside the node, bottom-left */}
+      <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-cyan-900/40">
+        <Zap size={9} className="text-cyan-600 shrink-0" />
+        <span className="text-[9px] font-mono text-cyan-700 tracking-wide uppercase">skills in</span>
+      </div>
+
+      {/* Standard flow handles */}
       <Handle type="target" position={Position.Left} id="input" className={HANDLE_CLASS} style={{ backgroundColor: accentHex }} />
       <Handle type="source" position={Position.Right} id="output" className={HANDLE_CLASS} style={{ backgroundColor: accentHex }} />
+
+      {/* Skills target handle — plain dot, left side near bottom, only accepts skill nodes */}
+      <Handle
+        type="target"
+        position={Position.Left}
+        id="skills"
+        className={HANDLE_CLASS}
+        style={{ backgroundColor: "#06b6d4", top: "auto", bottom: 14 }}
+        isValidConnection={(connection) => {
+          const sourceNode = nodes.find((n) => n.id === connection.source);
+          return sourceNode?.data?.type === "skill";
+        }}
+      />
     </BaseNode>
   );
 }
