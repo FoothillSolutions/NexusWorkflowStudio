@@ -283,8 +283,10 @@ function buildCommandMarkdown(workflow: WorkflowJSON): string {
   const endNodeId   = canonicalEndId ?? nodes.find((n) => n.data.type === "end")?.id ?? "end";
   const executionGuide = `## Workflow Execution Guide
 Follow the Mermaid flowchart above to execute the workflow starting from \`${mermaidId(startNodeId)}\` node. Each node type has specific execution methods as described below.
+
 ### Positional Arguments
 Workflow arguments are **comma-separated and trimmed**. For example \`/workflow 2, 5, 10\` yields \`$1=2\`, \`$2=5\`, \`$3=10\`.
+
 ### Execution Methods by Node Type
 - **Stadium nodes (Start / End)**: Entry and exit points of the workflow
 - **Rectangle nodes (Sub-Agent: ...)**: Execute Sub-Agents via the spawn agent delegation system. If a \`params:\` line is present, pass those values as the agent's positional arguments (\`$1\`, \`$2\`, …). Values can be workflow-level positional args (e.g. \`$1\`), static references (e.g. \`{{name}}\`), or literal strings

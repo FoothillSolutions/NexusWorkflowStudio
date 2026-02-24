@@ -10,9 +10,8 @@ export const generator: NodeGeneratorModule = {
   getDetailsSection(nodeId: string, data: WorkflowNodeData): string {
     const d = data as PromptNodeData;
     const safeId = mermaidId(nodeId);
-    const nodeLabel = d.label || d.name;
     return [
-      `#### ${safeId}(${nodeLabel})`,
+      `#### ${safeId}`,
       "",
       "```md",
       d.promptText ?? "",

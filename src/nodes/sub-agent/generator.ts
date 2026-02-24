@@ -62,7 +62,7 @@ export const generator: NodeGeneratorModule & {
     const d = data as SubAgentNodeData;
     const agentName = d.name || `agent-${nodeId}`;
     const lines = [
-      `#### ${nodeId}(Sub-Agent: ${agentName})`,
+      `#### ${nodeId}`,
       "",
       "```",
       `delegate agent: @${agentName}`,
