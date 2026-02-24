@@ -100,13 +100,14 @@ function buildPromptDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[])
   if (sections.length === 0) return "";
   return "### Prompt Node Details\n\n" + sections.join("\n\n");
 }
-function buildSubAgentDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[]): string {
+function buildSubAgentDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[], allNodes: WorkflowNode[], allEdges: WorkflowEdge[]): string {
   const order = topologicalOrder(nodes, edges);
-  const nodeById = new Map<string, WorkflowNode>(nodes.map((n) => [n.id, n]));
+  const allNodeById = new Map<string, WorkflowNode>(allNodes.map((n) => [n.id, n]));
 
-  // Build a map of sub-agent id → skill nodes connected to it (skill-out edges), in topological order
+  // Build a map of sub-agent id → skill nodes connected to it (skill-out edges).
+  // Scan ALL edges because skill nodes sit outside the main flow graph.
   const skillEdgesByTarget = new Map<string, string[]>();
-  for (const edge of edges) {
+  for (const edge of allEdges) {
     if (edge.sourceHandle === "skill-out") {
       if (!skillEdgesByTarget.has(edge.target)) skillEdgesByTarget.set(edge.target, []);
       skillEdgesByTarget.get(edge.target)!.push(edge.source);
@@ -120,7 +121,7 @@ function buildSubAgentDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[
 
   const sections: string[] = [];
   for (const id of order) {
-    const node = nodeById.get(id);
+    const node = allNodeById.get(id);
     if (!node || node.data.type !== "sub-agent") continue;
 
     const d = node.data as import("@/nodes/sub-agent/types").SubAgentNodeData;
@@ -142,7 +143,7 @@ function buildSubAgentDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[
     // Append skills connected to this sub-agent
     const skillIds = skillEdgesByTarget.get(node.id) ?? [];
     for (const skillId of skillIds) {
-      const skillNode = nodeById.get(skillId);
+      const skillNode = allNodeById.get(skillId);
       if (skillNode && skillNode.data.type === "skill") {
         const sd = skillNode.data as import("@/nodes/skill/types").SkillNodeData;
         const skillName = sd.skillName?.trim() || sd.name?.trim() || skillId;
@@ -176,25 +177,68 @@ function buildDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[]): stri
 }
 function collectAgentFiles(nodes: WorkflowNode[], edges: WorkflowEdge[]): GeneratedFile[] {
   const { nodes: reachable } = filterReachable(nodes, edges);
-  const files: GeneratedFile[] = [];
-  for (const node of reachable) {
-    if (node.data.type === "sub-agent") {
-      const gen = NODE_GENERATORS["sub-agent"];
-      if (gen?.getAgentFile) {
-        const f = gen.getAgentFile(node.id, node.data);
-        if (f) files.push(f);
+  const reachableIds = new Set(reachable.map((n) => n.id));
+  const allNodeById = new Map<string, WorkflowNode>(nodes.map((n) => [n.id, n]));
+
+  // Build a map: reachable sub-agent id → skill node ids connected via skill-out
+  // edges. We scan ALL edges (not just reachable ones) because skill nodes sit
+  // outside the main flow and are never forward-reachable from the start node.
+  const skillsBySubAgent = new Map<string, string[]>();
+  for (const edge of edges) {
+    if (edge.sourceHandle === "skill-out" && reachableIds.has(edge.target)) {
+      const targetNode = allNodeById.get(edge.target);
+      const sourceNode = allNodeById.get(edge.source);
+      if (targetNode?.data?.type === "sub-agent" && sourceNode?.data?.type === "skill") {
+        if (!skillsBySubAgent.has(edge.target)) skillsBySubAgent.set(edge.target, []);
+        skillsBySubAgent.get(edge.target)!.push(edge.source);
       }
     }
-    if (node.data.type === "skill") {
-      const gen = NODE_GENERATORS["skill"] as typeof NODE_GENERATORS["skill"] & {
-        getSkillFile?(id: string, d: WorkflowNode["data"]): { path: string; content: string } | null;
-      };
-      if (gen?.getSkillFile) {
-        const f = gen.getSkillFile(node.id, node.data);
+  }
+
+  // Track which skill nodes are actually connected to a reachable sub-agent
+  const connectedSkillIds = new Set<string>();
+  for (const skillIds of skillsBySubAgent.values()) {
+    for (const id of skillIds) connectedSkillIds.add(id);
+  }
+
+  const files: GeneratedFile[] = [];
+
+  // Generate sub-agent files with their connected skill names
+  for (const node of reachable) {
+    if (node.data.type === "sub-agent") {
+      const skillIds = skillsBySubAgent.get(node.id) ?? [];
+      const connectedSkillNames: string[] = [];
+      for (const skillId of skillIds) {
+        const skillNode = allNodeById.get(skillId);
+        if (skillNode?.data?.type === "skill") {
+          const sd = skillNode.data as import("@/nodes/skill/types").SkillNodeData;
+          const skillName = sd.skillName?.trim() || sd.name?.trim();
+          if (skillName) connectedSkillNames.push(skillName);
+        }
+      }
+
+      const gen = NODE_GENERATORS["sub-agent"];
+      if (gen?.getAgentFile) {
+        const f = gen.getAgentFile(node.id, node.data, connectedSkillNames);
         if (f) files.push(f);
       }
     }
   }
+
+  // Generate skill files only for skills connected to a reachable sub-agent
+  for (const skillId of connectedSkillIds) {
+    const skillNode = allNodeById.get(skillId);
+    if (skillNode?.data?.type === "skill") {
+      const gen = NODE_GENERATORS["skill"] as typeof NODE_GENERATORS["skill"] & {
+        getSkillFile?(id: string, d: WorkflowNode["data"]): { path: string; content: string } | null;
+      };
+      if (gen?.getSkillFile) {
+        const f = gen.getSkillFile(skillNode.id, skillNode.data);
+        if (f) files.push(f);
+      }
+    }
+  }
+
   return files;
 }
 function buildCommandMarkdown(workflow: WorkflowJSON): string {
@@ -248,7 +292,7 @@ Workflow arguments are **comma-separated and trimmed**. For example \`/workflow 
 - **Diamond nodes (Branch/Switch:...)**: Automatically branch based on the results of previous processing (see details section)
 - **Rectangle nodes (Prompt nodes)**: Execute the prompts described in the details section below`;
   const promptDetails    = buildPromptDetailsSection(nodes, edges);
-  const subAgentDetails  = buildSubAgentDetailsSection(nodes, edges);
+  const subAgentDetails  = buildSubAgentDetailsSection(nodes, edges, workflow.nodes, workflow.edges);
   const otherDetails     = buildDetailsSection(nodes, edges);
 
   // Build frontmatter

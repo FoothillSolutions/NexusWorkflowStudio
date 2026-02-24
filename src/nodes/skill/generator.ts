@@ -10,17 +10,37 @@ function sanitiseSlug(raw: string): string | null {
   return SLUG_REGEX.test(v) ? v : null;
 }
 
-function buildSkillFile(d: SkillNodeData): string {
+function buildSkillFile(skillName: string, d: SkillNodeData): string {
   const lines: string[] = ["---"];
-  if (d.description?.trim()) lines.push(`description: ${d.description.trim()}`);
+
+  // name = folder name (the skill node name)
+  lines.push(`name: ${skillName}`);
+
+  // description from properties panel
+  lines.push(`description: ${d.description?.trim() || skillName}`);
+
+  // compatibility
+  lines.push(`compatibility: opencode`);
+
+  // metadata block — always includes workflow: github, plus user-defined entries
+  const metaEntries: { key: string; value: string }[] = [
+    { key: "workflow", value: "github" },
+  ];
   if (Array.isArray(d.metadata)) {
     for (const entry of d.metadata) {
       const key = sanitiseSlug(entry.key ?? "");
-      const val = sanitiseSlug(entry.value ?? "");
-      if (key && val) lines.push(`${key}: ${val}`);
+      const val = (entry.value ?? "").trim();
+      if (key && val) metaEntries.push({ key, value: val });
     }
   }
+  lines.push(`metadata:`);
+  for (const { key, value } of metaEntries) {
+    lines.push(`  ${key}: ${value}`);
+  }
+
   lines.push("---");
+  lines.push("");
+  if (d.promptText?.trim()) lines.push(d.promptText.trim());
   return lines.join("\n") + "\n";
 }
 
@@ -45,8 +65,8 @@ export const generator: NodeGeneratorModule & {
     const skillName = d.skillName?.trim() || d.name?.trim();
     if (!skillName) return null;
     return {
-      path: `.opencode/skills/${skillName}.md`,
-      content: buildSkillFile(d),
+      path: `.opencode/skills/${skillName}/SKILL.md`,
+      content: buildSkillFile(skillName, d),
     };
   },
 };

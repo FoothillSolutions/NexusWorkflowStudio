@@ -10,7 +10,7 @@ import type { FormControl, FormSetValue } from "@/nodes/shared/form-types";
 import { SubAgentModel, SubAgentMemory, MODEL_DISPLAY_NAMES } from "./types";
 import { AGENT_TOOLS, PRESET_COLORS } from "./constants";
 import type { AgentTool } from "./constants";
-import { Check, Zap, Plus, Minus, ArrowRight } from "lucide-react";
+import { Check, Zap, Plus, Minus, ArrowRight, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWorkflowStore } from "@/store/workflow-store";
 
@@ -76,11 +76,12 @@ export function Fields({ control, setValue, nodeId }: SubAgentFieldsProps) {
   // Derive connected skill nodes from the store
   const edges = useWorkflowStore((s) => s.edges);
   const nodes = useWorkflowStore((s) => s.nodes);
+  const deleteEdge = useWorkflowStore((s) => s.deleteEdge);
   const connectedSkills = nodeId
     ? edges
         .filter((e) => e.target === nodeId && e.targetHandle === "skills")
-        .map((e) => nodes.find((n) => n.id === e.source))
-        .filter(Boolean)
+        .map((e) => ({ edge: e, node: nodes.find((n) => n.id === e.source) }))
+        .filter((s): s is { edge: typeof edges[number]; node: NonNullable<typeof s.node> } => !!s.node)
     : [];
 
 	const { dynamic, static: staticVars } = detectVariables(promptText);
@@ -236,8 +237,7 @@ export function Fields({ control, setValue, nodeId }: SubAgentFieldsProps) {
 						<Label className="text-cyan-300">Connected Skills ({connectedSkills.length})</Label>
 					</div>
 					<div className="flex flex-col gap-1">
-						{connectedSkills.map((skillNode) => {
-							if (!skillNode) return null;
+						{connectedSkills.map(({ edge, node: skillNode }) => {
 							const d = skillNode.data as { skillName?: string; projectName?: string; label?: string };
 							return (
 								<div
@@ -249,6 +249,14 @@ export function Fields({ control, setValue, nodeId }: SubAgentFieldsProps) {
 									{d.projectName && (
 										<span className="text-cyan-600 truncate ml-auto">{d.projectName}</span>
 									)}
+									<button
+										type="button"
+										onClick={() => deleteEdge(edge.id)}
+										className="p-0.5 rounded-md text-zinc-600 hover:text-red-400 hover:bg-red-950/30 transition-colors shrink-0 ml-auto"
+										title="Remove skill connection"
+									>
+										<X size={12} />
+									</button>
 								</div>
 							);
 						})}

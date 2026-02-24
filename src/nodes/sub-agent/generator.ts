@@ -7,7 +7,7 @@ import { SubAgentModel } from "./types";
 /**
  * Build the frontmatter + prompt content for a .opencode/agents/<name>.md file.
  */
-export function buildAgentFile(nodeId: string, d: SubAgentNodeData): string {
+export function buildAgentFile(nodeId: string, d: SubAgentNodeData, connectedSkillNames?: string[]): string {
   const agentName = d.name || `agent-${nodeId}`;
 
   // --- frontmatter ---
@@ -28,6 +28,14 @@ export function buildAgentFile(nodeId: string, d: SubAgentNodeData): string {
     }
   }
 
+  // Emit connected skills
+  if (connectedSkillNames && connectedSkillNames.length > 0) {
+    lines.push(`skills:`);
+    for (const name of connectedSkillNames) {
+      lines.push(`  - ${name}`);
+    }
+  }
+
   if (d.temperature && d.temperature > 0) {
     lines.push(`temperature: ${parseFloat(d.temperature.toFixed(1))}`);
   }
@@ -42,7 +50,7 @@ export function buildAgentFile(nodeId: string, d: SubAgentNodeData): string {
 }
 
 export const generator: NodeGeneratorModule & {
-  getAgentFile?(nodeId: string, data: WorkflowNodeData): { path: string; content: string } | null;
+  getAgentFile?(nodeId: string, data: WorkflowNodeData, connectedSkillNames?: string[]): { path: string; content: string } | null;
 } = {
   getMermaidShape(nodeId: string, data: WorkflowNodeData): string {
     const d = data as SubAgentNodeData;
@@ -68,12 +76,12 @@ export const generator: NodeGeneratorModule & {
     return lines.join("\n");
   },
 
-  getAgentFile(nodeId: string, data: WorkflowNodeData) {
+  getAgentFile(nodeId: string, data: WorkflowNodeData, connectedSkillNames?: string[]) {
     const d = data as SubAgentNodeData;
     const agentName = d.name || `agent-${nodeId}`;
     return {
       path: `.opencode/agents/${agentName}.md`,
-      content: buildAgentFile(nodeId, d),
+      content: buildAgentFile(nodeId, d, connectedSkillNames),
     };
   },
 };

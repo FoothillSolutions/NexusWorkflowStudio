@@ -4,6 +4,7 @@ import { useWatch, Controller } from "react-hook-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { Plus, Trash2 } from "lucide-react";
 import { detectVariables, DetectedVariablesPanel } from "@/nodes/shared/variable-utils";
@@ -38,6 +39,24 @@ export function Fields({ control, setValue }: SkillFieldsProps) {
 
   return (
     <div className="space-y-4">
+      {/* Description */}
+      <div className="space-y-2">
+        <Label htmlFor="skill-description">Description</Label>
+        <Controller
+          name={"description" as never}
+          control={control}
+          render={({ field }) => (
+            <Textarea
+              id="skill-description"
+              placeholder="Describe what this skill does"
+              className="bg-zinc-800/60 border-zinc-700/60 rounded-xl focus-visible:ring-zinc-600 min-h-[72px] resize-none text-sm"
+              value={(field.value as string) ?? ""}
+              onChange={field.onChange}
+            />
+          )}
+        />
+      </div>
+
       {/* Prompt */}
       <div className="space-y-2">
         <Label htmlFor="skill-prompt">Prompt</Label>
@@ -49,7 +68,7 @@ export function Fields({ control, setValue }: SkillFieldsProps) {
               value={(field.value as string) ?? ""}
               onChange={field.onChange}
               height={160}
-              placeholder="Describe what this skill does and how to use it"
+              placeholder="The content of the skill goes here"
               hideToolbar
             />
           )}
