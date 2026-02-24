@@ -283,6 +283,7 @@ function buildCommandMarkdown(workflow: WorkflowJSON): string {
   const endNodeId   = canonicalEndId ?? nodes.find((n) => n.data.type === "end")?.id ?? "end";
   const executionGuide = `## Workflow Execution Guide
 Follow the Mermaid flowchart above to execute the workflow starting from \`${mermaidId(startNodeId)}\` node. Each node type has specific execution methods as described below.
+Split each flow path into a todo item using todowrite and todoread tools, and update the todo list correspondingly.
 
 ### Positional Arguments
 Workflow arguments are **comma-separated and trimmed**. For example \`/workflow 2, 5, 10\` yields \`$1=2\`, \`$2=5\`, \`$3=10\`.

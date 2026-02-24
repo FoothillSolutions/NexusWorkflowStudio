@@ -6,7 +6,7 @@ import type { PromptNodeData } from "./types";
 export const promptRegistryEntry: NodeRegistryEntry = {
   type: "prompt",
   displayName: "Prompt",
-  description: "LLM prompt template",
+  description: "Natural LLM prompt",
   icon: MessageSquareText,
   accentColor: "blue",
   accentHex: "#3b82f6",
