@@ -53,13 +53,19 @@ export const generator: NodeGeneratorModule & {
   getDetailsSection(nodeId: string, data: WorkflowNodeData): string {
     const d = data as SubAgentNodeData;
     const agentName = d.name || `agent-${nodeId}`;
-    return [
+    const lines = [
       `#### ${nodeId}(Sub-Agent: ${agentName})`,
       "",
       "```",
       `delegate agent: @${agentName}`,
-      "```",
-    ].join("\n");
+    ];
+    // Append parameter mappings if configured
+    const mappings = (d.parameterMappings ?? []).map((v) => v.trim()).filter(Boolean);
+    if (mappings.length > 0) {
+      lines.push(`params: ${mappings.join(", ")}`);
+    }
+    lines.push("```");
+    return lines.join("\n");
   },
 
   getAgentFile(nodeId: string, data: WorkflowNodeData) {

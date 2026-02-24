@@ -38,6 +38,7 @@ export const subAgentRegistryEntry: NodeRegistryEntry = {
     temperature: 0,
     color: "#5f27cd",
     disabledTools: [],
+    parameterMappings: [],
   }),
 };
 
@@ -52,5 +53,6 @@ export const subAgentSchema = z.object({
   temperature: z.number().min(0).max(1).default(0),
   color: z.string().default("#5f27cd"),
   disabledTools: z.array(z.string()).default([]),
+  parameterMappings: z.array(z.string()).default([]),
 });
 

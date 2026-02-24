@@ -48,6 +48,8 @@ export interface SubAgentNodeData extends BaseNodeData {
   color: string;
   /** Tool names that are DISABLED (empty = all enabled) */
   disabledTools: string[];
+  /** Positional parameter mappings passed to the delegated agent */
+  parameterMappings: string[];
 }
 
 export interface SubAgentFlowNodeData extends BaseNodeData {

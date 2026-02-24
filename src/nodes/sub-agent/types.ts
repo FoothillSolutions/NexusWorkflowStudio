@@ -15,5 +15,7 @@ export interface SubAgentNodeData extends Record<string, unknown> {
   color: string;
   /** List of tool names that are DISABLED (empty = all enabled) */
   disabledTools: string[];
+  /** Positional parameter mappings passed to the delegated agent ($1→agent $1, etc.) */
+  parameterMappings: string[];
 }
 

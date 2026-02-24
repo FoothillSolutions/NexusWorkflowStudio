@@ -5,12 +5,12 @@ import { Label } from "@/components/ui/label";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { detectVariables, DetectedVariablesPanel } from "@/nodes/shared/variable-utils";
+import { detectVariables, DetectedVariablesPanel, DYNAMIC_VAR_RE, STATIC_VAR_RE } from "@/nodes/shared/variable-utils";
 import type { FormControl, FormSetValue } from "@/nodes/shared/form-types";
 import { SubAgentModel, SubAgentMemory, MODEL_DISPLAY_NAMES } from "./types";
 import { AGENT_TOOLS, PRESET_COLORS } from "./constants";
 import type { AgentTool } from "./constants";
-import { Check, Zap } from "lucide-react";
+import { Check, Zap, Plus, Minus, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWorkflowStore } from "@/store/workflow-store";
 
@@ -71,6 +71,7 @@ export function Fields({ control, setValue, nodeId }: SubAgentFieldsProps) {
   const temperature         = rawTemp != null ? Number(rawTemp) : 0;
   const color: string       = useWatch({ control, name: "color" }) || "#5f27cd";
   const disabledTools: string[] = useWatch({ control, name: "disabledTools" }) ?? [];
+  const parameterMappings: string[] = useWatch({ control, name: "parameterMappings" }) ?? [];
 
   // Derive connected skill nodes from the store
   const edges = useWorkflowStore((s) => s.edges);
@@ -89,6 +90,43 @@ export function Fields({ control, setValue, nodeId }: SubAgentFieldsProps) {
 		setValue("detectedVariables" as never, allVars as never, { shouldDirty: false });
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [promptText]);
+
+	// Auto-expand parameterMappings slots when the prompt gains new $N variables.
+	// New slots default to identity mapping ($1→$1, $2→$2, …).
+	useEffect(() => {
+		if (dynamic.length > parameterMappings.length) {
+			const expanded = [...parameterMappings];
+			while (expanded.length < dynamic.length) {
+				expanded.push(`$${expanded.length + 1}`);
+			}
+			setValue("parameterMappings" as never, expanded as never, { shouldDirty: false });
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [dynamic.length]);
+
+	const updateMapping = (index: number, value: string) => {
+		const next = [...parameterMappings];
+		next[index] = value;
+		setValue("parameterMappings" as never, next as never, { shouldDirty: true });
+	};
+
+	const addMappingSlot = () => {
+		setValue("parameterMappings" as never, [...parameterMappings, ""] as never, { shouldDirty: true });
+	};
+
+	const removeMappingSlot = (index: number) => {
+		const next = parameterMappings.filter((_, i) => i !== index);
+		setValue("parameterMappings" as never, next as never, { shouldDirty: true });
+	};
+
+	/** Return a Tailwind class for the input based on the value type */
+	const mappingValueClass = (value: string): string => {
+		const trimmed = value.trim();
+		if (new RegExp(DYNAMIC_VAR_RE.source).test(trimmed)) return "text-blue-300";
+		if (new RegExp(STATIC_VAR_RE.source).test(trimmed)) return "text-amber-300";
+		if (trimmed) return "text-emerald-300";
+		return "text-zinc-100";
+	};
 
 	const toggleTool = (tool: AgentTool) => {
 		const next = disabledTools.includes(tool)
@@ -135,6 +173,60 @@ export function Fields({ control, setValue, nodeId }: SubAgentFieldsProps) {
 				/>
 			</div>
 			<DetectedVariablesPanel dynamic={dynamic} staticVars={staticVars} />
+
+			{/* Parameter Mapping — map workflow-level args to this agent's $N slots */}
+			{(parameterMappings.length > 0 || dynamic.length > 0) && (
+				<div className="space-y-2">
+					<div className="flex items-center justify-between">
+						<Label className="text-xs text-zinc-400 flex items-center gap-1.5">
+							<ArrowRight className="h-3 w-3" />
+							Parameter Mapping
+						</Label>
+						<span className="text-[10px] text-zinc-500">
+							{parameterMappings.filter(Boolean).length} mapped
+						</span>
+					</div>
+					<p className="text-[11px] text-zinc-600">
+						Map workflow-level values to this agent&apos;s positional parameters.
+						Use <code className="text-blue-400">$N</code> for positional passthrough,{" "}
+						<code className="text-amber-400">{"{{ref}}"}</code> for static refs, or a literal value.
+					</p>
+					<div className="rounded-xl border border-zinc-700/50 bg-zinc-800/30 p-3 space-y-2">
+						{parameterMappings.map((value, index) => (
+							<div key={index} className="flex items-center gap-2">
+								<span className="text-[11px] font-mono text-zinc-500 w-14 shrink-0 text-right">
+									→ ${index + 1}
+								</span>
+								<Input
+									value={value}
+									onChange={(e) => updateMapping(index, e.target.value)}
+									placeholder={`e.g. $${index + 1}, {{name}}, or literal`}
+									className={cn(
+										"bg-zinc-900/60 border-zinc-700/60 rounded-lg text-xs font-mono h-8 flex-1",
+										mappingValueClass(value)
+									)}
+								/>
+								<button
+									type="button"
+									onClick={() => removeMappingSlot(index)}
+									className="p-1 rounded-md text-zinc-600 hover:text-red-400 hover:bg-red-950/30 transition-colors"
+									title="Remove slot"
+								>
+									<Minus className="h-3.5 w-3.5" />
+								</button>
+							</div>
+						))}
+						<button
+							type="button"
+							onClick={addMappingSlot}
+							className="flex items-center gap-1.5 text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors mt-1"
+						>
+							<Plus className="h-3 w-3" />
+							Add parameter slot
+						</button>
+					</div>
+				</div>
+			)}
 
 			{/* Connected Skills — shown after prompt & variables */}
 			{connectedSkills.length > 0 && (
