@@ -35,7 +35,7 @@ interface WorkflowState {
   viewport: Viewport;
 
   // Delete confirmation
-  deleteTarget: { type: "node" | "edge"; id: string } | null;
+  deleteTarget: { type: "node" | "edge" | "selection"; id: string } | null;
 
   // React Flow callbacks
   onNodesChange: OnNodesChange<WorkflowNode>;
@@ -54,7 +54,7 @@ interface WorkflowState {
   toggleSidebar: () => void;
   toggleMinimap: () => void;
   setViewport: (viewport: Viewport) => void;
-  setDeleteTarget: (target: { type: "node" | "edge"; id: string } | null) => void;
+  setDeleteTarget: (target: { type: "node" | "edge" | "selection"; id: string } | null) => void;
   confirmDelete: () => void;
 
   // Multi-select / bulk actions
@@ -111,7 +111,7 @@ const initialState = {
   selectedNodeId: null as string | null,
   propertiesPanelOpen: false,
   viewport: { x: 0, y: 0, zoom: 1 },
-  deleteTarget: null as { type: "node" | "edge"; id: string } | null,
+  deleteTarget: null as { type: "node" | "edge" | "selection"; id: string } | null,
 };
 
 // ── Store ───────────────────────────────────────────────────────────────────
@@ -225,6 +225,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     if (!target) return;
     if (target.type === "node") {
       get().deleteNode(target.id);
+    } else if (target.type === "selection") {
+      get().deleteSelectedNodes();
     } else {
       get().deleteEdge(target.id);
     }

@@ -141,6 +141,10 @@ export default function Canvas() {
     }
   }, [ctxMenu, duplicateNode]);
 
+  const handleDeleteSelected = useCallback(() => {
+    setDeleteTarget({ type: "selection", id: "multi" });
+  }, [setDeleteTarget]);
+
   const handleDuplicateSelected = useCallback(() => {
     duplicateSelectedNodes();
   }, [duplicateSelectedNodes]);
@@ -153,8 +157,9 @@ export default function Canvas() {
       if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement).isContentEditable) return;
 
       const isMod = e.ctrlKey || e.metaKey;
-      const multiSelected = nodes.filter((n) => n.selected).length > 1;
-      const singleSelected = selectedNodeId && !multiSelected;
+      const selected = nodes.filter((n) => n.selected);
+      const multiSelected = selected.length > 1;
+      const singleSelected = selected.length === 1 && selected[0].data?.type !== "start";
 
       // ── Ctrl/Cmd + A → select all ─────────────────────────────────────
       if (isMod && e.key === "a") {
@@ -169,7 +174,7 @@ export default function Canvas() {
         if (multiSelected) {
           duplicateSelectedNodes();
         } else if (singleSelected) {
-          duplicateNode(selectedNodeId);
+          duplicateNode(selected[0].id);
         }
         return;
       }
@@ -178,12 +183,12 @@ export default function Canvas() {
       if (e.key === "Delete" || e.key === "Backspace") {
         e.preventDefault();
         if (multiSelected) {
-          deleteSelectedNodes();
-        } else if (singleSelected) {
-          const node = nodes.find((n) => n.id === selectedNodeId);
-          if (node && node.data?.type !== "start") {
-            setDeleteTarget({ type: "node", id: selectedNodeId });
+          const deletableCount = selected.filter((n) => n.data?.type !== "start").length;
+          if (deletableCount > 0) {
+            setDeleteTarget({ type: "selection", id: "multi" });
           }
+        } else if (singleSelected) {
+          setDeleteTarget({ type: "node", id: selected[0].id });
         }
       }
     };
@@ -267,7 +272,7 @@ export default function Canvas() {
           onClose={closeMenu}
           onDelete={ctxMenu.target.kind === "node" ? handleDelete : undefined}
           onDuplicate={ctxMenu.target.kind === "node" ? handleDuplicate : undefined}
-          onDeleteSelected={selectedCount > 1 ? deleteSelectedNodes : undefined}
+          onDeleteSelected={selectedCount > 1 ? handleDeleteSelected : undefined}
           onDuplicateSelected={selectedCount > 1 ? handleDuplicateSelected : undefined}
         />
       )}

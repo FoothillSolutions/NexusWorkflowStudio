@@ -15,8 +15,6 @@ import DeleteDialog from "./delete-dialog";
 
 export default function WorkflowEditor() {
   const {
-    selectedNodeId,
-    setDeleteTarget,
     closePropertiesPanel,
     getWorkflowJSON,
   } = useWorkflowStore();
@@ -41,30 +39,11 @@ export default function WorkflowEditor() {
         closePropertiesPanel();
         return;
       }
-
-      // Delete/Backspace: Open delete confirmation if something is selected
-      // Only if not typing in an input/textarea
-      const target = e.target as HTMLElement;
-      const isInput =
-        target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
-        target.isContentEditable;
-
-      if (!isInput && (e.key === "Delete" || e.key === "Backspace")) {
-        if (selectedNodeId) {
-            const selectedNode = useWorkflowStore.getState().nodes.find(
-              (n) => n.id === selectedNodeId
-            );
-            // Start node is protected — ignore delete key
-            if (selectedNode?.data?.type === "start") return;
-            setDeleteTarget({ type: 'node', id: selectedNodeId });
-        }
-      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedNodeId, setDeleteTarget, closePropertiesPanel, getWorkflowJSON]);
+  }, [closePropertiesPanel, getWorkflowJSON]);
 
   // Auto-save subscription
   useEffect(() => {
