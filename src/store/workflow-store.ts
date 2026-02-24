@@ -260,8 +260,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     );
     if (toDuplicate.length === 0) return;
 
+    // Build old→new ID map
+    const idMap = new Map<string, string>();
     const newNodes: WorkflowNode[] = toDuplicate.map((node) => {
       const newId = `${node.data.type}-${nanoid(8)}`;
+      idMap.set(node.id, newId);
       return {
         ...node,
         id: newId,
@@ -273,11 +276,23 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         } as WorkflowNodeData,
       };
     });
+
+    // Duplicate edges whose both endpoints are in the selection
+    const newEdges: WorkflowEdge[] = get().edges
+      .filter((e) => idMap.has(e.source) && idMap.has(e.target))
+      .map((e) => ({
+        ...e,
+        id: `${e.id}-${nanoid(8)}`,
+        source: idMap.get(e.source)!,
+        target: idMap.get(e.target)!,
+      }));
+
     set({
       nodes: [
         ...get().nodes.map((n) => ({ ...n, selected: false })),
         ...newNodes,
       ],
+      edges: [...get().edges, ...newEdges],
     });
   },
 
