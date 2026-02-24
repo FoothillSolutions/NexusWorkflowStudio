@@ -103,16 +103,51 @@ function buildPromptDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[])
 function buildSubAgentDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[]): string {
   const order = topologicalOrder(nodes, edges);
   const nodeById = new Map<string, WorkflowNode>(nodes.map((n) => [n.id, n]));
+
+  // Build a map of sub-agent id → skill nodes connected to it (skill-out edges), in topological order
+  const skillEdgesByTarget = new Map<string, string[]>();
+  for (const edge of edges) {
+    if (edge.sourceHandle === "skill-out") {
+      if (!skillEdgesByTarget.has(edge.target)) skillEdgesByTarget.set(edge.target, []);
+      skillEdgesByTarget.get(edge.target)!.push(edge.source);
+    }
+  }
+  // Sort skill nodes per sub-agent by topological order
+  const topoIndex = new Map<string, number>(order.map((id, i) => [id, i]));
+  for (const [tgt, srcs] of skillEdgesByTarget) {
+    skillEdgesByTarget.set(tgt, srcs.sort((a, b) => (topoIndex.get(a) ?? 0) - (topoIndex.get(b) ?? 0)));
+  }
+
   const sections: string[] = [];
   for (const id of order) {
     const node = nodeById.get(id);
     if (!node || node.data.type !== "sub-agent") continue;
-    const gen = NODE_GENERATORS["sub-agent"];
-    if (gen) {
-      const detail = gen.getDetailsSection(node.id, node.data);
-      if (detail) sections.push(detail);
+
+    const d = node.data as import("@/nodes/sub-agent/types").SubAgentNodeData;
+    const agentName = d.name || `agent-${node.id}`;
+
+    const lines: string[] = [
+      `#### ${node.id}(Sub-Agent: ${agentName})`,
+      "",
+      "```",
+      `delegate agent: @${agentName}`,
+    ];
+
+    // Append skills connected to this sub-agent
+    const skillIds = skillEdgesByTarget.get(node.id) ?? [];
+    for (const skillId of skillIds) {
+      const skillNode = nodeById.get(skillId);
+      if (skillNode && skillNode.data.type === "skill") {
+        const sd = skillNode.data as import("@/nodes/skill/types").SkillNodeData;
+        const skillName = sd.skillName?.trim() || sd.name?.trim() || skillId;
+        lines.push(`skill: ${skillName}`);
+      }
     }
+
+    lines.push("```");
+    sections.push(lines.join("\n"));
   }
+
   if (sections.length === 0) return "";
   return "## Sub-Agent Node Details\n\n" + sections.join("\n\n");
 }
@@ -194,8 +229,10 @@ function buildCommandMarkdown(workflow: WorkflowJSON): string {
   const edgeLines = remappedEdges.map((e) => mermaidEdge(e));
   const mermaidInner = edgeLines.length > 0 ? [...nodeLines, "", ...edgeLines] : nodeLines;
   const mermaidBlock = ["```mermaid", "flowchart TD", ...mermaidInner, "```"].join("\n");
+  const startNodeId = nodes.find((n) => n.data.type === "start")?.id ?? "start";
+  const endNodeId   = canonicalEndId ?? nodes.find((n) => n.data.type === "end")?.id ?? "end";
   const executionGuide = `## Workflow Execution Guide
-Follow the Mermaid flowchart above to execute the workflow. Each node type has specific execution methods as described below.
+Follow the Mermaid flowchart above to execute the workflow starting from \`${mermaidId(startNodeId)}\` node. Each node type has specific execution methods as described below.
 ### Execution Methods by Node Type
 - **Stadium nodes (Start / End)**: Entry and exit points of the workflow
 - **Rectangle nodes (Sub-Agent: ...)**: Execute Sub-Agents via the spawn agent delegation system

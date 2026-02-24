@@ -54,9 +54,7 @@ export const generator: NodeGeneratorModule & {
     const d = data as SubAgentNodeData;
     const agentName = d.name || `agent-${nodeId}`;
     return [
-      `#### Sub-Agent Node Details`,
-      "",
-      `Delegates execution to sub-agent \`${agentName}\`.`,
+      `#### ${nodeId}(Sub-Agent: ${agentName})`,
       "",
       "```",
       `delegate agent: @${agentName}`,
