@@ -45,8 +45,13 @@ function mermaidEdge(edge: WorkflowEdge): string {
   const tgtId = mermaidId(edge.target);
   const defaultHandles = new Set(["output", "input"]);
   const showLabel = edge.sourceHandle && !defaultHandles.has(edge.sourceHandle);
-  const label = showLabel ? ` -- "${mermaidLabel(edge.sourceHandle!)}" -->` : " -->";
-  return `    ${srcId}${label} ${tgtId}`;
+  if (showLabel) {
+    // Capitalize first letter of label for display
+    const raw = edge.sourceHandle!;
+    const displayLabel = raw.charAt(0).toUpperCase() + raw.slice(1);
+    return `    ${srcId} -->|${mermaidLabel(displayLabel)}| ${tgtId}`;
+  }
+  return `    ${srcId} --> ${tgtId}`;
 }
 function filterReachable(nodes: WorkflowNode[], edges: WorkflowEdge[]): { nodes: WorkflowNode[]; edges: WorkflowEdge[] } {
   const adjMap = new Map<string, string[]>();
@@ -158,11 +163,27 @@ function buildSubAgentDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[
   if (sections.length === 0) return "";
   return "## Agent Node Details\n\n" + sections.join("\n\n");
 }
+function buildIfElseDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[]): string {
+  const order = topologicalOrder(nodes, edges);
+  const nodeById = new Map<string, WorkflowNode>(nodes.map((n) => [n.id, n]));
+  const sections: string[] = [];
+  for (const id of order) {
+    const node = nodeById.get(id);
+    if (!node || node.data.type !== "if-else") continue;
+    const gen = NODE_GENERATORS["if-else"];
+    if (gen) {
+      const detail = gen.getDetailsSection(node.id, node.data);
+      if (detail) sections.push(detail);
+    }
+  }
+  if (sections.length === 0) return "";
+  return "### If/Else Node Details\n\n" + sections.join("\n\n");
+}
 function buildDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[]): string {
   const order = topologicalOrder(nodes, edges);
   const nodeById = new Map<string, WorkflowNode>(nodes.map((n) => [n.id, n]));
   const sections: string[] = [];
-  const SKIP = new Set(["start", "end", "prompt", "agent", "skill"]);
+  const SKIP = new Set(["start", "end", "prompt", "agent", "skill", "if-else"]);
   for (const id of order) {
     const node = nodeById.get(id);
     if (!node || SKIP.has(node.data.type)) continue;
@@ -296,6 +317,7 @@ Workflow arguments are **comma-separated and trimmed**. For example \`/workflow 
 - **Rectangle nodes (Prompt nodes)**: Execute the prompts described in the details section below`;
   const promptDetails    = buildPromptDetailsSection(nodes, edges);
   const subAgentDetails  = buildSubAgentDetailsSection(nodes, edges, workflow.nodes, workflow.edges);
+  const ifElseDetails    = buildIfElseDetailsSection(nodes, edges);
   const otherDetails     = buildDetailsSection(nodes, edges);
 
   // Build frontmatter
@@ -304,6 +326,7 @@ Workflow arguments are **comma-separated and trimmed**. For example \`/workflow 
   const parts = [frontmatter, mermaidBlock, "", executionGuide];
   if (promptDetails)   parts.push("", promptDetails);
   if (subAgentDetails) parts.push("", subAgentDetails);
+  if (ifElseDetails)   parts.push("", ifElseDetails);
   if (otherDetails)    parts.push("", otherDetails);
   return parts.join("\n") + "\n";
 }

@@ -1,25 +1,84 @@
 "use client";
+
 import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import { BaseNode } from "@/nodes/shared/base-node";
-import { HANDLE_CLASS } from "@/lib/theme";
 import { ifElseRegistryEntry } from "./constants";
-import type { IfElseNodeData } from "./types";
+import type { IfElseNodeData, IfElseBranch } from "./types";
+
+const BRANCH_COLORS: Record<number, string> = {
+  0: "#22c55e", // green for true
+  1: "#ef4444", // red for false
+};
+
 export function IfElseNode({ data, selected }: NodeProps<Node<IfElseNodeData>>) {
   const { icon, accentHex, displayName } = ifElseRegistryEntry;
+  const branches: IfElseBranch[] = data.branches ?? [
+    { label: "True", condition: "" },
+    { label: "False", condition: "" },
+  ];
+
   return (
-    <BaseNode accentHex={accentHex} selected={selected} label={data.label || displayName} type={data.type} icon={icon}>
-      <div className="font-mono text-xs text-zinc-300 bg-zinc-950/50 p-2 rounded border border-zinc-800 break-words">
-        if ({data.expression || "condition"})
+    <BaseNode
+      accentHex={accentHex}
+      selected={selected}
+      label={data.label || displayName}
+      type={data.type}
+      icon={icon}
+    >
+      {/* Evaluation target */}
+      {data.evaluationTarget && (
+        <div className="text-[11px] text-zinc-400 mb-2 leading-snug truncate">
+          {data.evaluationTarget}
+        </div>
+      )}
+
+      {/* Branch blocks */}
+      <div className="flex flex-col gap-1.5">
+        {branches.map((branch, i) => {
+          const color = BRANCH_COLORS[i] ?? accentHex;
+          const handleId = i === 0 ? "true" : "false";
+          return (
+            <div key={i} className="relative flex items-center gap-2">
+              {/* Branch pill */}
+              <div
+                className="flex-1 min-w-0 flex flex-col gap-0.5 px-2 py-1.5 rounded-md border border-zinc-800/60 bg-zinc-950/40 overflow-hidden"
+              >
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <div
+                    className="h-1.5 w-1.5 rounded-full shrink-0"
+                    style={{ backgroundColor: color }}
+                  />
+                  <span className="text-[11px] font-medium text-zinc-300 truncate">
+                    {branch.label || (i === 0 ? "True" : "False")}
+                  </span>
+                </div>
+                {branch.condition && (
+                  <p className="text-[10px] text-zinc-500 leading-tight ml-3 truncate">
+                    {branch.condition}
+                  </p>
+                )}
+              </div>
+              {/* Source handle */}
+              <Handle
+                type="source"
+                position={Position.Right}
+                id={handleId}
+                className="!relative !right-0 !top-0 !transform-none !h-2.5 !w-2.5 !border !border-zinc-700 !rounded-full !shadow-sm"
+                style={{ backgroundColor: color }}
+              />
+            </div>
+          );
+        })}
       </div>
-      <Handle type="target" position={Position.Left} id="input" className={HANDLE_CLASS} style={{ backgroundColor: accentHex }} />
-      <div className="absolute -right-3 top-1/3 flex items-center transform -translate-y-1/2">
-        <span className="mr-2 text-[10px] text-zinc-400 font-medium">True</span>
-        <Handle type="source" position={Position.Right} id="true" className={`!right-0 !relative !transform-none ${HANDLE_CLASS}`} style={{ backgroundColor: accentHex }} />
-      </div>
-      <div className="absolute -right-3 top-2/3 flex items-center transform -translate-y-1/2">
-        <span className="mr-2 text-[10px] text-zinc-400 font-medium">False</span>
-        <Handle type="source" position={Position.Right} id="false" className={`!right-0 !relative !transform-none ${HANDLE_CLASS}`} style={{ backgroundColor: accentHex }} />
-      </div>
+
+      {/* Input handle */}
+      <Handle
+        type="target"
+        position={Position.Left}
+        id="input"
+        className="!h-2.5 !w-2.5 !border !border-zinc-700 !rounded-full !shadow-sm"
+        style={{ backgroundColor: accentHex }}
+      />
     </BaseNode>
   );
 }

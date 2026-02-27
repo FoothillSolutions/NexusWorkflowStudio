@@ -26,7 +26,7 @@ export function TypeSpecificFields({ nodeType, register, control, setValue, sele
     case "sub-workflow":   return <SubAgentFlowFields register={register} />;
     case "skill":          return <SkillFields register={register} control={control} setValue={setValue} />;
     case "mcp-tool":       return <McpToolFields register={register} />;
-    case "if-else":        return <IfElseFields register={register} />;
+    case "if-else":        return <IfElseFields register={register} control={control} />;
     case "switch":         return <SwitchFields register={register} control={control} />;
     case "ask-user":       return <AskUserFields register={register} control={control} />;
     case "start":

@@ -74,9 +74,15 @@ export interface McpToolNodeData extends BaseNodeData {
   paramsText: string;
 }
 
+export interface IfElseBranch {
+  label: string;
+  condition: string;
+}
+
 export interface IfElseNodeData extends BaseNodeData {
   type: "if-else";
-  expression: string;
+  evaluationTarget: string;
+  branches: IfElseBranch[];
 }
 
 export interface SwitchNodeData extends BaseNodeData {
