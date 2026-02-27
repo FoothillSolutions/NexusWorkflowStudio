@@ -24,7 +24,7 @@ export function Fields({ register, control }: IfElseFieldsProps) {
         <Label htmlFor="evaluationTarget">
           Evaluation Target <RequiredIndicator />
         </Label>
-        <p className="text-[11px] text-zinc-500 leading-tight">
+        <p className="text-xs text-zinc-500 leading-snug">
           Describe what to evaluate in the branch condition
         </p>
         <Input
@@ -48,19 +48,19 @@ export function Fields({ register, control }: IfElseFieldsProps) {
             >
               <div className="flex items-center gap-2">
                 <div
-                  className="h-2 w-2 rounded-sm shrink-0"
+                  className="h-2.5 w-2.5 rounded-sm shrink-0"
                   style={{
                     backgroundColor: index === 0 ? BRANCH_TRUE : BRANCH_FALSE,
                   }}
                 />
-                <span className="text-xs font-medium text-zinc-300">
+                <span className="text-sm font-medium text-zinc-300">
                   Branch {index + 1}
                 </span>
               </div>
               <div className="space-y-1.5">
                 <Label
                   htmlFor={`branches.${index}.label`}
-                  className="text-[11px] text-zinc-500"
+                  className="text-xs text-zinc-500"
                 >
                   Label
                 </Label>
@@ -74,7 +74,7 @@ export function Fields({ register, control }: IfElseFieldsProps) {
               <div className="space-y-1.5">
                 <Label
                   htmlFor={`branches.${index}.condition`}
-                  className="text-[11px] text-zinc-500"
+                  className="text-xs text-zinc-500"
                 >
                   Condition (natural language)
                 </Label>

@@ -4,9 +4,41 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useWorkflowStore } from "@/store/workflow-store";
 import { useSavedWorkflowsStore } from "@/store/library-store";
 import { exportWorkflow } from "@/lib/persistence";
-import { generateWorkflowFiles, getCommandMarkdown } from "@/lib/workflow-generator";
+import {
+  generateWorkflowFiles,
+  getCommandMarkdown,
+} from "@/lib/workflow-generator";
 import { Button } from "@/components/ui/button";
-import { Save, Download, Keyboard, Cpu, Eye, Library, Upload, FilePlus } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+} from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  Save,
+  Download,
+  Cpu,
+  Eye,
+  Library,
+  Upload,
+  FilePlus,
+  ChevronDown,
+  HelpCircle,
+  BookOpen,
+  Newspaper,
+  MessageSquare,
+  Bug,
+  Info,
+  Keyboard,
+} from "lucide-react";
 import { toast } from "sonner";
 import ImportDialog from "./import-dialog";
 import ShortcutsDialog from "./shortcuts-dialog";
@@ -15,10 +47,13 @@ import {
   BG_SURFACE,
   BORDER_DEFAULT,
   TEXT_PRIMARY,
-  TEXT_SECONDARY,
   TEXT_MUTED,
-  BG_ELEVATED,
 } from "@/lib/theme";
+
+/* ── tiny divider ────────────────────────────────────────────────── */
+function Divider() {
+  return <div className="w-px h-6 bg-zinc-700/60 mx-1.5 shrink-0" />;
+}
 
 export default function Header() {
   const { name, setName, getWorkflowJSON, reset } = useWorkflowStore();
@@ -36,14 +71,10 @@ export default function Header() {
     }
   }, [isEditingName]);
 
-  const handleNameBlur = () => {
-    setIsEditingName(false);
-  };
+  const handleNameBlur = () => setIsEditingName(false);
 
   const handleNameKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      setIsEditingName(false);
-    }
+    if (e.key === "Enter") setIsEditingName(false);
   };
 
   const handleSave = () => {
@@ -63,7 +94,6 @@ export default function Header() {
     toast.success("Workflow exported");
   };
 
-  /** Download the generated zip containing commands/ and agents/ folders */
   const handleGenerate = useCallback(async () => {
     const workflow = getWorkflowJSON();
     try {
@@ -75,15 +105,15 @@ export default function Header() {
         zip.file(file.path, file.content);
       }
 
-
       const blob = await zip.generateAsync({ type: "blob" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      const safeName = workflow.name
-        .replace(/[^a-z0-9\-_ ]/gi, "")
-        .trim()
-        .replace(/\s+/g, "-")
-        .toLowerCase() || "workflow";
+      const safeName =
+        workflow.name
+          .replace(/[^a-z0-9\-_ ]/gi, "")
+          .trim()
+          .replace(/\s+/g, "-")
+          .toLowerCase() || "workflow";
       a.href = url;
       a.download = `${safeName}-generated.zip`;
       a.click();
@@ -95,20 +125,29 @@ export default function Header() {
     }
   }, [getWorkflowJSON]);
 
-  /** Open the readonly markdown preview dialog */
   const handleView = useCallback(() => {
     const workflow = getWorkflowJSON();
     setPreviewMarkdown(getCommandMarkdown(workflow));
     setPreviewOpen(true);
   }, [getWorkflowJSON]);
 
+  const handleComingSoon = () => toast("Coming soon!", { icon: "🚧" });
+
   return (
-    <header className={`h-12 ${BG_SURFACE} border-b ${BORDER_DEFAULT} flex items-center px-4 gap-3 shrink-0 z-10`}>
-      <div className={`text-sm font-semibold ${TEXT_SECONDARY} mr-2`}>
-        Nexus Workflow Studio
+    <header
+      className={`h-13 ${BG_SURFACE} border-b ${BORDER_DEFAULT} flex items-center px-4 gap-3 shrink-0 z-10`}
+    >
+      {/* ── Brand ─────────────────────────────────────────────── */}
+      <div className="flex items-center gap-2 mr-1 shrink-0">
+        <span className="text-sm font-semibold tracking-tight text-zinc-300">
+          Nexus Workflow Studio
+        </span>
       </div>
 
-      <div className="flex-1">
+      <Divider />
+
+      {/* ── Workflow name (editable) ──────────────────────────── */}
+      <div className="flex-1 min-w-0">
         {isEditingName ? (
           <input
             ref={inputRef}
@@ -117,64 +156,172 @@ export default function Header() {
             onChange={(e) => setName(e.target.value)}
             onBlur={handleNameBlur}
             onKeyDown={handleNameKeyDown}
-            className={`${TEXT_PRIMARY} font-medium bg-transparent border-b border-blue-500 outline-none w-full max-w-sm px-1 py-0.5`}
+            className={`${TEXT_PRIMARY} text-sm font-medium bg-transparent border-b border-blue-500 outline-none w-full max-w-sm px-1 py-0.5`}
           />
         ) : (
           <div
             onClick={() => setIsEditingName(true)}
-            className={`${TEXT_PRIMARY} font-medium bg-transparent border-b border-transparent hover:border-zinc-600 cursor-text px-1 py-0.5 truncate max-w-sm`}
+            className={`${TEXT_PRIMARY} text-sm font-medium bg-transparent border-b border-transparent hover:border-zinc-600 cursor-text px-1 py-0.5 truncate max-w-sm`}
           >
             {name}
           </div>
         )}
       </div>
 
-      <div className="flex items-center gap-1">
-        <Button variant="ghost" size="sm" onClick={() => setShortcutsOpen(true)} className={`${TEXT_MUTED} hover:text-zinc-100 hover:${BG_ELEVATED}`} title="Keyboard shortcuts">
-          <Keyboard className="h-4 w-4 mr-2" />
-          Shortcuts
-        </Button>
-        <Button variant="ghost" size="sm" onClick={handleNew} className={`${TEXT_MUTED} hover:text-zinc-100 hover:${BG_ELEVATED}`} title="Create a new workflow">
-          <FilePlus className="h-4 w-4 mr-2" />
-          New
-        </Button>
-        <Button variant="ghost" size="sm" onClick={handleSave} className={`${TEXT_MUTED} hover:text-zinc-100 hover:${BG_ELEVATED}`}>
-          <Save className="h-4 w-4 mr-2" />
-          Save
-        </Button>
-        <Button variant="ghost" size="sm" onClick={() => useSavedWorkflowsStore.getState().toggleSidebar()} className={`${librarySidebarOpen ? "text-blue-400 bg-zinc-800" : TEXT_MUTED} hover:text-zinc-100 hover:${BG_ELEVATED}`}>
-          <Library className="h-4 w-4 mr-2" />
-          Library
-        </Button>
-        <Button variant="ghost" size="sm" onClick={() => setImportDialogOpen(true)} className={`${TEXT_MUTED} hover:text-zinc-100 hover:${BG_ELEVATED}`}>
-          <Upload className="h-4 w-4 mr-2" />
-          Import
-        </Button>
-        <Button variant="ghost" size="sm" onClick={handleExport} className={`${TEXT_MUTED} hover:text-zinc-100 hover:${BG_ELEVATED}`}>
-          <Download className="h-4 w-4 mr-2" />
-          Export
-        </Button>
+      {/* ── Actions ───────────────────────────────────────────── */}
+      <div className="flex items-center gap-1 shrink-0">
+        {/* File dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`${TEXT_MUTED} hover:text-zinc-100 h-8 px-3 text-sm gap-1.5`}
+            >
+              File
+              <ChevronDown className="h-3.5 w-3.5 opacity-50" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem onClick={handleNew}>
+              <FilePlus className="h-4 w-4 mr-2" />
+              New Workflow
+              <DropdownMenuShortcut>⌘N</DropdownMenuShortcut>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleSave}>
+              <Save className="h-4 w-4 mr-2" />
+              Save
+              <DropdownMenuShortcut>⌘S</DropdownMenuShortcut>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => setImportDialogOpen(true)}>
+              <Upload className="h-4 w-4 mr-2" />
+              Import…
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleExport}>
+              <Download className="h-4 w-4 mr-2" />
+              Export
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
-        {/* Divider */}
-        <div className="w-px h-5 bg-zinc-700 mx-1" />
+        {/* Library toggle */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() =>
+                useSavedWorkflowsStore.getState().toggleSidebar()
+              }
+              className={`h-8 px-3 text-sm ${
+                librarySidebarOpen
+                  ? "text-blue-400 bg-zinc-800/80"
+                  : TEXT_MUTED
+              } hover:text-zinc-100`}
+            >
+              <Library className="h-4 w-4 mr-1.5" />
+              Library
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Toggle saved workflows</TooltipContent>
+        </Tooltip>
 
-        <Button variant="ghost" size="sm" onClick={handleView} className={`${TEXT_MUTED} hover:text-zinc-100 hover:${BG_ELEVATED}`} title="Preview generated output">
-          <Eye className="h-4 w-4 mr-2" />
-          View
-        </Button>
+        <Divider />
+
+        {/* Preview */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleView}
+              className={`${TEXT_MUTED} hover:text-zinc-100 h-8 px-3 text-sm`}
+            >
+              <Eye className="h-4 w-4 mr-1.5" />
+              Preview
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            Preview generated output
+          </TooltipContent>
+        </Tooltip>
+
+        {/* Generate (primary action) */}
         <Button
-          variant="ghost"
           size="sm"
           onClick={handleGenerate}
-          className="text-emerald-400 hover:text-emerald-300 hover:bg-zinc-800"
+          className="h-8 px-4 text-sm bg-emerald-600 hover:bg-emerald-500 text-white gap-1.5 shadow-sm"
           title="Generate and download workflow artifacts"
         >
-          <Cpu className="h-4 w-4 mr-2" />
+          <Cpu className="h-4 w-4" />
           Generate
         </Button>
+
+        <Divider />
+
+        {/* Help / More dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className={`${TEXT_MUTED} hover:text-zinc-100 size-8`}
+            >
+              <HelpCircle className="h-[18px] w-[18px]" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-52">
+            <DropdownMenuItem onClick={() => setShortcutsOpen(true)}>
+              <Keyboard className="h-4 w-4 mr-2" />
+              Keyboard Shortcuts
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem disabled onClick={handleComingSoon}>
+              <BookOpen className="h-4 w-4 mr-2" />
+              Tutorial
+              <DropdownMenuShortcut className="text-[10px] text-zinc-600">
+                Soon
+              </DropdownMenuShortcut>
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled onClick={handleComingSoon}>
+              <Newspaper className="h-4 w-4 mr-2" />
+              Patch Notes
+              <DropdownMenuShortcut className="text-[10px] text-zinc-600">
+                Soon
+              </DropdownMenuShortcut>
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled onClick={handleComingSoon}>
+              <MessageSquare className="h-4 w-4 mr-2" />
+              Feedback
+              <DropdownMenuShortcut className="text-[10px] text-zinc-600">
+                Soon
+              </DropdownMenuShortcut>
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled onClick={handleComingSoon}>
+              <Bug className="h-4 w-4 mr-2" />
+              Report a Bug
+              <DropdownMenuShortcut className="text-[10px] text-zinc-600">
+                Soon
+              </DropdownMenuShortcut>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem disabled onClick={handleComingSoon}>
+              <Info className="h-4 w-4 mr-2" />
+              About
+              <DropdownMenuShortcut className="text-[10px] text-zinc-600">
+                Soon
+              </DropdownMenuShortcut>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
-      <ImportDialog open={importDialogOpen} onOpenChange={setImportDialogOpen} />
+      {/* ── Dialogs ───────────────────────────────────────────── */}
+      <ImportDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+      />
       <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
       <WorkflowPreviewDialog
         open={previewOpen}
