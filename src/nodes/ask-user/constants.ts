@@ -2,6 +2,7 @@ import { HelpCircle } from "lucide-react";
 import { z } from "zod/v4";
 import { NodeCategory } from "@/nodes/shared/registry-types";
 import type { NodeRegistryEntry } from "@/nodes/shared/registry-types";
+import { NODE_ACCENT } from "@/lib/node-colors";
 import type { AskUserNodeData } from "./types";
 
 export const askUserRegistryEntry: NodeRegistryEntry = {
@@ -10,7 +11,7 @@ export const askUserRegistryEntry: NodeRegistryEntry = {
   description: "Prompt user for input",
   icon: HelpCircle,
   accentColor: "pink",
-  accentHex: "#ec4899",
+  accentHex: NODE_ACCENT["ask-user"],
   category: NodeCategory.ControlFlow,
   defaultData: (): AskUserNodeData => ({
     type: "ask-user",

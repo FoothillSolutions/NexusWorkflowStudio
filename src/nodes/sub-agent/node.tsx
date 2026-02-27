@@ -3,6 +3,7 @@ import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import { BaseNode, NodeSize } from "@/nodes/shared/base-node";
 import { detectVarCounts } from "@/nodes/shared/variable-utils";
 import { HANDLE_CLASS } from "@/lib/theme";
+import { NODE_ACCENT } from "@/lib/node-colors";
 import { DollarSign, Braces, Cpu, Thermometer, Wrench, Zap } from "lucide-react";
 import { subAgentRegistryEntry } from "./constants";
 import { SubAgentModel } from "./types";
@@ -103,7 +104,7 @@ export function SubAgentNode({ data, selected, id }: NodeProps<Node<SubAgentNode
         position={Position.Left}
         id="skills"
         className={HANDLE_CLASS}
-        style={{ backgroundColor: "#06b6d4", top: "auto", bottom: 14 }}
+        style={{ backgroundColor: NODE_ACCENT.skill, top: "auto", bottom: 14 }}
         isValidConnection={(connection) => {
           const sourceNode = nodes.find((n) => n.id === connection.source);
           return sourceNode?.data?.type === "skill";

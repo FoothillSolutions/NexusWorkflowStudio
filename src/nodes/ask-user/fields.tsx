@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Plus, X, Sparkles, ListChecks } from "lucide-react";
+import { NODE_ACCENT } from "@/lib/node-colors";
 import type { FormRegister, FormControl, FormSetValue } from "@/nodes/shared/form-types";
 
 interface AskUserFieldsProps {
@@ -182,7 +183,7 @@ export function Fields({ register, control, setValue }: AskUserFieldsProps) {
                 <div className="flex items-center gap-2">
                   <div
                     className="h-2 w-2 rounded-sm shrink-0"
-                    style={{ backgroundColor: "#ec4899" }}
+                    style={{ backgroundColor: NODE_ACCENT["ask-user"] }}
                   />
                   <span className="text-xs font-medium text-zinc-300">
                     Option {index + 1}

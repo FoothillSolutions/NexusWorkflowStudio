@@ -2,6 +2,7 @@ import { ArrowRightLeft } from "lucide-react";
 import { z } from "zod/v4";
 import { NodeCategory } from "@/nodes/shared/registry-types";
 import type { NodeRegistryEntry } from "@/nodes/shared/registry-types";
+import { NODE_ACCENT } from "@/lib/node-colors";
 import type { SwitchNodeData } from "./types";
 
 export const switchRegistryEntry: NodeRegistryEntry = {
@@ -10,7 +11,7 @@ export const switchRegistryEntry: NodeRegistryEntry = {
   description: "Multi-way branch",
   icon: ArrowRightLeft,
   accentColor: "orange",
-  accentHex: "#f97316",
+  accentHex: NODE_ACCENT.switch,
   category: NodeCategory.ControlFlow,
   defaultData: (): SwitchNodeData => ({
     type: "switch",

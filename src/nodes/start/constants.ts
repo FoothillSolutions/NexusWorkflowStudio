@@ -2,6 +2,7 @@ import { Play } from "lucide-react";
 import { z } from "zod/v4";
 import { NodeCategory } from "@/nodes/shared/registry-types";
 import type { NodeRegistryEntry } from "@/nodes/shared/registry-types";
+import { NODE_ACCENT } from "@/lib/node-colors";
 import type { StartNodeData } from "./types";
 
 export const startRegistryEntry: NodeRegistryEntry = {
@@ -10,7 +11,7 @@ export const startRegistryEntry: NodeRegistryEntry = {
   description: "Workflow entry point",
   icon: Play,
   accentColor: "emerald",
-  accentHex: "#10b981",
+  accentHex: NODE_ACCENT.start,
   category: NodeCategory.Basic,
   defaultData: (): StartNodeData => ({
     type: "start",

@@ -12,6 +12,7 @@ import { AGENT_TOOLS, PRESET_COLORS } from "./constants";
 import type { AgentTool } from "./constants";
 import { Check, Zap, Plus, Minus, ArrowRight, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { NODE_ACCENT } from "@/lib/node-colors";
 import { useWorkflowStore } from "@/store/workflow-store";
 
 const MODEL_GROUPS = [
@@ -69,7 +70,7 @@ export function Fields({ control, setValue, nodeId }: SubAgentFieldsProps) {
   const promptText: string  = useWatch({ control, name: "promptText" }) ?? "";
   const rawTemp             = useWatch({ control, name: "temperature" });
   const temperature         = rawTemp != null ? Number(rawTemp) : 0;
-  const color: string       = useWatch({ control, name: "color" }) || "#5f27cd";
+  const color: string       = useWatch({ control, name: "color" }) || NODE_ACCENT.agent;
   const disabledTools: string[] = useWatch({ control, name: "disabledTools" }) ?? [];
   const parameterMappings: string[] = useWatch({ control, name: "parameterMappings" }) ?? [];
 
@@ -400,16 +401,16 @@ export function Fields({ control, setValue, nodeId }: SubAgentFieldsProps) {
 								<>
 									<input
 										type="color"
-										value={field.value?.trim() ? field.value : "#5f27cd"}
+										value={field.value?.trim() ? field.value : NODE_ACCENT.agent}
 										onChange={(e) => field.onChange(e.target.value)}
 										className="w-8 h-8 rounded-lg cursor-pointer border border-zinc-700/60 bg-transparent p-0.5"
 										title="Custom color"
 									/>
 									<Input
-										value={field.value?.trim() ? field.value : "#5f27cd"}
+										value={field.value?.trim() ? field.value : NODE_ACCENT.agent}
 										onChange={(e) => field.onChange(e.target.value)}
 										className="bg-zinc-800/60 border-zinc-700/60 rounded-xl focus-visible:ring-zinc-600 font-mono text-xs uppercase"
-										placeholder="#5f27cd"
+										placeholder={NODE_ACCENT.agent}
 										maxLength={7}
 									/>
 								</>

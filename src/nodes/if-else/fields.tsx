@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import { BRANCH_TRUE, BRANCH_FALSE } from "@/lib/node-colors";
 import type { FormRegister, FormControl } from "@/nodes/shared/form-types";
 
 interface IfElseFieldsProps {
@@ -46,7 +47,7 @@ export function Fields({ register, control }: IfElseFieldsProps) {
                 <div
                   className="h-2 w-2 rounded-sm shrink-0"
                   style={{
-                    backgroundColor: index === 0 ? "#22c55e" : "#ef4444",
+                    backgroundColor: index === 0 ? BRANCH_TRUE : BRANCH_FALSE,
                   }}
                 />
                 <span className="text-xs font-medium text-zinc-300">

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, X } from "lucide-react";
+import { NODE_ACCENT, BRANCH_DEFAULT } from "@/lib/node-colors";
 import type { FormRegister, FormControl } from "@/nodes/shared/form-types";
 
 interface SwitchFieldsProps {
@@ -83,7 +84,7 @@ export function Fields({ register, control }: SwitchFieldsProps) {
                     <div
                       className="h-2 w-2 rounded-sm shrink-0"
                       style={{
-                        backgroundColor: isDefault ? "#71717a" : "#f97316",
+                        backgroundColor: isDefault ? BRANCH_DEFAULT : NODE_ACCENT.switch,
                         opacity: isDefault ? 0.6 : 1,
                       }}
                     />

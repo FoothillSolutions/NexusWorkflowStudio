@@ -2,6 +2,7 @@ import { GitBranch } from "lucide-react";
 import { z } from "zod/v4";
 import { NodeCategory } from "@/nodes/shared/registry-types";
 import type { NodeRegistryEntry } from "@/nodes/shared/registry-types";
+import { NODE_ACCENT } from "@/lib/node-colors";
 import type { SubAgentFlowNodeData } from "./types";
 export const subAgentFlowRegistryEntry: NodeRegistryEntry = {
   type: "sub-workflow",
@@ -9,7 +10,7 @@ export const subAgentFlowRegistryEntry: NodeRegistryEntry = {
   description: "Reference another flow",
   icon: GitBranch,
   accentColor: "purple",
-  accentHex: "#a855f7",
+  accentHex: NODE_ACCENT["sub-workflow"],
   category: NodeCategory.Basic,
   defaultData: (): SubAgentFlowNodeData => ({ type: "sub-workflow", label: "Sub Workflow", name: "", flowRef: "", nodeCount: 0 }),
 };

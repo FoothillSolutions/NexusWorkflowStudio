@@ -1,6 +1,7 @@
 import type { NodeGeneratorModule } from "@/nodes/shared/registry-types";
 import { mermaidId, mermaidLabel } from "@/nodes/shared/mermaid-utils";
 import type { WorkflowNodeData } from "@/types/workflow";
+import { NODE_ACCENT } from "@/lib/node-colors";
 import type { SubAgentNodeData } from "./types";
 import { SubAgentModel } from "./types";
 
@@ -40,7 +41,7 @@ export function buildAgentFile(nodeId: string, d: SubAgentNodeData, connectedSki
     lines.push(`temperature: ${parseFloat(d.temperature.toFixed(1))}`);
   }
 
-  lines.push(`color: "${d.color || "#5f27cd"}"`);
+  lines.push(`color: "${d.color || NODE_ACCENT.agent}"`);
 
   lines.push("---");
   lines.push("");

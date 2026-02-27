@@ -2,6 +2,7 @@ import { Bot } from "lucide-react";
 import { z } from "zod/v4";
 import { NodeCategory } from "@/nodes/shared/registry-types";
 import type { NodeRegistryEntry } from "@/nodes/shared/registry-types";
+import { NODE_ACCENT } from "@/lib/node-colors";
 import { SubAgentModel, SubAgentMemory } from "./types";
 import type { SubAgentNodeData } from "./types";
 
@@ -24,7 +25,7 @@ export const subAgentRegistryEntry: NodeRegistryEntry = {
   description: "Delegate to an agent",
   icon: Bot,
   accentColor: "violet",
-  accentHex: "#5f27cd",
+  accentHex: NODE_ACCENT.agent,
   category: NodeCategory.Basic,
   defaultData: (): SubAgentNodeData => ({
     type: "agent",
@@ -36,7 +37,7 @@ export const subAgentRegistryEntry: NodeRegistryEntry = {
     model: SubAgentModel.Inherit,
     memory: SubAgentMemory.Default,
     temperature: 0,
-    color: "#5f27cd",
+    color: NODE_ACCENT.agent,
     disabledTools: [],
     parameterMappings: [],
   }),
@@ -51,7 +52,7 @@ export const subAgentSchema = z.object({
   model: z.nativeEnum(SubAgentModel).default(SubAgentModel.Inherit),
   memory: z.nativeEnum(SubAgentMemory).default(SubAgentMemory.Default),
   temperature: z.number().min(0).max(1).default(0),
-  color: z.string().default("#5f27cd"),
+  color: z.string().default(NODE_ACCENT.agent),
   disabledTools: z.array(z.string()).default([]),
   parameterMappings: z.array(z.string()).default([]),
 });

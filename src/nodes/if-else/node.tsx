@@ -2,12 +2,13 @@
 
 import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import { BaseNode } from "@/nodes/shared/base-node";
+import { BRANCH_TRUE, BRANCH_FALSE } from "@/lib/node-colors";
 import { ifElseRegistryEntry } from "./constants";
 import type { IfElseNodeData, IfElseBranch } from "./types";
 
 const BRANCH_COLORS: Record<number, string> = {
-  0: "#22c55e", // green for true
-  1: "#ef4444", // red for false
+  0: BRANCH_TRUE,  // green for true
+  1: BRANCH_FALSE, // red for false
 };
 
 const BRANCH_BORDER_STYLE = (color: string) => ({

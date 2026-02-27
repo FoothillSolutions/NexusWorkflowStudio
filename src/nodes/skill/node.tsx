@@ -3,6 +3,7 @@ import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import { BaseNode, NodeSize } from "@/nodes/shared/base-node";
 import { detectVarCounts } from "@/nodes/shared/variable-utils";
 import { HANDLE_CLASS } from "@/lib/theme";
+import { NODE_ACCENT } from "@/lib/node-colors";
 import { DollarSign, Braces, Zap } from "lucide-react";
 import { skillRegistryEntry } from "./constants";
 import type { SkillNodeData } from "./types";
@@ -71,7 +72,7 @@ export function SkillNode({ data, selected }: NodeProps<Node<SkillNodeData>>) {
         position={Position.Right}
         id="skill-out"
         className={HANDLE_CLASS}
-        style={{ backgroundColor: "#06b6d4", top: "auto", bottom: 14 }}
+        style={{ backgroundColor: NODE_ACCENT.skill, top: "auto", bottom: 14 }}
         isValidConnection={(connection) => {
           const targetNode = nodes.find((n) => n.id === connection.target);
           return targetNode?.data?.type === "agent";
