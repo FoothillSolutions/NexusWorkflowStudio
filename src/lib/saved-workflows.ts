@@ -112,6 +112,7 @@ export function renameInCollection(id: string, newName: string): void {
   const entry = entries.find((e) => e.id === id);
   if (entry) {
     entry.name = newName;
+    entry.workflow.name = newName;
     entry.updatedAt = new Date().toISOString();
     writeCollection(entries);
   }

@@ -63,10 +63,10 @@ export default function NodePalette() {
 
       {/* Floating panel */}
       <div
-        className={`absolute top-16 left-4 z-20 flex flex-col rounded-2xl border border-zinc-700/50 bg-zinc-900/85 backdrop-blur-md shadow-2xl transition-all duration-300 ${
+        className={`absolute top-16 left-4 z-20 flex flex-col w-[272px] rounded-2xl border border-zinc-700/50 bg-zinc-900/85 backdrop-blur-md shadow-2xl transition-all duration-300 ease-out ${
           sidebarOpen
-            ? "w-[272px] opacity-100 pointer-events-auto"
-            : "w-0 opacity-0 pointer-events-none"
+            ? "opacity-100 translate-x-0 pointer-events-auto"
+            : "opacity-0 -translate-x-4 pointer-events-none"
         }`}
         style={{ maxHeight: "calc(100vh - 112px)" }}
       >

@@ -77,10 +77,10 @@ export default function WorkflowEditor() {
             <Canvas />
             <NodePalette />
             <PropertiesPanel />
+            <SavedWorkflowsSidebar />
           </div>
         </div>
         <DeleteDialog />
-        <SavedWorkflowsSidebar />
       </div>
     </ReactFlowProvider>
   );

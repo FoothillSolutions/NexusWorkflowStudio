@@ -10,18 +10,22 @@ import {
   duplicateInCollection,
 } from "@/lib/saved-workflows";
 import type { WorkflowJSON } from "@/types/workflow";
+import { useWorkflowStore } from "@/store/workflow-store";
 
 const nanoid = customAlphabet("abcdefghijklmnopqrstuvwxyz0123456789", 12);
 
 interface SavedWorkflowsState {
   entries: SavedWorkflowEntry[];
   sidebarOpen: boolean;
+  /** ID of the workflow currently being edited (null = unsaved / new) */
+  activeId: string | null;
   refresh: () => void;
   save: (workflow: WorkflowJSON, existingId?: string) => string;
   remove: (id: string) => void;
   rename: (id: string, newName: string) => void;
   duplicate: (id: string) => string | null;
   load: (id: string) => WorkflowJSON | null;
+  clearActiveId: () => void;
   toggleSidebar: () => void;
   openSidebar: () => void;
   closeSidebar: () => void;
@@ -30,20 +34,25 @@ interface SavedWorkflowsState {
 export const useSavedWorkflowsStore = create<SavedWorkflowsState>((set, get) => ({
   entries: [],
   sidebarOpen: false,
+  activeId: null,
 
   refresh: () => {
     set({ entries: getAllSavedWorkflows() });
   },
 
   save: (workflow, existingId) => {
-    const id = existingId ?? nanoid();
+    // Reuse activeId when no explicit id is given (so "Save" updates the same entry)
+    const id = existingId ?? get().activeId ?? nanoid();
     saveWorkflowToCollection(id, workflow);
+    set({ activeId: id });
     get().refresh();
     return id;
   },
 
   remove: (id) => {
     deleteFromCollection(id);
+    // Clear activeId if the deleted entry was the active one
+    if (get().activeId === id) set({ activeId: null });
     get().refresh();
   },
 
@@ -63,16 +72,24 @@ export const useSavedWorkflowsStore = create<SavedWorkflowsState>((set, get) => 
   },
 
   load: (id) => {
-    return loadFromCollection(id);
+    const data = loadFromCollection(id);
+    if (data) set({ activeId: id });
+    return data;
   },
+
+  clearActiveId: () => set({ activeId: null }),
 
   toggleSidebar: () => {
     const willOpen = !get().sidebarOpen;
-    if (willOpen) get().refresh();
+    if (willOpen) {
+      useWorkflowStore.getState().closePropertiesPanel();
+      get().refresh();
+    }
     set({ sidebarOpen: willOpen });
   },
 
   openSidebar: () => {
+    useWorkflowStore.getState().closePropertiesPanel();
     get().refresh();
     set({ sidebarOpen: true });
   },

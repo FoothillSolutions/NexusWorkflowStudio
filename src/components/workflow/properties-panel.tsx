@@ -11,6 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { X, Trash2, SlidersHorizontal } from "lucide-react";
 import { useWorkflowStore } from "@/store/workflow-store";
+import { useSavedWorkflowsStore } from "@/store/saved-workflows-store";
 import { nodeSchemaMap, NODE_REGISTRY } from "@/lib/node-registry";
 import type { NodeType, WorkflowNodeData } from "@/types/workflow";
 import { BORDER_DEFAULT, TEXT_MUTED } from "@/lib/theme";
@@ -74,7 +75,16 @@ export default function PropertiesPanel() {
     }
   }, [selectedNodeId, setDeleteTarget]);
 
-  if (!propertiesPanelOpen || !selectedNode || !nodeData || !registryEntry) {
+  // Close library sidebar when properties panel opens (mutual exclusion)
+  useEffect(() => {
+    if (propertiesPanelOpen && selectedNode && nodeData && registryEntry) {
+      useSavedWorkflowsStore.getState().closeSidebar();
+    }
+  }, [propertiesPanelOpen, selectedNode, nodeData, registryEntry]);
+
+  const isVisible = propertiesPanelOpen && !!selectedNode && !!nodeData && !!registryEntry;
+
+  if (!isVisible) {
     if (selectedNode && selectedNodeId) {
       return (
         <div className="absolute bottom-6 right-4 z-30">
@@ -92,12 +102,12 @@ export default function PropertiesPanel() {
     return null;
   }
 
-  const Icon = registryEntry.icon;
+  const Icon = registryEntry!.icon;
   const nameAsbadge = true;
 
   return (
     <div
-      className="absolute top-4 right-4 z-20 flex flex-col rounded-2xl border border-zinc-700/50 bg-zinc-900/85 backdrop-blur-md shadow-2xl overflow-hidden"
+      className="absolute top-4 right-4 z-20 flex flex-col rounded-2xl border border-zinc-700/50 bg-zinc-900/85 backdrop-blur-md shadow-2xl overflow-hidden animate-in slide-in-from-top-4 fade-in-0 duration-200"
       style={{ width: 320, height: "calc(100vh - 112px)" }}
     >
       {/* Header */}
