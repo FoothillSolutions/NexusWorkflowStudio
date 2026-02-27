@@ -4,7 +4,7 @@ import { useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import { useWorkflowStore } from "@/store/workflow-store";
 import { importWorkflow } from "@/lib/persistence";
-import { useSavedWorkflowsStore } from "@/store/saved-workflows-store";
+import { useSavedWorkflowsStore } from "@/store/library-store";
 import {
   Dialog,
   DialogContent,

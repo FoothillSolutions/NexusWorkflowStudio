@@ -11,7 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { X, Trash2, SlidersHorizontal } from "lucide-react";
 import { useWorkflowStore } from "@/store/workflow-store";
-import { useSavedWorkflowsStore } from "@/store/saved-workflows-store";
+import { useSavedWorkflowsStore } from "@/store/library-store";
 import { nodeSchemaMap, NODE_REGISTRY } from "@/lib/node-registry";
 import type { NodeType, WorkflowNodeData } from "@/types/workflow";
 import { BORDER_DEFAULT, TEXT_MUTED } from "@/lib/theme";

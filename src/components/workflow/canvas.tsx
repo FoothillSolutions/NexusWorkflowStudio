@@ -13,7 +13,7 @@ import {
   SelectionMode,
 } from "@xyflow/react";
 import { useWorkflowStore } from "@/store/workflow-store";
-import { useSavedWorkflowsStore } from "@/store/saved-workflows-store";
+import { useSavedWorkflowsStore } from "@/store/library-store";
 import type { NodeType } from "@/types/workflow";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";

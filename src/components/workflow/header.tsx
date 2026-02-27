@@ -2,12 +2,12 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useWorkflowStore } from "@/store/workflow-store";
+import { useSavedWorkflowsStore } from "@/store/library-store";
 import { exportWorkflow } from "@/lib/persistence";
 import { generateWorkflowFiles, getCommandMarkdown } from "@/lib/workflow-generator";
 import { Button } from "@/components/ui/button";
 import { Save, Download, Keyboard, Cpu, Eye, Library, Upload, FilePlus } from "lucide-react";
 import { toast } from "sonner";
-import { useSavedWorkflowsStore } from "@/store/saved-workflows-store";
 import ImportDialog from "./import-dialog";
 import ShortcutsDialog from "./shortcuts-dialog";
 import WorkflowPreviewDialog from "./workflow-preview-dialog";
