@@ -12,6 +12,7 @@ import NodePalette from "./node-palette";
 import Canvas from "./canvas";
 import PropertiesPanel from "./properties-panel";
 import DeleteDialog from "./delete-dialog";
+import SavedWorkflowsSidebar from "./saved-workflows-sidebar";
 
 export default function WorkflowEditor() {
   const {
@@ -79,6 +80,7 @@ export default function WorkflowEditor() {
           </div>
         </div>
         <DeleteDialog />
+        <SavedWorkflowsSidebar />
       </div>
     </ReactFlowProvider>
   );

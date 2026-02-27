@@ -5,8 +5,9 @@ import { useWorkflowStore } from "@/store/workflow-store";
 import { saveToLocalStorage, exportWorkflow } from "@/lib/persistence";
 import { generateWorkflowFiles, getCommandMarkdown } from "@/lib/workflow-generator";
 import { Button } from "@/components/ui/button";
-import { Save, FolderOpen, Download, Keyboard, Cpu, Eye } from "lucide-react";
+import { Save, FolderOpen, Download, Keyboard, Cpu, Eye, Library } from "lucide-react";
 import { toast } from "sonner";
+import { useSavedWorkflowsStore } from "@/store/saved-workflows-store";
 import LoadDialog from "./load-dialog";
 import ShortcutsDialog from "./shortcuts-dialog";
 import WorkflowPreviewDialog from "./workflow-preview-dialog";
@@ -128,6 +129,10 @@ export default function Header() {
         <Button variant="ghost" size="sm" onClick={handleSave} className={`${TEXT_MUTED} hover:text-zinc-100 hover:${BG_ELEVATED}`}>
           <Save className="h-4 w-4 mr-2" />
           Save
+        </Button>
+        <Button variant="ghost" size="sm" onClick={() => useSavedWorkflowsStore.getState().openSidebar()} className={`${TEXT_MUTED} hover:text-zinc-100 hover:${BG_ELEVATED}`}>
+          <Library className="h-4 w-4 mr-2" />
+          Library
         </Button>
         <Button variant="ghost" size="sm" onClick={() => setLoadDialogOpen(true)} className={`${TEXT_MUTED} hover:text-zinc-100 hover:${BG_ELEVATED}`}>
           <FolderOpen className="h-4 w-4 mr-2" />
