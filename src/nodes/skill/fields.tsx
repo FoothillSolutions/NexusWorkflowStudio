@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { MarkdownEditor } from "@/components/ui/markdown-editor";
+import { PromptFieldGroup } from "@/nodes/shared/prompt-field-group";
 import { Plus, Trash2 } from "lucide-react";
 import { detectVariables, DetectedVariablesPanel } from "@/nodes/shared/variable-utils";
 import type { FormControl, FormSetValue, FormRegister } from "@/nodes/shared/form-types";
@@ -58,22 +58,15 @@ export function Fields({ control, setValue }: SkillFieldsProps) {
       </div>
 
       {/* Prompt */}
-      <div className="space-y-2">
-        <Label htmlFor="skill-prompt">Prompt</Label>
-        <Controller
-          name={"promptText" as never}
-          control={control}
-          render={({ field }) => (
-            <MarkdownEditor
-              value={(field.value as string) ?? ""}
-              onChange={field.onChange}
-              height={160}
-              placeholder="The content of the skill goes here"
-              hideToolbar
-            />
-          )}
-        />
-      </div>
+      <PromptFieldGroup
+        control={control}
+        setValue={setValue}
+        value={promptText}
+        label="Prompt"
+        htmlId="skill-prompt"
+        height={160}
+        placeholder="The content of the skill goes here"
+      />
       <DetectedVariablesPanel dynamic={dynamic} staticVars={staticVars} />
 
       {/* Metadata */}

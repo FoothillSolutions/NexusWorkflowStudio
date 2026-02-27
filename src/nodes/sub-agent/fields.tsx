@@ -2,9 +2,9 @@
 import { useEffect } from "react";
 import { useWatch, Controller } from "react-hook-form";
 import { Label } from "@/components/ui/label";
-import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { PromptFieldGroup } from "@/nodes/shared/prompt-field-group";
 import { detectVariables, DetectedVariablesPanel, DYNAMIC_VAR_RE, STATIC_VAR_RE } from "@/nodes/shared/variable-utils";
 import type { FormControl, FormSetValue } from "@/nodes/shared/form-types";
 import { SubAgentModel, SubAgentMemory, MODEL_DISPLAY_NAMES } from "./types";
@@ -157,22 +157,15 @@ export function Fields({ control, setValue, nodeId }: SubAgentFieldsProps) {
 			</div>
 
 			{/* Prompt */}
-			<div className="space-y-2">
-				<Label htmlFor="promptText">Prompt</Label>
-				<Controller
-					name="promptText"
-					control={control}
-					render={({ field }) => (
-						<MarkdownEditor
-							value={field.value ?? ""}
-							onChange={field.onChange}
-							height={180}
-							placeholder="Enter your prompt here"
-							hideToolbar
-						/>
-					)}
-				/>
-			</div>
+			<PromptFieldGroup
+				control={control}
+				setValue={setValue}
+				value={promptText}
+				label="Prompt"
+				htmlId="promptText"
+				height={180}
+				placeholder="Enter your prompt here"
+			/>
 			<DetectedVariablesPanel dynamic={dynamic} staticVars={staticVars} />
 
 			{/* Parameter Mapping — map workflow-level args to this agent's $N slots */}

@@ -124,3 +124,25 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ── Fullscreen Markdown Editor – larger toolbar ─────────────────────────── */
+.fullscreen-md-editor .w-md-editor-toolbar {
+  min-height: 38px !important;
+  padding: 4px 8px !important;
+  align-items: center;
+}
+
+.fullscreen-md-editor .w-md-editor-toolbar li > button {
+  height: 32px !important;
+  width: 32px !important;
+  padding: 4px !important;
+}
+
+.fullscreen-md-editor .w-md-editor-toolbar li > button svg {
+  width: 18px !important;
+  height: 18px !important;
+}
+
+.fullscreen-md-editor .w-md-editor-toolbar ul {
+  gap: 2px;
+}
