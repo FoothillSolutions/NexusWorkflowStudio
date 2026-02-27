@@ -1,6 +1,6 @@
 import type { Node, Edge, Viewport } from "@xyflow/react";
 
-// ── Sub-Agent enums (canonical source: @/nodes/sub-agent/enums) ────────────
+// ── Agent enums (canonical source: @/nodes/sub-agent/enums) ────────────
 export { SubAgentModel, SubAgentMemory, MODEL_DISPLAY_NAMES } from "@/nodes/sub-agent/enums";
 import { SubAgentModel, SubAgentMemory } from "@/nodes/sub-agent/enums";
 
@@ -8,8 +8,8 @@ import { SubAgentModel, SubAgentMemory } from "@/nodes/sub-agent/enums";
 export const NODE_TYPES = [
   "start",
   "prompt",
-  "sub-agent",
-  "sub-agent-flow",
+  "agent",
+  "sub-workflow",
   "skill",
   "mcp-tool",
   "if-else",
@@ -38,7 +38,7 @@ export interface PromptNodeData extends BaseNodeData {
 }
 
 export interface SubAgentNodeData extends BaseNodeData {
-  type: "sub-agent";
+  type: "agent";
   description: string;
   promptText: string;
   detectedVariables: string[];
@@ -53,7 +53,7 @@ export interface SubAgentNodeData extends BaseNodeData {
 }
 
 export interface SubAgentFlowNodeData extends BaseNodeData {
-  type: "sub-agent-flow";
+  type: "sub-workflow";
   flowRef: string;
   nodeCount: number;
 }

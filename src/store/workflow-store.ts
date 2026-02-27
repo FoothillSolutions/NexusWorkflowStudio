@@ -133,9 +133,9 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     const sourceNode = currentNodes.find((n) => n.id === connection.source);
     const targetNode = currentNodes.find((n) => n.id === connection.target);
 
-    // Skill nodes can ONLY connect to sub-agent nodes (as source)
+    // Skill nodes can ONLY connect to agent nodes (as source)
     if (sourceNode?.data?.type === "skill") {
-      if (targetNode?.data?.type !== "sub-agent") return;
+      if (targetNode?.data?.type !== "agent") return;
       // Force the target handle to be the dedicated "skills" handle
       const skillConnection = { ...connection, targetHandle: "skills", type: "deletable" };
       // Multiple skills allowed — no dedup on this handle

@@ -3,7 +3,7 @@ export { SubAgentModel, SubAgentMemory, MODEL_DISPLAY_NAMES } from "./enums";
 import type { SubAgentModel, SubAgentMemory } from "./enums";
 
 export interface SubAgentNodeData extends Record<string, unknown> {
-  type: Extract<NodeType, "sub-agent">;
+  type: Extract<NodeType, "agent">;
   label: string;
   name: string;
   description: string;

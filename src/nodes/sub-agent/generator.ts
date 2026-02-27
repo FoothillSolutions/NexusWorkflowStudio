@@ -55,7 +55,7 @@ export const generator: NodeGeneratorModule & {
   getMermaidShape(nodeId: string, data: WorkflowNodeData): string {
     const d = data as SubAgentNodeData;
     const agentName = d.name || `agent-${nodeId}`;
-    return `    ${mermaidId(nodeId)}["Sub-Agent: ${mermaidLabel(agentName)}"]`;
+    return `    ${mermaidId(nodeId)}["Agent: ${mermaidLabel(agentName)}"]`;
   },
 
   getDetailsSection(nodeId: string, data: WorkflowNodeData): string {

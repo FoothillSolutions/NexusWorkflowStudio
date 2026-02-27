@@ -22,8 +22,8 @@ interface TypeSpecificFieldsProps {
 export function TypeSpecificFields({ nodeType, register, control, setValue, selectedNodeId }: TypeSpecificFieldsProps) {
   switch (nodeType) {
     case "prompt":         return <PromptFields control={control} setValue={setValue} />;
-    case "sub-agent":      return <SubAgentFields control={control} setValue={setValue} nodeId={selectedNodeId} />;
-    case "sub-agent-flow": return <SubAgentFlowFields register={register} />;
+    case "agent":          return <SubAgentFields control={control} setValue={setValue} nodeId={selectedNodeId} />;
+    case "sub-workflow":   return <SubAgentFlowFields register={register} />;
     case "skill":          return <SkillFields register={register} control={control} setValue={setValue} />;
     case "mcp-tool":       return <McpToolFields register={register} />;
     case "if-else":        return <IfElseFields register={register} />;

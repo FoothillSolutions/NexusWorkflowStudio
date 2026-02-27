@@ -19,16 +19,16 @@ export const PRESET_COLORS = [
 ] as const;
 
 export const subAgentRegistryEntry: NodeRegistryEntry = {
-  type: "sub-agent",
-  displayName: "Sub-Agent",
+  type: "agent",
+  displayName: "Agent",
   description: "Delegate to an agent",
   icon: Bot,
   accentColor: "violet",
   accentHex: "#5f27cd",
   category: NodeCategory.Basic,
   defaultData: (): SubAgentNodeData => ({
-    type: "sub-agent",
-    label: "Sub-Agent",
+    type: "agent",
+    label: "Agent",
     name: "",
     description: "",
     promptText: "",

@@ -26,8 +26,8 @@ const NODE_GENERATORS: Record<string, NodeGeneratorModule> = {
   start:            startGen,
   end:              endGen,
   prompt:           promptGen,
-  "sub-agent":      subAgentGen,
-  "sub-agent-flow": subAgentFlowGen,
+  "agent":          subAgentGen,
+  "sub-workflow":   subAgentFlowGen,
   skill:            skillGen,
   "mcp-tool":       mcpToolGen,
   "if-else":        ifElseGen,
@@ -104,7 +104,7 @@ function buildSubAgentDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[
   const order = topologicalOrder(nodes, edges);
   const allNodeById = new Map<string, WorkflowNode>(allNodes.map((n) => [n.id, n]));
 
-  // Build a map of sub-agent id → skill nodes connected to it (skill-out edges).
+  // Build a map of agent id → skill nodes connected to it (skill-out edges).
   // Scan ALL edges because skill nodes sit outside the main flow graph.
   const skillEdgesByTarget = new Map<string, string[]>();
   for (const edge of allEdges) {
@@ -113,7 +113,7 @@ function buildSubAgentDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[
       skillEdgesByTarget.get(edge.target)!.push(edge.source);
     }
   }
-  // Sort skill nodes per sub-agent by topological order
+  // Sort skill nodes per agent by topological order
   const topoIndex = new Map<string, number>(order.map((id, i) => [id, i]));
   for (const [tgt, srcs] of skillEdgesByTarget) {
     skillEdgesByTarget.set(tgt, srcs.sort((a, b) => (topoIndex.get(a) ?? 0) - (topoIndex.get(b) ?? 0)));
@@ -122,13 +122,13 @@ function buildSubAgentDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[
   const sections: string[] = [];
   for (const id of order) {
     const node = allNodeById.get(id);
-    if (!node || node.data.type !== "sub-agent") continue;
+    if (!node || node.data.type !== "agent") continue;
 
     const d = node.data as import("@/nodes/sub-agent/types").SubAgentNodeData;
     const agentName = d.name || `agent-${node.id}`;
 
     const lines: string[] = [
-      `#### ${node.id}(Sub-Agent: ${agentName})`,
+      `#### ${node.id}(Agent: ${agentName})`,
       "",
       "```",
       `delegate agent: @${agentName}`,
@@ -140,7 +140,7 @@ function buildSubAgentDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[
       lines.push(`params: ${mappings.join(", ")}`);
     }
 
-    // Append skills connected to this sub-agent
+    // Append skills connected to this agent
     const skillIds = skillEdgesByTarget.get(node.id) ?? [];
     for (const skillId of skillIds) {
       const skillNode = allNodeById.get(skillId);
@@ -156,13 +156,13 @@ function buildSubAgentDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[
   }
 
   if (sections.length === 0) return "";
-  return "## Sub-Agent Node Details\n\n" + sections.join("\n\n");
+  return "## Agent Node Details\n\n" + sections.join("\n\n");
 }
 function buildDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[]): string {
   const order = topologicalOrder(nodes, edges);
   const nodeById = new Map<string, WorkflowNode>(nodes.map((n) => [n.id, n]));
   const sections: string[] = [];
-  const SKIP = new Set(["start", "end", "prompt", "sub-agent", "skill"]);
+  const SKIP = new Set(["start", "end", "prompt", "agent", "skill"]);
   for (const id of order) {
     const node = nodeById.get(id);
     if (!node || SKIP.has(node.data.type)) continue;
@@ -180,7 +180,7 @@ function collectAgentFiles(nodes: WorkflowNode[], edges: WorkflowEdge[]): Genera
   const reachableIds = new Set(reachable.map((n) => n.id));
   const allNodeById = new Map<string, WorkflowNode>(nodes.map((n) => [n.id, n]));
 
-  // Build a map: reachable sub-agent id → skill node ids connected via skill-out
+  // Build a map: reachable agent id → skill node ids connected via skill-out
   // edges. We scan ALL edges (not just reachable ones) because skill nodes sit
   // outside the main flow and are never forward-reachable from the start node.
   const skillsBySubAgent = new Map<string, string[]>();
@@ -188,14 +188,14 @@ function collectAgentFiles(nodes: WorkflowNode[], edges: WorkflowEdge[]): Genera
     if (edge.sourceHandle === "skill-out" && reachableIds.has(edge.target)) {
       const targetNode = allNodeById.get(edge.target);
       const sourceNode = allNodeById.get(edge.source);
-      if (targetNode?.data?.type === "sub-agent" && sourceNode?.data?.type === "skill") {
+      if (targetNode?.data?.type === "agent" && sourceNode?.data?.type === "skill") {
         if (!skillsBySubAgent.has(edge.target)) skillsBySubAgent.set(edge.target, []);
         skillsBySubAgent.get(edge.target)!.push(edge.source);
       }
     }
   }
 
-  // Track which skill nodes are actually connected to a reachable sub-agent
+  // Track which skill nodes are actually connected to a reachable agent
   const connectedSkillIds = new Set<string>();
   for (const skillIds of skillsBySubAgent.values()) {
     for (const id of skillIds) connectedSkillIds.add(id);
@@ -203,9 +203,9 @@ function collectAgentFiles(nodes: WorkflowNode[], edges: WorkflowEdge[]): Genera
 
   const files: GeneratedFile[] = [];
 
-  // Generate sub-agent files with their connected skill names
+  // Generate agent files with their connected skill names
   for (const node of reachable) {
-    if (node.data.type === "sub-agent") {
+    if (node.data.type === "agent") {
       const skillIds = skillsBySubAgent.get(node.id) ?? [];
       const connectedSkillNames: string[] = [];
       for (const skillId of skillIds) {
@@ -217,7 +217,7 @@ function collectAgentFiles(nodes: WorkflowNode[], edges: WorkflowEdge[]): Genera
         }
       }
 
-      const gen = NODE_GENERATORS["sub-agent"];
+      const gen = NODE_GENERATORS["agent"];
       if (gen?.getAgentFile) {
         const f = gen.getAgentFile(node.id, node.data, connectedSkillNames);
         if (f) files.push(f);
@@ -225,7 +225,7 @@ function collectAgentFiles(nodes: WorkflowNode[], edges: WorkflowEdge[]): Genera
     }
   }
 
-  // Generate skill files only for skills connected to a reachable sub-agent
+  // Generate skill files only for skills connected to a reachable agent
   for (const skillId of connectedSkillIds) {
     const skillNode = allNodeById.get(skillId);
     if (skillNode?.data?.type === "skill") {
@@ -290,7 +290,7 @@ Workflow arguments are **comma-separated and trimmed**. For example \`/workflow 
 
 ### Execution Methods by Node Type
 - **Stadium nodes (Start / End)**: Entry and exit points of the workflow
-- **Rectangle nodes (Sub-Agent: ...)**: Execute Sub-Agents via the spawn agent delegation system. If a \`params:\` line is present, pass those values as the agent's positional arguments (\`$1\`, \`$2\`, …). Values can be workflow-level positional args (e.g. \`$1\`), static references (e.g. \`{{name}}\`), or literal strings
+- **Rectangle nodes (Agent: ...)**: Execute Agents via the spawn agent delegation system. If a \`params:\` line is present, pass those values as the agent's positional arguments (\`$1\`, \`$2\`, …). Values can be workflow-level positional args (e.g. \`$1\`), static references (e.g. \`{{name}}\`), or literal strings
 - **Diamond nodes (AskUserQuestion:...)**: Use the AskUserQuestion tool to prompt the user and branch based on their response
 - **Diamond nodes (Branch/Switch:...)**: Automatically branch based on the results of previous processing (see details section)
 - **Rectangle nodes (Prompt nodes)**: Execute the prompts described in the details section below`;

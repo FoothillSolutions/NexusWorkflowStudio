@@ -65,7 +65,7 @@ export function SkillNode({ data, selected }: NodeProps<Node<SkillNodeData>>) {
         <Zap size={9} className="text-cyan-600 shrink-0" />
       </div>
 
-      {/* Single source-only handle — only valid target is a sub-agent node */}
+      {/* Single source-only handle — only valid target is an agent node */}
       <Handle
         type="source"
         position={Position.Right}
@@ -74,7 +74,7 @@ export function SkillNode({ data, selected }: NodeProps<Node<SkillNodeData>>) {
         style={{ backgroundColor: "#06b6d4", top: "auto", bottom: 14 }}
         isValidConnection={(connection) => {
           const targetNode = nodes.find((n) => n.id === connection.target);
-          return targetNode?.data?.type === "sub-agent";
+          return targetNode?.data?.type === "agent";
         }}
       />
     </BaseNode>

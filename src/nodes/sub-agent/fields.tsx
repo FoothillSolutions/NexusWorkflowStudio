@@ -147,7 +147,7 @@ export function Fields({ control, setValue, nodeId }: SubAgentFieldsProps) {
 					render={({ field }) => (
 						<Textarea
 							id="description"
-							placeholder="What does this sub-agent do?"
+							placeholder="What does this agent do?"
 							className="bg-zinc-800/60 border-zinc-700/60 rounded-xl focus-visible:ring-zinc-600 min-h-[72px] resize-none text-sm"
 							value={field.value ?? ""}
 							onChange={field.onChange}
