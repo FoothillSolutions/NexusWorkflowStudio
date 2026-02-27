@@ -96,10 +96,17 @@ export interface SwitchNodeData extends BaseNodeData {
   branches: SwitchBranch[];
 }
 
+export interface AskUserOption {
+  label: string;
+  description: string;
+}
+
 export interface AskUserNodeData extends BaseNodeData {
   type: "ask-user";
   questionText: string;
-  options: string[];
+  multipleSelection: boolean;
+  aiSuggestOptions: boolean;
+  options: AskUserOption[];
 }
 
 export interface EndNodeData extends BaseNodeData {

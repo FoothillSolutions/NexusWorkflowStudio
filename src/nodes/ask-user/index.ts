@@ -1,4 +1,4 @@
-export type { AskUserNodeData } from "./types";
+export type { AskUserNodeData, AskUserOption } from "./types";
 export { askUserRegistryEntry, askUserSchema } from "./constants";
 export { AskUserNode } from "./node";
 export { Fields as AskUserFields } from "./fields";

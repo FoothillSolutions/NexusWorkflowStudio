@@ -40,15 +40,28 @@ function mermaidNodeShape(node: WorkflowNode): string {
   if (gen) return gen.getMermaidShape(node.id, node.data);
   return `    ${mermaidId(node.id)}["${mermaidLabel(node.data.label ?? node.data.type)}"]`;
 }
-function mermaidEdge(edge: WorkflowEdge): string {
+function mermaidEdge(edge: WorkflowEdge, nodeById?: Map<string, WorkflowNode>): string {
   const srcId = mermaidId(edge.source);
   const tgtId = mermaidId(edge.target);
   const defaultHandles = new Set(["output", "input"]);
   const showLabel = edge.sourceHandle && !defaultHandles.has(edge.sourceHandle);
   if (showLabel) {
-    const raw = edge.sourceHandle!;
+    let raw = edge.sourceHandle!;
     // Only capitalize simple boolean handles (true/false); keep everything else as-is
     const boolHandles = new Set(["true", "false"]);
+    // Resolve ask-user option-N handles to their label text
+    const optionMatch = raw.match(/^option-(\d+)$/);
+    if (optionMatch && nodeById) {
+      const srcNode = nodeById.get(edge.source);
+      if (srcNode?.data?.type === "ask-user") {
+        const d = srcNode.data as import("@/types/workflow").AskUserNodeData;
+        const idx = parseInt(optionMatch[1], 10);
+        const opt = d.options?.[idx];
+        if (opt && typeof opt === "object" && opt.label) {
+          raw = opt.label;
+        }
+      }
+    }
     const displayLabel = boolHandles.has(raw)
       ? raw.charAt(0).toUpperCase() + raw.slice(1)
       : raw;
@@ -198,11 +211,27 @@ function buildSwitchDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[])
   if (sections.length === 0) return "";
   return "### Switch Node Details\n\n" + sections.join("\n\n");
 }
+function buildAskUserDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[]): string {
+  const order = topologicalOrder(nodes, edges);
+  const nodeById = new Map<string, WorkflowNode>(nodes.map((n) => [n.id, n]));
+  const sections: string[] = [];
+  for (const id of order) {
+    const node = nodeById.get(id);
+    if (!node || node.data.type !== "ask-user") continue;
+    const gen = NODE_GENERATORS["ask-user"];
+    if (gen) {
+      const detail = gen.getDetailsSection(node.id, node.data);
+      if (detail) sections.push(detail);
+    }
+  }
+  if (sections.length === 0) return "";
+  return "### AskUserQuestion Node Details\n\nAsk the user using question or AskUserQuestion tools and proceed based on their choice.\n\n" + sections.join("\n\n");
+}
 function buildDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[]): string {
   const order = topologicalOrder(nodes, edges);
   const nodeById = new Map<string, WorkflowNode>(nodes.map((n) => [n.id, n]));
   const sections: string[] = [];
-  const SKIP = new Set(["start", "end", "prompt", "agent", "skill", "if-else", "switch"]);
+  const SKIP = new Set(["start", "end", "prompt", "agent", "skill", "if-else", "switch", "ask-user"]);
   for (const id of order) {
     const node = nodeById.get(id);
     if (!node || SKIP.has(node.data.type)) continue;
@@ -316,7 +345,8 @@ function buildCommandMarkdown(workflow: WorkflowJSON): string {
     });
 
   const nodeLines = dedupedNodes.map(mermaidNodeShape).filter(Boolean);
-  const edgeLines = remappedEdges.map((e) => mermaidEdge(e));
+  const nodeById = new Map<string, WorkflowNode>(nodes.map((n) => [n.id, n]));
+  const edgeLines = remappedEdges.map((e) => mermaidEdge(e, nodeById));
   const mermaidInner = edgeLines.length > 0 ? [...nodeLines, "", ...edgeLines] : nodeLines;
   const mermaidBlock = ["```mermaid", "flowchart TD", ...mermaidInner, "```"].join("\n");
   const startNodeId = nodes.find((n) => n.data.type === "start")?.id ?? "start";
@@ -338,6 +368,7 @@ Workflow arguments are **comma-separated and trimmed**. For example \`/workflow 
   const subAgentDetails  = buildSubAgentDetailsSection(nodes, edges, workflow.nodes, workflow.edges);
   const ifElseDetails    = buildIfElseDetailsSection(nodes, edges);
   const switchDetails    = buildSwitchDetailsSection(nodes, edges);
+  const askUserDetails   = buildAskUserDetailsSection(nodes, edges);
   const otherDetails     = buildDetailsSection(nodes, edges);
 
   // Build frontmatter
@@ -348,6 +379,7 @@ Workflow arguments are **comma-separated and trimmed**. For example \`/workflow 
   if (subAgentDetails) parts.push("", subAgentDetails);
   if (ifElseDetails)   parts.push("", ifElseDetails);
   if (switchDetails)   parts.push("", switchDetails);
+  if (askUserDetails)  parts.push("", askUserDetails);
   if (otherDetails)    parts.push("", otherDetails);
   return parts.join("\n") + "\n";
 }
