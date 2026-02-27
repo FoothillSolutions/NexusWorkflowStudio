@@ -1,12 +1,16 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Copy, Trash2 } from "lucide-react";
+import { Copy, Trash2, BookmarkPlus } from "lucide-react";
+import type { NodeType } from "@/types/workflow";
 
 export type ContextMenuTarget =
-  | { kind: "node"; nodeId: string; isDeletable: boolean; isDuplicatable: boolean }
+  | { kind: "node"; nodeId: string; nodeType: NodeType; isDeletable: boolean; isDuplicatable: boolean }
   | { kind: "selection" }
   | { kind: "pane" };
+
+/** Node types that can be saved to the library */
+const SAVEABLE_TYPES = new Set<NodeType>(["agent", "skill", "mcp-tool", "prompt"]);
 
 interface ContextMenuProps {
   x: number;
@@ -18,6 +22,7 @@ interface ContextMenuProps {
   onDuplicate?: () => void;
   onDeleteSelected?: () => void;
   onDuplicateSelected?: () => void;
+  onSaveToLibrary?: () => void;
 }
 
 export function ContextMenu({
@@ -30,6 +35,7 @@ export function ContextMenu({
   onDuplicate,
   onDeleteSelected,
   onDuplicateSelected,
+  onSaveToLibrary,
 }: ContextMenuProps) {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -57,15 +63,17 @@ export function ContextMenu({
   const multiSelected = selectedCount > 1;
 
   // Single node actions
-  const canDuplicate = isNode && (target as Extract<ContextMenuTarget, { kind: "node" }>).isDuplicatable && !!onDuplicate;
-  const canDelete    = isNode && (target as Extract<ContextMenuTarget, { kind: "node" }>).isDeletable  && !!onDelete;
+  const nodeTarget = isNode ? (target as Extract<ContextMenuTarget, { kind: "node" }>) : null;
+  const canDuplicate = isNode && nodeTarget!.isDuplicatable && !!onDuplicate;
+  const canDelete    = isNode && nodeTarget!.isDeletable  && !!onDelete;
+  const canSaveToLib = isNode && SAVEABLE_TYPES.has(nodeTarget!.nodeType) && !!onSaveToLibrary;
 
   // Multi-select / selection actions (shown when selection box right-clicked OR on a node that's part of a multi-select)
   const showSelectionActions = (isSelection || (isNode && multiSelected)) && selectedCount > 1;
   const canDuplicateSelected = showSelectionActions && !!onDuplicateSelected;
   const canDeleteSelected    = showSelectionActions && !!onDeleteSelected;
 
-  const hasSingle    = canDuplicate || canDelete;
+  const hasSingle    = canDuplicate || canDelete || canSaveToLib;
   const hasMulti     = canDuplicateSelected || canDeleteSelected;
 
   if (!hasSingle && !hasMulti) return null;
@@ -77,6 +85,16 @@ export function ContextMenu({
       className="bg-zinc-900/95 backdrop-blur-sm border border-zinc-700/60 rounded-xl shadow-2xl shadow-black/70 p-1 min-w-[160px] text-[13px]"
     >
       {/* ── Single node actions ── */}
+      {canSaveToLib && (
+        <button
+          onClick={() => { onSaveToLibrary!(); onClose(); }}
+          className="flex items-center gap-2.5 w-full px-2.5 py-1.5 rounded-md text-blue-400 hover:bg-blue-500/10 hover:text-blue-300 transition-colors duration-100"
+        >
+          <BookmarkPlus size={13} className="shrink-0" />
+          Save to Library
+        </button>
+      )}
+      {canSaveToLib && (canDuplicate || canDelete) && <div className="border-t border-zinc-700/50 my-1 mx-1" />}
       {canDuplicate && (
         <button
           onClick={() => { onDuplicate!(); onClose(); }}

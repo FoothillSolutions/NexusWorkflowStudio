@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { customAlphabet } from "nanoid";
-import type { SavedWorkflowEntry } from "@/lib/saved-workflows";
+import type { SavedWorkflowEntry, LibraryItemEntry, LibraryCategory } from "@/lib/saved-workflows";
 import {
   getAllSavedWorkflows,
   saveWorkflowToCollection,
@@ -8,14 +8,20 @@ import {
   loadFromCollection,
   renameInCollection,
   duplicateInCollection,
+  getAllLibraryItems,
+  saveNodeToLibrary,
+  deleteLibraryItem,
+  renameLibraryItem,
 } from "@/lib/saved-workflows";
-import type { WorkflowJSON } from "@/types/workflow";
+import type { WorkflowJSON, WorkflowNodeData } from "@/types/workflow";
 import { useWorkflowStore } from "@/store/workflow-store";
 
 const nanoid = customAlphabet("abcdefghijklmnopqrstuvwxyz0123456789", 12);
 
 interface SavedWorkflowsState {
   entries: SavedWorkflowEntry[];
+  libraryItems: LibraryItemEntry[];
+  activeCategory: LibraryCategory | "all";
   sidebarOpen: boolean;
   /** ID of the workflow currently being edited (null = unsaved / new) */
   activeId: string | null;
@@ -29,15 +35,24 @@ interface SavedWorkflowsState {
   toggleSidebar: () => void;
   openSidebar: () => void;
   closeSidebar: () => void;
+  setActiveCategory: (cat: LibraryCategory | "all") => void;
+  saveNodeToLib: (nodeData: WorkflowNodeData) => string;
+  removeLibraryItem: (id: string) => void;
+  renameLibraryItem: (id: string, newName: string) => void;
 }
 
 export const useSavedWorkflowsStore = create<SavedWorkflowsState>((set, get) => ({
   entries: [],
+  libraryItems: [],
+  activeCategory: "all",
   sidebarOpen: false,
   activeId: null,
 
   refresh: () => {
-    set({ entries: getAllSavedWorkflows() });
+    set({
+      entries: getAllSavedWorkflows(),
+      libraryItems: getAllLibraryItems(),
+    });
   },
 
   save: (workflow, existingId) => {
@@ -95,5 +110,24 @@ export const useSavedWorkflowsStore = create<SavedWorkflowsState>((set, get) => 
   },
 
   closeSidebar: () => set({ sidebarOpen: false }),
+
+  setActiveCategory: (cat) => set({ activeCategory: cat }),
+
+  saveNodeToLib: (nodeData) => {
+    const id = nanoid();
+    saveNodeToLibrary(id, nodeData);
+    get().refresh();
+    return id;
+  },
+
+  removeLibraryItem: (id) => {
+    deleteLibraryItem(id);
+    get().refresh();
+  },
+
+  renameLibraryItem: (id, newName) => {
+    renameLibraryItem(id, newName);
+    get().refresh();
+  },
 }));
 

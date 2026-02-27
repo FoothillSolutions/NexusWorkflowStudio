@@ -13,8 +13,10 @@ import {
   SelectionMode,
 } from "@xyflow/react";
 import { useWorkflowStore } from "@/store/workflow-store";
+import { useSavedWorkflowsStore } from "@/store/saved-workflows-store";
 import type { NodeType } from "@/types/workflow";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import { Map } from "lucide-react";
 import {
   BG_CANVAS_HEX,
@@ -78,6 +80,7 @@ export default function Canvas() {
         target: {
           kind: "node",
           nodeId: node.id,
+          nodeType: (node.data?.type ?? "start") as NodeType,
           isDeletable: node.data?.type !== "start",
           isDuplicatable: node.data?.type !== "start",
         },
@@ -148,6 +151,18 @@ export default function Canvas() {
   const handleDuplicateSelected = useCallback(() => {
     duplicateSelectedNodes();
   }, [duplicateSelectedNodes]);
+
+  const handleSaveToLibrary = useCallback(() => {
+    const target = ctxMenu?.target;
+    if (target?.kind === "node") {
+      const node = nodes.find((n) => n.id === target.nodeId);
+      if (node?.data) {
+        const { saveNodeToLib } = useSavedWorkflowsStore.getState();
+        saveNodeToLib(node.data);
+        toast.success(`"${node.data.label || node.data.type}" saved to library`);
+      }
+    }
+  }, [ctxMenu, nodes]);
 
   // ── Keyboard shortcuts ───────────────────────────────────────────────────
   useEffect(() => {
@@ -274,6 +289,7 @@ export default function Canvas() {
           onDuplicate={ctxMenu.target.kind === "node" ? handleDuplicate : undefined}
           onDeleteSelected={selectedCount > 1 ? handleDeleteSelected : undefined}
           onDuplicateSelected={selectedCount > 1 ? handleDuplicateSelected : undefined}
+          onSaveToLibrary={ctxMenu.target.kind === "node" ? handleSaveToLibrary : undefined}
         />
       )}
     </div>

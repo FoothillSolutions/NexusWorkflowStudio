@@ -1,8 +1,31 @@
-import type { WorkflowJSON } from "@/types/workflow";
+import type { WorkflowJSON, WorkflowNodeData, NodeType } from "@/types/workflow";
 import { workflowJsonSchema } from "@/lib/schemas";
 
 // ── Storage key prefix ──────────────────────────────────────────────────────
 const COLLECTION_KEY = "nexus-workflow-studio:saved-workflows";
+const LIBRARY_KEY = "nexus-workflow-studio:library";
+
+// ── Library categories ──────────────────────────────────────────────────────
+export type LibraryCategory = "workflow" | "agent" | "skill" | "mcp-tool" | "prompt";
+
+export const LIBRARY_CATEGORIES: { value: LibraryCategory | "all"; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "workflow", label: "Workflows" },
+  { value: "agent", label: "Agents" },
+  { value: "skill", label: "Skills" },
+  { value: "prompt", label: "Prompts" },
+];
+
+/** Maps node types to their library category */
+export function nodeTypeToCategory(type: NodeType): LibraryCategory | null {
+  switch (type) {
+    case "agent": return "agent";
+    case "skill": return "skill";
+    case "mcp-tool": return "mcp-tool";
+    case "prompt": return "prompt";
+    default: return null;
+  }
+}
 
 // ── Types ───────────────────────────────────────────────────────────────────
 export interface SavedWorkflowMeta {
@@ -23,6 +46,20 @@ export interface SavedWorkflowMeta {
 export interface SavedWorkflowEntry extends SavedWorkflowMeta {
   /** The full workflow data */
   workflow: WorkflowJSON;
+}
+
+// ── Library item (individual node saved to library) ─────────────────────────
+export interface LibraryItemEntry {
+  id: string;
+  name: string;
+  category: LibraryCategory;
+  nodeType: NodeType;
+  savedAt: string;
+  updatedAt: string;
+  /** The full node data payload */
+  nodeData: WorkflowNodeData;
+  /** Optional short description extracted from node data */
+  description?: string;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -140,5 +177,99 @@ export function duplicateInCollection(
   entries.unshift(duplicate);
   writeCollection(entries);
   return duplicate;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Library items (individual nodes: agents, skills, tools, prompts)
+// ═══════════════════════════════════════════════════════════════════════════
+
+function readLibrary(): LibraryItemEntry[] {
+  try {
+    const raw = localStorage.getItem(LIBRARY_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) as LibraryItemEntry[];
+  } catch {
+    console.error("Failed to read library collection");
+    return [];
+  }
+}
+
+function writeLibrary(entries: LibraryItemEntry[]): void {
+  try {
+    localStorage.setItem(LIBRARY_KEY, JSON.stringify(entries));
+  } catch {
+    console.error("Failed to write library collection");
+  }
+}
+
+/** Get all library items. */
+export function getAllLibraryItems(): LibraryItemEntry[] {
+  return readLibrary();
+}
+
+/** Extract a short description from node data. */
+function extractDescription(data: WorkflowNodeData): string {
+  switch (data.type) {
+    case "agent":
+      return (data as import("@/types/workflow").SubAgentNodeData).description || "";
+    case "skill":
+      return (data as import("@/types/workflow").SkillNodeData).description || "";
+    case "mcp-tool":
+      return (data as import("@/types/workflow").McpToolNodeData).toolName || "";
+    case "prompt":
+      return (data as import("@/types/workflow").PromptNodeData).promptText?.slice(0, 80) || "";
+    default:
+      return "";
+  }
+}
+
+/** Save a node to the library. */
+export function saveNodeToLibrary(
+  id: string,
+  data: WorkflowNodeData
+): LibraryItemEntry {
+  const now = new Date().toISOString();
+  const category = nodeTypeToCategory(data.type);
+  if (!category) throw new Error(`Cannot save node type "${data.type}" to library`);
+
+  const entries = readLibrary();
+  const existingIdx = entries.findIndex((e) => e.id === id);
+
+  const entry: LibraryItemEntry = {
+    id,
+    name: data.label || data.name || data.type,
+    category,
+    nodeType: data.type,
+    savedAt: existingIdx >= 0 ? entries[existingIdx].savedAt : now,
+    updatedAt: now,
+    nodeData: { ...data },
+    description: extractDescription(data),
+  };
+
+  if (existingIdx >= 0) {
+    entries[existingIdx] = entry;
+  } else {
+    entries.unshift(entry);
+  }
+
+  writeLibrary(entries);
+  return entry;
+}
+
+/** Delete a library item by id. */
+export function deleteLibraryItem(id: string): void {
+  const entries = readLibrary().filter((e) => e.id !== id);
+  writeLibrary(entries);
+}
+
+/** Rename a library item. */
+export function renameLibraryItem(id: string, newName: string): void {
+  const entries = readLibrary();
+  const entry = entries.find((e) => e.id === id);
+  if (entry) {
+    entry.name = newName;
+    entry.updatedAt = new Date().toISOString();
+    writeLibrary(entries);
+  }
 }
 
