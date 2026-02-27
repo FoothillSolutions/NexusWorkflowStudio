@@ -1,4 +1,4 @@
-export type { SwitchNodeData } from "./types";
+export type { SwitchNodeData, SwitchBranch } from "./types";
 export { switchRegistryEntry, switchSchema } from "./constants";
 export { SwitchNode } from "./node";
 export { Fields as SwitchFields } from "./fields";

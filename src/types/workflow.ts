@@ -85,10 +85,15 @@ export interface IfElseNodeData extends BaseNodeData {
   branches: IfElseBranch[];
 }
 
+export interface SwitchBranch {
+  label: string;
+  condition: string;
+}
+
 export interface SwitchNodeData extends BaseNodeData {
   type: "switch";
-  switchExpr: string;
-  cases: string[];
+  evaluationTarget: string;
+  branches: SwitchBranch[];
 }
 
 export interface AskUserNodeData extends BaseNodeData {
