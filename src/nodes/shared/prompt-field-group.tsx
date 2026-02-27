@@ -8,6 +8,7 @@ import { FullscreenMarkdownEditor } from "@/components/ui/fullscreen-markdown-ed
 import { Maximize2, FileUp } from "lucide-react";
 import { toast } from "sonner";
 import type { FormControl, FormSetValue } from "./form-types";
+import { RequiredIndicator } from "./required-indicator";
 
 /** Strip YAML frontmatter (enclosed by --- at the top of a file) */
 function stripFrontmatter(text: string): string {
@@ -35,6 +36,8 @@ interface PromptFieldGroupProps {
   placeholder?: string;
   /** HTML id for the label / editor (accessibility) */
   htmlId?: string;
+  /** Show a red required star next to the label */
+  required?: boolean;
 }
 
 /**
@@ -52,6 +55,7 @@ export function PromptFieldGroup({
   height = 200,
   placeholder = "Write your prompt in Markdown…",
   htmlId = "promptText",
+  required = false,
 }: PromptFieldGroupProps) {
   const [editorOpen, setEditorOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -90,7 +94,9 @@ export function PromptFieldGroup({
     <>
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <Label htmlFor={htmlId}>{label}</Label>
+          <Label htmlFor={htmlId}>
+            {label} {required && <RequiredIndicator />}
+          </Label>
           <div className="flex items-center gap-1">
             <Button
               type="button"

@@ -9,6 +9,7 @@ import { PromptFieldGroup } from "@/nodes/shared/prompt-field-group";
 import { Plus, Trash2 } from "lucide-react";
 import { detectVariables, DetectedVariablesPanel } from "@/nodes/shared/variable-utils";
 import type { FormControl, FormSetValue, FormRegister } from "@/nodes/shared/form-types";
+import { RequiredIndicator } from "@/nodes/shared/required-indicator";
 import type { SkillMetadataEntry } from "./types";
 
 const SLUG_REGEX = /^[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -41,7 +42,9 @@ export function Fields({ control, setValue }: SkillFieldsProps) {
     <div className="space-y-4">
       {/* Description */}
       <div className="space-y-2">
-        <Label htmlFor="skill-description">Description</Label>
+        <Label htmlFor="skill-description">
+          Description <RequiredIndicator />
+        </Label>
         <Controller
           name={"description" as never}
           control={control}
@@ -66,6 +69,7 @@ export function Fields({ control, setValue }: SkillFieldsProps) {
         htmlId="skill-prompt"
         height={160}
         placeholder="The content of the skill goes here"
+        required
       />
       <DetectedVariablesPanel dynamic={dynamic} staticVars={staticVars} />
 

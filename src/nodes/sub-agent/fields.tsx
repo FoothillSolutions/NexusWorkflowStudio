@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { PromptFieldGroup } from "@/nodes/shared/prompt-field-group";
 import { detectVariables, DetectedVariablesPanel, DYNAMIC_VAR_RE, STATIC_VAR_RE } from "@/nodes/shared/variable-utils";
 import type { FormControl, FormSetValue } from "@/nodes/shared/form-types";
+import { RequiredIndicator } from "@/nodes/shared/required-indicator";
 import { SubAgentModel, SubAgentMemory, MODEL_DISPLAY_NAMES } from "./types";
 import { AGENT_TOOLS, PRESET_COLORS } from "./constants";
 import type { AgentTool } from "./constants";
@@ -141,7 +142,9 @@ export function Fields({ control, setValue, nodeId }: SubAgentFieldsProps) {
 		<div className="space-y-5">
 			{/* Description */}
 			<div className="space-y-2">
-				<Label htmlFor="description">Description</Label>
+				<Label htmlFor="description">
+					Description <RequiredIndicator />
+				</Label>
 				<Controller
 					name="description"
 					control={control}
@@ -166,6 +169,7 @@ export function Fields({ control, setValue, nodeId }: SubAgentFieldsProps) {
 				htmlId="promptText"
 				height={180}
 				placeholder="Enter your prompt here"
+				required
 			/>
 			<DetectedVariablesPanel dynamic={dynamic} staticVars={staticVars} />
 

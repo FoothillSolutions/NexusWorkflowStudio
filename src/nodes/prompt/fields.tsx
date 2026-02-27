@@ -27,6 +27,7 @@ export function Fields({ control, setValue }: PromptFieldsProps) {
         setValue={setValue}
         value={promptText}
         height={200}
+        required
       />
       <DetectedVariablesPanel dynamic={dynamic} staticVars={staticVars} />
     </div>

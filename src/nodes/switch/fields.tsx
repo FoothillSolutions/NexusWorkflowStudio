@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Plus, X } from "lucide-react";
 import { NODE_ACCENT, BRANCH_DEFAULT } from "@/lib/node-colors";
 import type { FormRegister, FormControl } from "@/nodes/shared/form-types";
+import { RequiredIndicator } from "@/nodes/shared/required-indicator";
 
 interface SwitchFieldsProps {
   register: FormRegister;
@@ -33,7 +34,9 @@ export function Fields({ register, control }: SwitchFieldsProps) {
     <>
       {/* Evaluation Target */}
       <div className="space-y-1.5">
-        <Label htmlFor="evaluationTarget">Evaluation Target</Label>
+        <Label htmlFor="evaluationTarget">
+          Evaluation Target <RequiredIndicator />
+        </Label>
         <p className="text-[11px] text-zinc-500 leading-tight">
           Describe what to evaluate in the branch condition
         </p>

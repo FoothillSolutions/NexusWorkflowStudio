@@ -1,6 +1,7 @@
 export { BaseNode, NodeSize } from "./base-node";
 export { mermaidId, mermaidLabel } from "./mermaid-utils";
 export { PromptFieldGroup } from "./prompt-field-group";
+export { RequiredIndicator } from "./required-indicator";
 export {
   detectVariables,
   detectVarCounts,

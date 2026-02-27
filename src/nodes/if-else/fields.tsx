@@ -7,6 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { BRANCH_TRUE, BRANCH_FALSE } from "@/lib/node-colors";
 import type { FormRegister, FormControl } from "@/nodes/shared/form-types";
+import { RequiredIndicator } from "@/nodes/shared/required-indicator";
 
 interface IfElseFieldsProps {
   register: FormRegister;
@@ -20,7 +21,9 @@ export function Fields({ register, control }: IfElseFieldsProps) {
     <>
       {/* Evaluation Target */}
       <div className="space-y-1.5">
-        <Label htmlFor="evaluationTarget">Evaluation Target</Label>
+        <Label htmlFor="evaluationTarget">
+          Evaluation Target <RequiredIndicator />
+        </Label>
         <p className="text-[11px] text-zinc-500 leading-tight">
           Describe what to evaluate in the branch condition
         </p>

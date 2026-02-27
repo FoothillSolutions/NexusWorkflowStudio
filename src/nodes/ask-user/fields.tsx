@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { Plus, X, Sparkles, ListChecks } from "lucide-react";
 import { NODE_ACCENT } from "@/lib/node-colors";
 import type { FormRegister, FormControl, FormSetValue } from "@/nodes/shared/form-types";
+import { RequiredIndicator } from "@/nodes/shared/required-indicator";
 
 interface AskUserFieldsProps {
   register: FormRegister;
@@ -51,7 +52,7 @@ export function Fields({ register, control, setValue }: AskUserFieldsProps) {
       {/* Question */}
       <div className="space-y-2">
         <Label htmlFor="questionText">
-          Question <span className="text-destructive">*</span>
+          Question <RequiredIndicator />
         </Label>
         <Textarea
           id="questionText"
