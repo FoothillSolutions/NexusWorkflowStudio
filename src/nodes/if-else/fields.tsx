@@ -44,7 +44,7 @@ export function Fields({ register, control }: IfElseFieldsProps) {
             >
               <div className="flex items-center gap-2">
                 <div
-                  className="h-2 w-2 rounded-full shrink-0"
+                  className="h-2 w-2 rounded-sm shrink-0"
                   style={{
                     backgroundColor: index === 0 ? "#22c55e" : "#ef4444",
                   }}

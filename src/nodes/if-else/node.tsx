@@ -10,6 +10,13 @@ const BRANCH_COLORS: Record<number, string> = {
   1: "#ef4444", // red for false
 };
 
+const BRANCH_BORDER_STYLE = (color: string) => ({
+  borderLeft: `2px solid ${color}`,
+  borderTop: "1px solid rgba(63,63,70,0.4)",
+  borderRight: "1px solid rgba(63,63,70,0.4)",
+  borderBottom: "1px solid rgba(63,63,70,0.4)",
+});
+
 export function IfElseNode({ data, selected }: NodeProps<Node<IfElseNodeData>>) {
   const { icon, accentHex, displayName } = ifElseRegistryEntry;
   const branches: IfElseBranch[] = data.branches ?? [
@@ -39,21 +46,16 @@ export function IfElseNode({ data, selected }: NodeProps<Node<IfElseNodeData>>) 
           const handleId = i === 0 ? "true" : "false";
           return (
             <div key={i} className="relative flex items-center gap-2">
-              {/* Branch pill */}
+              {/* Branch pill with left accent stripe */}
               <div
-                className="flex-1 min-w-0 flex flex-col gap-0.5 px-2 py-1.5 rounded-md border border-zinc-800/60 bg-zinc-950/40 overflow-hidden"
+                className="flex-1 min-w-0 flex flex-col gap-0.5 pl-2.5 pr-2 py-1.5 rounded-md bg-zinc-950/40 overflow-hidden"
+                style={BRANCH_BORDER_STYLE(color)}
               >
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <div
-                    className="h-1.5 w-1.5 rounded-full shrink-0"
-                    style={{ backgroundColor: color }}
-                  />
-                  <span className="text-[11px] font-medium text-zinc-300 truncate">
-                    {branch.label || (i === 0 ? "True" : "False")}
-                  </span>
-                </div>
+                <span className="text-[11px] font-medium text-zinc-300 truncate">
+                  {branch.label || (i === 0 ? "True" : "False")}
+                </span>
                 {branch.condition && (
-                  <p className="text-[10px] text-zinc-500 leading-tight ml-3 truncate">
+                  <p className="text-[10px] text-zinc-500 leading-tight truncate">
                     {branch.condition}
                   </p>
                 )}

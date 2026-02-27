@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback, useMemo } from "react";
+import { useEffect, useCallback, useMemo, useRef } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Input } from "@/components/ui/input";
@@ -54,17 +54,35 @@ export default function PropertiesPanel() {
 
   const watchedValues = useWatch({ control });
 
+  // Guards stale form writes when switching between nodes.
+  // Set to `null` when selectedNodeId changes, then set to the new ID
+  // one micro-tick after reset so the *current* render cycle (which still
+  // carries the previous node's watchedValues) is skipped.
+  const readyNodeIdRef = useRef<string | null>(null);
+
   useEffect(() => {
+    // Block writes immediately — watchedValues in this commit are stale
+    readyNodeIdRef.current = null;
+
     if (nodeData && registryEntry) {
-      // Merge defaultData so fields added after a node was saved get proper defaults
       const defaults = registryEntry.defaultData() as Record<string, unknown>;
       const merged = { ...defaults, ...nodeData } as Record<string, unknown>;
       reset(merged);
     }
+
+    // Enable writes only after React has flushed the re-render caused by
+    // reset(), so watchedValues reflects the *new* node's data.
+    const id = selectedNodeId ?? null;
+    const handle = requestAnimationFrame(() => {
+      readyNodeIdRef.current = id;
+    });
+    return () => cancelAnimationFrame(handle);
   }, [selectedNodeId, reset]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!selectedNodeId || !watchedValues || !nodeType) return;
+    // Skip until the form has been reset AND a full render cycle has passed
+    if (readyNodeIdRef.current !== selectedNodeId) return;
     const updatedData = { ...watchedValues, type: nodeType } as Partial<WorkflowNodeData>;
     updateNodeData(selectedNodeId, updatedData);
   }, [watchedValues, selectedNodeId, nodeType, updateNodeData]);

@@ -33,5 +33,5 @@ export const ifElseSchema = z.object({
   name: z.string().min(1, "Name is required").regex(/^[a-zA-Z0-9_-]+$/, "Only alphanumeric characters, hyphens, and underscores"),
   label: z.string().min(1, "Label is required"),
   evaluationTarget: z.string(),
-  branches: z.array(ifElseBranchSchema).min(2, "At least two branches are required"),
+  branches: z.array(ifElseBranchSchema).length(2, "Exactly two branches are required"),
 });
