@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Hand, MousePointer2, Spline, LayoutDashboard } from "lucide-react";
 import { TEXT_MUTED } from "@/lib/theme";
+import { MOD, SHIFT } from "@/lib/platform";
 
 export default function CanvasToolbar() {
   const canvasMode = useWorkflowStore((s) => s.canvasMode);
@@ -88,7 +89,7 @@ export default function CanvasToolbar() {
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom" className="text-xs">
-            Auto-layout <kbd className="ml-1 text-[10px] opacity-60">Ctrl+Shift+L</kbd>
+            Auto-layout <kbd className="ml-1 text-[10px] opacity-60">{MOD}+{SHIFT}+L</kbd>
           </TooltipContent>
         </Tooltip>
       </div>

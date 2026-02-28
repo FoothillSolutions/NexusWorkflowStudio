@@ -71,6 +71,7 @@ export default function Header() {
     }
   }, [isEditingName]);
 
+
   const handleNameBlur = () => setIsEditingName(false);
 
   const handleNameKeyDown = (e: React.KeyboardEvent) => {
@@ -131,6 +132,26 @@ export default function Header() {
     setPreviewOpen(true);
   }, [getWorkflowJSON]);
 
+  // Listen for custom events dispatched by keyboard shortcuts in workflow-editor
+  useEffect(() => {
+    const onOpenShortcuts = () => setShortcutsOpen(true);
+    const onOpenImport = () => setImportDialogOpen(true);
+    const onOpenPreview = () => handleView();
+    const onGenerate = () => handleGenerate();
+
+    window.addEventListener("nexus:open-shortcuts", onOpenShortcuts);
+    window.addEventListener("nexus:open-import", onOpenImport);
+    window.addEventListener("nexus:open-preview", onOpenPreview);
+    window.addEventListener("nexus:generate", onGenerate);
+
+    return () => {
+      window.removeEventListener("nexus:open-shortcuts", onOpenShortcuts);
+      window.removeEventListener("nexus:open-import", onOpenImport);
+      window.removeEventListener("nexus:open-preview", onOpenPreview);
+      window.removeEventListener("nexus:generate", onGenerate);
+    };
+  }, [handleView, handleGenerate]);
+
   const handleComingSoon = () => toast("Coming soon!", { icon: "🚧" });
 
   return (
@@ -186,12 +207,10 @@ export default function Header() {
             <DropdownMenuItem onClick={handleNew}>
               <FilePlus className="h-4 w-4 mr-2" />
               New Workflow
-              <DropdownMenuShortcut>⌘N</DropdownMenuShortcut>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleSave}>
               <Save className="h-4 w-4 mr-2" />
               Save
-              <DropdownMenuShortcut>⌘S</DropdownMenuShortcut>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => setImportDialogOpen(true)}>

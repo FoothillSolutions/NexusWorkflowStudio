@@ -6,14 +6,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { MOD, SHIFT, ALT, DEL, PLATFORM } from "@/lib/platform";
 
 interface ShortcutsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
-
-const isMac = typeof navigator !== "undefined" && /mac/i.test(navigator.platform);
-const MOD = isMac ? "⌘" : "Ctrl";
 
 const KBD = ({ children }: { children: React.ReactNode }) => (
   <kbd className="inline-flex items-center justify-center min-w-[26px] h-[22px] px-1.5 rounded bg-zinc-700 border border-zinc-600 text-zinc-200 text-[11px] font-mono leading-none">
@@ -44,15 +42,32 @@ const Section = ({ title, children }: { title: string; children: React.ReactNode
   </div>
 );
 
+const platformLabel =
+  PLATFORM === "mac" ? "macOS" : PLATFORM === "linux" ? "Linux" : "Windows";
+
 export default function ShortcutsDialog({ open, onOpenChange }: ShortcutsDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-zinc-900 border-zinc-700 text-zinc-100 max-w-sm">
+      <DialogContent className="bg-zinc-900 border-zinc-700 text-zinc-100 max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-zinc-100 text-base">Keyboard Shortcuts</DialogTitle>
+          <DialogTitle className="text-zinc-100 text-base flex items-center gap-2">
+            Keyboard Shortcuts
+            <span className="text-[10px] font-normal text-zinc-500 bg-zinc-800 rounded px-1.5 py-0.5 uppercase tracking-wider">
+              {platformLabel}
+            </span>
+          </DialogTitle>
         </DialogHeader>
 
-        <div className="mt-1">
+        <div className="mt-1 max-h-[60vh] overflow-y-auto pr-1">
+          <Section title="File">
+            <Row keys={[MOD, ALT, "N"]} label="New workflow" />
+            <Row keys={[MOD, "S"]} label="Save to library" />
+            <Row keys={[MOD, ALT, "E"]} label="Export workflow" />
+            <Row keys={[MOD, ALT, "O"]} label="Import workflow" />
+            <Row keys={[MOD, ALT, "G"]} label="Generate & download" />
+            <Row keys={[MOD, ALT, "P"]} label="Preview output" />
+          </Section>
+
           <Section title="Tools">
             <Row keys={["H"]} label="Hand tool (pan mode)" />
             <Row keys={["V"]} label="Selection tool (marquee)" />
@@ -65,14 +80,21 @@ export default function ShortcutsDialog({ open, onOpenChange }: ShortcutsDialogP
 
           <Section title="Edit">
             <Row keys={[MOD, "D"]} label="Duplicate selected" />
-            <Row keys={["Del"]} label="Delete selected" />
-            <Row keys={[MOD, "Shift", "L"]} label="Auto-layout" />
+            <Row keys={[DEL]} label="Delete selected" />
+            <Row keys={[MOD, "Z"]} label="Undo" />
+            <Row keys={[MOD, SHIFT, "Z"]} label="Redo" />
+            <Row keys={[MOD, SHIFT, "L"]} label="Auto-layout" />
           </Section>
 
           <Section title="Canvas">
             <Row keys={["Scroll"]} label="Zoom in / out" />
             <Row keys={["Middle drag"]} label="Pan canvas" />
             <Row keys={["Double-click"]} label="Open node properties" />
+          </Section>
+
+          <Section title="General">
+            <Row keys={["Esc"]} label="Close panel / dialog" />
+            <Row keys={["?"]} label="Show this dialog" />
           </Section>
         </div>
       </DialogContent>

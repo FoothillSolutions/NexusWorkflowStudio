@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { temporal } from "zundo";
 import {
   applyNodeChanges,
   applyEdgeChanges,
@@ -125,7 +126,9 @@ const initialState = {
 };
 
 // ── Store ───────────────────────────────────────────────────────────────────
-export const useWorkflowStore = create<WorkflowState>((set, get) => ({
+export const useWorkflowStore = create<WorkflowState>()(
+  temporal(
+    (set, get) => ({
   ...initialState,
 
   // ── React Flow change handlers ──────────────────────────────────────────
@@ -378,4 +381,18 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   reset: () => set(initialState),
-}));
+}),
+    {
+      // Only track data that matters for undo/redo
+      partialize: (state) => ({
+        nodes: state.nodes,
+        edges: state.edges,
+        name: state.name,
+      }),
+      limit: 50,
+      // Avoid recording identical states (e.g. viewport-only changes)
+      equality: (pastState, currentState) =>
+        JSON.stringify(pastState) === JSON.stringify(currentState),
+    },
+  ),
+);

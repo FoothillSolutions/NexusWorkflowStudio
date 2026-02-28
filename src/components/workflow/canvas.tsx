@@ -28,6 +28,7 @@ import { NODE_REGISTRY, NODE_TYPE_COMPONENTS } from "@/lib/node-registry";
 import { NodeSize, NODE_SIZE_DIMENSIONS } from "@/nodes/shared/base-node";
 import { DeletableEdge } from "@/components/edges/deletable-edge";
 import { ContextMenu, type ContextMenuTarget } from "@/components/workflow/context-menu";
+import { isModKey } from "@/lib/platform";
 
 
 const edgeTypeComponents: EdgeTypes = {
@@ -271,7 +272,7 @@ export default function Canvas() {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement).isContentEditable) return;
 
-      const isMod = e.ctrlKey || e.metaKey;
+      const isMod = isModKey(e);
       const selected = nodes.filter((n) => n.selected);
       const multiSelected = selected.length > 1;
       const singleSelected = selected.length === 1 && selected[0].data?.type !== "start";

@@ -4,7 +4,9 @@ import { useEffect } from "react";
 import { ReactFlowProvider } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useWorkflowStore } from "@/store/workflow-store";
-import { throttledSave } from "@/lib/persistence";
+import { useSavedWorkflowsStore } from "@/store/library-store";
+import { throttledSave, exportWorkflow } from "@/lib/persistence";
+import { isModKey } from "@/lib/platform";
 import { toast } from "sonner";
 import { BG_APP, TEXT_PRIMARY } from "@/lib/theme";
 import Header from "./header";
@@ -19,24 +21,86 @@ export default function WorkflowEditor() {
   const {
     closePropertiesPanel,
     getWorkflowJSON,
+    reset,
   } = useWorkflowStore();
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts (global — dialogs are managed by Header)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Save: Ctrl+S or Cmd+S
-      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+      const mod = isModKey(e);
+
+      // ── ? → Show shortcuts dialog (? = Shift+/ on most keyboards) ──
+      if (e.key === "?") {
+        const tag = (e.target as HTMLElement).tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement).isContentEditable) return;
         e.preventDefault();
-        const data = getWorkflowJSON();
-        // Since throttledSave is throttled, we might want a direct save here for user feedback
-        // But for consistency with auto-save, we can use the same function or a direct call if we exposed saveToLocalStorage
-        // For now, let's just trigger the throttled save and show toast
-        throttledSave(data);
-        toast.success("Workflow saved");
+        window.dispatchEvent(new CustomEvent("nexus:open-shortcuts"));
         return;
       }
 
-      // Escape: Close properties panel
+      // ── Mod+Shift+Z → Redo ──────────────────────────────────────
+      if (mod && e.shiftKey && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        useWorkflowStore.temporal.getState().redo();
+        return;
+      }
+
+      // ── Mod+Z → Undo ────────────────────────────────────────────
+      if (mod && !e.shiftKey && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        useWorkflowStore.temporal.getState().undo();
+        return;
+      }
+
+      // ── Mod+S → Save to library ──────────────────────────────────
+      if (mod && !e.altKey && !e.shiftKey && e.code === "KeyS") {
+        e.preventDefault();
+        const json = getWorkflowJSON();
+        useSavedWorkflowsStore.getState().save(json);
+        throttledSave(json);
+        toast.success("Workflow saved to library");
+        return;
+      }
+
+      // ── Mod+Alt+N → New workflow ──────────────────────────────────
+      if (mod && e.altKey && e.code === "KeyN") {
+        e.preventDefault();
+        reset();
+        useSavedWorkflowsStore.getState().clearActiveId();
+        toast.success("New workflow created");
+        return;
+      }
+
+      // ── Mod+Alt+E → Export workflow ────────────────────────────────
+      if (mod && e.altKey && e.code === "KeyE") {
+        e.preventDefault();
+        exportWorkflow(getWorkflowJSON());
+        toast.success("Workflow exported");
+        return;
+      }
+
+      // ── Mod+Alt+O → Import workflow ────────────────────────────────
+      if (mod && e.altKey && e.code === "KeyO") {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent("nexus:open-import"));
+        return;
+      }
+
+      // ── Mod+Alt+G → Generate & download ───────────────────────────
+      if (mod && e.altKey && e.code === "KeyG") {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent("nexus:generate"));
+        return;
+      }
+
+      // ── Mod+Alt+P → Preview output ────────────────────────────────
+      if (mod && e.altKey && e.code === "KeyP") {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent("nexus:open-preview"));
+        return;
+      }
+
+      // ── Escape → Close properties panel ─────────────────────────
       if (e.key === "Escape") {
         closePropertiesPanel();
         return;
@@ -45,15 +109,11 @@ export default function WorkflowEditor() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [closePropertiesPanel, getWorkflowJSON]);
+  }, [closePropertiesPanel, getWorkflowJSON, reset]);
 
   // Auto-save subscription
   useEffect(() => {
     const unsub = useWorkflowStore.subscribe((state) => {
-        // We only want to save if the data changed.
-        // The store changes on every mouse move (if we tracked viewport/nodes drag).
-        // `throttledSave` handles the frequency.
-        // We pass the current full state.
         const json = {
             name: state.name,
             nodes: state.nodes,
