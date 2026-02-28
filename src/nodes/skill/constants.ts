@@ -2,6 +2,7 @@ import { Wrench } from "lucide-react";
 import { z } from "zod/v4";
 import { NodeCategory } from "@/nodes/shared/registry-types";
 import type { NodeRegistryEntry } from "@/nodes/shared/registry-types";
+import { NodeSize } from "@/nodes/shared/base-node";
 import { NODE_ACCENT } from "@/lib/node-colors";
 import type { SkillNodeData } from "./types";
 
@@ -10,6 +11,7 @@ const SLUG_REGEX = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 export const skillRegistryEntry: NodeRegistryEntry = {
   type: "skill", displayName: "Skill", description: "A knowledge unit for subagent",
   icon: Wrench, accentColor: "cyan", accentHex: NODE_ACCENT.skill, category: NodeCategory.Basic,
+  size: NodeSize.Small,
   defaultData: (): SkillNodeData => ({
     type: "skill", label: "Skill", name: "", skillName: "", projectName: "",
     description: "", promptText: "", detectedVariables: [], metadata: [],

@@ -53,15 +53,20 @@ export default function ShortcutsDialog({ open, onOpenChange }: ShortcutsDialogP
         </DialogHeader>
 
         <div className="mt-1">
+          <Section title="Tools">
+            <Row keys={["H"]} label="Hand tool (pan mode)" />
+            <Row keys={["V"]} label="Selection tool (marquee)" />
+          </Section>
+
           <Section title="Selection">
             <Row keys={[MOD, "A"]} label="Select all nodes" />
             <Row keys={["Click"]} label="Select node" />
-            <Row keys={["Drag"]} label="Selection box (marquee)" />
           </Section>
 
           <Section title="Edit">
             <Row keys={[MOD, "D"]} label="Duplicate selected" />
             <Row keys={["Del"]} label="Delete selected" />
+            <Row keys={[MOD, "Shift", "L"]} label="Auto-layout" />
           </Section>
 
           <Section title="Canvas">

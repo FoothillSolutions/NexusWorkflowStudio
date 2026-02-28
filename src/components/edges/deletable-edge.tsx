@@ -5,6 +5,7 @@ import {
   BaseEdge,
   EdgeLabelRenderer,
   getBezierPath,
+  getSmoothStepPath,
   type EdgeProps,
 } from "@xyflow/react";
 import { Trash2 } from "lucide-react";
@@ -25,15 +26,21 @@ export function DeletableEdge({
 }: EdgeProps) {
   const [hovered, setHovered] = useState(false);
   const deleteEdge = useWorkflowStore((s) => s.deleteEdge);
+  const edgeStyle = useWorkflowStore((s) => s.edgeStyle);
 
-  const [edgePath, labelX, labelY] = getBezierPath({
+  const pathParams = {
     sourceX,
     sourceY,
     sourcePosition,
     targetX,
     targetY,
     targetPosition,
-  });
+  };
+
+  const [edgePath, labelX, labelY] =
+    edgeStyle === "smoothstep"
+      ? getSmoothStepPath({ ...pathParams, borderRadius: 16 })
+      : getBezierPath(pathParams);
 
   const handleDelete = useCallback(
     (e: React.MouseEvent) => {
@@ -69,6 +76,12 @@ export function DeletableEdge({
           strokeWidth,
           transition: "stroke 0.12s, stroke-width 0.12s",
           cursor: "pointer",
+          ...(selected
+            ? {
+                strokeDasharray: "8 4",
+                animation: "edge-flow 0.5s linear infinite",
+              }
+            : {}),
           ...style,
         }}
       />

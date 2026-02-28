@@ -2,6 +2,7 @@ import { MessageSquareText } from "lucide-react";
 import { z } from "zod/v4";
 import { NodeCategory } from "@/nodes/shared/registry-types";
 import type { NodeRegistryEntry } from "@/nodes/shared/registry-types";
+import { NodeSize } from "@/nodes/shared/base-node";
 import { NODE_ACCENT } from "@/lib/node-colors";
 import type { PromptNodeData } from "./types";
 export const promptRegistryEntry: NodeRegistryEntry = {
@@ -12,6 +13,7 @@ export const promptRegistryEntry: NodeRegistryEntry = {
   accentColor: "blue",
   accentHex: NODE_ACCENT.prompt,
   category: NodeCategory.Basic,
+  size: NodeSize.Large,
   defaultData: (): PromptNodeData => ({
     type: "prompt",
     label: "Prompt",

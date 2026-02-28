@@ -139,5 +139,7 @@ export interface WorkflowJSON {
     sidebarOpen: boolean;
     minimapVisible: boolean;
     viewport: Viewport;
+    canvasMode?: string;
+    edgeStyle?: string;
   };
 }

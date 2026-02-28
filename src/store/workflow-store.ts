@@ -20,6 +20,10 @@ import type {
 } from "@/types/workflow";
 import { createNodeFromType } from "@/lib/node-registry";
 
+// ── Canvas interaction modes ────────────────────────────────────────────────
+export type CanvasMode = "hand" | "selection";
+export type EdgeStyle = "bezier" | "smoothstep";
+
 // ── State shape ─────────────────────────────────────────────────────────────
 interface WorkflowState {
   // Data
@@ -33,6 +37,8 @@ interface WorkflowState {
   selectedNodeId: string | null;
   propertiesPanelOpen: boolean;
   viewport: Viewport;
+  canvasMode: CanvasMode;
+  edgeStyle: EdgeStyle;
 
   // Delete confirmation
   deleteTarget: { type: "node" | "edge" | "selection"; id: string } | null;
@@ -53,6 +59,8 @@ interface WorkflowState {
   closePropertiesPanel: () => void;
   toggleSidebar: () => void;
   toggleMinimap: () => void;
+  setCanvasMode: (mode: CanvasMode) => void;
+  toggleEdgeStyle: () => void;
   setViewport: (viewport: Viewport) => void;
   setDeleteTarget: (target: { type: "node" | "edge" | "selection"; id: string } | null) => void;
   confirmDelete: () => void;
@@ -111,6 +119,8 @@ const initialState = {
   selectedNodeId: null as string | null,
   propertiesPanelOpen: false,
   viewport: { x: 0, y: 0, zoom: 1 },
+  canvasMode: "hand" as CanvasMode,
+  edgeStyle: "bezier" as EdgeStyle,
   deleteTarget: null as { type: "node" | "edge" | "selection"; id: string } | null,
 };
 
@@ -209,6 +219,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   toggleSidebar: () => set({ sidebarOpen: !get().sidebarOpen }),
 
   toggleMinimap: () => set({ minimapVisible: !get().minimapVisible }),
+
+  setCanvasMode: (mode) => set({ canvasMode: mode }),
+
+  toggleEdgeStyle: () =>
+    set({ edgeStyle: get().edgeStyle === "bezier" ? "smoothstep" : "bezier" }),
 
   setViewport: (viewport) => set({ viewport }),
 
@@ -339,6 +354,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       sidebarOpen: json.ui.sidebarOpen,
       minimapVisible: json.ui.minimapVisible,
       viewport: json.ui.viewport,
+      canvasMode: (json.ui.canvasMode as CanvasMode) ?? "hand",
+      edgeStyle: (json.ui.edgeStyle as EdgeStyle) ?? "bezier",
       selectedNodeId: null,
       propertiesPanelOpen: false,
     });
@@ -354,6 +371,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         sidebarOpen: state.sidebarOpen,
         minimapVisible: state.minimapVisible,
         viewport: state.viewport,
+        canvasMode: state.canvasMode,
+        edgeStyle: state.edgeStyle,
       },
     };
   },

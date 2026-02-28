@@ -146,3 +146,28 @@
 .fullscreen-md-editor .w-md-editor-toolbar ul {
   gap: 2px;
 }
+
+/* ── Canvas mode cursors ─────────────────────────────────────────────────── */
+.canvas-hand .react-flow__pane {
+  cursor: grab;
+}
+.canvas-hand .react-flow__pane:active {
+  cursor: grabbing;
+}
+.canvas-selection .react-flow__pane {
+  cursor: crosshair;
+}
+.canvas-selection .react-flow__node {
+  cursor: pointer;
+}
+
+/* ── Animated edge flow when selected ────────────────────────────────────── */
+@keyframes edge-flow {
+  from {
+    stroke-dashoffset: 12;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+

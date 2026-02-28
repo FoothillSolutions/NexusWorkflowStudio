@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import type { NodeType, WorkflowNodeData } from "@/types/workflow";
+import type { NodeSize } from "./base-node";
 
 // ── Node category ───────────────────────────────────────────────────────────
 export enum NodeCategory {
@@ -16,6 +17,8 @@ export interface NodeRegistryEntry {
   accentColor: string;   // Tailwind color name (e.g. "emerald")
   accentHex: string;     // hex for handles / inline styles
   category: NodeCategory;
+  /** Visual size of the node card. Defaults to Medium when omitted. */
+  size?: NodeSize;
   defaultData: () => WorkflowNodeData;
 }
 

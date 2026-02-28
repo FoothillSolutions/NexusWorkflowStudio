@@ -2,6 +2,7 @@ import { Bot } from "lucide-react";
 import { z } from "zod/v4";
 import { NodeCategory } from "@/nodes/shared/registry-types";
 import type { NodeRegistryEntry } from "@/nodes/shared/registry-types";
+import { NodeSize } from "@/nodes/shared/base-node";
 import { NODE_ACCENT } from "@/lib/node-colors";
 import { SubAgentModel, SubAgentMemory } from "./types";
 import type { SubAgentNodeData } from "./types";
@@ -27,6 +28,7 @@ export const subAgentRegistryEntry: NodeRegistryEntry = {
   accentColor: "violet",
   accentHex: NODE_ACCENT.agent,
   category: NodeCategory.Basic,
+  size: NodeSize.Large,
   defaultData: (): SubAgentNodeData => ({
     type: "agent",
     label: "Agent",

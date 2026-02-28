@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@dagrejs/dagre": "^2.0.4",
     "@hookform/resolvers": "^5.2.2",
     "@uiw/react-md-editor": "^4.0.11",
     "@xyflow/react": "^12.10.1",
@@ -32,6 +33,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/dagre": "^0.7.54",
     "@types/jszip": "^3.4.0",
     "@types/lodash.throttle": "^4.1.9",
     "@types/node": "^20",

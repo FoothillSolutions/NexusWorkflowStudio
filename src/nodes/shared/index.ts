@@ -1,4 +1,4 @@
-export { BaseNode, NodeSize } from "./base-node";
+export { BaseNode, NodeSize, NODE_SIZE_DIMENSIONS } from "./base-node";
 export { mermaidId, mermaidLabel } from "./mermaid-utils";
 export { PromptFieldGroup } from "./prompt-field-group";
 export { RequiredIndicator } from "./required-indicator";

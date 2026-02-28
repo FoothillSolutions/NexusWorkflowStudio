@@ -26,6 +26,18 @@ const SIZE_CLASSES: Record<NodeSize, string> = {
   [NodeSize.XL]:     "min-w-[400px] max-w-[520px]",
 };
 
+/**
+ * Layout dimensions (in px) used by the auto-layout algorithm.
+ * Width uses the midpoint between min-w and max-w of each size class.
+ * Height is an estimate based on typical node content.
+ */
+export const NODE_SIZE_DIMENSIONS: Record<NodeSize, { width: number; height: number }> = {
+  [NodeSize.Small]:  { width: 180, height: 80 },   // (160 + 200) / 2
+  [NodeSize.Medium]: { width: 250, height: 100 },   // (220 + 280) / 2
+  [NodeSize.Large]:  { width: 350, height: 120 },   // (320 + 380) / 2
+  [NodeSize.XL]:     { width: 460, height: 140 },   // (400 + 520) / 2
+};
+
 interface BaseNodeProps {
   children?: React.ReactNode;
   accentHex: string;

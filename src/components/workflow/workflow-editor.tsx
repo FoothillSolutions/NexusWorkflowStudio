@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { BG_APP, TEXT_PRIMARY } from "@/lib/theme";
 import Header from "./header";
 import NodePalette from "./node-palette";
+import CanvasToolbar from "./canvas-toolbar";
 import Canvas from "./canvas";
 import PropertiesPanel from "./properties-panel";
 import DeleteDialog from "./delete-dialog";
@@ -60,7 +61,9 @@ export default function WorkflowEditor() {
             ui: {
                 sidebarOpen: state.sidebarOpen,
                 minimapVisible: state.minimapVisible,
-                viewport: state.viewport
+                viewport: state.viewport,
+                canvasMode: state.canvasMode,
+                edgeStyle: state.edgeStyle,
             }
         };
         throttledSave(json);
@@ -76,6 +79,7 @@ export default function WorkflowEditor() {
           <div className="flex-1 relative">
             <Canvas />
             <NodePalette />
+            <CanvasToolbar />
             <PropertiesPanel />
             <LibraryPanel />
           </div>
