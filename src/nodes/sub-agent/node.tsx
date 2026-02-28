@@ -1,4 +1,5 @@
 "use client";
+import { memo, useCallback } from "react";
 import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import { BaseNode, NodeSize } from "@/nodes/shared/base-node";
 import { detectVarCounts } from "@/nodes/shared/variable-utils";
@@ -13,17 +14,30 @@ import { useWorkflowStore } from "@/store/workflow-store";
 
 const truncate = (str: string, n: number) => str?.length > n ? str.slice(0, n) + "..." : str;
 
-export function SubAgentNode({ data, selected, id }: NodeProps<Node<SubAgentNodeData>>) {
+export const SubAgentNode = memo(function SubAgentNode({ data, selected, id }: NodeProps<Node<SubAgentNodeData>>) {
   const { icon, accentHex: defaultAccent, displayName } = subAgentRegistryEntry;
   const accentHex = data.color?.trim() ? data.color : defaultAccent;
   const temperature = Number(data.temperature ?? 0);
 
-  // Count connected skill nodes (via dedicated "skills" handle)
-  const edges = useWorkflowStore((s) => s.edges);
-  const nodes = useWorkflowStore((s) => s.nodes);
-  const skillCount = edges.filter(
-    (e) => e.target === id && e.targetHandle === "skills"
-  ).length;
+  // Count connected skill nodes — use a targeted selector that returns a
+  // primitive (number) so the component only re-renders when the count
+  // actually changes, not on every position-change frame.
+  const skillCount = useWorkflowStore(
+    useCallback(
+      (s) => s.edges.filter((e) => e.target === id && e.targetHandle === "skills").length,
+      [id]
+    )
+  );
+
+  // For isValidConnection we read nodes at call-time via getState() to
+  // avoid subscribing the entire component to node array changes.
+  const isValidSkillConnection = useCallback(
+    (connection: { source: string }) => {
+      const sourceNode = useWorkflowStore.getState().nodes.find((n) => n.id === connection.source);
+      return sourceNode?.data?.type === "skill";
+    },
+    []
+  );
 
   const varCounts = data.promptText ? detectVarCounts(data.promptText) : { dynamic: 0, static: 0 };
   const totalVars = varCounts.dynamic + varCounts.static;
@@ -105,11 +119,8 @@ export function SubAgentNode({ data, selected, id }: NodeProps<Node<SubAgentNode
         id="skills"
         className={HANDLE_CLASS}
         style={{ backgroundColor: NODE_ACCENT.skill, top: "auto", bottom: 14 }}
-        isValidConnection={(connection) => {
-          const sourceNode = nodes.find((n) => n.id === connection.source);
-          return sourceNode?.data?.type === "skill";
-        }}
+        isValidConnection={isValidSkillConnection}
       />
     </BaseNode>
   );
-}
+});

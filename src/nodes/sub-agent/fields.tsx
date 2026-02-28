@@ -1,5 +1,5 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useCallback, useMemo } from "react";
 import { useWatch, Controller } from "react-hook-form";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -75,16 +75,33 @@ export function Fields({ control, setValue, nodeId }: SubAgentFieldsProps) {
   const disabledTools: string[] = useWatch({ control, name: "disabledTools" }) ?? [];
   const parameterMappings: string[] = useWatch({ control, name: "parameterMappings" }) ?? [];
 
-  // Derive connected skill nodes from the store
-  const edges = useWorkflowStore((s) => s.edges);
-  const nodes = useWorkflowStore((s) => s.nodes);
+  // Derive connected skill nodes from the store.
+  // Step 1: selector extracts only the skill edge data we need. This produces
+  // a string key that only changes when skill connections actually change —
+  // not on every position-change frame during a drag.
   const deleteEdge = useWorkflowStore((s) => s.deleteEdge);
-  const connectedSkills = nodeId
-    ? edges
-        .filter((e) => e.target === nodeId && e.targetHandle === "skills")
-        .map((e) => ({ edge: e, node: nodes.find((n) => n.id === e.source) }))
-        .filter((s): s is { edge: typeof edges[number]; node: NonNullable<typeof s.node> } => !!s.node)
-    : [];
+  const skillEdgeKey = useWorkflowStore(
+    useCallback(
+      (s) => {
+        if (!nodeId) return "";
+        return s.edges
+          .filter((e) => e.target === nodeId && e.targetHandle === "skills")
+          .map((e) => `${e.id}:${e.source}`)
+          .join(",");
+      },
+      [nodeId]
+    )
+  );
+
+  // Step 2: derive the full connected skills objects only when the key changes
+  const connectedSkills = useMemo(() => {
+    if (!skillEdgeKey) return [];
+    const state = useWorkflowStore.getState();
+    return state.edges
+      .filter((e) => e.target === nodeId && e.targetHandle === "skills")
+      .map((e) => ({ edge: e, node: state.nodes.find((n) => n.id === e.source) }))
+      .filter((item): item is { edge: typeof state.edges[number]; node: NonNullable<typeof item.node> } => !!item.node);
+  }, [skillEdgeKey, nodeId]);
 
 	const { dynamic, static: staticVars } = detectVariables(promptText);
 	const allVars = [...dynamic, ...staticVars];

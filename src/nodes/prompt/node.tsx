@@ -1,4 +1,5 @@
 "use client";
+import { memo } from "react";
 import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import { BaseNode, NodeSize } from "@/nodes/shared/base-node";
 import { detectVarCounts } from "@/nodes/shared/variable-utils";
@@ -7,7 +8,7 @@ import { Braces, DollarSign } from "lucide-react";
 import { promptRegistryEntry } from "./constants";
 import type { PromptNodeData } from "./types";
 const truncate = (str: string, n: number) => str?.length > n ? str.slice(0, n) + "..." : str;
-export function PromptNode({ data, selected }: NodeProps<Node<PromptNodeData>>) {
+export const PromptNode = memo(function PromptNode({ data, selected }: NodeProps<Node<PromptNodeData>>) {
   const { icon, accentHex, displayName } = promptRegistryEntry;
   const varCounts = data.promptText ? detectVarCounts(data.promptText) : { dynamic: 0, static: 0 };
   const totalVars = varCounts.dynamic + varCounts.static;
@@ -44,4 +45,4 @@ export function PromptNode({ data, selected }: NodeProps<Node<PromptNodeData>>) 
       <Handle type="source" position={Position.Right} id="output" className={HANDLE_CLASS} style={{ backgroundColor: accentHex }} />
     </BaseNode>
   );
-}
+});

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback, useMemo, useRef } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Input } from "@/components/ui/input";
@@ -20,21 +20,23 @@ import { TypeSpecificFields } from "./properties";
 // ── Main panel ──────────────────────────────────────────────────────────────
 
 export default function PropertiesPanel() {
-  const {
-    nodes,
-    selectedNodeId,
-    propertiesPanelOpen,
-    closePropertiesPanel,
-    updateNodeData,
-    setDeleteTarget,
-  } = useWorkflowStore();
+  const selectedNodeId = useWorkflowStore((s) => s.selectedNodeId);
+  const propertiesPanelOpen = useWorkflowStore((s) => s.propertiesPanelOpen);
+  const closePropertiesPanel = useWorkflowStore((s) => s.closePropertiesPanel);
+  const updateNodeData = useWorkflowStore((s) => s.updateNodeData);
+  const setDeleteTarget = useWorkflowStore((s) => s.setDeleteTarget);
 
-  const selectedNode = useMemo(
-    () => nodes.find((n) => n.id === selectedNodeId),
-    [nodes, selectedNodeId]
+  // Only subscribe to the selected node's *data* — not positions of all nodes.
+  // This avoids re-rendering the properties panel on every drag frame.
+  const nodeData = useWorkflowStore(
+    useCallback(
+      (s) => {
+        if (!selectedNodeId) return undefined;
+        return s.nodes.find((n) => n.id === selectedNodeId)?.data;
+      },
+      [selectedNodeId]
+    )
   );
-
-  const nodeData = selectedNode?.data;
   const nodeType = nodeData?.type as NodeType | undefined;
   const registryEntry = nodeType ? NODE_REGISTRY[nodeType] : null;
   const schema = nodeType ? nodeSchemaMap[nodeType] : null;
@@ -95,15 +97,15 @@ export default function PropertiesPanel() {
 
   // Close library sidebar when properties panel opens (mutual exclusion)
   useEffect(() => {
-    if (propertiesPanelOpen && selectedNode && nodeData && registryEntry) {
+    if (propertiesPanelOpen && nodeData && registryEntry) {
       useSavedWorkflowsStore.getState().closeSidebar();
     }
-  }, [propertiesPanelOpen, selectedNode, nodeData, registryEntry]);
+  }, [propertiesPanelOpen, nodeData, registryEntry]);
 
-  const isVisible = propertiesPanelOpen && !!selectedNode && !!nodeData && !!registryEntry;
+  const isVisible = propertiesPanelOpen && !!selectedNodeId && !!nodeData && !!registryEntry;
 
   if (!isVisible) {
-    if (selectedNode && selectedNodeId) {
+    if (selectedNodeId && nodeData) {
       return (
         <div className="absolute bottom-6 right-4 z-30">
           <Button

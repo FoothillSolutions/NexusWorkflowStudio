@@ -23,12 +23,17 @@ import {
 } from "@/lib/theme";
 
 export default function DeleteDialog() {
-  const { deleteTarget, setDeleteTarget, confirmDelete, nodes } = useWorkflowStore();
-  const deleteRef = useRef<HTMLButtonElement>(null);
+  const deleteTarget = useWorkflowStore((s) => s.deleteTarget);
+  const setDeleteTarget = useWorkflowStore((s) => s.setDeleteTarget);
+  const confirmDelete = useWorkflowStore((s) => s.confirmDelete);
 
-  const selectedCount = deleteTarget?.type === "selection"
-    ? nodes.filter((n) => n.selected && n.data?.type !== "start").length
-    : 0;
+  // Only compute selectedCount when dialog is actually open for a selection delete
+  const selectedCount = useWorkflowStore((s) =>
+    s.deleteTarget?.type === "selection"
+      ? s.nodes.filter((n) => n.selected && n.data?.type !== "start").length
+      : 0
+  );
+  const deleteRef = useRef<HTMLButtonElement>(null);
 
   const targetLabel = deleteTarget?.type === "edge"
     ? "connection"

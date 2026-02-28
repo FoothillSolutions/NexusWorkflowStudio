@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, memo } from "react";
 import {
   BaseEdge,
   EdgeLabelRenderer,
@@ -12,7 +12,7 @@ import { Trash2 } from "lucide-react";
 import { useWorkflowStore } from "@/store/workflow-store";
 import { CANVAS_EDGE_STROKE } from "@/lib/theme";
 
-export function DeletableEdge({
+export const DeletableEdge = memo(function DeletableEdge({
   id,
   sourceX,
   sourceY,
@@ -111,4 +111,4 @@ export function DeletableEdge({
       )}
     </>
   );
-}
+});

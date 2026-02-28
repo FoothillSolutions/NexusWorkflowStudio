@@ -1,4 +1,5 @@
 "use client";
+import { memo, useCallback } from "react";
 import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import { BaseNode, NodeSize } from "@/nodes/shared/base-node";
 import { detectVarCounts } from "@/nodes/shared/variable-utils";
@@ -11,9 +12,18 @@ import { useWorkflowStore } from "@/store/workflow-store";
 
 const truncate = (str: string, n: number) => (str?.length ?? 0) > n ? str.slice(0, n) + "..." : str;
 
-export function SkillNode({ data, selected }: NodeProps<Node<SkillNodeData>>) {
+export const SkillNode = memo(function SkillNode({ data, selected }: NodeProps<Node<SkillNodeData>>) {
   const { icon, accentHex, displayName } = skillRegistryEntry;
-  const nodes = useWorkflowStore((s) => s.nodes);
+
+  // Read nodes at call-time via getState() to avoid subscribing
+  // the component to every node position change during drag.
+  const isValidAgentConnection = useCallback(
+    (connection: { target: string }) => {
+      const targetNode = useWorkflowStore.getState().nodes.find((n) => n.id === connection.target);
+      return targetNode?.data?.type === "agent";
+    },
+    []
+  );
 
   const varCounts = data.promptText ? detectVarCounts(data.promptText) : { dynamic: 0, static: 0 };
   const totalVars = varCounts.dynamic + varCounts.static;
@@ -73,11 +83,8 @@ export function SkillNode({ data, selected }: NodeProps<Node<SkillNodeData>>) {
         id="skill-out"
         className={HANDLE_CLASS}
         style={{ backgroundColor: NODE_ACCENT.skill, top: "auto", bottom: 14 }}
-        isValidConnection={(connection) => {
-          const targetNode = nodes.find((n) => n.id === connection.target);
-          return targetNode?.data?.type === "agent";
-        }}
+        isValidConnection={isValidAgentConnection}
       />
     </BaseNode>
   );
-}
+});

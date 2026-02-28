@@ -1,11 +1,12 @@
 "use client";
+import { memo } from "react";
 import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import { BaseNode } from "@/nodes/shared/base-node";
 import { HANDLE_CLASS } from "@/lib/theme";
 import { Layers } from "lucide-react";
 import { subAgentFlowRegistryEntry } from "./constants";
 import type { SubAgentFlowNodeData } from "./types";
-export function SubAgentFlowNode({ data, selected }: NodeProps<Node<SubAgentFlowNodeData>>) {
+export const SubAgentFlowNode = memo(function SubAgentFlowNode({ data, selected }: NodeProps<Node<SubAgentFlowNodeData>>) {
   const { icon, accentHex, displayName } = subAgentFlowRegistryEntry;
   return (
     <BaseNode accentHex={accentHex} selected={selected} label={data.label || displayName} type={data.type} icon={icon}>
@@ -19,4 +20,4 @@ export function SubAgentFlowNode({ data, selected }: NodeProps<Node<SubAgentFlow
       <Handle type="source" position={Position.Right} id="output" className={HANDLE_CLASS} style={{ backgroundColor: accentHex }} />
     </BaseNode>
   );
-}
+});

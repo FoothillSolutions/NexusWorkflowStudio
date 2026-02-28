@@ -56,7 +56,10 @@ function Divider() {
 }
 
 export default function Header() {
-  const { name, setName, getWorkflowJSON, reset } = useWorkflowStore();
+  const name = useWorkflowStore((s) => s.name);
+  const setName = useWorkflowStore((s) => s.setName);
+  const getWorkflowJSON = useWorkflowStore((s) => s.getWorkflowJSON);
+  const reset = useWorkflowStore((s) => s.reset);
   const librarySidebarOpen = useSavedWorkflowsStore((s) => s.sidebarOpen);
   const [isEditingName, setIsEditingName] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);

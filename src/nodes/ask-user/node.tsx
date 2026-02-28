@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import { BaseNode } from "@/nodes/shared/base-node";
 import { HANDLE_CLASS } from "@/lib/theme";
@@ -10,7 +11,7 @@ import type { AskUserNodeData } from "./types";
 const truncate = (str: string, n: number) =>
   str?.length > n ? str.slice(0, n) + "..." : str;
 
-export function AskUserNode({
+export const AskUserNode = memo(function AskUserNode({
   data,
   selected,
 }: NodeProps<Node<AskUserNodeData>>) {
@@ -130,4 +131,4 @@ export function AskUserNode({
       )}
     </BaseNode>
   );
-}
+});

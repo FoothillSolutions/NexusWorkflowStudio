@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ReactFlow,
   Background,
@@ -8,13 +8,14 @@ import {
   MiniMap,
   useReactFlow,
   type EdgeTypes,
+  type NodeChange,
   ConnectionLineType,
   SelectionMode,
 } from "@xyflow/react";
 import Dagre from "@dagrejs/dagre";
 import { useWorkflowStore } from "@/store/workflow-store";
 import { useSavedWorkflowsStore } from "@/store/library-store";
-import type { NodeType } from "@/types/workflow";
+import type { NodeType, WorkflowNode } from "@/types/workflow";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Map } from "lucide-react";
@@ -42,28 +43,56 @@ interface CtxMenu {
 }
 
 export default function Canvas() {
-  const {
-    nodes,
-    edges,
-    onNodesChange,
-    onEdgesChange,
-    onConnect,
-    addNode,
-    selectNode,
-    selectedNodeId,
-    openPropertiesPanel,
-    setViewport,
-    minimapVisible,
-    toggleMinimap,
-    setDeleteTarget,
-    duplicateNode,
-    duplicateSelectedNodes,
-    deleteSelectedNodes,
-    selectAll,
-    canvasMode,
-    setCanvasMode,
-    edgeStyle,
-  } = useWorkflowStore();
+  // Use individual selectors so this component only re-renders when the
+  // specific slices it needs actually change (nodes, edges, canvasMode, etc.)
+  const nodes = useWorkflowStore((s) => s.nodes);
+  const edges = useWorkflowStore((s) => s.edges);
+  const storeOnNodesChange = useWorkflowStore((s) => s.onNodesChange);
+  const onEdgesChange = useWorkflowStore((s) => s.onEdgesChange);
+  const onConnect = useWorkflowStore((s) => s.onConnect);
+  const addNode = useWorkflowStore((s) => s.addNode);
+  const selectNode = useWorkflowStore((s) => s.selectNode);
+  const openPropertiesPanel = useWorkflowStore((s) => s.openPropertiesPanel);
+  const setViewport = useWorkflowStore((s) => s.setViewport);
+  const minimapVisible = useWorkflowStore((s) => s.minimapVisible);
+  const toggleMinimap = useWorkflowStore((s) => s.toggleMinimap);
+  const setDeleteTarget = useWorkflowStore((s) => s.setDeleteTarget);
+  const duplicateNode = useWorkflowStore((s) => s.duplicateNode);
+  const duplicateSelectedNodes = useWorkflowStore((s) => s.duplicateSelectedNodes);
+  const deleteSelectedNodes = useWorkflowStore((s) => s.deleteSelectedNodes);
+  const selectAll = useWorkflowStore((s) => s.selectAll);
+  const canvasMode = useWorkflowStore((s) => s.canvasMode);
+  const setCanvasMode = useWorkflowStore((s) => s.setCanvasMode);
+  const edgeStyle = useWorkflowStore((s) => s.edgeStyle);
+
+  // Track dragging to suppress expensive MiniMap renders during drag
+  const isDraggingRef = useRef(false);
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Wrap onNodesChange to track drag state for MiniMap suppression
+  const onNodesChange = useCallback(
+    (changes: NodeChange<WorkflowNode>[]) => {
+      const hasDragStart = changes.some(
+        (c) => c.type === "position" && c.dragging === true
+      );
+      const hasDragEnd = changes.some(
+        (c) => c.type === "position" && c.dragging === false
+      );
+
+      if (hasDragStart && !isDraggingRef.current) {
+        isDraggingRef.current = true;
+        setIsDragging(true);
+      }
+
+      storeOnNodesChange(changes);
+
+      if (hasDragEnd && isDraggingRef.current) {
+        isDraggingRef.current = false;
+        setIsDragging(false);
+      }
+    },
+    [storeOnNodesChange]
+  );
 
   const { screenToFlowPosition, fitView } = useReactFlow();
 
@@ -231,7 +260,7 @@ export default function Canvas() {
   );
 
   // ── Context menu handlers ────────────────────────────────────────────────
-  const selectedCount = nodes.filter((n) => n.selected).length;
+  const selectedCount = useMemo(() => nodes.filter((n) => n.selected).length, [nodes]);
 
   const handleDelete = useCallback(() => {
     if (ctxMenu?.target.kind === "node") {
@@ -256,14 +285,14 @@ export default function Canvas() {
   const handleSaveToLibrary = useCallback(() => {
     const target = ctxMenu?.target;
     if (target?.kind === "node") {
-      const node = nodes.find((n) => n.id === target.nodeId);
+      const node = useWorkflowStore.getState().nodes.find((n) => n.id === target.nodeId);
       if (node?.data) {
         const { saveNodeToLib } = useSavedWorkflowsStore.getState();
         saveNodeToLib(node.data);
         toast.success(`"${node.data.label || node.data.type}" saved to library`);
       }
     }
-  }, [ctxMenu, nodes]);
+  }, [ctxMenu]);
 
   // ── Keyboard shortcuts ───────────────────────────────────────────────────
   useEffect(() => {
@@ -273,7 +302,11 @@ export default function Canvas() {
       if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement).isContentEditable) return;
 
       const isMod = isModKey(e);
-      const selected = nodes.filter((n) => n.selected);
+      // Read nodes from the store at event time instead of closing over the
+      // `nodes` prop, which changes on every drag frame and forces this
+      // effect to be rebuilt.
+      const currentNodes = useWorkflowStore.getState().nodes;
+      const selected = currentNodes.filter((n) => n.selected);
       const multiSelected = selected.length > 1;
       const singleSelected = selected.length === 1 && selected[0].data?.type !== "start";
 
@@ -332,7 +365,51 @@ export default function Canvas() {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [nodes, selectedNodeId, selectAll, duplicateNode, duplicateSelectedNodes, deleteSelectedNodes, setDeleteTarget, setCanvasMode, autoLayout]);
+  }, [selectAll, duplicateNode, duplicateSelectedNodes, deleteSelectedNodes, setDeleteTarget, setCanvasMode, autoLayout]);
+
+  // ── Memoize event handlers for ReactFlow to avoid new references each render ──
+  const onNodeDoubleClick = useCallback(
+    (_: React.MouseEvent, node: { id: string }) => openPropertiesPanel(node.id),
+    [openPropertiesPanel]
+  );
+  const onNodeClick = useCallback(
+    (_: React.MouseEvent, node: { id: string }) => selectNode(node.id),
+    [selectNode]
+  );
+  const onEdgeClick = useCallback(() => selectNode(null), [selectNode]);
+  const onPaneClick = useCallback(() => {
+    selectNode(null);
+    closeMenu();
+  }, [selectNode, closeMenu]);
+  const onMoveEnd = useCallback(
+    (_: unknown, viewport: { x: number; y: number; zoom: number }) => setViewport(viewport),
+    [setViewport]
+  );
+
+  // Memoize static object props so ReactFlow doesn't see new references every frame
+  const connectionLineStyle = useMemo(
+    () => ({ stroke: CANVAS_EDGE_STROKE, strokeWidth: 4 }),
+    []
+  );
+  const defaultEdgeOptions = useMemo(
+    () => ({
+      type: "deletable" as const,
+      style: { stroke: CANVAS_EDGE_STROKE, strokeWidth: 4 },
+      animated: false,
+    }),
+    []
+  );
+  const proOptions = useMemo(() => ({ hideAttribution: true }), []);
+  const rfStyle = useMemo(() => ({ backgroundColor: BG_CANVAS_HEX }), []);
+  const panOnDrag = useMemo(
+    () => (canvasMode === "hand" ? [0, 1, 2] : [1, 2]),
+    [canvasMode]
+  );
+  const minimapNodeColor = useCallback(
+    (node: { type?: string }) =>
+      NODE_REGISTRY[node.type as NodeType]?.accentHex ?? "#52525b",
+    []
+  );
 
   return (
     <div
@@ -348,29 +425,25 @@ export default function Canvas() {
         edgeTypes={edgeTypes}
         onDrop={onDrop}
         onDragOver={onDragOver}
-        onNodeDoubleClick={(_, node) => openPropertiesPanel(node.id)}
-        onNodeClick={(_, node) => selectNode(node.id)}
-        onEdgeClick={() => selectNode(null)}
-        onPaneClick={() => { selectNode(null); closeMenu(); }}
-        onMoveEnd={(_, viewport) => setViewport(viewport)}
+        onNodeDoubleClick={onNodeDoubleClick}
+        onNodeClick={onNodeClick}
+        onEdgeClick={onEdgeClick}
+        onPaneClick={onPaneClick}
+        onMoveEnd={onMoveEnd}
         onNodeContextMenu={onNodeContextMenu}
         onSelectionContextMenu={onSelectionContextMenu}
         onPaneContextMenu={onPaneContextMenu}
         deleteKeyCode={null}
         connectionLineType={connectionLineType}
-        connectionLineStyle={{ stroke: CANVAS_EDGE_STROKE, strokeWidth: 4 }}
+        connectionLineStyle={connectionLineStyle}
         fitView
-        defaultEdgeOptions={{
-          type: "deletable",
-          style: { stroke: CANVAS_EDGE_STROKE, strokeWidth: 4 },
-          animated: false,
-        }}
-        proOptions={{ hideAttribution: true }}
-        style={{ backgroundColor: BG_CANVAS_HEX }}
+        defaultEdgeOptions={defaultEdgeOptions}
+        proOptions={proOptions}
+        style={rfStyle}
         // ── Mode-dependent interaction ──────────────────────────────────
         selectionOnDrag={canvasMode === "selection"}
         selectionMode={SelectionMode.Partial}
-        panOnDrag={canvasMode === "hand" ? [0, 1, 2] : [1, 2]}
+        panOnDrag={panOnDrag}
         panOnScroll={false}
         nodesDraggable={true}
       >
@@ -380,12 +453,10 @@ export default function Canvas() {
           gap={20}
           size={1}
         />
-        {minimapVisible && (
+        {minimapVisible && !isDragging && (
           <MiniMap
             className="!bg-zinc-900 !border-zinc-700"
-            nodeColor={(node) =>
-              NODE_REGISTRY[node.type as NodeType]?.accentHex ?? "#52525b"
-            }
+            nodeColor={minimapNodeColor}
             maskColor={MINIMAP_MASK_COLOR}
           />
         )}

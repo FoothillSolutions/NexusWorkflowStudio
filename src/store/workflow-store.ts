@@ -126,6 +126,10 @@ const initialState = {
 };
 
 // ── Store ───────────────────────────────────────────────────────────────────
+
+// Track whether we're in a drag so we can pause/resume temporal tracking
+let _isDragging = false;
+
 export const useWorkflowStore = create<WorkflowState>()(
   temporal(
     (set, get) => ({
@@ -133,7 +137,30 @@ export const useWorkflowStore = create<WorkflowState>()(
 
   // ── React Flow change handlers ──────────────────────────────────────────
   onNodesChange: (changes) => {
+    // Check if any change signals the start or end of a node drag
+    const hasDragStart = changes.some(
+      (c) => c.type === "position" && c.dragging === true
+    );
+    const hasDragEnd = changes.some(
+      (c) => c.type === "position" && c.dragging === false
+    );
+
+    // Pause temporal at drag start — this makes all subsequent set() calls
+    // skip the expensive partialize + equality + history-push pipeline
+    if (hasDragStart && !_isDragging) {
+      _isDragging = true;
+      useWorkflowStore.temporal.getState().pause();
+    }
+
+    // Apply changes normally
     set({ nodes: applyNodeChanges(changes, get().nodes) });
+
+    // Resume temporal at drag end and let the final position be captured
+    // in the undo history on the next structural change.
+    if (hasDragEnd && _isDragging) {
+      _isDragging = false;
+      useWorkflowStore.temporal.getState().resume();
+    }
   },
   onEdgesChange: (changes) => {
     set({ edges: applyEdgeChanges(changes, get().edges) });
@@ -390,9 +417,26 @@ export const useWorkflowStore = create<WorkflowState>()(
         name: state.name,
       }),
       limit: 50,
-      // Avoid recording identical states (e.g. viewport-only changes)
+      // Avoid recording identical states (e.g. viewport-only changes).
+      // Shallow reference equality is enough because each mutation produces
+      // a fresh arrays/objects. This avoids the expensive JSON.stringify
+      // that was running on every position-change frame during a drag.
       equality: (pastState, currentState) =>
-        JSON.stringify(pastState) === JSON.stringify(currentState),
+        pastState.nodes === currentState.nodes &&
+        pastState.edges === currentState.edges &&
+        pastState.name === currentState.name,
+      // Throttle how often history snapshots are captured so that high-
+      // frequency drag moves don't flood the undo stack.
+      handleSet: (handleSet) => {
+        let timeoutId: ReturnType<typeof setTimeout> | null = null;
+        return (state) => {
+          if (timeoutId) clearTimeout(timeoutId);
+          timeoutId = setTimeout(() => {
+            timeoutId = null;
+            handleSet(state);
+          }, 500);
+        };
+      },
     },
   ),
 );

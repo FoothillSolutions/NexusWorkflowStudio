@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import { BaseNode } from "@/nodes/shared/base-node";
 import { BRANCH_TRUE, BRANCH_FALSE } from "@/lib/node-colors";
@@ -18,7 +19,7 @@ const BRANCH_BORDER_STYLE = (color: string) => ({
   borderBottom: "1px solid rgba(63,63,70,0.4)",
 });
 
-export function IfElseNode({ data, selected }: NodeProps<Node<IfElseNodeData>>) {
+export const IfElseNode = memo(function IfElseNode({ data, selected }: NodeProps<Node<IfElseNodeData>>) {
   const { icon, accentHex, displayName } = ifElseRegistryEntry;
   const branches: IfElseBranch[] = data.branches ?? [
     { label: "True", condition: "" },
@@ -84,4 +85,4 @@ export function IfElseNode({ data, selected }: NodeProps<Node<IfElseNodeData>>) 
       />
     </BaseNode>
   );
-}
+});

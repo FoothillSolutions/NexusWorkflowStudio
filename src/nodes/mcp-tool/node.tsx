@@ -1,11 +1,12 @@
 "use client";
+import { memo } from "react";
 import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import { BaseNode } from "@/nodes/shared/base-node";
 import { HANDLE_CLASS } from "@/lib/theme";
 import { Box } from "lucide-react";
 import { mcpToolRegistryEntry } from "./constants";
 import type { McpToolNodeData } from "./types";
-export function McpToolNode({ data, selected }: NodeProps<Node<McpToolNodeData>>) {
+export const McpToolNode = memo(function McpToolNode({ data, selected }: NodeProps<Node<McpToolNodeData>>) {
   const { icon, accentHex, displayName } = mcpToolRegistryEntry;
   return (
     <BaseNode accentHex={accentHex} selected={selected} label={data.label || displayName} type={data.type} icon={icon}>
@@ -21,4 +22,4 @@ export function McpToolNode({ data, selected }: NodeProps<Node<McpToolNodeData>>
       <Handle type="source" position={Position.Right} id="output" className={HANDLE_CLASS} style={{ backgroundColor: accentHex }} />
     </BaseNode>
   );
-}
+});

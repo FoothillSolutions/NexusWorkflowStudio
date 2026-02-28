@@ -13,7 +13,8 @@ import {
 } from "@/lib/theme";
 
 export default function NodePalette() {
-  const { sidebarOpen, toggleSidebar } = useWorkflowStore();
+  const sidebarOpen = useWorkflowStore((s) => s.sidebarOpen);
+  const toggleSidebar = useWorkflowStore((s) => s.toggleSidebar);
 
   const onDragStart = (event: React.DragEvent, nodeType: string) => {
     event.dataTransfer.setData("application/reactflow", nodeType);

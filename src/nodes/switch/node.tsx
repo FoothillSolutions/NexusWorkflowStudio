@@ -1,11 +1,12 @@
 "use client";
 
+import { memo } from "react";
 import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import { BaseNode } from "@/nodes/shared/base-node";
 import { switchRegistryEntry } from "./constants";
 import type { SwitchNodeData, SwitchBranch } from "./types";
 
-export function SwitchNode({ data, selected }: NodeProps<Node<SwitchNodeData>>) {
+export const SwitchNode = memo(function SwitchNode({ data, selected }: NodeProps<Node<SwitchNodeData>>) {
   const { icon, accentHex, displayName } = switchRegistryEntry;
   const branches: SwitchBranch[] = data.branches ?? [
     { label: "Case 1", condition: "" },
@@ -85,4 +86,4 @@ export function SwitchNode({ data, selected }: NodeProps<Node<SwitchNodeData>>) 
       />
     </BaseNode>
   );
-}
+});

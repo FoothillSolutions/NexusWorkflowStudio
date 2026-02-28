@@ -500,7 +500,9 @@ export default function LibraryPanel() {
     setActiveCategory,
   } = useSavedWorkflowsStore();
 
-  const { getWorkflowJSON, loadWorkflow, addNode } = useWorkflowStore();
+  const getWorkflowJSON = useWorkflowStore((s) => s.getWorkflowJSON);
+  const loadWorkflow = useWorkflowStore((s) => s.loadWorkflow);
+  const addNode = useWorkflowStore((s) => s.addNode);
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; type: "workflow" | "item"; name: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 

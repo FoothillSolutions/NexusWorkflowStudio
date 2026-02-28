@@ -18,11 +18,9 @@ import DeleteDialog from "./delete-dialog";
 import LibraryPanel from "./library-panel";
 
 export default function WorkflowEditor() {
-  const {
-    closePropertiesPanel,
-    getWorkflowJSON,
-    reset,
-  } = useWorkflowStore();
+  const closePropertiesPanel = useWorkflowStore((s) => s.closePropertiesPanel);
+  const getWorkflowJSON = useWorkflowStore((s) => s.getWorkflowJSON);
+  const reset = useWorkflowStore((s) => s.reset);
 
   // Keyboard shortcuts (global — dialogs are managed by Header)
   useEffect(() => {
@@ -111,10 +109,30 @@ export default function WorkflowEditor() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [closePropertiesPanel, getWorkflowJSON, reset]);
 
-  // Auto-save subscription
+  // Auto-save subscription — only reacts to data changes, not high-frequency
+  // position updates. We compare references so that dragging (which creates a
+  // new nodes array on every frame) still triggers a save eventually via the
+  // trailing edge of the throttle, but we avoid constructing the full JSON
+  // object synchronously on every single frame.
   useEffect(() => {
+    let prevNodes = useWorkflowStore.getState().nodes;
+    let prevEdges = useWorkflowStore.getState().edges;
+    let prevName = useWorkflowStore.getState().name;
+
     const unsub = useWorkflowStore.subscribe((state) => {
-        const json = {
+        // Skip if nothing we care about changed
+        if (
+          state.nodes === prevNodes &&
+          state.edges === prevEdges &&
+          state.name === prevName
+        ) return;
+
+        prevNodes = state.nodes;
+        prevEdges = state.edges;
+        prevName = state.name;
+
+        // Throttle will coalesce rapid position updates into one trailing save
+        throttledSave({
             name: state.name,
             nodes: state.nodes,
             edges: state.edges,
@@ -125,8 +143,7 @@ export default function WorkflowEditor() {
                 canvasMode: state.canvasMode,
                 edgeStyle: state.edgeStyle,
             }
-        };
-        throttledSave(json);
+        });
     });
     return () => unsub();
   }, []);
