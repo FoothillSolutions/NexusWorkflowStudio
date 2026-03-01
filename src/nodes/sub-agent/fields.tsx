@@ -281,12 +281,12 @@ export function Fields({ control, setValue, nodeId }: SubAgentFieldsProps) {
 
 			{/* Model */}
 			<div className="space-y-2">
-				<Label htmlFor="model">Model</Label>
+				<Label htmlFor="model" className="text-zinc-500">Model</Label>
 				<Controller
 					name="model"
 					control={control}
 					render={({ field }) => (
-						<select id="model" className={SELECT_CLASS} value={field.value} onChange={field.onChange}>
+						<select id="model" className={`${SELECT_CLASS} opacity-50 cursor-not-allowed`} value={field.value} disabled>
 							<option value={SubAgentModel.Inherit}>{MODEL_DISPLAY_NAMES[SubAgentModel.Inherit]}</option>
 							{MODEL_GROUPS.map((group) => (
 								<optgroup key={group.label} label={group.label}>
@@ -304,12 +304,12 @@ export function Fields({ control, setValue, nodeId }: SubAgentFieldsProps) {
 
 			{/* Memory */}
 			<div className="space-y-2">
-				<Label htmlFor="memory">Memory</Label>
+				<Label htmlFor="memory" className="text-zinc-500">Memory</Label>
 				<Controller
 					name="memory"
 					control={control}
 					render={({ field }) => (
-						<select id="memory" className={SELECT_CLASS} value={field.value} onChange={field.onChange}>
+						<select id="memory" className={`${SELECT_CLASS} opacity-50 cursor-not-allowed`} value={field.value} disabled>
 							{MEMORY_OPTIONS.map((opt) => (
 								<option key={opt.value} value={opt.value}>
 									{opt.label}
