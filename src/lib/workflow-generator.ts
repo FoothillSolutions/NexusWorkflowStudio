@@ -10,7 +10,7 @@ import { generator as startGen }        from "@/nodes/start/generator";
 import { generator as endGen }          from "@/nodes/end/generator";
 import { generator as promptGen }       from "@/nodes/prompt/generator";
 import { generator as subAgentGen }     from "@/nodes/sub-agent/generator";
-import { generator as subAgentFlowGen } from "@/nodes/sub-agent-flow/generator";
+import { generator as subWorkflowGen } from "@/nodes/sub-workflow/generator";
 import { generator as skillGen }        from "@/nodes/skill/generator";
 import { generator as mcpToolGen }      from "@/nodes/mcp-tool/generator";
 import { generator as ifElseGen }       from "@/nodes/if-else/generator";
@@ -27,7 +27,7 @@ const NODE_GENERATORS: Record<string, NodeGeneratorModule> = {
   end:              endGen,
   prompt:           promptGen,
   "agent":          subAgentGen,
-  "sub-workflow":   subAgentFlowGen,
+  "sub-workflow":   subWorkflowGen,
   skill:            skillGen,
   "mcp-tool":       mcpToolGen,
   "if-else":        ifElseGen,
@@ -332,7 +332,7 @@ function collectAgentFiles(nodes: WorkflowNode[], edges: WorkflowEdge[]): Genera
         getSubWorkflowJSON?(id: string, d: WorkflowNode["data"]): WorkflowJSON | null;
         getAgentFile?(id: string, d: WorkflowNode["data"]): { path: string; content: string } | null;
       };
-      const d = node.data as import("@/nodes/sub-agent-flow/types").SubAgentFlowNodeData;
+      const d = node.data as import("@/nodes/sub-workflow/types").SubWorkflowNodeData;
 
       if (d.mode === "agent") {
         // Agent mode: generate inner workflow command file using label-based slug + agent file

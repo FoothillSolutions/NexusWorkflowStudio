@@ -38,7 +38,7 @@ import { DeletableEdge } from "@/components/edges/deletable-edge";
 import { ContextMenu, type ContextMenuTarget } from "@/components/workflow/context-menu";
 import { isModKey } from "@/lib/platform";
 import { useSavedWorkflowsStore } from "@/store/library-store";
-import type { SubAgentFlowNodeData } from "@/nodes/sub-agent-flow/types";
+import type { SubWorkflowNodeData } from "@/nodes/sub-workflow/types";
 import { LibraryToggleButton, HelpMenu } from "./shared-header-actions";
 import NodePalette from "./node-palette";
 import CanvasToolbar from "./canvas-toolbar";
@@ -90,11 +90,17 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
   const edgeStyle = useWorkflowStore((s) => s.edgeStyle);
 
 
-  // Read parent node data
+  // Read parent node data from the parent context (subWorkflowParentNodes or root nodes)
   const parentNode = useWorkflowStore(
-    useCallback((s) => s.nodes.find((n) => n.id === nodeId), [nodeId])
+    useCallback((s) => {
+      // subWorkflowParentNodes holds the context that contains this nodeId
+      const fromParent = s.subWorkflowParentNodes.find((n) => n.id === nodeId);
+      if (fromParent) return fromParent;
+      // Fallback to root nodes (depth-1 sub-workflows)
+      return s.nodes.find((n) => n.id === nodeId);
+    }, [nodeId])
   );
-  const parentData = parentNode?.data as SubAgentFlowNodeData | undefined;
+  const parentData = parentNode?.data as SubWorkflowNodeData | undefined;
 
   // ── Local state ─────────────────────────────────────────────────────────
   const [subNodes, setSubNodes] = useState<WorkflowNode[]>(() => {
@@ -122,7 +128,25 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
     [nodeId, updateSubWorkflowData]
   );
 
-  // ── Sync local subNodes into the store so PropertiesPanel can find them ──
+  // Flush pending sync — call this before any navigation away
+  const flushSync = useCallback(() => {
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
+      syncTimeoutRef.current = null;
+    }
+    updateSubWorkflowData(nodeId, subNodesRef.current, subEdgesRef.current);
+  }, [nodeId, updateSubWorkflowData]);
+
+  // Wrap navigation actions to flush first
+  const handleCloseSubWorkflow = useCallback(() => {
+    flushSync();
+    closeSubWorkflow();
+  }, [flushSync, closeSubWorkflow]);
+
+  const handleNavigateToBreadcrumb = useCallback((index: number) => {
+    flushSync();
+    navigateToBreadcrumb(index);
+  }, [flushSync, navigateToBreadcrumb]);
   useEffect(() => {
     setSubWorkflowNodes(subNodes);
   }, [subNodes, setSubWorkflowNodes]);
@@ -467,9 +491,7 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
       // Escape → close sub-workflow
       if (e.key === "Escape") {
         e.preventDefault();
-        // Flush sync before closing
-        syncToParent(subNodesRef.current, subEdgesRef.current);
-        setTimeout(() => closeSubWorkflow(), 50);
+        handleCloseSubWorkflow();
         return;
       }
 
@@ -498,13 +520,19 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [closeSubWorkflow, setCanvasMode, autoLayout, duplicateSubNode, duplicateSelectedSubNodes, deleteSubNode, deleteSelectedSubNodes, syncToParent]);
+  }, [handleCloseSubWorkflow, setCanvasMode, autoLayout, duplicateSubNode, duplicateSelectedSubNodes, deleteSubNode, deleteSelectedSubNodes, syncToParent]);
 
   // ── Sync back on unmount ────────────────────────────────────────────────
   useEffect(() => {
     return () => {
       if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
-      updateSubWorkflowData(nodeId, subNodesRef.current, subEdgesRef.current);
+      // Only write back if this canvas is still the active sub-workflow.
+      // If the user navigated away via breadcrumb, the store already
+      // transitioned and writing stale data would corrupt the new state.
+      const current = useWorkflowStore.getState();
+      if (current.activeSubWorkflowNodeId === nodeId) {
+        updateSubWorkflowData(nodeId, subNodesRef.current, subEdgesRef.current);
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -538,7 +566,7 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
         <Button
           variant="ghost"
           size="sm"
-          onClick={closeSubWorkflow}
+          onClick={handleCloseSubWorkflow}
           className="gap-1.5 text-zinc-400 hover:text-zinc-100 h-8 px-2 shrink-0"
         >
           <ArrowLeft size={14} />
@@ -550,7 +578,7 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
         <div className="flex items-center gap-1 min-w-0 overflow-hidden">
           {/* Root */}
           <button
-            onClick={() => navigateToBreadcrumb(-1)}
+            onClick={() => handleNavigateToBreadcrumb(-1)}
             className="text-sm text-zinc-400 hover:text-zinc-100 truncate max-w-[140px] transition-colors shrink-0"
           >
             {workflowName}
@@ -560,7 +588,7 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
           {subWorkflowStack.map((entry, idx) => {
             const isLast = idx === subWorkflowStack.length - 1;
             return (
-              <div key={entry.nodeId} className="flex items-center gap-1 min-w-0">
+              <div key={`${idx}-${entry.nodeId}`} className="flex items-center gap-1 min-w-0">
                 <ChevronRight size={12} className="text-zinc-600 shrink-0" />
                 {isLast ? (
                   <div className="flex items-center gap-1.5 min-w-0">
@@ -569,7 +597,7 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
                   </div>
                 ) : (
                   <button
-                    onClick={() => navigateToBreadcrumb(idx)}
+                    onClick={() => handleNavigateToBreadcrumb(idx)}
                     className="text-sm text-zinc-400 hover:text-zinc-100 truncate max-w-[120px] transition-colors"
                   >
                     {entry.label}

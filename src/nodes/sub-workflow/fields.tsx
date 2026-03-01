@@ -31,13 +31,13 @@ const MEMORY_OPTIONS = [
 const SELECT_CLASS =
   "w-full rounded-xl bg-zinc-800/60 border border-zinc-700/60 text-sm text-zinc-100 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-zinc-600";
 
-interface SubAgentFlowFieldsProps {
+interface SubWorkflowFieldsProps {
   control: FormControl;
   setValue: FormSetValue;
   nodeId?: string;
 }
 
-export function Fields({ control, setValue, nodeId }: SubAgentFlowFieldsProps) {
+export function Fields({ control, setValue, nodeId }: SubWorkflowFieldsProps) {
   const mode: SubWorkflowMode = useWatch({ control, name: "mode" }) ?? "same-context";
   const nodeCount: number = useWatch({ control, name: "nodeCount" }) ?? 0;
   const label: string = useWatch({ control, name: "label" }) ?? "Sub Workflow";
@@ -279,3 +279,4 @@ export function Fields({ control, setValue, nodeId }: SubAgentFlowFieldsProps) {
     </div>
   );
 }
+

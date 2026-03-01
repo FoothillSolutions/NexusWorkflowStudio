@@ -17,7 +17,7 @@ import { startRegistryEntry, startSchema, StartNode } from "@/nodes/start";
 import { endRegistryEntry, endSchema, EndNode } from "@/nodes/end";
 import { promptRegistryEntry, promptSchema, PromptNode } from "@/nodes/prompt";
 import { subAgentRegistryEntry, subAgentSchema, SubAgentNode } from "@/nodes/sub-agent";
-import { subAgentFlowRegistryEntry, subAgentFlowSchema, SubAgentFlowNode } from "@/nodes/sub-agent-flow";
+import { subWorkflowRegistryEntry, subWorkflowSchema, SubWorkflowNode } from "@/nodes/sub-workflow";
 import { skillRegistryEntry, skillSchema, SkillNode } from "@/nodes/skill";
 import { mcpToolRegistryEntry, mcpToolSchema, McpToolNode } from "@/nodes/mcp-tool";
 import { ifElseRegistryEntry, ifElseSchema, IfElseNode } from "@/nodes/if-else";
@@ -31,7 +31,7 @@ export const NODE_REGISTRY: Record<NodeType, NodeRegistryEntry> = {
   prompt:          promptRegistryEntry,
   "agent":         subAgentRegistryEntry,
   skill:           skillRegistryEntry,
-  "sub-workflow":  subAgentFlowRegistryEntry,
+  "sub-workflow":  subWorkflowRegistryEntry,
   "mcp-tool":      mcpToolRegistryEntry,
   "if-else":       ifElseRegistryEntry,
   switch:          switchRegistryEntry,
@@ -44,7 +44,7 @@ export const NODE_TYPE_COMPONENTS: NodeTypes = {
   end:             EndNode,
   prompt:          PromptNode,
   "agent":         SubAgentNode,
-  "sub-workflow":  SubAgentFlowNode,
+  "sub-workflow":  SubWorkflowNode,
   skill:           SkillNode,
   "mcp-tool":      McpToolNode,
   "if-else":       IfElseNode,
@@ -58,7 +58,7 @@ export const nodeSchemaMap = {
   end:             endSchema,
   prompt:          promptSchema,
   "agent":         subAgentSchema,
-  "sub-workflow":  subAgentFlowSchema,
+  "sub-workflow":  subWorkflowSchema,
   skill:           skillSchema,
   "mcp-tool":      mcpToolSchema,
   "if-else":       ifElseSchema,

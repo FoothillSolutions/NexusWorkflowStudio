@@ -95,7 +95,7 @@ nexus-workflow-studio/
 │       │   ├── start-node.tsx
 │       │   ├── prompt-node.tsx
 │       │   ├── sub-agent-node.tsx
-│       │   ├── sub-agent-flow-node.tsx
+│       │   ├── sub-workflow-node.tsx
 │       │   ├── skill-node.tsx
 │       │   ├── mcp-tool-node.tsx
 │       │   ├── if-else-node.tsx
@@ -127,7 +127,7 @@ The discriminated union key is the `type` field.
 | `start` | (none) | Play | `#10b981` (emerald) | basic |
 | `prompt` | `promptText: string`, `detectedVariables: string[]` | MessageSquareText | `#3b82f6` (blue) | basic |
 | `sub-agent` | `agentName: string`, `taskText: string` | Bot | `#8b5cf6` (violet) | basic |
-| `sub-agent-flow` | `flowRef: string`, `nodeCount: number` | GitBranch | `#a855f7` (purple) | basic |
+| `sub-workflow` | `flowRef: string`, `nodeCount: number` | GitBranch | `#a855f7` (purple) | basic |
 | `skill` | `skillName: string`, `projectName: string` | Wrench | `#06b6d4` (cyan) | basic |
 | `mcp-tool` | `toolName: string`, `paramsText: string` | Plug | `#14b8a6` (teal) | basic |
 | `if-else` | `expression: string` | GitFork | `#f59e0b` (amber) | control-flow |

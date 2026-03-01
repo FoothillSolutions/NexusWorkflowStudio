@@ -3,7 +3,7 @@ import type { SubAgentModel, SubAgentMemory } from "@/nodes/sub-agent/enums";
 
 export type SubWorkflowMode = "same-context" | "agent";
 
-export interface SubAgentFlowNodeData extends Record<string, unknown> {
+export interface SubWorkflowNodeData extends Record<string, unknown> {
   type: Extract<NodeType, "sub-workflow">;
   label: string;
   name: string;
@@ -25,3 +25,4 @@ export interface SubAgentFlowNodeData extends Record<string, unknown> {
   /** Tool names that are DISABLED (empty = all enabled) */
   disabledTools: string[];
 }
+

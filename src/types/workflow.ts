@@ -54,7 +54,7 @@ export interface SubAgentNodeData extends BaseNodeData {
 
 export type SubWorkflowMode = "same-context" | "agent";
 
-export interface SubAgentFlowNodeData extends BaseNodeData {
+export interface SubWorkflowNodeData extends BaseNodeData {
   type: "sub-workflow";
   mode: SubWorkflowMode;
   subNodes: WorkflowNode[];
@@ -129,7 +129,7 @@ export type WorkflowNodeData =
   | StartNodeData
   | PromptNodeData
   | SubAgentNodeData
-  | SubAgentFlowNodeData
+  | SubWorkflowNodeData
   | SkillNodeData
   | McpToolNodeData
   | IfElseNodeData

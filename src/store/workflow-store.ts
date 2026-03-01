@@ -19,7 +19,7 @@ import type {
   WorkflowNodeData,
   WorkflowJSON,
 } from "@/types/workflow";
-import type { SubAgentFlowNodeData } from "@/nodes/sub-agent-flow/types";
+import type { SubWorkflowNodeData } from "@/nodes/sub-workflow/types";
 import { SubAgentModel, SubAgentMemory } from "@/nodes/sub-agent/enums";
 import { createNodeFromType } from "@/lib/node-registry";
 
@@ -80,6 +80,8 @@ interface WorkflowState {
   subWorkflowStack: { nodeId: string; label: string }[];
   /** Nodes currently displayed on the active sub-workflow canvas (set by the canvas component) */
   subWorkflowNodes: WorkflowNode[];
+  /** Nodes from the parent context — used to resolve the parent node when opening a nested sub-workflow */
+  subWorkflowParentNodes: WorkflowNode[];
   openSubWorkflow: (nodeId: string) => void;
   closeSubWorkflow: () => void;
   /** Navigate back to a specific level in the breadcrumb stack */
@@ -130,6 +132,29 @@ function ensureEndNode(nodes: WorkflowNode[]): WorkflowNode[] {
 }
 
 // ── Initial state ───────────────────────────────────────────────────────────
+
+/**
+ * Walk the breadcrumb stack from root to resolve the parent context nodes
+ * at any given depth. For stack [A, B], to show B's canvas we need A's
+ * sub-nodes (because B lives inside A). For stack [A] we need root nodes.
+ */
+function resolveParentNodes(
+  rootNodes: WorkflowNode[],
+  stack: { nodeId: string; label: string }[],
+): WorkflowNode[] {
+  if (stack.length <= 1) return rootNodes;
+  // Walk from root through each ancestor, diving into subNodes
+  let context: WorkflowNode[] = rootNodes;
+  for (let i = 0; i < stack.length - 1; i++) {
+    const entry = stack[i];
+    const node = context.find((n) => n.id === entry.nodeId);
+    const data = node?.data as SubWorkflowNodeData | undefined;
+    if (!data?.subNodes) return rootNodes; // fallback
+    context = data.subNodes;
+  }
+  return context;
+}
+
 const initialState = {
   name: "Untitled Workflow",
   nodes: [createDefaultStartNode(), createDefaultEndNode()] as WorkflowNode[],
@@ -145,6 +170,7 @@ const initialState = {
   activeSubWorkflowNodeId: null as string | null,
   subWorkflowStack: [] as { nodeId: string; label: string }[],
   subWorkflowNodes: [] as WorkflowNode[],
+  subWorkflowParentNodes: [] as WorkflowNode[],
 };
 
 // ── Store ───────────────────────────────────────────────────────────────────
@@ -396,17 +422,25 @@ export const useWorkflowStore = create<WorkflowState>()(
   activeSubWorkflowNodeId: null,
   subWorkflowStack: [],
   subWorkflowNodes: [],
+  subWorkflowParentNodes: [],
 
   openSubWorkflow: (nodeId) => {
-    // Resolve the label from either the main nodes or the current sub-workflow overlay
-    const allNodes = [...get().nodes, ...get().subWorkflowNodes];
-    const node = allNodes.find((n) => n.id === nodeId);
-    const label = (node?.data as SubAgentFlowNodeData | undefined)?.label || "Sub Workflow";
+    // The "current context" nodes are:
+    //   - subWorkflowNodes if already inside a sub-workflow
+    //   - nodes (root) if at root level
+    const state = get();
+    const currentContextNodes = state.activeSubWorkflowNodeId
+      ? state.subWorkflowNodes
+      : state.nodes;
+    const node = currentContextNodes.find((n) => n.id === nodeId);
+    const label = (node?.data as SubWorkflowNodeData | undefined)?.label || "Sub Workflow";
     set({
-      subWorkflowStack: [...get().subWorkflowStack, { nodeId, label }],
+      subWorkflowStack: [...state.subWorkflowStack, { nodeId, label }],
       activeSubWorkflowNodeId: nodeId,
       selectedNodeId: null,
       propertiesPanelOpen: false,
+      // Snapshot the current context so the new canvas can find its parent node
+      subWorkflowParentNodes: currentContextNodes,
       subWorkflowNodes: [],
     });
   },
@@ -415,14 +449,25 @@ export const useWorkflowStore = create<WorkflowState>()(
     const stack = get().subWorkflowStack;
     if (stack.length <= 1) {
       // Back to root
-      set({ activeSubWorkflowNodeId: null, subWorkflowStack: [], subWorkflowNodes: [], selectedNodeId: null, propertiesPanelOpen: false });
+      set({
+        activeSubWorkflowNodeId: null,
+        subWorkflowStack: [],
+        subWorkflowNodes: [],
+        subWorkflowParentNodes: [],
+        selectedNodeId: null,
+        propertiesPanelOpen: false,
+      });
     } else {
-      // Pop one level
+      // Pop one level — the parent context becomes the grandparent's sub-workflow
+      // We need to find the grandparent's nodes. The grandparent is stack[length-2].
+      // To resolve this properly, we look up the grandparent from root nodes recursively.
       const newStack = stack.slice(0, -1);
+      const parentContextNodes = resolveParentNodes(get().nodes, newStack);
       set({
         activeSubWorkflowNodeId: newStack[newStack.length - 1].nodeId,
         subWorkflowStack: newStack,
         subWorkflowNodes: [],
+        subWorkflowParentNodes: parentContextNodes,
         selectedNodeId: null,
         propertiesPanelOpen: false,
       });
@@ -432,13 +477,22 @@ export const useWorkflowStore = create<WorkflowState>()(
   navigateToBreadcrumb: (index) => {
     if (index < 0) {
       // Navigate to root
-      set({ activeSubWorkflowNodeId: null, subWorkflowStack: [], subWorkflowNodes: [], selectedNodeId: null, propertiesPanelOpen: false });
+      set({
+        activeSubWorkflowNodeId: null,
+        subWorkflowStack: [],
+        subWorkflowNodes: [],
+        subWorkflowParentNodes: [],
+        selectedNodeId: null,
+        propertiesPanelOpen: false,
+      });
     } else {
       const newStack = get().subWorkflowStack.slice(0, index + 1);
+      const parentContextNodes = resolveParentNodes(get().nodes, newStack);
       set({
         activeSubWorkflowNodeId: newStack[newStack.length - 1].nodeId,
         subWorkflowStack: newStack,
         subWorkflowNodes: [],
+        subWorkflowParentNodes: parentContextNodes,
         selectedNodeId: null,
         propertiesPanelOpen: false,
       });
@@ -458,21 +512,78 @@ export const useWorkflowStore = create<WorkflowState>()(
   },
 
   updateSubWorkflowData: (nodeId, subNodes, subEdges) => {
-    set({
-      nodes: get().nodes.map((node) => {
+    const state = get();
+
+    // Helper to update a single node's subNodes/subEdges within a list
+    const updateInList = (list: WorkflowNode[]): WorkflowNode[] =>
+      list.map((node) => {
         if (node.id !== nodeId) return node;
-        const d = node.data as SubAgentFlowNodeData;
+        const d = node.data as SubWorkflowNodeData;
         return {
           ...node,
-          data: {
-            ...d,
-            subNodes,
-            subEdges,
-            nodeCount: subNodes.length,
-          } as WorkflowNodeData,
+          data: { ...d, subNodes, subEdges, nodeCount: subNodes.length } as WorkflowNodeData,
         };
-      }),
-    });
+      });
+
+    // Case 1: target node is at the root level (depth-1 sub-workflow)
+    if (state.nodes.some((n) => n.id === nodeId)) {
+      set({ nodes: updateInList(state.nodes) });
+      return;
+    }
+
+    // Case 2: target node is in subWorkflowParentNodes (nested sub-workflow)
+    if (state.subWorkflowParentNodes.some((n) => n.id === nodeId)) {
+      const updatedParentNodes = updateInList(state.subWorkflowParentNodes);
+      set({ subWorkflowParentNodes: updatedParentNodes });
+
+      // Propagate the change up to root by rebuilding from root → deepest ancestor.
+      // Stack = [A, B, C] means: root contains A, A contains B, B contains C.
+      // If C's canvas is editing, parentNodes = B's subNodes (which contains C).
+      // We updated B's subNodes (parentNodes). Now embed that into A, then into root.
+      const stack = state.subWorkflowStack;
+      if (stack.length >= 2) {
+        // Walk top-down from root, collect each level's node list
+        let rootNodes = [...state.nodes];
+        // We need to update from the second-to-last ancestor down to root.
+        // stack[0] is in rootNodes, stack[1] is in stack[0]'s subNodes, etc.
+        // The parentNodes we just updated belong to stack[stack.length-2]'s subNodes.
+
+        // Rebuild bottom-up: start with the updatedParentNodes and wrap each ancestor
+        let currentSubNodes: WorkflowNode[] = updatedParentNodes;
+        for (let i = stack.length - 2; i >= 0; i--) {
+          const ancestorId = stack[i].nodeId;
+          // Resolve the context that CONTAINS this ancestor
+          const containingContext = i === 0
+            ? rootNodes
+            : resolveParentNodes(rootNodes, stack.slice(0, i));
+          const ancestorNode = containingContext.find((n) => n.id === ancestorId);
+          if (!ancestorNode) break;
+          const ancestorData = ancestorNode.data as SubWorkflowNodeData;
+          // Update the ancestor's subNodes to currentSubNodes
+          const updatedAncestor: WorkflowNode = {
+            ...ancestorNode,
+            data: {
+              ...ancestorData,
+              subNodes: currentSubNodes,
+              nodeCount: currentSubNodes.length,
+            } as WorkflowNodeData,
+          };
+          if (i === 0) {
+            // Ancestor is in root — update root nodes directly
+            rootNodes = rootNodes.map((n) => n.id === ancestorId ? updatedAncestor : n);
+          } else {
+            // Ancestor is nested — we need its parent's subNodes to become currentSubNodes
+            // for the next iteration
+            currentSubNodes = containingContext.map((n) => n.id === ancestorId ? updatedAncestor : n);
+          }
+        }
+        set({ nodes: rootNodes });
+      }
+      return;
+    }
+
+    // Fallback — search root nodes anyway
+    set({ nodes: updateInList(state.nodes) });
   },
 
   groupIntoSubWorkflow: (nodeIds) => {

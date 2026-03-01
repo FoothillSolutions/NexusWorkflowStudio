@@ -3,7 +3,7 @@ import { mermaidId, mermaidLabel } from "@/nodes/shared/mermaid-utils";
 import type { WorkflowNodeData, WorkflowJSON } from "@/types/workflow";
 import { NODE_ACCENT } from "@/lib/node-colors";
 import { SubAgentModel } from "@/nodes/sub-agent/enums";
-import type { SubAgentFlowNodeData } from "./types";
+import type { SubWorkflowNodeData } from "./types";
 
 /** Sanitise a human label into a safe kebab-case slug. */
 function toSafeName(raw: string): string {
@@ -18,7 +18,7 @@ function toSafeName(raw: string): string {
  * Build a self-contained WorkflowJSON from the sub-workflow's embedded data
  * so we can reuse the top-level generator functions.
  */
-function toWorkflowJSON(d: SubAgentFlowNodeData): WorkflowJSON {
+function toWorkflowJSON(d: SubWorkflowNodeData): WorkflowJSON {
   return {
     name: d.label || "Sub Workflow",
     nodes: d.subNodes ?? [],
@@ -31,7 +31,7 @@ function toWorkflowJSON(d: SubAgentFlowNodeData): WorkflowJSON {
  * Build a `.opencode/agents/<name>.md` frontmatter + body for agent mode.
  * The body tells the agent to "Call /workflow-name".
  */
-function buildSubWorkflowAgentFile(d: SubAgentFlowNodeData): string {
+function buildSubWorkflowAgentFile(d: SubWorkflowNodeData): string {
   const workflowSlug = toSafeName(d.label || "Sub Workflow");
 
   const lines: string[] = ["---"];
@@ -67,7 +67,7 @@ export const generator: NodeGeneratorModule & {
   getAgentFile?(nodeId: string, data: WorkflowNodeData): { path: string; content: string } | null;
 } = {
   getMermaidShape(nodeId: string, data: WorkflowNodeData): string {
-    const d = data as SubAgentFlowNodeData;
+    const d = data as SubWorkflowNodeData;
     const label = d.label || "Sub Workflow";
     if (d.mode === "agent") {
       const agentSlug = toSafeName(label);
@@ -84,7 +84,7 @@ export const generator: NodeGeneratorModule & {
    * which has access to `buildCommandMarkdown` without circular imports.
    */
   getDetailsSection(nodeId: string, data: WorkflowNodeData): string {
-    const d = data as SubAgentFlowNodeData;
+    const d = data as SubWorkflowNodeData;
     const label = d.label || "Sub Workflow";
     const slug = toSafeName(label);
 
@@ -110,13 +110,13 @@ export const generator: NodeGeneratorModule & {
   },
 
   getSubWorkflowJSON(_nodeId: string, data: WorkflowNodeData): WorkflowJSON | null {
-    const d = data as SubAgentFlowNodeData;
+    const d = data as SubWorkflowNodeData;
     if (!d.subNodes || d.subNodes.length === 0) return null;
     return toWorkflowJSON(d);
   },
 
   getAgentFile(_nodeId: string, data: WorkflowNodeData): { path: string; content: string } | null {
-    const d = data as SubAgentFlowNodeData;
+    const d = data as SubWorkflowNodeData;
     if (d.mode !== "agent") return null;
     const agentSlug = toSafeName(d.label || "Sub Workflow");
     return {
@@ -125,3 +125,4 @@ export const generator: NodeGeneratorModule & {
     };
   },
 };
+

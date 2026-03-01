@@ -5,9 +5,9 @@ import type { NodeRegistryEntry } from "@/nodes/shared/registry-types";
 import { NodeSize } from "@/nodes/shared/base-node";
 import { NODE_ACCENT } from "@/lib/node-colors";
 import { SubAgentModel, SubAgentMemory } from "@/nodes/sub-agent/enums";
-import type { SubAgentFlowNodeData } from "./types";
+import type { SubWorkflowNodeData } from "./types";
 
-export const subAgentFlowRegistryEntry: NodeRegistryEntry = {
+export const subWorkflowRegistryEntry: NodeRegistryEntry = {
   type: "sub-workflow",
   displayName: "Sub Workflow",
   description: "Embed a sub-workflow",
@@ -16,7 +16,7 @@ export const subAgentFlowRegistryEntry: NodeRegistryEntry = {
   accentHex: NODE_ACCENT["sub-workflow"],
   category: NodeCategory.Basic,
   size: NodeSize.Large,
-  defaultData: (): SubAgentFlowNodeData => ({
+  defaultData: (): SubWorkflowNodeData => ({
     type: "sub-workflow",
     label: "Sub Workflow",
     name: "",
@@ -33,7 +33,7 @@ export const subAgentFlowRegistryEntry: NodeRegistryEntry = {
   }),
 };
 
-export const subAgentFlowSchema = z.object({
+export const subWorkflowSchema = z.object({
   name: z.string().min(1, "Name is required").regex(/^[a-zA-Z0-9_-]+$/, "Only alphanumeric characters, hyphens, and underscores"),
   label: z.string().min(1, "Label is required"),
   mode: z.enum(["same-context", "agent"]).default("same-context"),
@@ -48,3 +48,4 @@ export const subAgentFlowSchema = z.object({
   color: z.string().default(NODE_ACCENT["sub-workflow"]),
   disabledTools: z.array(z.string()).default([]),
 });
+

@@ -179,7 +179,7 @@ export default function WorkflowEditor() {
         <DeleteDialog />
         {/* Sub-workflow editor overlay */}
         {activeSubWorkflowNodeId && (
-          <SubWorkflowCanvas nodeId={activeSubWorkflowNodeId} />
+          <SubWorkflowCanvas key={activeSubWorkflowNodeId} nodeId={activeSubWorkflowNodeId} />
         )}
       </div>
     </ReactFlowProvider>
