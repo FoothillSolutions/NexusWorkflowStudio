@@ -2,7 +2,7 @@
 
 import { useWorkflowStore } from "@/store/workflow-store";
 import { BASIC_NODES, CONTROL_FLOW_NODES, type NodeRegistryEntry } from "@/lib/node-registry";
-import { Menu, X } from "lucide-react";
+import { Menu, X, FileText, ScrollText, Scale, ShieldCheck } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,6 +11,19 @@ import {
   TEXT_MUTED,
   TEXT_SUBTLE,
 } from "@/lib/theme";
+
+/** Node types that are disabled / coming soon */
+const COMING_SOON_TYPES = new Set(["mcp-tool"]);
+
+/** Extra "coming soon" placeholders that aren't real node types */
+const COMING_SOON_BASIC = [
+  { key: "documents", label: "Documents", description: "Docs for Agents",    icon: FileText,    hex: "#f59e0b" },
+  { key: "scripts",   label: "Scripts",   description: "Run custom scripts", icon: ScrollText,  hex: "#8b5cf6" },
+];
+const COMING_SOON_CONTROL = [
+  { key: "rules",  label: "Rules",  description: "Define execution rules",  icon: Scale,       hex: "#f97316" },
+  { key: "guards", label: "Guards", description: "Add safety guardrails",   icon: ShieldCheck, hex: "#22d3ee" },
+];
 
 export default function NodePalette() {
   const sidebarOpen = useWorkflowStore((s) => s.sidebarOpen);
@@ -23,27 +36,66 @@ export default function NodePalette() {
 
   const renderNodeItem = (node: NodeRegistryEntry) => {
     const Icon = node.icon;
+    const isComingSoon = COMING_SOON_TYPES.has(node.type);
+
     return (
       <div
         key={node.type}
-        draggable
-        onDragStart={(e) => onDragStart(e, node.type)}
-        className={`flex items-center gap-3 p-3 rounded-xl border ${BORDER_MUTED} bg-zinc-800/60 hover:bg-zinc-700/60 hover:border-zinc-600 cursor-grab active:cursor-grabbing transition-all duration-200 group`}
+        draggable={!isComingSoon}
+        onDragStart={isComingSoon ? undefined : (e) => onDragStart(e, node.type)}
+        className={
+          isComingSoon
+            ? `relative flex items-center gap-3 p-3 rounded-xl border border-zinc-700/30 bg-zinc-800/30 opacity-50 cursor-not-allowed select-none transition-all duration-200`
+            : `flex items-center gap-3 p-3 rounded-xl border ${BORDER_MUTED} bg-zinc-800/60 hover:bg-zinc-700/60 hover:border-zinc-600 cursor-grab active:cursor-grabbing transition-all duration-200 group`
+        }
       >
         <div
           className="p-2 rounded-lg shrink-0"
-          style={{ backgroundColor: `${node.accentHex}20` }}
+          style={{ backgroundColor: `${node.accentHex}${isComingSoon ? "10" : "20"}` }}
         >
-          <Icon size={18} style={{ color: node.accentHex }} />
+          <Icon size={18} style={{ color: node.accentHex }} className={isComingSoon ? "opacity-50" : ""} />
         </div>
-        <div className="min-w-0">
-          <div className={`text-sm font-medium ${TEXT_SECONDARY} group-hover:text-white truncate`}>
+        <div className="min-w-0 flex-1">
+          <div className={`text-sm font-medium ${isComingSoon ? TEXT_SUBTLE : TEXT_SECONDARY} ${!isComingSoon ? "group-hover:text-white" : ""} truncate`}>
             {node.displayName}
           </div>
           <div className={`text-xs ${TEXT_SUBTLE} line-clamp-1`}>
             {node.description}
           </div>
         </div>
+        {isComingSoon && (
+          <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded-md bg-zinc-700/60 text-zinc-400 border border-zinc-600/40">
+            Soon
+          </span>
+        )}
+      </div>
+    );
+  };
+
+  const renderComingSoonPlaceholder = (item: typeof COMING_SOON_BASIC[number]) => {
+    const Icon = item.icon;
+    return (
+      <div
+        key={item.key}
+        className="relative flex items-center gap-3 p-3 rounded-xl border border-zinc-700/30 bg-zinc-800/30 opacity-50 cursor-not-allowed select-none transition-all duration-200"
+      >
+        <div
+          className="p-2 rounded-lg shrink-0"
+          style={{ backgroundColor: `${item.hex}10` }}
+        >
+          <Icon size={18} style={{ color: item.hex }} className="opacity-50" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className={`text-sm font-medium ${TEXT_SUBTLE} truncate`}>
+            {item.label}
+          </div>
+          <div className={`text-xs ${TEXT_SUBTLE} line-clamp-1`}>
+            {item.description}
+          </div>
+        </div>
+        <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded-md bg-zinc-700/60 text-zinc-400 border border-zinc-600/40">
+          Soon
+        </span>
       </div>
     );
   };
@@ -98,10 +150,12 @@ export default function NodePalette() {
 
             <TabsContent value="basic" className="flex-1 overflow-y-auto p-3 space-y-2 mt-0">
               {BASIC_NODES.filter((n) => n.type !== "start").map(renderNodeItem)}
+              {COMING_SOON_BASIC.map(renderComingSoonPlaceholder)}
             </TabsContent>
 
             <TabsContent value="control" className="flex-1 overflow-y-auto p-3 space-y-2 mt-0">
               {CONTROL_FLOW_NODES.map(renderNodeItem)}
+              {COMING_SOON_CONTROL.map(renderComingSoonPlaceholder)}
             </TabsContent>
           </Tabs>
         </div>
