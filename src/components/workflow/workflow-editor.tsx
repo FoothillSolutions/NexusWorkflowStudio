@@ -16,11 +16,24 @@ import Canvas from "./canvas";
 import PropertiesPanel from "./properties-panel";
 import DeleteDialog from "./delete-dialog";
 import LibraryPanel from "./library-panel";
+import SubWorkflowCanvas from "./sub-workflow-canvas";
 
 export default function WorkflowEditor() {
   const closePropertiesPanel = useWorkflowStore((s) => s.closePropertiesPanel);
   const getWorkflowJSON = useWorkflowStore((s) => s.getWorkflowJSON);
   const reset = useWorkflowStore((s) => s.reset);
+  const activeSubWorkflowNodeId = useWorkflowStore((s) => s.activeSubWorkflowNodeId);
+  const openSubWorkflow = useWorkflowStore((s) => s.openSubWorkflow);
+
+  // Listen for sub-workflow open events from properties panel
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const nodeId = (e as CustomEvent).detail?.nodeId;
+      if (nodeId) openSubWorkflow(nodeId);
+    };
+    window.addEventListener("nexus:open-sub-workflow", handler);
+    return () => window.removeEventListener("nexus:open-sub-workflow", handler);
+  }, [openSubWorkflow]);
 
   // Keyboard shortcuts (global — dialogs are managed by Header)
   useEffect(() => {
@@ -100,6 +113,8 @@ export default function WorkflowEditor() {
 
       // ── Escape → Close properties panel ─────────────────────────
       if (e.key === "Escape") {
+        // If sub-workflow is open, the sub-workflow canvas handles Escape
+        if (useWorkflowStore.getState().activeSubWorkflowNodeId) return;
         closePropertiesPanel();
         return;
       }
@@ -162,6 +177,10 @@ export default function WorkflowEditor() {
           </div>
         </div>
         <DeleteDialog />
+        {/* Sub-workflow editor overlay */}
+        {activeSubWorkflowNodeId && (
+          <SubWorkflowCanvas nodeId={activeSubWorkflowNodeId} />
+        )}
       </div>
     </ReactFlowProvider>
   );

@@ -64,6 +64,7 @@ export default function Canvas() {
   const canvasMode = useWorkflowStore((s) => s.canvasMode);
   const setCanvasMode = useWorkflowStore((s) => s.setCanvasMode);
   const edgeStyle = useWorkflowStore((s) => s.edgeStyle);
+  const groupIntoSubWorkflow = useWorkflowStore((s) => s.groupIntoSubWorkflow);
 
   // Track dragging to suppress expensive MiniMap renders during drag
   const isDraggingRef = useRef(false);
@@ -294,9 +295,21 @@ export default function Canvas() {
     }
   }, [ctxMenu]);
 
+  const handleGroupIntoSubWorkflow = useCallback(() => {
+    const selectedIds = useWorkflowStore.getState().nodes
+      .filter((n) => n.selected && n.data?.type !== "start")
+      .map((n) => n.id);
+    if (selectedIds.length >= 1) {
+      groupIntoSubWorkflow(selectedIds);
+    }
+  }, [groupIntoSubWorkflow]);
+
   // ── Keyboard shortcuts ───────────────────────────────────────────────────
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      // Skip when sub-workflow editor is open — it has its own handlers
+      if (useWorkflowStore.getState().activeSubWorkflowNodeId) return;
+
       // Ignore when typing inside an input / textarea / contenteditable
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement).isContentEditable) return;
@@ -486,6 +499,7 @@ export default function Canvas() {
           onDeleteSelected={selectedCount > 1 ? handleDeleteSelected : undefined}
           onDuplicateSelected={selectedCount > 1 ? handleDuplicateSelected : undefined}
           onSaveToLibrary={ctxMenu.target.kind === "node" ? handleSaveToLibrary : undefined}
+          onGroupIntoSubWorkflow={selectedCount > 1 ? handleGroupIntoSubWorkflow : undefined}
         />
       )}
     </div>

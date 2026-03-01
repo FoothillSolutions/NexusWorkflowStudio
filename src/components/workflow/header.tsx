@@ -15,7 +15,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuShortcut,
 } from "@/components/ui/dropdown-menu";
 import {
   Tooltip,
@@ -27,22 +26,14 @@ import {
   Download,
   Cpu,
   Eye,
-  Library,
   Upload,
   FilePlus,
   ChevronDown,
-  HelpCircle,
-  BookOpen,
-  Newspaper,
-  MessageSquare,
-  Bug,
-  Info,
-  Keyboard,
 } from "lucide-react";
 import { toast } from "sonner";
 import ImportDialog from "./import-dialog";
-import ShortcutsDialog from "./shortcuts-dialog";
 import WorkflowPreviewDialog from "./workflow-preview-dialog";
+import { LibraryToggleButton, HelpMenu } from "./shared-header-actions";
 import {
   BG_SURFACE,
   BORDER_DEFAULT,
@@ -60,10 +51,8 @@ export default function Header() {
   const setName = useWorkflowStore((s) => s.setName);
   const getWorkflowJSON = useWorkflowStore((s) => s.getWorkflowJSON);
   const reset = useWorkflowStore((s) => s.reset);
-  const librarySidebarOpen = useSavedWorkflowsStore((s) => s.sidebarOpen);
   const [isEditingName, setIsEditingName] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
-  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewMarkdown, setPreviewMarkdown] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -80,6 +69,7 @@ export default function Header() {
   const handleNameKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") setIsEditingName(false);
   };
+
 
   const handleSave = () => {
     const json = getWorkflowJSON();
@@ -137,25 +127,21 @@ export default function Header() {
 
   // Listen for custom events dispatched by keyboard shortcuts in workflow-editor
   useEffect(() => {
-    const onOpenShortcuts = () => setShortcutsOpen(true);
     const onOpenImport = () => setImportDialogOpen(true);
     const onOpenPreview = () => handleView();
     const onGenerate = () => handleGenerate();
 
-    window.addEventListener("nexus:open-shortcuts", onOpenShortcuts);
     window.addEventListener("nexus:open-import", onOpenImport);
     window.addEventListener("nexus:open-preview", onOpenPreview);
     window.addEventListener("nexus:generate", onGenerate);
 
     return () => {
-      window.removeEventListener("nexus:open-shortcuts", onOpenShortcuts);
       window.removeEventListener("nexus:open-import", onOpenImport);
       window.removeEventListener("nexus:open-preview", onOpenPreview);
       window.removeEventListener("nexus:generate", onGenerate);
     };
   }, [handleView, handleGenerate]);
 
-  const handleComingSoon = () => toast("Coming soon!", { icon: "🚧" });
 
   return (
     <header
@@ -228,26 +214,7 @@ export default function Header() {
         </DropdownMenu>
 
         {/* Library toggle */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() =>
-                useSavedWorkflowsStore.getState().toggleSidebar()
-              }
-              className={`h-8 px-3 text-sm ${
-                librarySidebarOpen
-                  ? "text-blue-400 bg-zinc-800/80"
-                  : TEXT_MUTED
-              } hover:text-zinc-100`}
-            >
-              <Library className="h-4 w-4 mr-1.5" />
-              Library
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">Toggle saved workflows</TooltipContent>
-        </Tooltip>
+        <LibraryToggleButton />
 
         <Divider />
 
@@ -283,60 +250,7 @@ export default function Header() {
         <Divider />
 
         {/* Help / More dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className={`${TEXT_MUTED} hover:text-zinc-100 size-8`}
-            >
-              <HelpCircle className="h-[18px] w-[18px]" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52">
-            <DropdownMenuItem onClick={() => setShortcutsOpen(true)}>
-              <Keyboard className="h-4 w-4 mr-2" />
-              Keyboard Shortcuts
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem disabled onClick={handleComingSoon}>
-              <BookOpen className="h-4 w-4 mr-2" />
-              Tutorial
-              <DropdownMenuShortcut className="text-[10px] text-zinc-600">
-                Soon
-              </DropdownMenuShortcut>
-            </DropdownMenuItem>
-            <DropdownMenuItem disabled onClick={handleComingSoon}>
-              <Newspaper className="h-4 w-4 mr-2" />
-              Patch Notes
-              <DropdownMenuShortcut className="text-[10px] text-zinc-600">
-                Soon
-              </DropdownMenuShortcut>
-            </DropdownMenuItem>
-            <DropdownMenuItem disabled onClick={handleComingSoon}>
-              <MessageSquare className="h-4 w-4 mr-2" />
-              Feedback
-              <DropdownMenuShortcut className="text-[10px] text-zinc-600">
-                Soon
-              </DropdownMenuShortcut>
-            </DropdownMenuItem>
-            <DropdownMenuItem disabled onClick={handleComingSoon}>
-              <Bug className="h-4 w-4 mr-2" />
-              Report a Bug
-              <DropdownMenuShortcut className="text-[10px] text-zinc-600">
-                Soon
-              </DropdownMenuShortcut>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem disabled onClick={handleComingSoon}>
-              <Info className="h-4 w-4 mr-2" />
-              About
-              <DropdownMenuShortcut className="text-[10px] text-zinc-600">
-                Soon
-              </DropdownMenuShortcut>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <HelpMenu />
       </div>
 
       {/* ── Dialogs ───────────────────────────────────────────── */}
@@ -344,7 +258,6 @@ export default function Header() {
         open={importDialogOpen}
         onOpenChange={setImportDialogOpen}
       />
-      <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
       <WorkflowPreviewDialog
         open={previewOpen}
         onOpenChange={setPreviewOpen}

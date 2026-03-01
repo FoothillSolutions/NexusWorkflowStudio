@@ -19,6 +19,8 @@ import type {
   WorkflowNodeData,
   WorkflowJSON,
 } from "@/types/workflow";
+import type { SubAgentFlowNodeData } from "@/nodes/sub-agent-flow/types";
+import { SubAgentModel, SubAgentMemory } from "@/nodes/sub-agent/enums";
 import { createNodeFromType } from "@/lib/node-registry";
 
 // ── Canvas interaction modes ────────────────────────────────────────────────
@@ -72,6 +74,23 @@ interface WorkflowState {
   deleteSelectedNodes: () => void;
   selectAll: () => void;
 
+  // Sub-workflow editing
+  activeSubWorkflowNodeId: string | null;
+  /** Stack of opened sub-workflow node IDs for nested breadcrumb navigation */
+  subWorkflowStack: { nodeId: string; label: string }[];
+  /** Nodes currently displayed on the active sub-workflow canvas (set by the canvas component) */
+  subWorkflowNodes: WorkflowNode[];
+  openSubWorkflow: (nodeId: string) => void;
+  closeSubWorkflow: () => void;
+  /** Navigate back to a specific level in the breadcrumb stack */
+  navigateToBreadcrumb: (index: number) => void;
+  /** Called by the sub-workflow canvas to register its local nodes so the properties panel can find them */
+  setSubWorkflowNodes: (nodes: WorkflowNode[]) => void;
+  /** Update node data for a node that lives in the sub-workflow overlay */
+  updateSubNodeData: (nodeId: string, data: Partial<WorkflowNodeData>) => void;
+  updateSubWorkflowData: (nodeId: string, subNodes: WorkflowNode[], subEdges: WorkflowEdge[]) => void;
+  groupIntoSubWorkflow: (nodeIds: string[]) => void;
+
   // Persistence
   loadWorkflow: (json: WorkflowJSON) => void;
   getWorkflowJSON: () => WorkflowJSON;
@@ -123,6 +142,9 @@ const initialState = {
   canvasMode: "hand" as CanvasMode,
   edgeStyle: "bezier" as EdgeStyle,
   deleteTarget: null as { type: "node" | "edge" | "selection"; id: string } | null,
+  activeSubWorkflowNodeId: null as string | null,
+  subWorkflowStack: [] as { nodeId: string; label: string }[],
+  subWorkflowNodes: [] as WorkflowNode[],
 };
 
 // ── Store ───────────────────────────────────────────────────────────────────
@@ -367,6 +389,244 @@ export const useWorkflowStore = create<WorkflowState>()(
     set({
       nodes: get().nodes.map((n) => ({ ...n, selected: true })),
       selectedNodeId: null,
+    });
+  },
+
+  // ── Sub-workflow editing ────────────────────────────────────────────────
+  activeSubWorkflowNodeId: null,
+  subWorkflowStack: [],
+  subWorkflowNodes: [],
+
+  openSubWorkflow: (nodeId) => {
+    // Resolve the label from either the main nodes or the current sub-workflow overlay
+    const allNodes = [...get().nodes, ...get().subWorkflowNodes];
+    const node = allNodes.find((n) => n.id === nodeId);
+    const label = (node?.data as SubAgentFlowNodeData | undefined)?.label || "Sub Workflow";
+    set({
+      subWorkflowStack: [...get().subWorkflowStack, { nodeId, label }],
+      activeSubWorkflowNodeId: nodeId,
+      selectedNodeId: null,
+      propertiesPanelOpen: false,
+      subWorkflowNodes: [],
+    });
+  },
+
+  closeSubWorkflow: () => {
+    const stack = get().subWorkflowStack;
+    if (stack.length <= 1) {
+      // Back to root
+      set({ activeSubWorkflowNodeId: null, subWorkflowStack: [], subWorkflowNodes: [], selectedNodeId: null, propertiesPanelOpen: false });
+    } else {
+      // Pop one level
+      const newStack = stack.slice(0, -1);
+      set({
+        activeSubWorkflowNodeId: newStack[newStack.length - 1].nodeId,
+        subWorkflowStack: newStack,
+        subWorkflowNodes: [],
+        selectedNodeId: null,
+        propertiesPanelOpen: false,
+      });
+    }
+  },
+
+  navigateToBreadcrumb: (index) => {
+    if (index < 0) {
+      // Navigate to root
+      set({ activeSubWorkflowNodeId: null, subWorkflowStack: [], subWorkflowNodes: [], selectedNodeId: null, propertiesPanelOpen: false });
+    } else {
+      const newStack = get().subWorkflowStack.slice(0, index + 1);
+      set({
+        activeSubWorkflowNodeId: newStack[newStack.length - 1].nodeId,
+        subWorkflowStack: newStack,
+        subWorkflowNodes: [],
+        selectedNodeId: null,
+        propertiesPanelOpen: false,
+      });
+    }
+  },
+
+  setSubWorkflowNodes: (nodes) => set({ subWorkflowNodes: nodes }),
+
+  updateSubNodeData: (nodeId, data) => {
+    set({
+      subWorkflowNodes: get().subWorkflowNodes.map((node) =>
+        node.id === nodeId
+          ? { ...node, data: { ...node.data, ...data } as WorkflowNodeData }
+          : node
+      ),
+    });
+  },
+
+  updateSubWorkflowData: (nodeId, subNodes, subEdges) => {
+    set({
+      nodes: get().nodes.map((node) => {
+        if (node.id !== nodeId) return node;
+        const d = node.data as SubAgentFlowNodeData;
+        return {
+          ...node,
+          data: {
+            ...d,
+            subNodes,
+            subEdges,
+            nodeCount: subNodes.length,
+          } as WorkflowNodeData,
+        };
+      }),
+    });
+  },
+
+  groupIntoSubWorkflow: (nodeIds) => {
+    const state = get();
+    const selectedNodes = state.nodes.filter((n) => nodeIds.includes(n.id) && n.data?.type !== "start");
+    if (selectedNodes.length === 0) return;
+
+    const selectedIdSet = new Set(selectedNodes.map((n) => n.id));
+
+    // Separate internal edges (both endpoints inside) from boundary edges
+    const internalEdges = state.edges.filter(
+      (e) => selectedIdSet.has(e.source) && selectedIdSet.has(e.target)
+    );
+    const incomingEdges = state.edges.filter(
+      (e) => !selectedIdSet.has(e.source) && selectedIdSet.has(e.target)
+    );
+    const outgoingEdges = state.edges.filter(
+      (e) => selectedIdSet.has(e.source) && !selectedIdSet.has(e.target)
+    );
+
+    // Compute centroid for the new sub-workflow node position
+    const cx = selectedNodes.reduce((sum, n) => sum + n.position.x, 0) / selectedNodes.length;
+    const cy = selectedNodes.reduce((sum, n) => sum + n.position.y, 0) / selectedNodes.length;
+
+    // Create embedded start/end nodes for the sub-workflow
+    const subStartId = `start-sub-${nanoid(8)}`;
+    const subEndId = `end-sub-${nanoid(8)}`;
+    const minX = Math.min(...selectedNodes.map((n) => n.position.x));
+    const maxX = Math.max(...selectedNodes.map((n) => n.position.x));
+    const midY = cy;
+
+    const subStartNode: WorkflowNode = {
+      id: subStartId,
+      type: "start",
+      position: { x: minX - 200, y: midY },
+      data: { type: "start", label: "Start", name: subStartId } as WorkflowNodeData,
+      deletable: false,
+    };
+    const subEndNode: WorkflowNode = {
+      id: subEndId,
+      type: "end",
+      position: { x: maxX + 200, y: midY },
+      data: { type: "end", label: "End", name: subEndId } as WorkflowNodeData,
+    };
+
+    // Normalize positions of moved nodes relative to sub-workflow origin
+    const offsetX = minX - 100;
+    const offsetY = Math.min(...selectedNodes.map((n) => n.position.y)) - 100;
+    const subNodes: WorkflowNode[] = [
+      subStartNode,
+      ...selectedNodes.map((n) => ({
+        ...n,
+        selected: false,
+        position: { x: n.position.x - offsetX, y: n.position.y - offsetY },
+      })),
+      subEndNode,
+    ];
+
+    // Adjust sub start/end positions relative too
+    subNodes[0] = { ...subNodes[0], position: { x: subStartNode.position.x - offsetX, y: subStartNode.position.y - offsetY } };
+    subNodes[subNodes.length - 1] = { ...subNodes[subNodes.length - 1], position: { x: subEndNode.position.x - offsetX, y: subEndNode.position.y - offsetY } };
+
+    // Build sub-edges: internal + connect sub-start to nodes that had incoming boundary edges,
+    // and connect nodes that had outgoing boundary edges to sub-end
+    const subEdges: WorkflowEdge[] = [...internalEdges];
+
+    // Connect sub-start → target nodes of incoming edges
+    const incomingTargets = new Set(incomingEdges.map((e) => e.target));
+    for (const targetId of incomingTargets) {
+      subEdges.push({
+        id: `e-${subStartId}-${targetId}-${nanoid(4)}`,
+        source: subStartId,
+        sourceHandle: "output",
+        target: targetId,
+        targetHandle: "input",
+        type: "deletable",
+      });
+    }
+
+    // Connect source nodes of outgoing edges → sub-end
+    const outgoingSources = new Set(outgoingEdges.map((e) => e.source));
+    for (const sourceId of outgoingSources) {
+      subEdges.push({
+        id: `e-${sourceId}-${subEndId}-${nanoid(4)}`,
+        source: sourceId,
+        sourceHandle: "output",
+        target: subEndId,
+        targetHandle: "input",
+        type: "deletable",
+      });
+    }
+
+    // Create the sub-workflow node
+    const subWorkflowId = `sub-workflow-${nanoid(8)}`;
+    const subWorkflowNode: WorkflowNode = {
+      id: subWorkflowId,
+      type: "sub-workflow",
+      position: { x: cx, y: cy },
+      selected: false,
+      data: {
+        type: "sub-workflow",
+        label: "Sub Workflow",
+        name: subWorkflowId,
+        mode: "same-context",
+        subNodes,
+        subEdges,
+        nodeCount: subNodes.length,
+        description: "",
+        model: SubAgentModel.Inherit,
+        memory: SubAgentMemory.Default,
+        temperature: 0,
+        color: "#a855f7",
+        disabledTools: [],
+      } as WorkflowNodeData,
+    };
+
+    // Remove selected nodes from parent, add sub-workflow node
+    const remainingNodes: WorkflowNode[] = [
+      ...state.nodes
+        .filter((n) => !selectedIdSet.has(n.id))
+        .map((n) => ({ ...n, selected: false })),
+      subWorkflowNode,
+    ];
+
+    // Rewire boundary edges to point to/from the sub-workflow node
+    const remainingEdges = state.edges.filter(
+      (e) => !selectedIdSet.has(e.source) && !selectedIdSet.has(e.target)
+    );
+    // Incoming → sub-workflow input
+    for (const e of incomingEdges) {
+      remainingEdges.push({
+        ...e,
+        id: `e-${e.source}-${subWorkflowId}-${nanoid(4)}`,
+        target: subWorkflowId,
+        targetHandle: "input",
+        type: "deletable",
+      });
+    }
+    // Sub-workflow output → outgoing targets
+    for (const e of outgoingEdges) {
+      remainingEdges.push({
+        ...e,
+        id: `e-${subWorkflowId}-${e.target}-${nanoid(4)}`,
+        source: subWorkflowId,
+        sourceHandle: "output",
+        type: "deletable",
+      });
+    }
+
+    set({
+      nodes: remainingNodes,
+      edges: remainingEdges,
+      selectedNodeId: subWorkflowId,
+      propertiesPanelOpen: true,
     });
   },
 

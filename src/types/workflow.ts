@@ -52,10 +52,21 @@ export interface SubAgentNodeData extends BaseNodeData {
   parameterMappings: string[];
 }
 
+export type SubWorkflowMode = "same-context" | "agent";
+
 export interface SubAgentFlowNodeData extends BaseNodeData {
   type: "sub-workflow";
-  flowRef: string;
+  mode: SubWorkflowMode;
+  subNodes: WorkflowNode[];
+  subEdges: WorkflowEdge[];
   nodeCount: number;
+  // Agent-mode fields
+  description: string;
+  model: SubAgentModel;
+  memory: SubAgentMemory;
+  temperature: number;
+  color: string;
+  disabledTools: string[];
 }
 
 export interface SkillNodeData extends BaseNodeData {

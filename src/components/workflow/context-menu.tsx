@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Copy, Trash2, BookmarkPlus } from "lucide-react";
+import { Copy, Trash2, BookmarkPlus, GitBranch } from "lucide-react";
 import type { NodeType } from "@/types/workflow";
 
 export type ContextMenuTarget =
@@ -23,6 +23,7 @@ interface ContextMenuProps {
   onDeleteSelected?: () => void;
   onDuplicateSelected?: () => void;
   onSaveToLibrary?: () => void;
+  onGroupIntoSubWorkflow?: () => void;
 }
 
 export function ContextMenu({
@@ -36,6 +37,7 @@ export function ContextMenu({
   onDeleteSelected,
   onDuplicateSelected,
   onSaveToLibrary,
+  onGroupIntoSubWorkflow,
 }: ContextMenuProps) {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -72,9 +74,10 @@ export function ContextMenu({
   const showSelectionActions = (isSelection || (isNode && multiSelected)) && selectedCount > 1;
   const canDuplicateSelected = showSelectionActions && !!onDuplicateSelected;
   const canDeleteSelected    = showSelectionActions && !!onDeleteSelected;
+  const canGroupIntoSubWorkflow = showSelectionActions && !!onGroupIntoSubWorkflow;
 
   const hasSingle    = canDuplicate || canDelete || canSaveToLib;
-  const hasMulti     = canDuplicateSelected || canDeleteSelected;
+  const hasMulti     = canDuplicateSelected || canDeleteSelected || canGroupIntoSubWorkflow;
 
   if (!hasSingle && !hasMulti) return null;
 
@@ -118,6 +121,15 @@ export function ContextMenu({
       {hasSingle && hasMulti && <div className="border-t border-zinc-700/50 my-1 mx-1" />}
 
       {/* ── Multi-select actions ── */}
+      {canGroupIntoSubWorkflow && (
+        <button
+          onClick={() => { onGroupIntoSubWorkflow!(); onClose(); }}
+          className="flex items-center gap-2.5 w-full px-2.5 py-1.5 rounded-md text-purple-400 hover:bg-purple-500/10 hover:text-purple-300 transition-colors duration-100"
+        >
+          <GitBranch size={13} className="shrink-0" />
+          Add to Sub-Workflow ({selectedCount})
+        </button>
+      )}
       {canDuplicateSelected && (
         <button
           onClick={() => { onDuplicateSelected!(); onClose(); }}

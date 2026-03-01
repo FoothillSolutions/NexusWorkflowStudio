@@ -24,15 +24,31 @@ export default function PropertiesPanel() {
   const propertiesPanelOpen = useWorkflowStore((s) => s.propertiesPanelOpen);
   const closePropertiesPanel = useWorkflowStore((s) => s.closePropertiesPanel);
   const updateNodeData = useWorkflowStore((s) => s.updateNodeData);
+  const updateSubNodeData = useWorkflowStore((s) => s.updateSubNodeData);
   const setDeleteTarget = useWorkflowStore((s) => s.setDeleteTarget);
+  const activeSubWorkflowNodeId = useWorkflowStore((s) => s.activeSubWorkflowNodeId);
 
-  // Only subscribe to the selected node's *data* — not positions of all nodes.
-  // This avoids re-rendering the properties panel on every drag frame.
+  // Look up the selected node from either main nodes OR sub-workflow nodes
   const nodeData = useWorkflowStore(
     useCallback(
       (s) => {
         if (!selectedNodeId) return undefined;
-        return s.nodes.find((n) => n.id === selectedNodeId)?.data;
+        return (
+          s.nodes.find((n) => n.id === selectedNodeId)?.data ??
+          s.subWorkflowNodes.find((n) => n.id === selectedNodeId)?.data
+        );
+      },
+      [selectedNodeId]
+    )
+  );
+
+  // Determine whether the selected node lives in a sub-workflow
+  const isSubNode = useWorkflowStore(
+    useCallback(
+      (s) => {
+        if (!selectedNodeId) return false;
+        return !s.nodes.some((n) => n.id === selectedNodeId) &&
+               s.subWorkflowNodes.some((n) => n.id === selectedNodeId);
       },
       [selectedNodeId]
     )
@@ -86,8 +102,12 @@ export default function PropertiesPanel() {
     // Skip until the form has been reset AND a full render cycle has passed
     if (readyNodeIdRef.current !== selectedNodeId) return;
     const updatedData = { ...watchedValues, type: nodeType } as Partial<WorkflowNodeData>;
-    updateNodeData(selectedNodeId, updatedData);
-  }, [watchedValues, selectedNodeId, nodeType, updateNodeData]);
+    if (isSubNode) {
+      updateSubNodeData(selectedNodeId, updatedData);
+    } else {
+      updateNodeData(selectedNodeId, updatedData);
+    }
+  }, [watchedValues, selectedNodeId, nodeType, updateNodeData, updateSubNodeData, isSubNode]);
 
   const handleDelete = useCallback(() => {
     if (selectedNodeId) {
@@ -128,7 +148,7 @@ export default function PropertiesPanel() {
   return (
     <div
       className="absolute top-4 right-4 z-20 flex flex-col rounded-2xl border border-zinc-700/50 bg-zinc-900/85 backdrop-blur-md shadow-2xl overflow-hidden animate-in slide-in-from-top-4 fade-in-0 duration-200"
-      style={{ width: 320, height: "calc(100vh - 112px)" }}
+      style={{ width: 320, height: activeSubWorkflowNodeId ? "calc(100% - 32px)" : "calc(100vh - 112px)" }}
     >
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-700/50 shrink-0">

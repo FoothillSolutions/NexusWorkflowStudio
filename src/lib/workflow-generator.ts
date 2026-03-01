@@ -227,11 +227,28 @@ function buildAskUserDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[]
   if (sections.length === 0) return "";
   return "### AskUserQuestion Node Details\n\nAsk the user using question or AskUserQuestion tools and proceed based on their choice.\n\n" + sections.join("\n\n");
 }
+function buildSubWorkflowDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[]): string {
+  const order = topologicalOrder(nodes, edges);
+  const nodeById = new Map<string, WorkflowNode>(nodes.map((n) => [n.id, n]));
+  const sections: string[] = [];
+  for (const id of order) {
+    const node = nodeById.get(id);
+    if (!node || node.data.type !== "sub-workflow") continue;
+
+    const gen = NODE_GENERATORS["sub-workflow"];
+    if (gen) {
+      const detail = gen.getDetailsSection(node.id, node.data);
+      if (detail) sections.push(detail);
+    }
+  }
+  if (sections.length === 0) return "";
+  return "### Sub-Workflow Node Details\n\n" + sections.join("\n\n");
+}
 function buildDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[]): string {
   const order = topologicalOrder(nodes, edges);
   const nodeById = new Map<string, WorkflowNode>(nodes.map((n) => [n.id, n]));
   const sections: string[] = [];
-  const SKIP = new Set(["start", "end", "prompt", "agent", "skill", "if-else", "switch", "ask-user"]);
+  const SKIP = new Set(["start", "end", "prompt", "agent", "skill", "if-else", "switch", "ask-user", "sub-workflow"]);
   for (const id of order) {
     const node = nodeById.get(id);
     if (!node || SKIP.has(node.data.type)) continue;
@@ -308,6 +325,48 @@ function collectAgentFiles(nodes: WorkflowNode[], edges: WorkflowEdge[]): Genera
     }
   }
 
+  // Generate sub-workflow files (inner command file + agent file if agent mode)
+  for (const node of reachable) {
+    if (node.data.type === "sub-workflow") {
+      const gen = NODE_GENERATORS["sub-workflow"] as typeof NODE_GENERATORS["sub-workflow"] & {
+        getSubWorkflowJSON?(id: string, d: WorkflowNode["data"]): WorkflowJSON | null;
+        getAgentFile?(id: string, d: WorkflowNode["data"]): { path: string; content: string } | null;
+      };
+      const d = node.data as import("@/nodes/sub-agent-flow/types").SubAgentFlowNodeData;
+
+      if (d.mode === "agent") {
+        // Agent mode: generate inner workflow command file using label-based slug + agent file
+        if (gen?.getSubWorkflowJSON) {
+          const innerJSON = gen.getSubWorkflowJSON(node.id, node.data);
+          if (innerJSON) {
+            const innerFiles = generateWorkflowFiles(innerJSON);
+            files.push(...innerFiles);
+          }
+        }
+        if (gen?.getAgentFile) {
+          const f = gen.getAgentFile(node.id, node.data);
+          if (f) files.push(f);
+        }
+      } else {
+        // Same-context mode: generate command file named by mermaid node ID
+        if (gen?.getSubWorkflowJSON) {
+          const innerJSON = gen.getSubWorkflowJSON(node.id, node.data);
+          if (innerJSON) {
+            const mid = mermaidId(node.id);
+            const commandFile: GeneratedFile = {
+              path: `.opencode/commands/${mid}.md`,
+              content: buildCommandMarkdown(innerJSON),
+            };
+            files.push(commandFile);
+            // Recursively collect nested agent/skill/sub-workflow files
+            const innerAgentFiles = collectAgentFiles(innerJSON.nodes, innerJSON.edges);
+            files.push(...innerAgentFiles);
+          }
+        }
+      }
+    }
+  }
+
   return files;
 }
 function buildCommandMarkdown(workflow: WorkflowJSON): string {
@@ -369,6 +428,7 @@ Workflow arguments are **comma-separated and trimmed**. For example \`/workflow 
   const ifElseDetails    = buildIfElseDetailsSection(nodes, edges);
   const switchDetails    = buildSwitchDetailsSection(nodes, edges);
   const askUserDetails   = buildAskUserDetailsSection(nodes, edges);
+  const subWorkflowDetails = buildSubWorkflowDetailsSection(nodes, edges);
   const otherDetails     = buildDetailsSection(nodes, edges);
 
   // Build frontmatter
@@ -377,6 +437,7 @@ Workflow arguments are **comma-separated and trimmed**. For example \`/workflow 
   const parts = [frontmatter, mermaidBlock, "", executionGuide];
   if (promptDetails)   parts.push("", promptDetails);
   if (subAgentDetails) parts.push("", subAgentDetails);
+  if (subWorkflowDetails) parts.push("", subWorkflowDetails);
   if (ifElseDetails)   parts.push("", ifElseDetails);
   if (switchDetails)   parts.push("", switchDetails);
   if (askUserDetails)  parts.push("", askUserDetails);
