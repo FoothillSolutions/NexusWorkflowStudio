@@ -11,20 +11,12 @@ import { FileUp, X, Maximize2 } from "lucide-react";
 import { toast } from "sonner";
 import type { FormControl, FormSetValue, FormRegister } from "@/nodes/shared/form-types";
 import { RequiredIndicator } from "@/nodes/shared/required-indicator";
+import { FileTypeSelect } from "@/nodes/shared/file-type-select";
 
 const DOC_NAME_REGEX = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 const ALLOWED_EXTENSIONS = ["md", "txt", "json", "yaml", "yml"] as const;
 
-const EXTENSION_OPTIONS: { value: string; label: string }[] = [
-  { value: "md", label: ".md (Markdown)" },
-  { value: "txt", label: ".txt (Plain text)" },
-  { value: "json", label: ".json (JSON)" },
-  { value: "yaml", label: ".yaml (YAML)" },
-];
-
-const SELECT_CLASS =
-  "w-full rounded-xl bg-zinc-800/60 border border-zinc-700/60 text-sm text-zinc-100 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-zinc-600";
 
 interface DocumentFieldsProps {
   register: FormRegister;
@@ -145,18 +137,10 @@ export function Fields({ control, setValue }: DocumentFieldsProps) {
           name={"fileExtension" as never}
           control={control}
           render={({ field }) => (
-            <select
-              id="file-ext"
-              className={SELECT_CLASS}
+            <FileTypeSelect
               value={(field.value as string) ?? "md"}
               onChange={field.onChange}
-            >
-              {EXTENSION_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+            />
           )}
         />
       </div>
