@@ -231,11 +231,27 @@ export const useWorkflowStore = create<WorkflowState>()(
       return;
     }
 
+    // Document nodes can ONLY connect to agent nodes (as source)
+    if (sourceNode?.data?.type === "document") {
+      if (targetNode?.data?.type !== "agent") return;
+      // Force the target handle to be the dedicated "docs" handle
+      const docConnection = { ...connection, targetHandle: "docs", type: "deletable" };
+      // Multiple docs allowed — no dedup on this handle
+      set({ edges: addEdge(docConnection, get().edges) });
+      return;
+    }
+
     // No node can connect TO a skill node
     if (targetNode?.data?.type === "skill") return;
 
+    // No node can connect TO a document node
+    if (targetNode?.data?.type === "document") return;
+
     // The "skills" target handle only accepts skill nodes — block everything else
     if (connection.targetHandle === "skills") return;
+
+    // The "docs" target handle only accepts document nodes — block everything else
+    if (connection.targetHandle === "docs") return;
 
     // Each source handle may only connect to one target at a time.
     // Remove any existing edge from the same source handle before adding the new one.

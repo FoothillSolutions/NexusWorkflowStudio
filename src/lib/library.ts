@@ -6,7 +6,7 @@ const COLLECTION_KEY = "nexus-workflow-studio:saved-workflows";
 const LIBRARY_KEY = "nexus-workflow-studio:library";
 
 // ── Library categories ──────────────────────────────────────────────────────
-export type LibraryCategory = "workflow" | "agent" | "skill" | "mcp-tool" | "prompt";
+export type LibraryCategory = "workflow" | "agent" | "skill" | "document" | "mcp-tool" | "prompt";
 
 export const LIBRARY_CATEGORIES: { value: LibraryCategory | "all"; label: string }[] = [
   { value: "all", label: "All" },
@@ -14,6 +14,7 @@ export const LIBRARY_CATEGORIES: { value: LibraryCategory | "all"; label: string
   { value: "prompt", label: "Prompts" },
   { value: "agent", label: "Agents" },
   { value: "skill", label: "Skills" },
+  { value: "document", label: "Documents" },
 ];
 
 /** Maps node types to their library category */
@@ -21,6 +22,7 @@ export function nodeTypeToCategory(type: NodeType): LibraryCategory | null {
   switch (type) {
     case "agent": return "agent";
     case "skill": return "skill";
+    case "document": return "document";
     case "mcp-tool": return "mcp-tool";
     case "prompt": return "prompt";
     default: return null;
@@ -214,6 +216,8 @@ function extractDescription(data: WorkflowNodeData): string {
       return (data as import("@/types/workflow").SubAgentNodeData).description || "";
     case "skill":
       return (data as import("@/types/workflow").SkillNodeData).description || "";
+    case "document":
+      return (data as import("@/types/workflow").DocumentNodeData).description || "";
     case "mcp-tool":
       return (data as import("@/types/workflow").McpToolNodeData).toolName || "";
     case "prompt":

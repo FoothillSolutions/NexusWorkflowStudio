@@ -148,7 +148,7 @@ export default function PropertiesPanel() {
   return (
     <div
       className="absolute top-4 right-4 z-20 flex flex-col rounded-2xl border border-zinc-700/50 bg-zinc-900/85 backdrop-blur-md shadow-2xl overflow-hidden animate-in slide-in-from-top-4 fade-in-0 duration-200"
-      style={{ width: 320, height: activeSubWorkflowNodeId ? "calc(100% - 32px)" : "calc(100vh - 112px)" }}
+      style={{ width: 380, height: activeSubWorkflowNodeId ? "calc(100% - 32px)" : "calc(100vh - 112px)" }}
     >
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-700/50 shrink-0">
@@ -165,7 +165,8 @@ export default function PropertiesPanel() {
           {nameAsbadge && nodeData?.name && (
             <Badge
               variant="outline"
-              className="font-mono text-[10px] px-1.5 py-0 h-4 w-fit border-zinc-600 text-zinc-400 truncate max-w-full"
+              className="font-mono text-[10px] px-1.5 py-0 h-4 w-fit border-zinc-600 text-zinc-400 truncate max-w-full block"
+              title={nodeData.name}
             >
               {nodeData.name}
             </Badge>
@@ -182,8 +183,8 @@ export default function PropertiesPanel() {
       </div>
 
       {/* Content */}
-      <ScrollArea className="flex-1 min-h-0">
-        <form className="space-y-4 p-4" onSubmit={(e) => e.preventDefault()}>
+      <ScrollArea className="flex-1 min-h-0 w-full">
+        <form className="space-y-4 p-4 overflow-hidden" onSubmit={(e) => e.preventDefault()}>
           {/* Node Name — only shown for non-badge node types */}
           {!nameAsbadge && (
             <div className="space-y-2">

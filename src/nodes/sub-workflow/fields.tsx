@@ -6,20 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Layers, ExternalLink, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NODE_ACCENT } from "@/lib/node-colors";
-import { SubAgentModel, SubAgentMemory, MODEL_DISPLAY_NAMES } from "@/nodes/sub-agent/enums";
+import { SubAgentMemory } from "@/nodes/sub-agent/enums";
 import { AGENT_TOOLS, PRESET_COLORS } from "@/nodes/sub-agent/constants";
 import type { FormControl, FormSetValue } from "@/nodes/shared/form-types";
+import { ModelSelect } from "@/nodes/shared/model-select";
 import type { SubWorkflowMode } from "./types";
 
 // ── Shared select / option configs ──────────────────────────────────────────
 
-const MODEL_GROUPS = [
-  { label: "Anthropic Claude", options: [SubAgentModel.Haiku35, SubAgentModel.Sonnet35, SubAgentModel.Sonnet37, SubAgentModel.Opus4, SubAgentModel.Sonnet4] },
-  { label: "OpenAI", options: [SubAgentModel.GPT4o, SubAgentModel.GPT4oMini, SubAgentModel.O3, SubAgentModel.O3Mini, SubAgentModel.O4Mini] },
-  { label: "Google", options: [SubAgentModel.Gemini25Pro, SubAgentModel.Gemini25Flash] },
-  { label: "xAI", options: [SubAgentModel.Grok3, SubAgentModel.Grok3Mini] },
-  { label: "DeepSeek", options: [SubAgentModel.DeepSeekV3, SubAgentModel.DeepSeekR1] },
-];
 
 const MEMORY_OPTIONS = [
   { value: SubAgentMemory.Default, label: "- (default)" },
@@ -130,28 +124,22 @@ export function Fields({ control, setValue, nodeId }: SubWorkflowFieldsProps) {
               name="model"
               control={control}
               render={({ field }) => (
-                <select id="model" className={SELECT_CLASS} value={field.value} onChange={field.onChange}>
-                  <option value={SubAgentModel.Inherit}>{MODEL_DISPLAY_NAMES[SubAgentModel.Inherit]}</option>
-                  {MODEL_GROUPS.map((group) => (
-                    <optgroup key={group.label} label={group.label}>
-                      {group.options.map((m) => (
-                        <option key={m} value={m}>{MODEL_DISPLAY_NAMES[m]}</option>
-                      ))}
-                    </optgroup>
-                  ))}
-                </select>
+                <ModelSelect value={field.value} onChange={field.onChange} />
               )}
             />
           </div>
 
           {/* Memory */}
-          <div className="space-y-2">
-            <Label htmlFor="memory">Memory</Label>
+          <div className="space-y-2 opacity-40 pointer-events-none">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="memory">Memory</Label>
+              <span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider">Coming soon</span>
+            </div>
             <Controller
               name="memory"
               control={control}
               render={({ field }) => (
-                <select id="memory" className={SELECT_CLASS} value={field.value} onChange={field.onChange}>
+                <select id="memory" className={SELECT_CLASS} value={field.value} onChange={field.onChange} disabled>
                   {MEMORY_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
@@ -231,20 +219,20 @@ export function Fields({ control, setValue, nodeId }: SubWorkflowFieldsProps) {
           <div className="space-y-2">
             <Label>Color</Label>
             <div className="flex flex-col gap-2">
-              <div className="grid grid-cols-5 gap-2">
+              <div className="flex flex-wrap gap-2">
                 {PRESET_COLORS.map((preset) => (
                   <button
                     key={preset}
                     type="button"
                     onClick={() => setValue("color" as never, preset as never, { shouldDirty: true })}
                     className={cn(
-                      "w-7 h-7 rounded-full border-2 transition-all duration-150 hover:scale-110",
+                      "w-7 h-7 rounded-full border-2 transition-all duration-150 hover:scale-110 flex items-center justify-center",
                       color === preset ? "border-white ring-2 ring-white/30 scale-110" : "border-transparent"
                     )}
                     style={{ backgroundColor: preset }}
                     title={preset}
                   >
-                    {color === preset && <Check className="h-3 w-3 text-white/90 mx-auto drop-shadow" />}
+                    {color === preset && <Check className="h-3 w-3 text-white/90 drop-shadow" />}
                   </button>
                 ))}
               </div>

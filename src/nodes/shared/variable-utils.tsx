@@ -31,9 +31,9 @@ export function DetectedVariablesPanel({ dynamic, staticVars }: DetectedVariable
   if (total === 0) return null;
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 overflow-hidden">
       <Label className="text-xs text-zinc-400">Detected Variables</Label>
-      <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/30 p-3 space-y-2">
+      <div className="rounded-xl border border-zinc-700/50 bg-zinc-800/30 p-3 space-y-2 overflow-hidden">
         {dynamic.length > 0 && (
           <div className="space-y-1.5">
             <div className="flex items-center gap-1.5 text-[10px] font-medium text-zinc-500 uppercase tracking-wide">
@@ -44,7 +44,8 @@ export function DetectedVariablesPanel({ dynamic, staticVars }: DetectedVariable
               {dynamic.map((v) => (
                 <span
                   key={v}
-                  className="inline-flex items-center text-[11px] font-mono bg-blue-950/60 text-blue-300 border border-blue-800/40 px-2 py-0.5 rounded-md"
+                  className="inline-flex items-center text-[11px] font-mono bg-blue-950/60 text-blue-300 border border-blue-800/40 px-2 py-0.5 rounded-md truncate max-w-full"
+                  title={v}
                 >
                   {v}
                 </span>
@@ -62,7 +63,8 @@ export function DetectedVariablesPanel({ dynamic, staticVars }: DetectedVariable
               {staticVars.map((v) => (
                 <span
                   key={v}
-                  className="inline-flex items-center text-[11px] font-mono bg-amber-950/60 text-amber-300 border border-amber-800/40 px-2 py-0.5 rounded-md"
+                  className="inline-flex items-center text-[11px] font-mono bg-amber-950/60 text-amber-300 border border-amber-800/40 px-2 py-0.5 rounded-md truncate max-w-full"
+                  title={`{{${v}}}`}
                 >
                   {`{{${v}}}`}
                 </span>

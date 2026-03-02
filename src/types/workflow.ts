@@ -11,6 +11,7 @@ export const NODE_TYPES = [
   "agent",
   "sub-workflow",
   "skill",
+  "document",
   "mcp-tool",
   "if-else",
   "switch",
@@ -50,6 +51,8 @@ export interface SubAgentNodeData extends BaseNodeData {
   disabledTools: string[];
   /** Positional parameter mappings passed to the delegated agent */
   parameterMappings: string[];
+  /** Static variable mappings: {{varName}} → resource ref (e.g. "doc:api-guide.md", "skill:my-skill") */
+  variableMappings: Record<string, string>;
 }
 
 export type SubWorkflowMode = "same-context" | "agent";
@@ -77,6 +80,23 @@ export interface SkillNodeData extends BaseNodeData {
   promptText: string;
   detectedVariables: string[];
   metadata: Array<{ key: string; value: string }>;
+}
+
+export type DocumentContentMode = "inline" | "linked";
+
+export interface DocumentNodeData extends BaseNodeData {
+  type: "document";
+  docName: string;
+  contentMode: DocumentContentMode;
+  /** The file extension for the document (md, txt, json, yaml) */
+  fileExtension: "md" | "txt" | "json" | "yaml";
+  /** Inline content entered by the user */
+  contentText: string;
+  /** File name of the linked/uploaded file */
+  linkedFileName: string;
+  /** Raw content of the linked/uploaded file */
+  linkedFileContent: string;
+  description: string;
 }
 
 export interface McpToolNodeData extends BaseNodeData {
@@ -131,6 +151,7 @@ export type WorkflowNodeData =
   | SubAgentNodeData
   | SubWorkflowNodeData
   | SkillNodeData
+  | DocumentNodeData
   | McpToolNodeData
   | IfElseNodeData
   | SwitchNodeData

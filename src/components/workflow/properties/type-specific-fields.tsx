@@ -5,6 +5,7 @@ import { Fields as PromptFields }       from "@/nodes/prompt/fields";
 import { Fields as SubAgentFields }     from "@/nodes/sub-agent/fields";
 import { Fields as SubWorkflowFields } from "@/nodes/sub-workflow/fields";
 import { Fields as SkillFields }        from "@/nodes/skill/fields";
+import { Fields as DocumentFields }     from "@/nodes/document/fields";
 import { Fields as McpToolFields }      from "@/nodes/mcp-tool/fields";
 import { Fields as IfElseFields }       from "@/nodes/if-else/fields";
 import { Fields as SwitchFields }       from "@/nodes/switch/fields";
@@ -25,6 +26,7 @@ export function TypeSpecificFields({ nodeType, register, control, setValue, sele
     case "agent":          return <SubAgentFields control={control} setValue={setValue} nodeId={selectedNodeId} />;
     case "sub-workflow":   return <SubWorkflowFields control={control} setValue={setValue} nodeId={selectedNodeId} />;
     case "skill":          return <SkillFields register={register} control={control} setValue={setValue} />;
+    case "document":       return <DocumentFields register={register} control={control} setValue={setValue} />;
     case "mcp-tool":       return <McpToolFields register={register} />;
     case "if-else":        return <IfElseFields register={register} control={control} />;
     case "switch":         return <SwitchFields register={register} control={control} />;

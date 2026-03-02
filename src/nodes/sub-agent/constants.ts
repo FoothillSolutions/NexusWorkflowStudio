@@ -42,6 +42,7 @@ export const subAgentRegistryEntry: NodeRegistryEntry = {
     color: NODE_ACCENT.agent,
     disabledTools: [],
     parameterMappings: [],
+    variableMappings: {},
   }),
 };
 
@@ -51,11 +52,12 @@ export const subAgentSchema = z.object({
   description: z.string().default(""),
   promptText: z.string(),
   detectedVariables: z.array(z.string()).optional().default([]),
-  model: z.nativeEnum(SubAgentModel).default(SubAgentModel.Inherit),
-  memory: z.nativeEnum(SubAgentMemory).default(SubAgentMemory.Default),
+  model: z.enum(SubAgentModel).default(SubAgentModel.Inherit),
+  memory: z.enum(SubAgentMemory).default(SubAgentMemory.Default),
   temperature: z.number().min(0).max(1).default(0),
   color: z.string().default(NODE_ACCENT.agent),
   disabledTools: z.array(z.string()).default([]),
   parameterMappings: z.array(z.string()).default([]),
+  variableMappings: z.record(z.string(), z.string()).default({}),
 });
 

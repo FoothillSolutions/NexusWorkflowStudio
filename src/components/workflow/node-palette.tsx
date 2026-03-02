@@ -17,7 +17,6 @@ const COMING_SOON_TYPES = new Set(["mcp-tool"]);
 
 /** Extra "coming soon" placeholders that aren't real node types */
 const COMING_SOON_BASIC = [
-  { key: "documents", label: "Documents", description: "Docs for Agents",    icon: FileText,    hex: "#f59e0b" },
   { key: "scripts",   label: "Scripts",   description: "Run custom scripts", icon: ScrollText,  hex: "#8b5cf6" },
 ];
 const COMING_SOON_CONTROL = [

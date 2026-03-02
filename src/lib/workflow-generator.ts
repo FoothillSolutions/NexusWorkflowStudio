@@ -12,6 +12,7 @@ import { generator as promptGen }       from "@/nodes/prompt/generator";
 import { generator as subAgentGen }     from "@/nodes/sub-agent/generator";
 import { generator as subWorkflowGen } from "@/nodes/sub-workflow/generator";
 import { generator as skillGen }        from "@/nodes/skill/generator";
+import { generator as documentGen }     from "@/nodes/document/generator";
 import { generator as mcpToolGen }      from "@/nodes/mcp-tool/generator";
 import { generator as ifElseGen }       from "@/nodes/if-else/generator";
 import { generator as switchGen }       from "@/nodes/switch/generator";
@@ -29,6 +30,7 @@ const NODE_GENERATORS: Record<string, NodeGeneratorModule> = {
   "agent":          subAgentGen,
   "sub-workflow":   subWorkflowGen,
   skill:            skillGen,
+  document:         documentGen,
   "mcp-tool":       mcpToolGen,
   "if-else":        ifElseGen,
   switch:           switchGen,
@@ -36,6 +38,7 @@ const NODE_GENERATORS: Record<string, NodeGeneratorModule> = {
 };
 function mermaidNodeShape(node: WorkflowNode): string {
   if (node.data.type === "skill") return "";
+  if (node.data.type === "document") return "";
   const gen = NODE_GENERATORS[node.data.type];
   if (gen) return gen.getMermaidShape(node.id, node.data);
   return `    ${mermaidId(node.id)}["${mermaidLabel(node.data.label ?? node.data.type)}"]`;
@@ -134,6 +137,16 @@ function buildSubAgentDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[
       skillEdgesByTarget.get(edge.target)!.push(edge.source);
     }
   }
+
+  // Build a map of agent id → document nodes connected to it (doc-out edges).
+  const docEdgesByTarget = new Map<string, string[]>();
+  for (const edge of allEdges) {
+    if (edge.sourceHandle === "doc-out") {
+      if (!docEdgesByTarget.has(edge.target)) docEdgesByTarget.set(edge.target, []);
+      docEdgesByTarget.get(edge.target)!.push(edge.source);
+    }
+  }
+
   // Sort skill nodes per agent by topological order
   const topoIndex = new Map<string, number>(order.map((id, i) => [id, i]));
   for (const [tgt, srcs] of skillEdgesByTarget) {
@@ -169,6 +182,18 @@ function buildSubAgentDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[
         const sd = skillNode.data as import("@/nodes/skill/types").SkillNodeData;
         const skillName = sd.skillName?.trim() || sd.name?.trim() || skillId;
         lines.push(`skill: ${skillName}`);
+      }
+    }
+
+    // Append documents connected to this agent
+    const docIds = docEdgesByTarget.get(node.id) ?? [];
+    for (const docId of docIds) {
+      const docNode = allNodeById.get(docId);
+      if (docNode && docNode.data.type === "document") {
+        const dd = docNode.data as import("@/nodes/document/types").DocumentNodeData;
+        const docName = dd.docName?.trim() || dd.name?.trim() || docId;
+        const ext = dd.fileExtension || "md";
+        lines.push(`doc: ${docName}.${ext}`);
       }
     }
 
@@ -248,7 +273,7 @@ function buildDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[]): stri
   const order = topologicalOrder(nodes, edges);
   const nodeById = new Map<string, WorkflowNode>(nodes.map((n) => [n.id, n]));
   const sections: string[] = [];
-  const SKIP = new Set(["start", "end", "prompt", "agent", "skill", "if-else", "switch", "ask-user", "sub-workflow"]);
+  const SKIP = new Set(["start", "end", "prompt", "agent", "skill", "document", "if-else", "switch", "ask-user", "sub-workflow"]);
   for (const id of order) {
     const node = nodeById.get(id);
     if (!node || SKIP.has(node.data.type)) continue;
@@ -281,10 +306,29 @@ function collectAgentFiles(nodes: WorkflowNode[], edges: WorkflowEdge[]): Genera
     }
   }
 
+  // Build a map: reachable agent id → document node ids connected via doc-out
+  const docsBySubAgent = new Map<string, string[]>();
+  for (const edge of edges) {
+    if (edge.sourceHandle === "doc-out" && reachableIds.has(edge.target)) {
+      const targetNode = allNodeById.get(edge.target);
+      const sourceNode = allNodeById.get(edge.source);
+      if (targetNode?.data?.type === "agent" && sourceNode?.data?.type === "document") {
+        if (!docsBySubAgent.has(edge.target)) docsBySubAgent.set(edge.target, []);
+        docsBySubAgent.get(edge.target)!.push(edge.source);
+      }
+    }
+  }
+
   // Track which skill nodes are actually connected to a reachable agent
   const connectedSkillIds = new Set<string>();
   for (const skillIds of skillsBySubAgent.values()) {
     for (const id of skillIds) connectedSkillIds.add(id);
+  }
+
+  // Track which document nodes are actually connected to a reachable agent
+  const connectedDocIds = new Set<string>();
+  for (const docIds of docsBySubAgent.values()) {
+    for (const id of docIds) connectedDocIds.add(id);
   }
 
   const files: GeneratedFile[] = [];
@@ -303,9 +347,21 @@ function collectAgentFiles(nodes: WorkflowNode[], edges: WorkflowEdge[]): Genera
         }
       }
 
+      const docIds = docsBySubAgent.get(node.id) ?? [];
+      const connectedDocNames: string[] = [];
+      for (const docId of docIds) {
+        const docNode = allNodeById.get(docId);
+        if (docNode?.data?.type === "document") {
+          const dd = docNode.data as import("@/nodes/document/types").DocumentNodeData;
+          const docName = dd.docName?.trim();
+          const ext = dd.fileExtension || "md";
+          if (docName) connectedDocNames.push(`${docName}.${ext}`);
+        }
+      }
+
       const gen = NODE_GENERATORS["agent"];
       if (gen?.getAgentFile) {
-        const f = gen.getAgentFile(node.id, node.data, connectedSkillNames);
+        const f = gen.getAgentFile(node.id, node.data, connectedSkillNames, connectedDocNames);
         if (f) files.push(f);
       }
     }
@@ -320,6 +376,20 @@ function collectAgentFiles(nodes: WorkflowNode[], edges: WorkflowEdge[]): Genera
       };
       if (gen?.getSkillFile) {
         const f = gen.getSkillFile(skillNode.id, skillNode.data);
+        if (f) files.push(f);
+      }
+    }
+  }
+
+  // Generate document files only for documents connected to a reachable agent
+  for (const docId of connectedDocIds) {
+    const docNode = allNodeById.get(docId);
+    if (docNode?.data?.type === "document") {
+      const gen = NODE_GENERATORS["document"] as typeof NODE_GENERATORS["document"] & {
+        getDocFile?(id: string, d: WorkflowNode["data"]): { path: string; content: string } | null;
+      };
+      if (gen?.getDocFile) {
+        const f = gen.getDocFile(docNode.id, docNode.data);
         if (f) files.push(f);
       }
     }
@@ -377,6 +447,7 @@ function buildCommandMarkdown(workflow: WorkflowJSON): string {
   let canonicalEndId: string | null = null;
   const dedupedNodes = nodes.filter((n) => {
     if (n.data.type === "skill") return false; // skills excluded from workflow.md
+    if (n.data.type === "document") return false; // documents excluded from workflow.md
     if (n.data.type === "start" || n.data.type === "end") {
       if (!seenTypes.has(n.data.type)) {
         seenTypes.add(n.data.type);
@@ -389,11 +460,13 @@ function buildCommandMarkdown(workflow: WorkflowJSON): string {
     return true;
   });
 
-  // Build set of skill node IDs so we can exclude their edges
+  // Build set of skill and document node IDs so we can exclude their edges
   const skillNodeIds = new Set(nodes.filter((n) => n.data.type === "skill").map((n) => n.id));
+  const documentNodeIds = new Set(nodes.filter((n) => n.data.type === "document").map((n) => n.id));
 
   const remappedEdges = edges
-    .filter((e) => !skillNodeIds.has(e.source) && !skillNodeIds.has(e.target))
+    .filter((e) => !skillNodeIds.has(e.source) && !skillNodeIds.has(e.target)
+                 && !documentNodeIds.has(e.source) && !documentNodeIds.has(e.target))
     .map((e) => {
       const remappedTarget = endNodeIdMap.get(e.target);
       const remappedSource = endNodeIdMap.get(e.source);

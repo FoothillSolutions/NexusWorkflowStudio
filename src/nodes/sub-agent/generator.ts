@@ -3,12 +3,12 @@ import { mermaidId, mermaidLabel } from "@/nodes/shared/mermaid-utils";
 import type { WorkflowNodeData } from "@/types/workflow";
 import { NODE_ACCENT } from "@/lib/node-colors";
 import type { SubAgentNodeData } from "./types";
-import { SubAgentModel } from "./types";
+import { SubAgentModel, SubAgentMemory } from "./types";
 
 /**
  * Build the frontmatter + prompt content for a .opencode/agents/<name>.md file.
  */
-export function buildAgentFile(nodeId: string, d: SubAgentNodeData, connectedSkillNames?: string[]): string {
+export function buildAgentFile(nodeId: string, d: SubAgentNodeData, connectedSkillNames?: string[], connectedDocNames?: string[]): string {
   const agentName = d.name || `agent-${nodeId}`;
 
   // --- frontmatter ---
@@ -19,6 +19,10 @@ export function buildAgentFile(nodeId: string, d: SubAgentNodeData, connectedSki
 
   if (d.model && d.model !== SubAgentModel.Inherit) {
     lines.push(`model: ${d.model}`);
+  }
+
+  if (d.memory && d.memory !== SubAgentMemory.Default) {
+    lines.push(`memory: ${d.memory}`);
   }
 
   // Only emit tools block if some are disabled
@@ -37,6 +41,14 @@ export function buildAgentFile(nodeId: string, d: SubAgentNodeData, connectedSki
     }
   }
 
+  // Emit connected documents
+  if (connectedDocNames && connectedDocNames.length > 0) {
+    lines.push(`docs:`);
+    for (const name of connectedDocNames) {
+      lines.push(`  - ${name}`);
+    }
+  }
+
   if (d.temperature && d.temperature > 0) {
     lines.push(`temperature: ${parseFloat(d.temperature.toFixed(1))}`);
   }
@@ -45,13 +57,35 @@ export function buildAgentFile(nodeId: string, d: SubAgentNodeData, connectedSki
 
   lines.push("---");
   lines.push("");
+
+  // Emit variable mappings section if any static variables are mapped to resources
+  const varMappings = d.variableMappings ?? {};
+  const mappedEntries = Object.entries(varMappings).filter(([, v]) => v?.trim());
+  if (mappedEntries.length > 0) {
+    lines.push("## Variables");
+    lines.push("");
+    for (const [varName, ref] of mappedEntries) {
+      // Resolve ref to a file path
+      let resolvedPath = ref;
+      if (ref.startsWith("doc:")) {
+        const fileName = ref.slice(4);
+        resolvedPath = `../docs/${fileName}`;
+      } else if (ref.startsWith("skill:")) {
+        const skillName = ref.slice(6);
+        resolvedPath = `../skills/${skillName}/SKILL.md`;
+      }
+      lines.push(`- \`${varName}\`: \`${resolvedPath}\``);
+    }
+    lines.push("");
+  }
+
   if (d.promptText) lines.push(d.promptText);
 
   return lines.join("\n");
 }
 
 export const generator: NodeGeneratorModule & {
-  getAgentFile?(nodeId: string, data: WorkflowNodeData, connectedSkillNames?: string[]): { path: string; content: string } | null;
+  getAgentFile?(nodeId: string, data: WorkflowNodeData, connectedSkillNames?: string[], connectedDocNames?: string[]): { path: string; content: string } | null;
 } = {
   getMermaidShape(nodeId: string, data: WorkflowNodeData): string {
     const d = data as SubAgentNodeData;
@@ -77,12 +111,12 @@ export const generator: NodeGeneratorModule & {
     return lines.join("\n");
   },
 
-  getAgentFile(nodeId: string, data: WorkflowNodeData, connectedSkillNames?: string[]) {
+  getAgentFile(nodeId: string, data: WorkflowNodeData, connectedSkillNames?: string[], connectedDocNames?: string[]) {
     const d = data as SubAgentNodeData;
     const agentName = d.name || `agent-${nodeId}`;
     return {
       path: `.opencode/agents/${agentName}.md`,
-      content: buildAgentFile(nodeId, d, connectedSkillNames),
+      content: buildAgentFile(nodeId, d, connectedSkillNames, connectedDocNames),
     };
   },
 };

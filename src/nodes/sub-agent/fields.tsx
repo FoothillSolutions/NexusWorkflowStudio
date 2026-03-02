@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useCallback, useMemo } from "react";
+import { useEffect, useCallback, useMemo, useRef } from "react";
 import { useWatch, Controller } from "react-hook-form";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -8,48 +8,14 @@ import { PromptFieldGroup } from "@/nodes/shared/prompt-field-group";
 import { detectVariables, DetectedVariablesPanel, DYNAMIC_VAR_RE, STATIC_VAR_RE } from "@/nodes/shared/variable-utils";
 import type { FormControl, FormSetValue } from "@/nodes/shared/form-types";
 import { RequiredIndicator } from "@/nodes/shared/required-indicator";
-import { SubAgentModel, SubAgentMemory, MODEL_DISPLAY_NAMES } from "./types";
+import { SubAgentModel, SubAgentMemory, MODEL_DISPLAY_NAMES, MODEL_COST_MULTIPLIER } from "./types";
 import { AGENT_TOOLS, PRESET_COLORS } from "./constants";
 import type { AgentTool } from "./constants";
-import { Check, Zap, Plus, Minus, ArrowRight, X } from "lucide-react";
+import { Check, Zap, Plus, Minus, ArrowRight, X, FileText, Link } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NODE_ACCENT } from "@/lib/node-colors";
 import { useWorkflowStore } from "@/store/workflow-store";
-
-const MODEL_GROUPS = [
-	{
-		label: "Anthropic Claude",
-		options: [
-			SubAgentModel.Haiku35,
-			SubAgentModel.Sonnet35,
-			SubAgentModel.Sonnet37,
-			SubAgentModel.Opus4,
-			SubAgentModel.Sonnet4,
-		],
-	},
-	{
-		label: "OpenAI",
-		options: [
-			SubAgentModel.GPT4o,
-			SubAgentModel.GPT4oMini,
-			SubAgentModel.O3,
-			SubAgentModel.O3Mini,
-			SubAgentModel.O4Mini,
-		],
-	},
-	{
-		label: "Google",
-		options: [SubAgentModel.Gemini25Pro, SubAgentModel.Gemini25Flash],
-	},
-	{
-		label: "xAI",
-		options: [SubAgentModel.Grok3, SubAgentModel.Grok3Mini],
-	},
-	{
-		label: "DeepSeek",
-		options: [SubAgentModel.DeepSeekV3, SubAgentModel.DeepSeekR1],
-	},
-];
+import { ModelSelect } from "@/nodes/shared/model-select";
 
 const MEMORY_OPTIONS = [
 	{ value: SubAgentMemory.Default, label: "- (default)" },
@@ -74,6 +40,12 @@ export function Fields({ control, setValue, nodeId }: SubAgentFieldsProps) {
   const color: string       = useWatch({ control, name: "color" }) || NODE_ACCENT.agent;
   const disabledTools: string[] = useWatch({ control, name: "disabledTools" }) ?? [];
   const parameterMappings: string[] = useWatch({ control, name: "parameterMappings" }) ?? [];
+  const variableMappings: Record<string, string> = useWatch({ control, name: "variableMappings" }) ?? {};
+
+  // Keep a ref in sync so the updateVarMapping callback can read the latest
+  // value without depending on the object identity (avoids re-render loops).
+  const variableMappingsRef = useRef(variableMappings);
+  variableMappingsRef.current = variableMappings;
 
   // Derive connected skill nodes from the store.
   // Step 1: selector extracts only the skill edge data we need. This produces
@@ -102,6 +74,107 @@ export function Fields({ control, setValue, nodeId }: SubAgentFieldsProps) {
       .map((e) => ({ edge: e, node: state.nodes.find((n) => n.id === e.source) }))
       .filter((item): item is { edge: typeof state.edges[number]; node: NonNullable<typeof item.node> } => !!item.node);
   }, [skillEdgeKey, nodeId]);
+
+  // Connected document nodes — same pattern as skills
+  const docEdgeKey = useWorkflowStore(
+    useCallback(
+      (s) => {
+        if (!nodeId) return "";
+        return s.edges
+          .filter((e) => e.target === nodeId && e.targetHandle === "docs")
+          .map((e) => `${e.id}:${e.source}`)
+          .join(",");
+      },
+      [nodeId]
+    )
+  );
+
+  const connectedDocs = useMemo(() => {
+    if (!docEdgeKey) return [];
+    const state = useWorkflowStore.getState();
+    return state.edges
+      .filter((e) => e.target === nodeId && e.targetHandle === "docs")
+      .map((e) => ({ edge: e, node: state.nodes.find((n) => n.id === e.source) }))
+      .filter((item): item is { edge: typeof state.edges[number]; node: NonNullable<typeof item.node> } => !!item.node);
+  }, [docEdgeKey, nodeId]);
+
+  // Build available resources for static variable mapping.
+  // Uses a zustand selector that produces a serialised key so the component
+  // re-renders when connected nodes' names/labels change, not just edges.
+  const resourceKey = useWorkflowStore(
+    useCallback(
+      (s) => {
+        if (!nodeId) return "";
+        const parts: string[] = [];
+        for (const e of s.edges) {
+          if (e.target !== nodeId) continue;
+          const n = s.nodes.find((nd) => nd.id === e.source);
+          if (!n) continue;
+          if (n.data?.type === "document") {
+            const d = n.data as Record<string, unknown>;
+            parts.push(`doc:${e.source}:${d.docName ?? ""}:${d.fileExtension ?? ""}:${d.label ?? ""}`);
+          } else if (n.data?.type === "skill") {
+            const d = n.data as Record<string, unknown>;
+            parts.push(`skill:${e.source}:${d.skillName ?? ""}:${d.label ?? ""}`);
+          }
+        }
+        return parts.sort().join("|");
+      },
+      [nodeId]
+    )
+  );
+
+  const availableResources = useMemo(() => {
+    const resources: { value: string; label: string; kind: "doc" | "skill" }[] = [];
+    if (!resourceKey) return resources;
+    const state = useWorkflowStore.getState();
+    const allNodes = state.nodes;
+    const allEdges = state.edges;
+
+    for (const edge of allEdges) {
+      if (edge.target !== nodeId) continue;
+      const sourceNode = allNodes.find((n) => n.id === edge.source);
+      if (!sourceNode) continue;
+
+      if (sourceNode.data?.type === "document") {
+        const d = sourceNode.data as { docName?: string; fileExtension?: string; label?: string; name?: string };
+        const docName = d.docName?.trim();
+        const ext = d.fileExtension || "md";
+        const displayName = docName ? `${docName}.${ext}` : (d.label || d.name || edge.source);
+        resources.push({
+          value: docName ? `doc:${docName}.${ext}` : `doc-id:${edge.source}`,
+          label: `📄 ${displayName}`,
+          kind: "doc",
+        });
+      } else if (sourceNode.data?.type === "skill") {
+        const d = sourceNode.data as { skillName?: string; label?: string; name?: string };
+        const skillName = d.skillName?.trim() || d.label?.trim();
+        const displayName = skillName || d.name || edge.source;
+        resources.push({
+          value: skillName ? `skill:${skillName}` : `skill-id:${edge.source}`,
+          label: `⚡ ${displayName}`,
+          kind: "skill",
+        });
+      }
+    }
+
+    return resources;
+  }, [resourceKey, nodeId]);
+
+  const updateVarMapping = useCallback(
+    (varName: string, value: string) => {
+      // Read current mappings from the watched value at call-time to avoid
+      // putting the object in the dependency array (which changes every render).
+      const current: Record<string, string> = { ...variableMappingsRef.current };
+      if (value) {
+        current[varName] = value;
+      } else {
+        delete current[varName];
+      }
+      setValue("variableMappings" as never, current as never, { shouldDirty: true });
+    },
+    [setValue]
+  );
 
 	const { dynamic, static: staticVars } = detectVariables(promptText);
 	const allVars = [...dynamic, ...staticVars];
@@ -156,7 +229,7 @@ export function Fields({ control, setValue, nodeId }: SubAgentFieldsProps) {
 	};
 
 	return (
-		<div className="space-y-5">
+		<div className="space-y-5 overflow-hidden">
 			{/* Description */}
 			<div className="space-y-2">
 				<Label htmlFor="description">
@@ -189,6 +262,84 @@ export function Fields({ control, setValue, nodeId }: SubAgentFieldsProps) {
 				required
 			/>
 			<DetectedVariablesPanel dynamic={dynamic} staticVars={staticVars} />
+
+			{/* Static Variable Mapping — map {{vars}} to connected docs/skills */}
+			{staticVars.length > 0 && (
+				<div className="space-y-2 overflow-hidden">
+					<div className="flex items-center justify-between">
+						<Label className="text-xs text-zinc-400 flex items-center gap-1.5">
+							<Link className="h-3 w-3" />
+							Variable Mapping
+						</Label>
+						{availableResources.length > 0 && (
+							<span className="text-[10px] text-zinc-500 shrink-0">
+								{Object.keys(variableMappings).filter((k) => staticVars.includes(k) && variableMappings[k]).length} / {staticVars.length} mapped
+							</span>
+						)}
+					</div>
+					<p className="text-[11px] text-zinc-600">
+						Map <code className="text-amber-400">{"{{"}</code>static<code className="text-amber-400">{"}}"}</code> variables to connected documents or skills.
+					</p>
+					<div className="rounded-xl border border-zinc-700/50 bg-zinc-800/30 p-3 space-y-2 overflow-hidden">
+						{staticVars.map((varName) => {
+							const currentValue = variableMappings[varName] ?? "";
+							const isMapped = !!currentValue;
+							const hasResources = availableResources.length > 0;
+							return (
+								<div key={varName} className="flex items-center gap-2 min-w-0 overflow-hidden">
+									<span
+										className="text-[11px] font-mono text-amber-300 bg-amber-950/40 border border-amber-800/30 px-1.5 py-0.5 rounded-md shrink-0 truncate max-w-[100px]"
+										title={`{{${varName}}}`}
+									>
+										{`{{${varName}}}`}
+									</span>
+									<span className="text-[10px] text-zinc-600 shrink-0">→</span>
+									{hasResources ? (
+										<select
+											value={currentValue}
+											onChange={(e) => updateVarMapping(varName, e.target.value)}
+											className={cn(
+												"w-0 flex-1 rounded-lg bg-zinc-900/60 border text-xs font-mono h-8 px-2",
+												isMapped
+													? "border-amber-800/40 text-amber-200"
+													: "border-zinc-700/60 text-zinc-500"
+											)}
+										>
+											<option value="">— select —</option>
+											{availableResources.filter((r) => r.kind === "doc").length > 0 && (
+												<optgroup label="Documents">
+													{availableResources
+														.filter((r) => r.kind === "doc")
+														.map((r) => (
+															<option key={r.value} value={r.value}>
+																{r.label}
+															</option>
+														))}
+												</optgroup>
+											)}
+											{availableResources.filter((r) => r.kind === "skill").length > 0 && (
+												<optgroup label="Skills">
+													{availableResources
+														.filter((r) => r.kind === "skill")
+														.map((r) => (
+															<option key={r.value} value={r.value}>
+																{r.label}
+															</option>
+														))}
+												</optgroup>
+											)}
+										</select>
+									) : (
+										<span className="flex-1 min-w-0 text-[11px] text-zinc-600 italic truncate">
+											Connect a Document or Skill to map
+										</span>
+									)}
+								</div>
+							);
+						})}
+					</div>
+				</div>
+			)}
 
 			{/* Parameter Mapping — map workflow-level args to this agent's $N slots */}
 			{(parameterMappings.length > 0 || dynamic.length > 0) && (
@@ -257,10 +408,12 @@ export function Fields({ control, setValue, nodeId }: SubAgentFieldsProps) {
 							return (
 								<div
 									key={skillNode.id}
-									className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-cyan-950/30 border border-cyan-800/30 text-xs"
+									className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-cyan-950/30 border border-cyan-800/30 text-xs min-w-0"
 								>
 									<Zap size={10} className="text-cyan-500 shrink-0" />
-									<span className="text-cyan-200 font-medium truncate">{d.skillName || d.label || skillNode.id}</span>
+									<span className="text-cyan-200 font-medium truncate min-w-0 flex-1" title={d.skillName || d.label || skillNode.id}>
+										{d.skillName || d.label || skillNode.id}
+									</span>
 									{d.projectName && (
 										<span className="text-cyan-600 truncate ml-auto">{d.projectName}</span>
 									)}
@@ -279,37 +432,64 @@ export function Fields({ control, setValue, nodeId }: SubAgentFieldsProps) {
 				</div>
 			)}
 
+			{/* Connected Documents — shown after skills */}
+			{connectedDocs.length > 0 && (
+				<div className="space-y-2">
+					<div className="flex items-center gap-1.5">
+						<FileText size={12} className="text-yellow-400" />
+						<Label className="text-yellow-300">Connected Documents ({connectedDocs.length})</Label>
+					</div>
+					<div className="flex flex-col gap-1">
+						{connectedDocs.map(({ edge, node: docNode }) => {
+							const d = docNode.data as { docName?: string; fileExtension?: string; label?: string };
+							return (
+								<div
+									key={docNode.id}
+									className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-yellow-950/30 border border-yellow-800/30 text-xs min-w-0"
+								>
+									<FileText size={10} className="text-yellow-500 shrink-0" />
+									<span className="text-yellow-200 font-medium truncate min-w-0 flex-1" title={`${d.docName || d.label || docNode.id}${d.fileExtension ? `.${d.fileExtension}` : ""}`}>
+										{d.docName || d.label || docNode.id}
+										{d.fileExtension && <span className="text-yellow-600">.{d.fileExtension}</span>}
+									</span>
+									<button
+										type="button"
+										onClick={() => deleteEdge(edge.id)}
+										className="p-0.5 rounded-md text-zinc-600 hover:text-red-400 hover:bg-red-950/30 transition-colors shrink-0 ml-auto"
+										title="Remove document connection"
+									>
+										<X size={12} />
+									</button>
+								</div>
+							);
+						})}
+					</div>
+				</div>
+			)}
+
 			{/* Model */}
 			<div className="space-y-2">
-				<Label htmlFor="model" className="text-zinc-500">Model</Label>
+				<Label htmlFor="model">Model</Label>
 				<Controller
 					name="model"
 					control={control}
 					render={({ field }) => (
-						<select id="model" className={`${SELECT_CLASS} opacity-50 cursor-not-allowed`} value={field.value} disabled>
-							<option value={SubAgentModel.Inherit}>{MODEL_DISPLAY_NAMES[SubAgentModel.Inherit]}</option>
-							{MODEL_GROUPS.map((group) => (
-								<optgroup key={group.label} label={group.label}>
-									{group.options.map((m) => (
-										<option key={m} value={m}>
-											{MODEL_DISPLAY_NAMES[m]}
-										</option>
-									))}
-								</optgroup>
-							))}
-						</select>
+						<ModelSelect value={field.value} onChange={field.onChange} />
 					)}
 				/>
 			</div>
 
 			{/* Memory */}
-			<div className="space-y-2">
-				<Label htmlFor="memory" className="text-zinc-500">Memory</Label>
+			<div className="space-y-2 opacity-40 pointer-events-none">
+				<div className="flex items-center gap-2">
+					<Label htmlFor="memory">Memory</Label>
+					<span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider">Coming soon</span>
+				</div>
 				<Controller
 					name="memory"
 					control={control}
 					render={({ field }) => (
-						<select id="memory" className={`${SELECT_CLASS} opacity-50 cursor-not-allowed`} value={field.value} disabled>
+						<select id="memory" className={SELECT_CLASS} value={field.value} onChange={field.onChange} disabled>
 							{MEMORY_OPTIONS.map((opt) => (
 								<option key={opt.value} value={opt.value}>
 									{opt.label}
@@ -393,14 +573,14 @@ export function Fields({ control, setValue, nodeId }: SubAgentFieldsProps) {
 			<div className="space-y-2">
 				<Label>Color</Label>
 				<div className="flex flex-col gap-2">
-					<div className="grid grid-cols-5 gap-2">
+					<div className="flex flex-wrap gap-2">
 						{PRESET_COLORS.map((preset) => (
 							<button
 								key={preset}
 								type="button"
 								onClick={() => setValue("color" as never, preset as never, { shouldDirty: true })}
 								className={cn(
-									"w-7 h-7 rounded-full border-2 transition-all duration-150 hover:scale-110",
+									"w-7 h-7 rounded-full border-2 transition-all duration-150 hover:scale-110 flex items-center justify-center",
 									color === preset
 										? "border-white ring-2 ring-white/30 scale-110"
 										: "border-transparent"
@@ -409,7 +589,7 @@ export function Fields({ control, setValue, nodeId }: SubAgentFieldsProps) {
 								title={preset}
 							>
 								{color === preset && (
-									<Check className="h-3 w-3 text-white/90 mx-auto drop-shadow" />
+									<Check className="h-3 w-3 text-white/90 drop-shadow" />
 								)}
 							</button>
 						))}

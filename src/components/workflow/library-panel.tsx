@@ -37,6 +37,7 @@ import {
   Layers,
   LayoutGrid,
   GitBranch,
+  FileText,
 } from "lucide-react";
 import {
   BORDER_MUTED,
@@ -56,6 +57,7 @@ const CATEGORY_ICONS: Record<string, React.ElementType> = {
   workflow: GitBranch,
   agent: Bot,
   skill: Wrench,
+  document: FileText,
   prompt: MessageSquare,
 };
 
@@ -66,6 +68,7 @@ const CATEGORY_ACCENT_HEX: Record<string, string | null> = {
   prompt: NODE_ACCENT.prompt,
   agent: NODE_ACCENT.agent,
   skill: NODE_ACCENT.skill,
+  document: NODE_ACCENT.document,
 };
 
 

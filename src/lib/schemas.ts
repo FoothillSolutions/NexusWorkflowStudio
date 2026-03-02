@@ -8,6 +8,7 @@ export { promptSchema }       from "@/nodes/prompt/constants";
 export { subAgentSchema }     from "@/nodes/sub-agent/constants";
 export { subWorkflowSchema } from "@/nodes/sub-workflow/constants";
 export { skillSchema }        from "@/nodes/skill/constants";
+export { documentSchema }     from "@/nodes/document/constants";
 export { mcpToolSchema }      from "@/nodes/mcp-tool/constants";
 export { ifElseSchema }       from "@/nodes/if-else/constants";
 export { switchSchema }       from "@/nodes/switch/constants";

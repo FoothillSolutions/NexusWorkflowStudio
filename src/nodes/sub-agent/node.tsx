@@ -5,7 +5,7 @@ import { BaseNode, NodeSize } from "@/nodes/shared/base-node";
 import { detectVarCounts } from "@/nodes/shared/variable-utils";
 import { HANDLE_CLASS } from "@/lib/theme";
 import { NODE_ACCENT } from "@/lib/node-colors";
-import { DollarSign, Braces, Cpu, Thermometer, Wrench, Zap } from "lucide-react";
+import { DollarSign, Braces, Cpu, Thermometer, Wrench, Zap, FileText } from "lucide-react";
 import { subAgentRegistryEntry } from "./constants";
 import { SubAgentModel } from "./types";
 import type { SubAgentNodeData } from "./types";
@@ -29,12 +29,27 @@ export const SubAgentNode = memo(function SubAgentNode({ data, selected, id }: N
     )
   );
 
+  const docCount = useWorkflowStore(
+    useCallback(
+      (s) => s.edges.filter((e) => e.target === id && e.targetHandle === "docs").length,
+      [id]
+    )
+  );
+
   // For isValidConnection we read nodes at call-time via getState() to
   // avoid subscribing the entire component to node array changes.
   const isValidSkillConnection = useCallback(
     (connection: { source: string }) => {
       const sourceNode = useWorkflowStore.getState().nodes.find((n) => n.id === connection.source);
       return sourceNode?.data?.type === "skill";
+    },
+    []
+  );
+
+  const isValidDocConnection = useCallback(
+    (connection: { source: string }) => {
+      const sourceNode = useWorkflowStore.getState().nodes.find((n) => n.id === connection.source);
+      return sourceNode?.data?.type === "document";
     },
     []
   );
@@ -75,7 +90,7 @@ export const SubAgentNode = memo(function SubAgentNode({ data, selected, id }: N
             )}
           </div>
         )}
-        {(hasMeta || skillCount > 0) && (
+        {(hasMeta || skillCount > 0 || docCount > 0) && (
           <div className="flex flex-wrap gap-1 mt-0.5">
             {hasModel && (
               <span className="inline-flex items-center gap-1 text-[10px] font-mono bg-violet-950/60 text-violet-300 border border-violet-800/40 px-1.5 py-0.5 rounded-md">
@@ -98,28 +113,49 @@ export const SubAgentNode = memo(function SubAgentNode({ data, selected, id }: N
                 <Zap className="h-2.5 w-2.5" />{skillCount}
               </span>
             )}
+            {docCount > 0 && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-mono bg-yellow-950/60 text-yellow-300 border border-yellow-800/40 px-1.5 py-0.5 rounded-md">
+                <FileText className="h-2.5 w-2.5" />{docCount}
+              </span>
+            )}
           </div>
         )}
       </div>
 
-      {/* Skills handle footer — inside the node, bottom-left */}
-      <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-cyan-900/40">
-        <Zap size={9} className="text-cyan-600 shrink-0" />
-        <span className="text-[9px] font-mono text-cyan-700 tracking-wide uppercase">skills in</span>
+      {/* Attachment handles footer — inside the node, bottom */}
+      <div className="flex flex-col gap-1 mt-2 pt-2 border-t border-zinc-700/30">
+        <div className="flex items-center gap-1.5">
+          <Zap size={9} className="text-cyan-600 shrink-0" />
+          <span className="text-[9px] font-mono text-cyan-700 tracking-wide uppercase">skills in</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <FileText size={9} className="text-yellow-600 shrink-0" />
+          <span className="text-[9px] font-mono text-yellow-700 tracking-wide uppercase">docs in</span>
+        </div>
       </div>
 
       {/* Standard flow handles */}
       <Handle type="target" position={Position.Left} id="input" className={HANDLE_CLASS} style={{ backgroundColor: accentHex }} />
       <Handle type="source" position={Position.Right} id="output" className={HANDLE_CLASS} style={{ backgroundColor: accentHex }} />
 
-      {/* Skills target handle — plain dot, left side near bottom, only accepts skill nodes */}
+      {/* Skills target handle — left side near bottom, only accepts skill nodes */}
       <Handle
         type="target"
         position={Position.Left}
         id="skills"
         className={HANDLE_CLASS}
-        style={{ backgroundColor: NODE_ACCENT.skill, top: "auto", bottom: 14 }}
+        style={{ backgroundColor: NODE_ACCENT.skill, top: "auto", bottom: 30 }}
         isValidConnection={isValidSkillConnection}
+      />
+
+      {/* Docs target handle — left side at bottom, only accepts document nodes */}
+      <Handle
+        type="target"
+        position={Position.Left}
+        id="docs"
+        className={HANDLE_CLASS}
+        style={{ backgroundColor: NODE_ACCENT.document, top: "auto", bottom: 10 }}
+        isValidConnection={isValidDocConnection}
       />
     </BaseNode>
   );

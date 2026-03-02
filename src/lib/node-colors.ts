@@ -10,6 +10,7 @@ export const NODE_ACCENT = {
   agent:          "#5f27cd",  // violet
   "sub-workflow":  "#a855f7",  // purple
   skill:          "#06b6d4",  // cyan
+  document:       "#eab308",  // yellow
   "mcp-tool":     "#14b8a6",  // teal
   "if-else":      "#f59e0b",  // amber
   switch:         "#f97316",  // orange

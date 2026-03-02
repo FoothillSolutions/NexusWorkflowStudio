@@ -237,6 +237,19 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
       if (targetNode?.data?.type === "skill") return;
       if (connection.targetHandle === "skills") return;
 
+      // Document → agent only
+      if (sourceNode?.data?.type === "document") {
+        if (targetNode?.data?.type !== "agent") return;
+        setSubEdges((prev) => {
+          const next = addEdge({ ...connection, targetHandle: "docs", type: "deletable" }, prev);
+          syncToParent(subNodesRef.current, next);
+          return next;
+        });
+        return;
+      }
+      if (targetNode?.data?.type === "document") return;
+      if (connection.targetHandle === "docs") return;
+
       setSubEdges((prev) => {
         const filtered = prev.filter(
           (e) => !(e.source === connection.source && e.sourceHandle === connection.sourceHandle)

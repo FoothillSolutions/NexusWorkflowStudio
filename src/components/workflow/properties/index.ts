@@ -2,6 +2,7 @@ export { Fields as PromptFields }       from "@/nodes/prompt/fields";
 export { Fields as SubAgentFields }     from "@/nodes/sub-agent/fields";
 export { Fields as SubWorkflowFields } from "@/nodes/sub-workflow/fields";
 export { Fields as SkillFields }        from "@/nodes/skill/fields";
+export { Fields as DocumentFields }     from "@/nodes/document/fields";
 export { Fields as McpToolFields }      from "@/nodes/mcp-tool/fields";
 export { Fields as IfElseFields }       from "@/nodes/if-else/fields";
 export { Fields as SwitchFields }       from "@/nodes/switch/fields";
