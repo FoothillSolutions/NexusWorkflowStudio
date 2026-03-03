@@ -46,13 +46,17 @@ function PlainTextEditorDialog({
   fileExtension: string;
 }) {
   const [draft, setDraft] = useState(value);
-  const prevOpenRef = useRef(open);
 
-  // Sync draft when dialog opens (transition from closed → open)
-  if (open && !prevOpenRef.current) {
-    setDraft(value);
-  }
-  prevOpenRef.current = open;
+  // Wrap onOpenChange to sync draft when dialog opens
+  const handleOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      if (nextOpen) {
+        setDraft(value);
+      }
+      onOpenChange(nextOpen);
+    },
+    [onOpenChange, value]
+  );
 
   const handleSave = useCallback(() => {
     onSave(draft);
@@ -60,7 +64,7 @@ function PlainTextEditorDialog({
   }, [draft, onSave, onOpenChange]);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="!max-w-[80vw] !w-[80vw] !max-h-[80vh] !h-[80vh] bg-zinc-900 border-zinc-700/50 flex flex-col gap-0 p-0 rounded-2xl">
         <DialogHeader className="px-5 py-4 border-b border-zinc-700/50 shrink-0">
           <DialogTitle className="text-sm font-medium text-zinc-100">
