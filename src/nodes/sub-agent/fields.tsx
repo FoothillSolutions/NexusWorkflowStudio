@@ -8,7 +8,7 @@ import { PromptFieldGroup } from "@/nodes/shared/prompt-field-group";
 import { detectVariables, DetectedVariablesPanel, DYNAMIC_VAR_RE, STATIC_VAR_RE } from "@/nodes/shared/variable-utils";
 import type { FormControl, FormSetValue } from "@/nodes/shared/form-types";
 import { RequiredIndicator } from "@/nodes/shared/required-indicator";
-import { SubAgentModel, SubAgentMemory, MODEL_DISPLAY_NAMES, MODEL_COST_MULTIPLIER } from "./types";
+import { SubAgentMemory } from "./types";
 import { AGENT_TOOLS, PRESET_COLORS } from "./constants";
 import type { AgentTool } from "./constants";
 import { Check, Zap, Plus, Minus, ArrowRight, X, FileText, Link } from "lucide-react";

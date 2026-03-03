@@ -138,15 +138,6 @@ function buildSubAgentDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[
     }
   }
 
-  // Build a map of agent id → document nodes connected to it (doc-out edges).
-  const docEdgesByTarget = new Map<string, string[]>();
-  for (const edge of allEdges) {
-    if (edge.sourceHandle === "doc-out") {
-      if (!docEdgesByTarget.has(edge.target)) docEdgesByTarget.set(edge.target, []);
-      docEdgesByTarget.get(edge.target)!.push(edge.source);
-    }
-  }
-
   // Sort skill nodes per agent by topological order
   const topoIndex = new Map<string, number>(order.map((id, i) => [id, i]));
   for (const [tgt, srcs] of skillEdgesByTarget) {
@@ -185,17 +176,6 @@ function buildSubAgentDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[
       }
     }
 
-    // Append documents connected to this agent
-    const docIds = docEdgesByTarget.get(node.id) ?? [];
-    for (const docId of docIds) {
-      const docNode = allNodeById.get(docId);
-      if (docNode && docNode.data.type === "document") {
-        const dd = docNode.data as import("@/nodes/document/types").DocumentNodeData;
-        const docName = dd.docName?.trim() || dd.name?.trim() || docId;
-        const ext = dd.fileExtension || "md";
-        lines.push(`doc: ${docName}.${ext}`);
-      }
-    }
 
     lines.push("```");
     sections.push(lines.join("\n"));
@@ -476,9 +456,22 @@ function buildCommandMarkdown(workflow: WorkflowJSON): string {
       return e;
     });
 
+  // Sort edges so that start-node edges come first, then follow topological order
+  const topoOrder = topologicalOrder(dedupedNodes, remappedEdges);
+  const topoIdx = new Map<string, number>(topoOrder.map((id, i) => [id, i]));
+  const sortedEdges = [...remappedEdges].sort((a, b) => {
+    const ai = topoIdx.get(a.source) ?? Infinity;
+    const bi = topoIdx.get(b.source) ?? Infinity;
+    if (ai !== bi) return ai - bi;
+    // Same source: sort by target topological order
+    const ati = topoIdx.get(a.target) ?? Infinity;
+    const bti = topoIdx.get(b.target) ?? Infinity;
+    return ati - bti;
+  });
+
   const nodeLines = dedupedNodes.map(mermaidNodeShape).filter(Boolean);
   const nodeById = new Map<string, WorkflowNode>(nodes.map((n) => [n.id, n]));
-  const edgeLines = remappedEdges.map((e) => mermaidEdge(e, nodeById));
+  const edgeLines = sortedEdges.map((e) => mermaidEdge(e, nodeById));
   const mermaidInner = edgeLines.length > 0 ? [...nodeLines, "", ...edgeLines] : nodeLines;
   const mermaidBlock = ["```mermaid", "flowchart TD", ...mermaidInner, "```"].join("\n");
   const startNodeId = nodes.find((n) => n.data.type === "start")?.id ?? "start";
