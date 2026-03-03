@@ -1,5 +1,5 @@
 import type { WorkflowJSON, WorkflowNodeData, NodeType } from "@/types/workflow";
-import { workflowJsonSchema } from "@/lib/schemas";
+import { workflowJsonSchema } from "@/lib/workflow-schema";
 
 // ── Storage key prefix ──────────────────────────────────────────────────────
 const COLLECTION_KEY = "nexus-workflow-studio:saved-workflows";

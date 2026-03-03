@@ -67,9 +67,14 @@ nexus-workflow-studio/
 │   │
 │   ├── lib/
 │   │   ├── utils.ts                 # cn() helper (clsx + tailwind-merge)
-│   │   ├── schemas.ts               # Zod v4 schemas: per-node-type + workflowJsonSchema
-│   │   ├── node-types.ts            # NODE_REGISTRY, createNodeFromType(), palette groups
+│   │   ├── workflow-schema.ts       # Zod v4 workflowJsonSchema for import/load validation
+│   │   ├── node-registry.ts         # NODE_REGISTRY, NODE_TYPE_COMPONENTS, createNodeFromType(), palette groups
 │   │   └── persistence.ts           # localStorage save/load, JSON export/import, throttledSave
+│   │
+│   ├── hooks/
+│   │   ├── use-auto-layout.ts       # Dagre-based auto-layout with animation (shared by both canvases)
+│   │   ├── use-canvas-interactions.ts # Context menu, drag-drop, keyboard shortcuts
+│   │   └── use-drag-tracking.ts     # MiniMap suppression during node drags
 │   │
 │   ├── store/
 │   │   └── workflow-store.ts         # Zustand store (single flat store, all state + actions)
@@ -292,7 +297,7 @@ RootLayout (layout.tsx)
     type: "smoothstep",
     style: { stroke: "#555", strokeWidth: 2 },
   }}
-  proOptions={{ hideAttribution: true }}
+  proOptions={{ hideAttribution: false }}
 />
 ```
 
@@ -349,11 +354,11 @@ export function StartNode({ data, selected }: NodeProps<Node<StartNodeData>>) {
 
 Nodes must be registered in multiple places:
 1. `src/types/workflow.ts` — Add data interface + union member
-2. `src/lib/schemas.ts` — Add zod schema + entry in `nodeSchemaMap`
-3. `src/lib/node-types.ts` — Add entry in `NODE_REGISTRY`
-4. `src/components/nodes/` — Create `{type}-node.tsx` component
-5. `src/components/workflow/canvas.tsx` — Import + add to `nodeTypeComponents`
-6. `src/components/workflow/properties-panel.tsx` — Add case in `TypeSpecificFields`
+2. `src/nodes/<type>/constants.ts` — Add Zod schema + registry entry
+3. `src/lib/node-registry.ts` — Import and add entry to `NODE_REGISTRY`, `NODE_TYPE_COMPONENTS`, `nodeSchemaMap`
+4. `src/nodes/<type>/node.tsx` — Create node component
+5. `src/nodes/<type>/fields.tsx` — Create properties panel fields
+6. `src/components/workflow/properties/type-specific-fields.tsx` — Add case in `TypeSpecificFields`
 
 ---
 
@@ -490,26 +495,21 @@ The Zustand subscription in `workflow-editor.tsx` fires on EVERY state change (i
    - Add it to the `WorkflowNodeData` union
    - Add `"my-type"` to the `NODE_TYPES` const array
 
-2. **Schema** — `src/lib/schemas.ts`:
-   - Create `export const myTypeSchema = z.object({ label: z.string().min(1), ...fields })`
-   - Add `"my-type": myTypeSchema` to `nodeSchemaMap`
+2. **Node Module** — Create `src/nodes/my-type/` with:
+   - `types.ts` — TypeScript interface for node data
+   - `constants.ts` — Zod schema + registry entry
+   - `node.tsx` — React Flow node component (named export)
+   - `fields.tsx` — Properties panel form fields
+   - `generator.ts` — Code generation logic
+   - `index.ts` — Barrel export
 
-3. **Registry** — `src/lib/node-types.ts`:
-   - Add entry to `NODE_REGISTRY` with: type, displayName, description, icon, accentColor, accentHex, category, defaultData
+3. **Registry** — `src/lib/node-registry.ts`:
+   - Import node module and add to `NODE_REGISTRY`, `NODE_TYPE_COMPONENTS`, `nodeSchemaMap`
 
-4. **Node Component** — `src/components/nodes/my-type-node.tsx`:
-   - Use named export: `export function MyTypeNode({ data, selected }: NodeProps<Node<MyTypeNodeData>>)`
-   - Wrap in `<BaseNode>`, add `<Handle>` components
+4. **Properties** — `src/components/workflow/properties/type-specific-fields.tsx`:
+   - Add case for `"my-type"` in `TypeSpecificFields` switch
 
-5. **Canvas Registration** — `src/components/workflow/canvas.tsx`:
-   - Import: `import { MyTypeNode } from "@/components/nodes/my-type-node"`
-   - Add to `nodeTypeComponents`: `"my-type": MyTypeNode`
-
-6. **Properties Panel** — `src/components/workflow/properties-panel.tsx`:
-   - Create a `MyTypeFields` component with form inputs using `register("fieldName")`
-   - Add `case "my-type": return <MyTypeFields register={register} />;` in `TypeSpecificFields`
-
-7. **Verify**: `npm run build` must pass with zero errors.
+5. **Verify**: `npm run build` must pass with zero errors.
 
 ---
 

@@ -18,8 +18,6 @@ export default function CanvasToolbar() {
   const edgeStyle = useWorkflowStore((s) => s.edgeStyle);
   const toggleEdgeStyle = useWorkflowStore((s) => s.toggleEdgeStyle);
 
-  // Auto-layout will be handled via a callback passed from the canvas
-  // We dispatch a custom event the canvas listens to
   const handleAutoLayout = () => {
     window.dispatchEvent(new CustomEvent("nexus:auto-layout"));
   };

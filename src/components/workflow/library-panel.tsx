@@ -52,6 +52,16 @@ import {
 } from "@/lib/theme";
 
 // ── Category config ─────────────────────────────────────────────────────────
+/** Format an ISO timestamp as a human-readable relative time string. */
+function formatTimeAgo(isoDate: string): string {
+  const diff = Date.now() - new Date(isoDate).getTime();
+  const mins = Math.floor(diff / 60000);
+  return mins < 1 ? "Just now" :
+    mins < 60 ? `${mins}m ago` :
+    mins < 1440 ? `${Math.floor(mins / 60)}h ago` :
+    `${Math.floor(mins / 1440)}d ago`;
+}
+
 const CATEGORY_ICONS: Record<string, React.ElementType> = {
   all: LayoutGrid,
   workflow: GitBranch,
@@ -240,14 +250,7 @@ function WorkflowCard({
     setIsRenaming(false);
   };
 
-  const timeAgo = useMemo(() => {
-    const diff = Date.now() - new Date(entry.updatedAt).getTime();
-    const mins = Math.floor(diff / 60000);
-    return mins < 1 ? "Just now" :
-      mins < 60 ? `${mins}m ago` :
-      mins < 1440 ? `${Math.floor(mins / 60)}h ago` :
-      `${Math.floor(mins / 1440)}d ago`;
-  }, [entry.updatedAt]);
+  const timeAgo = formatTimeAgo(entry.updatedAt);
 
   return (
     <div className={`group rounded-xl border ${BORDER_MUTED} bg-zinc-800/30 hover:bg-zinc-800/60 hover:border-zinc-600 transition-all duration-200 overflow-hidden`}>
@@ -368,14 +371,7 @@ function LibraryItemCard({
     setIsRenaming(false);
   };
 
-  const timeAgo = useMemo(() => {
-    const diff = Date.now() - new Date(item.updatedAt).getTime();
-    const mins = Math.floor(diff / 60000);
-    return mins < 1 ? "Just now" :
-      mins < 60 ? `${mins}m ago` :
-      mins < 1440 ? `${Math.floor(mins / 60)}h ago` :
-      `${Math.floor(mins / 1440)}d ago`;
-  }, [item.updatedAt]);
+  const timeAgo = formatTimeAgo(item.updatedAt);
 
   const categoryLabel = LIBRARY_CATEGORIES.find((c) => c.value === item.category)?.label ?? item.category;
 

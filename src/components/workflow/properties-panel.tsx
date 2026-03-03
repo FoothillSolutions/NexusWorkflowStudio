@@ -64,6 +64,8 @@ export default function PropertiesPanel() {
     setValue,
     formState: { errors },
   } = useForm({
+    // SAFETY: 'as any' is required — useForm's generic inference conflicts with the dynamic
+    // schema selection pattern. The schema is always valid Zod from nodeSchemaMap.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: schema ? (zodResolver(schema) as any) : undefined,
     defaultValues: nodeData as Record<string, unknown>,
@@ -143,7 +145,6 @@ export default function PropertiesPanel() {
   }
 
   const Icon = registryEntry!.icon;
-  const nameAsbadge = true;
 
   return (
     <div
@@ -162,7 +163,7 @@ export default function PropertiesPanel() {
           <span className="text-sm font-semibold text-zinc-100 truncate">
             {registryEntry.displayName}
           </span>
-          {nameAsbadge && nodeData?.name && (
+          {nodeData?.name && (
             <Badge
               variant="outline"
               className="font-mono text-[10px] px-1.5 py-0 h-4 w-fit border-zinc-600 text-zinc-400 truncate max-w-full block"
@@ -185,27 +186,6 @@ export default function PropertiesPanel() {
       {/* Content */}
       <ScrollArea className="flex-1 min-h-0 w-full">
         <form className="space-y-4 p-4 overflow-hidden" onSubmit={(e) => e.preventDefault()}>
-          {/* Node Name — only shown for non-badge node types */}
-          {!nameAsbadge && (
-            <div className="space-y-2">
-              <Label htmlFor="node-name">Node Name</Label>
-              <Input
-                id="node-name"
-                placeholder="e.g. my-prompt"
-                className="bg-zinc-800/60 border-zinc-700/60 rounded-xl text-sm font-mono focus-visible:ring-zinc-600"
-                {...register("name")}
-              />
-              {errors.name ? (
-                <p className="text-xs text-destructive">
-                  {errors.name.message as string}
-                </p>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  Only letters, numbers, hyphens, and underscores
-                </p>
-              )}
-            </div>
-          )}
 
           {/* Label */}
           <div className="space-y-2">

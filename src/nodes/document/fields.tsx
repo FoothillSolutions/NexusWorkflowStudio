@@ -1,5 +1,5 @@
 "use client";
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useWatch, Controller } from "react-hook-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -46,11 +46,13 @@ function PlainTextEditorDialog({
   fileExtension: string;
 }) {
   const [draft, setDraft] = useState(value);
+  const prevOpenRef = useRef(open);
 
-  // Sync draft when dialog opens
-  useEffect(() => {
-    if (open) setDraft(value);
-  }, [open]);
+  // Sync draft when dialog opens (transition from closed → open)
+  if (open && !prevOpenRef.current) {
+    setDraft(value);
+  }
+  prevOpenRef.current = open;
 
   const handleSave = useCallback(() => {
     onSave(draft);

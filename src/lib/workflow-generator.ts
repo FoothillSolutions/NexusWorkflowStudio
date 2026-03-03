@@ -475,7 +475,6 @@ function buildCommandMarkdown(workflow: WorkflowJSON): string {
   const mermaidInner = edgeLines.length > 0 ? [...nodeLines, "", ...edgeLines] : nodeLines;
   const mermaidBlock = ["```mermaid", "flowchart TD", ...mermaidInner, "```"].join("\n");
   const startNodeId = nodes.find((n) => n.data.type === "start")?.id ?? "start";
-  const endNodeId   = canonicalEndId ?? nodes.find((n) => n.data.type === "end")?.id ?? "end";
   const executionGuide = `## Workflow Execution Guide
 Follow the Mermaid flowchart above to execute the workflow starting from \`${mermaidId(startNodeId)}\` node. Each node type has specific execution methods as described below.
 Split each flow path into a todo item using todowrite and todoread tools, and update the todo list correspondingly.

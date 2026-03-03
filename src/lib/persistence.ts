@@ -1,6 +1,6 @@
 import throttle from "lodash.throttle";
 import type { WorkflowJSON } from "@/types/workflow";
-import { workflowJsonSchema } from "@/lib/schemas";
+import { workflowJsonSchema } from "@/lib/workflow-schema";
 
 const STORAGE_KEY = "nexus-workflow-studio:last";
 

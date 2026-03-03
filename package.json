@@ -1,12 +1,16 @@
 {
   "name": "nexus-workflow-studio",
   "version": "0.1.0",
-  "private": true,
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.18"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@dagrejs/dagre": "^2.0.4",
@@ -34,8 +38,6 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/dagre": "^0.7.54",
-    "@types/jszip": "^3.4.0",
     "@types/lodash.throttle": "^4.1.9",
     "@types/node": "^20",
     "@types/react": "^19",

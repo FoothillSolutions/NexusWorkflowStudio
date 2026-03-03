@@ -2,7 +2,7 @@
 
 import { useWorkflowStore } from "@/store/workflow-store";
 import { BASIC_NODES, CONTROL_FLOW_NODES, type NodeRegistryEntry } from "@/lib/node-registry";
-import { Menu, X, FileText, ScrollText, Scale, ShieldCheck } from "lucide-react";
+import { Menu, X, ScrollText, Scale, ShieldCheck } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import {

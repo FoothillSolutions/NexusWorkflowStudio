@@ -10,8 +10,6 @@ import {
   type Viewport,
 } from "@xyflow/react";
 import { customAlphabet } from "nanoid";
-
-const nanoid = customAlphabet("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", 8);
 import type {
   NodeType,
   WorkflowNode,
@@ -22,6 +20,8 @@ import type {
 import type { SubWorkflowNodeData } from "@/nodes/sub-workflow/types";
 import { SubAgentModel, SubAgentMemory } from "@/nodes/sub-agent/enums";
 import { createNodeFromType } from "@/lib/node-registry";
+
+const nanoid = customAlphabet("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", 8);
 
 // ── Canvas interaction modes ────────────────────────────────────────────────
 export type CanvasMode = "hand" | "selection";
@@ -176,6 +176,7 @@ const initialState = {
 // ── Store ───────────────────────────────────────────────────────────────────
 
 // Track whether we're in a drag so we can pause/resume temporal tracking
+// SAFETY: this is intentionally outside the store closure to avoid re-renders
 let _isDragging = false;
 
 export const useWorkflowStore = create<WorkflowState>()(
