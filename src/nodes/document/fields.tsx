@@ -1,13 +1,19 @@
 "use client";
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useWatch, Controller } from "react-hook-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { FullscreenMarkdownEditor } from "@/components/ui/fullscreen-markdown-editor";
-import { FileUp, X, Maximize2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { FileUp, X, Maximize2, Check } from "lucide-react";
 import { toast } from "sonner";
 import type { FormControl, FormSetValue, FormRegister } from "@/nodes/shared/form-types";
 import { RequiredIndicator } from "@/nodes/shared/required-indicator";
@@ -22,6 +28,63 @@ interface DocumentFieldsProps {
   register: FormRegister;
   control: FormControl;
   setValue: FormSetValue;
+}
+
+/* ── Plain-text fullscreen editor for non-markdown file types ──────────── */
+
+function PlainTextEditorDialog({
+  open,
+  onOpenChange,
+  value,
+  onSave,
+  fileExtension,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  value: string;
+  onSave: (value: string) => void;
+  fileExtension: string;
+}) {
+  const [draft, setDraft] = useState(value);
+
+  // Sync draft when dialog opens
+  useEffect(() => {
+    if (open) setDraft(value);
+  }, [open]);
+
+  const handleSave = useCallback(() => {
+    onSave(draft);
+    onOpenChange(false);
+  }, [draft, onSave, onOpenChange]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="!max-w-[80vw] !w-[80vw] !max-h-[80vh] !h-[80vh] bg-zinc-900 border-zinc-700/50 flex flex-col gap-0 p-0 rounded-2xl">
+        <DialogHeader className="px-5 py-4 border-b border-zinc-700/50 shrink-0">
+          <DialogTitle className="text-sm font-medium text-zinc-100">
+            Edit {fileExtension.toUpperCase()} Content
+          </DialogTitle>
+        </DialogHeader>
+        <div className="flex-1 min-h-0 p-4">
+          <Textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder={`Enter ${fileExtension.toUpperCase()} content...`}
+            className="w-full h-full bg-zinc-800/60 border-zinc-700/60 rounded-xl focus-visible:ring-zinc-600 resize-none text-sm font-mono"
+          />
+        </div>
+        <DialogFooter className="px-5 py-3 border-t border-zinc-700/50 shrink-0">
+          <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)} className="rounded-xl">
+            Cancel
+          </Button>
+          <Button size="sm" onClick={handleSave} className="gap-1.5 rounded-xl">
+            <Check size={14} />
+            Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 export function Fields({ control, setValue }: DocumentFieldsProps) {
@@ -180,61 +243,58 @@ export function Fields({ control, setValue }: DocumentFieldsProps) {
         />
       </div>
 
-      {/* Inline Content Editor */}
+      {/* Inline Content — compact preview + edit button */}
       {contentMode === "inline" && (
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="doc-content">
-              Content <RequiredIndicator />
-            </Label>
-            {fileExtension === "md" && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 gap-1.5 rounded-lg text-xs text-zinc-400 hover:text-zinc-100"
-                onClick={() => setEditorOpen(true)}
-              >
-                <Maximize2 size={13} />
-                Editor
-              </Button>
-            )}
-          </div>
-          <Controller
-            name={"contentText" as never}
-            control={control}
-            render={({ field }) => {
-              if (fileExtension === "md") {
-                return (
-                  <MarkdownEditor
-                    value={(field.value as string) ?? ""}
-                    onChange={field.onChange}
-                    height={200}
-                    placeholder="Enter document content..."
-                  />
-                );
-              }
-              return (
-                <Textarea
-                  id="doc-content"
-                  placeholder={`Enter ${fileExtension.toUpperCase()} content...`}
-                  className="bg-zinc-800/60 border-zinc-700/60 rounded-xl focus-visible:ring-zinc-600 min-h-[200px] resize-y text-sm font-mono"
-                  value={(field.value as string) ?? ""}
-                  onChange={field.onChange}
-                />
-              );
-            }}
-          />
+          <Label>
+            Content <RequiredIndicator />
+          </Label>
+
+          {/* Preview snippet */}
+          {contentText ? (
+            <div
+              className="px-3 py-2 rounded-xl bg-zinc-800/40 border border-zinc-700/40 cursor-pointer hover:border-yellow-700/50 transition-colors"
+              onClick={() => setEditorOpen(true)}
+              title="Click to edit content"
+            >
+              <pre className="text-xs text-zinc-400 font-mono whitespace-pre-wrap break-words line-clamp-4 max-h-[5rem] overflow-hidden">
+                {contentText}
+              </pre>
+            </div>
+          ) : (
+            <p className="text-xs text-zinc-600 italic px-1">No content yet</p>
+          )}
+
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-full gap-2 rounded-xl border border-dashed border-zinc-700/60 hover:border-yellow-700/60 text-zinc-400 hover:text-yellow-400 transition-all h-9 text-xs"
+            onClick={() => setEditorOpen(true)}
+          >
+            <Maximize2 size={14} />
+            {contentText ? "Edit Content" : "Add Content"}
+          </Button>
         </div>
       )}
 
-      {/* Fullscreen Markdown Editor Dialog */}
-      {fileExtension === "md" && (
+      {/* Fullscreen Content Editor Dialog */}
+      {contentMode === "inline" && fileExtension === "md" && (
         <FullscreenMarkdownEditor
           open={editorOpen}
           onOpenChange={setEditorOpen}
           value={contentText}
           onSave={handleEditorSave}
+        />
+      )}
+
+      {/* Fullscreen plain-text editor for non-markdown */}
+      {contentMode === "inline" && fileExtension !== "md" && editorOpen && (
+        <PlainTextEditorDialog
+          open={editorOpen}
+          onOpenChange={setEditorOpen}
+          value={contentText}
+          onSave={handleEditorSave}
+          fileExtension={fileExtension}
         />
       )}
 

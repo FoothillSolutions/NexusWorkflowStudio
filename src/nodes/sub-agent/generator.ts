@@ -69,10 +69,10 @@ export function buildAgentFile(nodeId: string, d: SubAgentNodeData, connectedSki
       let resolvedPath = ref;
       if (ref.startsWith("doc:")) {
         const fileName = ref.slice(4);
-        resolvedPath = `../docs/${fileName}`;
+        resolvedPath = `.opencode/docs/${fileName}`;
       } else if (ref.startsWith("skill:")) {
         const skillName = ref.slice(6);
-        resolvedPath = `../skills/${skillName}/SKILL.md`;
+        resolvedPath = `.opencode/skills/${skillName}/SKILL.md`;
       }
       lines.push(`- \`${varName}\`: \`${resolvedPath}\``);
     }
