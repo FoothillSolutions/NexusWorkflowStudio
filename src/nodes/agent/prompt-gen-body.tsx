@@ -67,6 +67,7 @@ export function PromptGenBody() {
   const fields = usePromptGenStore((s) => s.fields);
   const expandedSections = usePromptGenStore((s) => s.expandedSections);
   const targetPrompt = usePromptGenStore((s) => s.targetPrompt);
+  const targetNodeType = usePromptGenStore((s) => s.targetNodeType);
   const status = usePromptGenStore((s) => s.status);
   const generatedText = usePromptGenStore((s) => s.generatedText);
   const generatedTokens = usePromptGenStore((s) => s.generatedTokens);
@@ -83,6 +84,8 @@ export function PromptGenBody() {
   const applyResult = usePromptGenStore((s) => s.applyResult);
 
   const isConnected = useOpenCodeStore((s) => s.status) === "connected";
+
+  const isPromptNode = targetNodeType === "prompt";
 
   const isGenerating = status === "generating" || status === "streaming" || status === "creating-session";
   const hasResult = status === "done" && generatedText.trim().length > 0;
@@ -111,7 +114,8 @@ export function PromptGenBody() {
     const { providerId, modelId } = resolveModelIds(genModel);
     const targetNodeId = usePromptGenStore.getState().targetNodeId;
     const connectedResourceNames = getConnectedResourceNames(targetNodeId);
-    generate({ fields, modelId, providerId, mode, freeformDescription: mode === "freeform" ? freeformText : undefined, connectedResourceNames });
+    const nodeType = usePromptGenStore.getState().targetNodeType ?? "agent";
+    generate({ fields, modelId, providerId, mode, freeformDescription: mode === "freeform" ? freeformText : undefined, connectedResourceNames, nodeType });
   }, [fields, genModel, mode, freeformText, generate]);
 
   const handleEdit = useCallback(() => {
@@ -119,7 +123,8 @@ export function PromptGenBody() {
     const { providerId, modelId } = resolveModelIds(genModel);
     const targetNodeId = usePromptGenStore.getState().targetNodeId;
     const connectedResourceNames = getConnectedResourceNames(targetNodeId);
-    editWithAi({ currentPrompt: targetPrompt, editInstruction, modelId, providerId, connectedResourceNames });
+    const nodeType = usePromptGenStore.getState().targetNodeType ?? "agent";
+    editWithAi({ currentPrompt: targetPrompt, editInstruction, modelId, providerId, connectedResourceNames, nodeType });
   }, [targetPrompt, editInstruction, genModel, editWithAi]);
 
   return (
@@ -153,11 +158,15 @@ export function PromptGenBody() {
           {/* Freeform input */}
           {mode === "freeform" && (
             <div className="space-y-1.5">
-              <Label className="text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Describe the prompt you need</Label>
+              <Label className="text-[11px] text-zinc-500 uppercase tracking-wider font-medium">
+                {isPromptNode ? "Describe the prompt you want" : "Describe the prompt you need"}
+              </Label>
               <Textarea
                 value={freeformText}
                 onChange={(e) => setFreeformText(e.target.value)}
-                placeholder="e.g. Create an agent that triages support tickets, categorizes by priority, and generates a daily report…"
+                placeholder={isPromptNode
+                  ? "e.g. Write a prompt that takes a topic and generates a structured blog post with an intro, 3 key points, and a conclusion…"
+                  : "e.g. Create an agent that triages support tickets, categorizes by priority, and generates a daily report…"}
                 className="bg-zinc-800/40 border-zinc-700/40 rounded-lg text-sm min-h-[80px] resize-none focus-visible:ring-violet-600/40 placeholder:text-zinc-600"
                 rows={3}
                 disabled={isGenerating}

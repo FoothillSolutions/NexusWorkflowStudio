@@ -44,6 +44,7 @@ interface PromptGenState {
   expandedSections: Set<string>;
   /** The node ID + current prompt text this generator is targeting */
   targetNodeId: string | null;
+  targetNodeType: "agent" | "prompt" | null;
   targetPrompt: string;
   /** Whether the panel is undocked/floating (vs inline in properties panel) */
   floating: boolean;
@@ -51,7 +52,7 @@ interface PromptGenState {
   collapsed: boolean;
 
   /** Open the generator for a specific node */
-  open: (nodeId: string, currentPrompt: string, view: PromptGenView) => void;
+  open: (nodeId: string, currentPrompt: string, view: PromptGenView, nodeType?: "agent" | "prompt") => void;
   /** Close the generator panel */
   close: () => void;
   /** Set the panel view */
@@ -115,6 +116,8 @@ export interface GeneratePayload {
   freeformDescription?: string;
   /** Names of connected skills and documents so the AI can reference them */
   connectedResourceNames?: { skills: string[]; docs: string[] };
+  /** The type of node being targeted — affects system prompt style */
+  nodeType?: "agent" | "prompt";
 }
 
 export interface EditPayload {
@@ -124,6 +127,8 @@ export interface EditPayload {
   providerId: string;
   /** Names of connected skills and documents so the AI can reference them */
   connectedResourceNames?: { skills: string[]; docs: string[] };
+  /** The type of node being targeted — affects system prompt style */
+  nodeType?: "agent" | "prompt";
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -187,7 +192,21 @@ Example 2 — Missing optional input: input → default fallback
 Example 3 — Edge case: invalid input → error + accepted formats
 `.trim();
 
-function buildSystemMessage(): string {
+function buildSystemMessage(nodeType?: "agent" | "prompt"): string {
+  if (nodeType === "prompt") {
+    return `You are a prompt-text generator. You receive a description of a prompt and you output **only the prompt text** — nothing else.
+
+CRITICAL RULES:
+- Your ENTIRE response must be the prompt text itself. No preamble, no "Here is the prompt:", no explanation, no plan, no commentary before or after.
+- Output raw Markdown directly. Do NOT wrap the output in a code block.
+- Fill in concrete, actionable content — never leave placeholder brackets like [text] in the final output.
+- Write clear, well-structured prompt text. Use sections, bullet points, and formatting as appropriate for the content.
+- Use $1, $2, $3 for dynamic positional parameters when the user mentions inputs
+- Use {{variable_name}} for static/config values
+- You do NOT need to follow any specific template structure — let the content dictate the format
+- Keep the prompt focused, practical, and directly usable`;
+  }
+
   return `You are a prompt-text generator. You receive a description of an agent and you output **only the prompt text** that will be assigned to that agent — nothing else.
 
 CRITICAL RULES:
@@ -212,6 +231,7 @@ Style rules:
 }
 
 function buildGenerateUserMessage(payload: GeneratePayload): string {
+  const isPromptNode = payload.nodeType === "prompt";
   const sections: string[] = [];
   const f = payload.fields;
 
@@ -231,8 +251,41 @@ function buildGenerateUserMessage(payload: GeneratePayload): string {
   // Build connected-resources context (may be empty)
   const resBlock = buildConnectedResourcesBlock(payload.connectedResourceNames);
   const resSection = resBlock
-    ? `\n\n## Connected Resources\nThe agent has the following skills and documents connected to it. Reference them in the prompt using the exact {{name}} syntax shown below:\n\n${resBlock}`
+    ? `\n\n## Connected Resources\nThe ${isPromptNode ? "prompt" : "agent"} has the following skills and documents connected to it. Reference them in the prompt using the exact {{name}} syntax shown below:\n\n${resBlock}`
     : "";
+
+  if (isPromptNode) {
+    // ── Prompt node messages ──
+    if (hasFreeform && hasFields) {
+      return `Write prompt text based on this description:
+${payload.freeformDescription!.trim()}
+
+Additional details:
+
+${sections.join("\n\n")}${resSection}
+
+Remember: output ONLY the prompt text. No plan, no explanation. Structure the output naturally based on the content — no need to follow a rigid template.`;
+    }
+
+    if (hasFreeform) {
+      return `Write prompt text based on this description:
+${payload.freeformDescription!.trim()}${resSection}
+
+Output ONLY the prompt text. Structure it naturally — use sections, bullets, or plain prose as appropriate for the content. Do not follow a rigid template.`;
+    }
+
+    if (hasFields) {
+      return `Write prompt text using these details:
+
+${sections.join("\n\n")}${resSection}
+
+You may add additional content only if clearly inferred from the input. Output ONLY the prompt text.`;
+    }
+
+    return `Write a well-structured, general-purpose prompt template. Fill each section with realistic content that demonstrates good prompt writing. Output ONLY the prompt text.${resSection}`;
+  }
+
+  // ── Agent node messages (original behavior) ──
 
   // Both freeform description + structured fields filled
   if (hasFreeform && hasFields) {
@@ -268,12 +321,13 @@ You may add other template sections only if clearly inferred from the input. Out
 }
 
 function buildEditUserMessage(payload: EditPayload): string {
+  const isPromptNode = payload.nodeType === "prompt";
   const resBlock = buildConnectedResourcesBlock(payload.connectedResourceNames);
   const resSection = resBlock
-    ? `\n\nThe agent has the following skills and documents connected — reference them using the exact {{name}} syntax:\n\n${resBlock}`
+    ? `\n\nThe ${isPromptNode ? "prompt" : "agent"} has the following skills and documents connected — reference them using the exact {{name}} syntax:\n\n${resBlock}`
     : "";
 
-  return `Here is the current agent prompt:
+  return `Here is the current ${isPromptNode ? "prompt" : "agent prompt"}:
 
 ---
 ${payload.currentPrompt}
@@ -282,7 +336,7 @@ ${payload.currentPrompt}
 Modify this prompt according to the following instruction:
 ${payload.editInstruction}${resSection}
 
-Keep the same template structure. Output ONLY the modified prompt text — no explanation, no commentary.`;
+${isPromptNode ? "Keep a clear structure." : "Keep the same template structure."} Output ONLY the modified prompt text — no explanation, no commentary.`;
 }
 
 /** Extract text from assistant message parts */
@@ -318,14 +372,16 @@ export const usePromptGenStore = create<PromptGenState>((set, get) => ({
   fields: {},
   expandedSections: new Set<string>(),
   targetNodeId: null,
+  targetNodeType: null,
   targetPrompt: "",
   floating: false,
   collapsed: false,
 
-  open: (nodeId, currentPrompt, view) => {
+  open: (nodeId, currentPrompt, view, nodeType) => {
     set({
       view,
       targetNodeId: nodeId,
+      targetNodeType: nodeType ?? "agent",
       targetPrompt: currentPrompt,
       floating: false,
       collapsed: false,
@@ -455,7 +511,7 @@ export const usePromptGenStore = create<PromptGenState>((set, get) => ({
       await client.messages.sendAsync(sid, {
         parts: [{ type: "text", text: buildGenerateUserMessage(payload) }],
         model: { providerID: payload.providerId, modelID: payload.modelId },
-        system: buildSystemMessage(),
+        system: buildSystemMessage(payload.nodeType),
       }, { signal: abortController.signal });
 
       // Stream SSE events to get real-time text
@@ -524,7 +580,7 @@ export const usePromptGenStore = create<PromptGenState>((set, get) => ({
       await client.messages.sendAsync(sid, {
         parts: [{ type: "text", text: buildEditUserMessage(payload) }],
         model: { providerID: payload.providerId, modelID: payload.modelId },
-        system: buildSystemMessage(),
+        system: buildSystemMessage(payload.nodeType),
       }, { signal: abortController.signal });
 
       let fullText = "";
@@ -610,8 +666,8 @@ export const usePromptGenStore = create<PromptGenState>((set, get) => ({
       floating: false,
       collapsed: false,
       targetNodeId: null,
+      targetNodeType: null,
       targetPrompt: "",
-      freeformText: "",
       editInstruction: "",
       fields: {},
       expandedSections: new Set<string>(),

@@ -14,11 +14,12 @@ interface AiPromptGeneratorProps {
   setValue: FormSetValue;
   currentPrompt: string;
   nodeId?: string;
+  nodeType?: "agent" | "prompt";
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
 
-export function AiPromptGenerator({ setValue, currentPrompt, nodeId }: AiPromptGeneratorProps) {
+export function AiPromptGenerator({ setValue, currentPrompt, nodeId, nodeType = "agent" }: AiPromptGeneratorProps) {
   const isConnected = useOpenCodeStore((s) => s.status) === "connected";
   const view = usePromptGenStore((s) => s.view);
   const floating = usePromptGenStore((s) => s.floating);
@@ -122,7 +123,7 @@ export function AiPromptGenerator({ setValue, currentPrompt, nodeId }: AiPromptG
     <div className="flex items-center gap-1.5">
       <button
         type="button"
-        onClick={() => nodeId && storeOpen(nodeId, currentPrompt, "generate")}
+        onClick={() => nodeId && storeOpen(nodeId, currentPrompt, "generate", nodeType)}
         disabled={!isConnected || !nodeId}
         className={cn(
           "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 border border-dashed",
@@ -137,7 +138,7 @@ export function AiPromptGenerator({ setValue, currentPrompt, nodeId }: AiPromptG
       {hasPrompt && (
         <button
           type="button"
-          onClick={() => nodeId && storeOpen(nodeId, currentPrompt, "edit")}
+          onClick={() => nodeId && storeOpen(nodeId, currentPrompt, "edit", nodeType)}
           disabled={!isConnected || !nodeId}
           className={cn(
             "flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 border border-dashed",

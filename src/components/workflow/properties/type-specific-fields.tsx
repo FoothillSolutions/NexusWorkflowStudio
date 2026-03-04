@@ -22,7 +22,7 @@ interface TypeSpecificFieldsProps {
 
 export function TypeSpecificFields({ nodeType, register, control, setValue, selectedNodeId }: TypeSpecificFieldsProps) {
   switch (nodeType) {
-    case "prompt":         return <PromptFields control={control} setValue={setValue} />;
+    case "prompt":         return <PromptFields control={control} setValue={setValue} nodeId={selectedNodeId} />;
     case "agent":          return <SubAgentFields control={control} setValue={setValue} nodeId={selectedNodeId} />;
     case "sub-workflow":   return <SubWorkflowFields control={control} setValue={setValue} nodeId={selectedNodeId} />;
     case "skill":          return <SkillFields register={register} control={control} setValue={setValue} />;
