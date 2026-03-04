@@ -1,8 +1,46 @@
 import throttle from "lodash.throttle";
-import type { WorkflowJSON } from "@/types/workflow";
+import type { WorkflowJSON, WorkflowNode, WorkflowEdge } from "@/types/workflow";
 import { workflowJsonSchema } from "@/lib/workflow-schema";
 
 const STORAGE_KEY = "nexus-workflow-studio:last";
+
+// ── Strip transient React Flow properties from serialized JSON ───────────
+// These properties are runtime-only (measured, selected, dragging) or
+// always re-applied on load (edge type/style/animated, node deletable).
+
+function cleanNode(node: WorkflowNode): WorkflowNode {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { measured, selected, dragging, deletable, ...rest } = node;
+
+  // Recursively strip sub-workflow embedded nodes/edges
+  if (rest.data?.type === "sub-workflow" && rest.data.subNodes) {
+    return {
+      ...rest,
+      data: {
+        ...rest.data,
+        subNodes: (rest.data.subNodes as WorkflowNode[]).map(cleanNode),
+        subEdges: (rest.data.subEdges as WorkflowEdge[]).map(cleanEdge),
+      },
+    } as WorkflowNode;
+  }
+
+  return rest as WorkflowNode;
+}
+
+function cleanEdge(edge: WorkflowEdge): WorkflowEdge {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { type, style, animated, selected, ...rest } = edge;
+  return rest as WorkflowEdge;
+}
+
+/** Remove transient / redundant React Flow properties before persisting. */
+export function stripTransientProperties(data: WorkflowJSON): WorkflowJSON {
+  return {
+    ...data,
+    nodes: data.nodes.map(cleanNode),
+    edges: data.edges.map(cleanEdge),
+  };
+}
 
 // ── Save ────────────────────────────────────────────────────────────────────
 export function saveToLocalStorage(data: WorkflowJSON): void {

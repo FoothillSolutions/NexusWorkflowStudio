@@ -20,6 +20,7 @@ import type {
 import type { SubWorkflowNodeData } from "@/nodes/sub-workflow/types";
 import { SubAgentModel, SubAgentMemory } from "@/nodes/sub-agent/enums";
 import { createNodeFromType } from "@/lib/node-registry";
+import { stripTransientProperties } from "@/lib/persistence";
 
 const nanoid = customAlphabet("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", 8);
 
@@ -781,7 +782,7 @@ export const useWorkflowStore = create<WorkflowState>()(
 
   getWorkflowJSON: (): WorkflowJSON => {
     const state = get();
-    return {
+    return stripTransientProperties({
       name: state.name,
       nodes: state.nodes,
       edges: state.edges,
@@ -792,7 +793,7 @@ export const useWorkflowStore = create<WorkflowState>()(
         canvasMode: state.canvasMode,
         edgeStyle: state.edgeStyle,
       },
-    };
+    });
   },
 
   reset: () => set(initialState),

@@ -5,7 +5,7 @@ import { ReactFlowProvider } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useWorkflowStore } from "@/store/workflow-store";
 import { useSavedWorkflowsStore } from "@/store/library-store";
-import { throttledSave, exportWorkflow } from "@/lib/persistence";
+import { throttledSave, exportWorkflow, stripTransientProperties } from "@/lib/persistence";
 import { isModKey } from "@/lib/platform";
 import { toast } from "sonner";
 import { BG_APP, TEXT_PRIMARY } from "@/lib/theme";
@@ -150,7 +150,7 @@ export default function WorkflowEditor() {
         prevName = state.name;
 
         // Throttle will coalesce rapid position updates into one trailing save
-        throttledSave({
+        throttledSave(stripTransientProperties({
             name: state.name,
             nodes: state.nodes,
             edges: state.edges,
@@ -161,7 +161,7 @@ export default function WorkflowEditor() {
                 canvasMode: state.canvasMode,
                 edgeStyle: state.edgeStyle,
             }
-        });
+        }));
     });
     return () => unsub();
   }, []);
