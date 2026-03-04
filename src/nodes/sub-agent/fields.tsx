@@ -25,6 +25,7 @@ import {
 import { NODE_ACCENT } from "@/lib/node-colors";
 import { useWorkflowStore } from "@/store/workflow-store";
 import { ModelSelect } from "@/nodes/shared/model-select";
+import { AiPromptGenerator } from "./ai-prompt-generator";
 import { parseAgentFile } from "./parse-agent-file";
 import { toast } from "sonner";
 
@@ -352,6 +353,10 @@ export function Fields({ control, setValue, nodeId }: SubAgentFieldsProps) {
 				placeholder="Enter your prompt here"
 				required
 			/>
+
+			{/* AI Prompt Generator */}
+			<AiPromptGenerator setValue={setValue} currentPrompt={promptText} nodeId={nodeId} />
+
 			<DetectedVariablesPanel dynamic={dynamic} staticVars={staticVars} />
 
 			{/* Static Variable Mapping — map {{vars}} to connected docs/skills */}

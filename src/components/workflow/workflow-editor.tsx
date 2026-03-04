@@ -17,6 +17,7 @@ import PropertiesPanel from "./properties-panel";
 import DeleteDialog from "./delete-dialog";
 import LibraryPanel from "./library-panel";
 import SubWorkflowCanvas from "./sub-workflow-canvas";
+import FloatingPromptGen from "./floating-prompt-gen";
 import WhatsNewDialog from "./whats-new-dialog";
 import { useWhatsNew } from "@/hooks/use-whats-new";
 
@@ -177,6 +178,7 @@ export default function WorkflowEditor() {
             <NodePalette />
             <CanvasToolbar />
             <PropertiesPanel />
+            <FloatingPromptGen />
             <LibraryPanel />
           </div>
         </div>

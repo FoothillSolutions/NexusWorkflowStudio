@@ -21,6 +21,7 @@ import type { SubWorkflowNodeData } from "@/nodes/sub-workflow/types";
 import { SubAgentModel, SubAgentMemory } from "@/nodes/sub-agent/enums";
 import { createNodeFromType } from "@/lib/node-registry";
 import { stripTransientProperties } from "@/lib/persistence";
+import { usePromptGenStore } from "@/store/prompt-gen-store";
 
 const nanoid = customAlphabet("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", 8);
 
@@ -761,6 +762,9 @@ export const useWorkflowStore = create<WorkflowState>()(
 
   // ── Persistence ─────────────────────────────────────────────────────────
   loadWorkflow: (json) => {
+    // Dispose any active AI prompt-generation session from the previous workflow
+    usePromptGenStore.getState().disposeSession();
+
     const nodes = ensureEndNode(
       ensureStartNode(json.nodes).map((n) =>
         n.data?.type === "start" ? { ...n, deletable: false } : n
@@ -796,7 +800,10 @@ export const useWorkflowStore = create<WorkflowState>()(
     });
   },
 
-  reset: () => set(initialState),
+  reset: () => {
+    usePromptGenStore.getState().disposeSession();
+    set(initialState);
+  },
 }),
     {
       // Only track data that matters for undo/redo
