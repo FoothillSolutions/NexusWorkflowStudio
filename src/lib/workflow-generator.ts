@@ -19,6 +19,12 @@ import { generator as switchGen }       from "@/nodes/switch/generator";
 import { generator as askUserGen }      from "@/nodes/ask-user/generator";
 import type { NodeGeneratorModule }     from "@/nodes/shared/registry-types";
 import { mermaidId, mermaidLabel }      from "@/nodes/shared/mermaid-utils";
+import type { ExportProfileId } from "@/lib/export-profiles";
+import {
+  generatePiExtensionFiles,
+  getPiExtensionPreview,
+} from "@/lib/pi-extension-generator";
+
 export interface GeneratedFile {
   path: string;
   content: string;
@@ -509,7 +515,7 @@ Workflow arguments are **comma-separated and trimmed**. For example \`/workflow 
   if (otherDetails)    parts.push("", otherDetails);
   return parts.join("\n") + "\n";
 }
-export function generateWorkflowFiles(workflow: WorkflowJSON): GeneratedFile[] {
+function generateOpenCodeWorkflowFiles(workflow: WorkflowJSON): GeneratedFile[] {
   const safeName = workflow.name
     .replace(/[^a-z0-9\-_ ]/gi, "")
     .trim()
@@ -522,6 +528,60 @@ export function generateWorkflowFiles(workflow: WorkflowJSON): GeneratedFile[] {
   const agentFiles = collectAgentFiles(workflow.nodes, workflow.edges);
   return [commandFile, ...agentFiles];
 }
-export function getCommandMarkdown(workflow: WorkflowJSON): string {
-  return buildCommandMarkdown(workflow);
+function transformOpenCodeFilesToPi(files: GeneratedFile[]): GeneratedFile[] {
+  const remapPath = (path: string): string => {
+    if (path.startsWith(".opencode/commands/")) return path.replace(".opencode/commands/", ".pi/prompts/");
+    if (path.startsWith(".opencode/skills/")) return path.replace(".opencode/skills/", ".pi/skills/");
+    if (path.startsWith(".opencode/agents/")) return path.replace(".opencode/agents/", ".pi/agents/");
+    if (path.startsWith(".opencode/docs/")) return path.replace(".opencode/docs/", ".pi/docs/");
+    return path.replace(".opencode/", ".pi/");
+  };
+
+  const remapContent = (content: string): string => {
+    return content
+      .replaceAll(".opencode/commands/", ".pi/prompts/")
+      .replaceAll(".opencode/skills/", ".pi/skills/")
+      .replaceAll(".opencode/agents/", ".pi/agents/")
+      .replaceAll(".opencode/docs/", ".pi/docs/")
+      .replaceAll(".opencode/", ".pi/")
+      .replace("compatibility: opencode", "compatibility: pi");
+  };
+
+  return files.map((f) => ({
+    path: remapPath(f.path),
+    content: remapContent(f.content),
+  }));
+}
+
+function transformOpenCodeMarkdownToPi(markdown: string): string {
+  return markdown
+    .replaceAll(".opencode/commands/", ".pi/prompts/")
+    .replaceAll(".opencode/skills/", ".pi/skills/")
+    .replaceAll(".opencode/agents/", ".pi/agents/")
+    .replaceAll(".opencode/docs/", ".pi/docs/")
+    .replaceAll(".opencode/", ".pi/");
+}
+
+export function generateWorkflowFiles(workflow: WorkflowJSON, profileId: ExportProfileId = "opencode"): GeneratedFile[] {
+  if (profileId === "pi-extension") {
+    return generatePiExtensionFiles(workflow);
+  }
+
+  const openCodeFiles = generateOpenCodeWorkflowFiles(workflow);
+  if (profileId === "pi-terminal") {
+    return transformOpenCodeFilesToPi(openCodeFiles);
+  }
+  return openCodeFiles;
+}
+
+export function getCommandMarkdown(workflow: WorkflowJSON, profileId: ExportProfileId = "opencode"): string {
+  if (profileId === "pi-extension") {
+    return getPiExtensionPreview(workflow);
+  }
+
+  const markdown = buildCommandMarkdown(workflow);
+  if (profileId === "pi-terminal") {
+    return transformOpenCodeMarkdownToPi(markdown);
+  }
+  return markdown;
 }

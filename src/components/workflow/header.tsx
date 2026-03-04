@@ -14,6 +14,9 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -40,6 +43,11 @@ import {
   TEXT_PRIMARY,
   TEXT_MUTED,
 } from "@/lib/theme";
+import {
+  EXPORT_PROFILES,
+  getExportProfile,
+  type ExportProfileId,
+} from "@/lib/export-profiles";
 
 /* ── tiny divider ────────────────────────────────────────────────── */
 function Divider() {
@@ -55,6 +63,7 @@ export default function Header() {
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewMarkdown, setPreviewMarkdown] = useState("");
+  const [exportProfileId, setExportProfileId] = useState<ExportProfileId>("opencode");
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -88,15 +97,49 @@ export default function Header() {
     toast.success("Workflow exported");
   };
 
-  const handleGenerate = useCallback(async () => {
+  const activeProfile = getExportProfile(exportProfileId);
+
+  const handleGenerate = useCallback(async (profileId: ExportProfileId = exportProfileId) => {
     const workflow = getWorkflowJSON();
     try {
       const JSZip = (await import("jszip")).default;
       const zip = new JSZip();
 
-      const files = generateWorkflowFiles(workflow);
+      const files = generateWorkflowFiles(workflow, profileId);
       for (const file of files) {
         zip.file(file.path, file.content);
+      }
+
+      const hasEmbeddedExportReport = files.some((f) => f.path === "EXPORT_REPORT.md");
+      if (!hasEmbeddedExportReport) {
+        const profile = getExportProfile(profileId);
+        const reportLines = [
+          "# Export Report",
+          "",
+          `- Workflow: ${workflow.name}`,
+          `- Profile: ${profile.label} (${profile.id})`,
+          `- Generated at: ${new Date().toISOString()}`,
+          `- File count: ${files.length}`,
+          "",
+          "## Files",
+          "",
+          ...files.map((f) => `- \`${f.path}\``),
+        ];
+
+        if (profileId === "pi-terminal") {
+          reportLines.push(
+            "",
+            "## Profile Transformations",
+            "",
+            "- `.opencode/commands/*` → `.pi/prompts/*`",
+            "- `.opencode/skills/*` → `.pi/skills/*`",
+            "- `.opencode/agents/*` → `.pi/agents/*`",
+            "- `.opencode/docs/*` → `.pi/docs/*`",
+            "- In-file path references remapped from `.opencode/` to `.pi/`"
+          );
+        }
+
+        zip.file("EXPORT_REPORT.md", reportLines.join("\n") + "\n");
       }
 
       const blob = await zip.generateAsync({ type: "blob" });
@@ -108,22 +151,23 @@ export default function Header() {
           .trim()
           .replace(/\s+/g, "-")
           .toLowerCase() || "workflow";
+      const profileSuffix = profileId;
       a.href = url;
-      a.download = `${safeName}-generated.zip`;
+      a.download = `${safeName}-${profileSuffix}.zip`;
       a.click();
       URL.revokeObjectURL(url);
-      toast.success("Workflow generated and downloaded");
+      toast.success(`Generated ${getExportProfile(profileId).label} export`);
     } catch (err) {
       console.error(err);
       toast.error("Failed to generate workflow");
     }
-  }, [getWorkflowJSON]);
+  }, [getWorkflowJSON, exportProfileId]);
 
   const handleView = useCallback(() => {
     const workflow = getWorkflowJSON();
-    setPreviewMarkdown(getCommandMarkdown(workflow));
+    setPreviewMarkdown(getCommandMarkdown(workflow, exportProfileId));
     setPreviewOpen(true);
-  }, [getWorkflowJSON]);
+  }, [getWorkflowJSON, exportProfileId]);
 
   // Listen for custom events dispatched by keyboard shortcuts in workflow-editor
   useEffect(() => {
@@ -232,20 +276,42 @@ export default function Header() {
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom">
-            Preview generated output
+            Preview {activeProfile.label} output
           </TooltipContent>
         </Tooltip>
 
-        {/* Generate (primary action) */}
-        <Button
-          size="sm"
-          onClick={handleGenerate}
-          className="h-8 px-4 text-sm bg-emerald-600 hover:bg-emerald-500 text-white gap-1.5 shadow-sm"
-          title="Generate and download workflow artifacts"
-        >
-          <Cpu className="h-4 w-4" />
-          Generate
-        </Button>
+        {/* Generate + profile selector */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              size="sm"
+              className="h-8 px-4 text-sm bg-emerald-600 hover:bg-emerald-500 text-white gap-1.5 shadow-sm"
+              title={`Generate ${activeProfile.label} artifacts`}
+            >
+              <Cpu className="h-4 w-4" />
+              Generate
+              <ChevronDown className="h-3.5 w-3.5 opacity-80" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-60">
+            <DropdownMenuLabel>Export Profile</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={exportProfileId}
+              onValueChange={(value) => setExportProfileId(value as ExportProfileId)}
+            >
+              {EXPORT_PROFILES.map((profile) => (
+                <DropdownMenuRadioItem key={profile.id} value={profile.id}>
+                  {profile.label}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => handleGenerate()}>
+              <Download className="h-4 w-4 mr-2" />
+              Generate {activeProfile.label}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <Divider />
 
@@ -262,8 +328,8 @@ export default function Header() {
         open={previewOpen}
         onOpenChange={setPreviewOpen}
         markdown={previewMarkdown}
-        title={`Preview — ${name}`}
-        onDownload={handleGenerate}
+        title={`Preview (${activeProfile.label}) — ${name}`}
+        onDownload={() => handleGenerate()}
       />
     </header>
   );

@@ -232,10 +232,6 @@ function WorkflowCard({
     }
   }, [isRenaming]);
 
-  useEffect(() => {
-    setRenameValue(entry.name);
-  }, [entry.name]);
-
   const startRenaming = useCallback(() => {
     setRenameValue(entry.name);
     setIsRenaming(true);
@@ -352,10 +348,6 @@ function LibraryItemCard({
       renameInputRef.current.select();
     }
   }, [isRenaming]);
-
-  useEffect(() => {
-    setRenameValue(item.name);
-  }, [item.name]);
 
   const startRenaming = useCallback(() => {
     setRenameValue(item.name);
