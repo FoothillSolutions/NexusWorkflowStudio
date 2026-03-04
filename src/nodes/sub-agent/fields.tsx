@@ -4,6 +4,7 @@ import { useWatch, Controller } from "react-hook-form";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import { PromptFieldGroup } from "@/nodes/shared/prompt-field-group";
 import { detectVariables, DetectedVariablesPanel, DYNAMIC_VAR_RE, STATIC_VAR_RE } from "@/nodes/shared/variable-utils";
 import type { FormControl, FormSetValue } from "@/nodes/shared/form-types";
@@ -11,11 +12,13 @@ import { RequiredIndicator } from "@/nodes/shared/required-indicator";
 import { SubAgentMemory } from "./types";
 import { AGENT_TOOLS, PRESET_COLORS } from "./constants";
 import type { AgentTool } from "./constants";
-import { Check, Zap, Plus, Minus, ArrowRight, X, FileText, Link } from "lucide-react";
+import { Check, Zap, Plus, Minus, ArrowRight, X, FileText, Link, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NODE_ACCENT } from "@/lib/node-colors";
 import { useWorkflowStore } from "@/store/workflow-store";
 import { ModelSelect } from "@/nodes/shared/model-select";
+import { parseAgentFile } from "./parse-agent-file";
+import { toast } from "sonner";
 
 const MEMORY_OPTIONS = [
 	{ value: SubAgentMemory.Default, label: "- (default)" },
@@ -228,8 +231,88 @@ export function Fields({ control, setValue, nodeId }: SubAgentFieldsProps) {
 		setValue("disabledTools" as never, next as never, { shouldDirty: true });
 	};
 
+	// ── Upload Agent file handler ─────────────────────────────────────
+	const agentFileInputRef = useRef<HTMLInputElement>(null);
+
+	const handleAgentUpload = useCallback(
+		(e: React.ChangeEvent<HTMLInputElement>) => {
+			const file = e.target.files?.[0];
+			if (!file) return;
+
+			const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+			if (ext !== "md") {
+				toast.error("Only .md agent files are supported");
+				return;
+			}
+
+			const reader = new FileReader();
+			reader.onload = () => {
+				try {
+					const raw = reader.result as string;
+					const parsed = parseAgentFile(raw);
+
+					if (parsed.description !== undefined)
+						setValue("description" as never, parsed.description as never, { shouldDirty: true });
+					if (parsed.model !== undefined)
+						setValue("model" as never, parsed.model as never, { shouldDirty: true });
+					if (parsed.memory !== undefined)
+						setValue("memory" as never, parsed.memory as never, { shouldDirty: true });
+					if (parsed.temperature !== undefined)
+						setValue("temperature" as never, parsed.temperature as never, { shouldDirty: true });
+					if (parsed.color !== undefined)
+						setValue("color" as never, parsed.color as never, { shouldDirty: true });
+					if (parsed.disabledTools !== undefined)
+						setValue("disabledTools" as never, parsed.disabledTools as never, { shouldDirty: true });
+					if (parsed.variableMappings !== undefined)
+						setValue("variableMappings" as never, parsed.variableMappings as never, { shouldDirty: true });
+					if (parsed.promptText !== undefined)
+						setValue("promptText" as never, parsed.promptText as never, { shouldDirty: true });
+
+					// Derive a name from the filename (strip .md extension)
+					const baseName = file.name.replace(/\.md$/i, "").replace(/[^a-zA-Z0-9_-]/g, "-");
+					if (baseName) {
+						setValue("name" as never, baseName as never, { shouldDirty: true });
+					}
+
+					toast.success(`Loaded agent from ${file.name}`);
+				} catch {
+					toast.error("Failed to parse agent file");
+				}
+			};
+			reader.onerror = () => toast.error("Failed to read file");
+			reader.readAsText(file);
+
+			// Reset so the same file can be re-uploaded
+			e.target.value = "";
+		},
+		[setValue]
+	);
+
 	return (
 		<div className="space-y-5 overflow-hidden">
+			{/* Upload Agent File */}
+			<div className="space-y-2">
+				<input
+					ref={agentFileInputRef}
+					type="file"
+					accept=".md"
+					onChange={handleAgentUpload}
+					className="hidden"
+				/>
+				<Button
+					type="button"
+					variant="ghost"
+					onClick={() => agentFileInputRef.current?.click()}
+					className="w-full h-16 rounded-xl border-2 border-dashed border-zinc-700/60 hover:border-violet-700/60 text-zinc-500 hover:text-violet-400 transition-all flex flex-col gap-1"
+				>
+					<Upload size={18} />
+					<span className="text-xs">Upload Agent <code className="font-mono text-[10px] text-zinc-600">.md</code></span>
+				</Button>
+				<p className="text-[10px] text-zinc-600 text-center">
+					Import an existing agent file
+				</p>
+			</div>
+
 			{/* Description */}
 			<div className="space-y-2">
 				<Label htmlFor="description">
