@@ -1,20 +1,20 @@
 "use client";
+
 import { useWatch, Controller } from "react-hook-form";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Layers, ExternalLink, Check, Loader2 } from "lucide-react";
+import { Layers, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NODE_ACCENT } from "@/lib/node-colors";
 import { SubAgentMemory } from "@/nodes/sub-agent/enums";
-import { PRESET_COLORS } from "@/nodes/sub-agent/constants";
 import type { FormControl, FormSetValue } from "@/nodes/shared/form-types";
 import { ModelSelect } from "@/nodes/shared/model-select";
-import type { SubWorkflowMode } from "./types";
 import { useTools } from "@/hooks/use-tools";
+import { ToolsGrid } from "@/nodes/sub-agent/tools-grid";
+import { ColorPicker } from "@/nodes/sub-agent/color-picker";
+import type { SubWorkflowMode } from "./types";
 
 // ── Shared select / option configs ──────────────────────────────────────────
-
 
 const MEMORY_OPTIONS = [
   { value: SubAgentMemory.Default, label: "- (default)" },
@@ -98,7 +98,7 @@ export function Fields({ control, setValue, nodeId }: SubWorkflowFieldsProps) {
                     "px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150",
                     field.value === m
                       ? "bg-purple-600/30 text-purple-200 border border-purple-500/50"
-                      : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700/50 border border-transparent"
+                      : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700/50 border border-transparent",
                   )}
                 >
                   {m === "same-context" ? "Same Context" : "Agent"}
@@ -128,9 +128,7 @@ export function Fields({ control, setValue, nodeId }: SubWorkflowFieldsProps) {
             <Controller
               name="model"
               control={control}
-              render={({ field }) => (
-                <ModelSelect value={field.value} onChange={field.onChange} />
-              )}
+              render={({ field }) => <ModelSelect value={field.value} onChange={field.onChange} />}
             />
           </div>
 
@@ -165,21 +163,19 @@ export function Fields({ control, setValue, nodeId }: SubWorkflowFieldsProps) {
               render={({ field }) => {
                 const val = field.value != null ? Number(field.value) : 0;
                 return (
-                  <div className="relative flex items-center">
-                    <input
-                      id="temperature"
-                      type="range"
-                      min={0}
-                      max={1}
-                      step={0.1}
-                      value={val}
-                      onChange={(e) => field.onChange(parseFloat(e.target.value))}
-                      className="w-full h-2 appearance-none cursor-pointer rounded-full bg-zinc-700/60 accent-violet-500"
-                      style={{
-                        background: `linear-gradient(to right, #a855f7 0%, #a855f7 ${(val * 100).toFixed(1)}%, rgb(63 63 70 / 0.6) ${(val * 100).toFixed(1)}%, rgb(63 63 70 / 0.6) 100%)`,
-                      }}
-                    />
-                  </div>
+                  <input
+                    id="temperature"
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.1}
+                    value={val}
+                    onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                    className="w-full h-2 appearance-none cursor-pointer rounded-full bg-zinc-700/60 accent-violet-500"
+                    style={{
+                      background: `linear-gradient(to right, #a855f7 0%, #a855f7 ${(val * 100).toFixed(1)}%, rgb(63 63 70 / 0.6) ${(val * 100).toFixed(1)}%, rgb(63 63 70 / 0.6) 100%)`,
+                    }}
+                  />
                 );
               }}
             />
@@ -190,123 +186,16 @@ export function Fields({ control, setValue, nodeId }: SubWorkflowFieldsProps) {
           </div>
 
           {/* Tools */}
-          <div className="space-y-2.5">
-            <div className="flex items-center justify-between">
-              <Label className="flex items-center gap-1.5">
-                Tools
-                {!toolsStatic && !toolsLoading && (
-                  <span className="text-[9px] font-medium text-violet-400/70 bg-violet-500/10 border border-violet-500/20 px-1.5 py-0.5 rounded-full leading-none">
-                    dynamic
-                  </span>
-                )}
-              </Label>
-              <div className="flex items-center gap-1.5">
-                {toolsLoading && <Loader2 size={10} className="animate-spin text-zinc-500" />}
-                <span className="text-[10px] text-zinc-500 tabular-nums">
-                  {disabledTools.length === 0 ? "All enabled" : `${disabledTools.length} disabled`}
-                </span>
-              </div>
-            </div>
-            <div className="rounded-xl border border-zinc-700/40 bg-zinc-800/20 p-2.5">
-              <div className="flex flex-wrap gap-1.5">
-                {availableTools.map((tool) => {
-                  const isDisabled = disabledTools.includes(tool);
-                  return (
-                    <button
-                      key={tool}
-                      type="button"
-                      onClick={() => toggleTool(tool)}
-                      title={tool}
-                      className={cn(
-                        "inline-flex items-center gap-1.5 pl-1.5 pr-2.5 py-1 rounded-lg border text-[11px] font-mono transition-all duration-150 whitespace-nowrap select-none",
-                        isDisabled
-                          ? "bg-red-950/40 border-red-900/40 text-red-400/80 hover:bg-red-950/60"
-                          : "bg-zinc-800/60 border-zinc-700/50 text-zinc-300 hover:bg-zinc-700/60 hover:border-zinc-600/60"
-                      )}
-                    >
-                      <span className={cn(
-                        "w-1.5 h-1.5 rounded-full shrink-0 transition-colors",
-                        isDisabled ? "bg-red-500/70" : "bg-emerald-500/70"
-                      )} />
-                      <span className={cn(isDisabled && "line-through decoration-red-500/40")}>
-                        {tool}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
+          <ToolsGrid
+            tools={availableTools}
+            disabledTools={disabledTools}
+            isLoading={toolsLoading}
+            isStatic={toolsStatic}
+            onToggle={toggleTool}
+          />
 
           {/* Color */}
-          <div className="space-y-2.5">
-            <Label>Color</Label>
-            <div className="rounded-xl border border-zinc-700/40 bg-zinc-800/20 overflow-hidden">
-              {/* Live preview bar */}
-              <div
-                className="h-2 w-full transition-colors duration-200"
-                style={{ backgroundColor: color }}
-              />
-              {/* Preset swatches */}
-              <div className="p-3 pb-2.5">
-                <div className="flex flex-wrap gap-1.5 justify-center">
-                  {PRESET_COLORS.map((preset) => {
-                    const isActive = color === preset;
-                    return (
-                      <button
-                        key={preset}
-                        type="button"
-                        onClick={() => setValue("color" as never, preset as never, { shouldDirty: true })}
-                        className={cn(
-                          "w-6 h-6 rounded-full transition-all duration-150 flex items-center justify-center ring-offset-1 ring-offset-zinc-900",
-                          isActive
-                            ? "ring-2 ring-white/60 scale-110"
-                            : "hover:scale-110 hover:ring-1 hover:ring-white/20"
-                        )}
-                        style={{ backgroundColor: preset }}
-                        title={preset}
-                      >
-                        {isActive && (
-                          <Check className="h-2.5 w-2.5 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]" />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              {/* Custom color row */}
-              <div className="px-3 pb-3">
-                <Controller
-                  name="color"
-                  control={control}
-                  render={({ field }) => (
-                    <div className="flex items-center gap-2 rounded-lg bg-zinc-900/60 border border-zinc-700/30 px-2 py-1.5">
-                      <div className="relative">
-                        <input
-                          type="color"
-                          value={field.value?.trim() ? field.value : NODE_ACCENT["sub-workflow"]}
-                          onChange={(e) => field.onChange(e.target.value)}
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                          title="Pick custom color"
-                        />
-                        <div
-                          className="w-6 h-6 rounded-md border border-zinc-600/50 cursor-pointer shadow-sm"
-                          style={{ backgroundColor: field.value?.trim() ? field.value : NODE_ACCENT["sub-workflow"] }}
-                        />
-                      </div>
-                      <Input
-                        value={field.value?.trim() ? field.value : NODE_ACCENT["sub-workflow"]}
-                        onChange={(e) => field.onChange(e.target.value)}
-                        className="bg-transparent border-0 shadow-none focus-visible:ring-0 font-mono text-xs uppercase text-zinc-300 h-6 px-1"
-                        placeholder={NODE_ACCENT["sub-workflow"]}
-                        maxLength={7}
-                      />
-                    </div>
-                  )}
-                />
-              </div>
-            </div>
-          </div>
+          <ColorPicker control={control} setValue={setValue} color={color} defaultColor={NODE_ACCENT["sub-workflow"]} />
         </>
       )}
     </div>
