@@ -81,6 +81,7 @@ export default function WorkflowEditor() {
         e.preventDefault();
         reset();
         useSavedWorkflowsStore.getState().clearActiveId();
+        window.dispatchEvent(new CustomEvent("nexus:fit-view"));
         toast.success("New workflow created");
         return;
       }

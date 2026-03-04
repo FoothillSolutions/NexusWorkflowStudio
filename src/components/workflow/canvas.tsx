@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect } from "react";
+import { useReactFlow } from "@xyflow/react";
 import { useWorkflowStore } from "@/store/workflow-store";
 import { useDragTracking } from "@/hooks/use-drag-tracking";
 import { useAutoLayout } from "@/hooks/use-auto-layout";
@@ -29,6 +30,7 @@ export default function Canvas() {
   const edgeStyle = useWorkflowStore((s) => s.edgeStyle);
   const groupIntoSubWorkflow = useWorkflowStore((s) => s.groupIntoSubWorkflow);
 
+  const { fitView } = useReactFlow();
   const { onNodesChange, isDragging } = useDragTracking(storeOnNodesChange);
 
   const getNodes = useCallback(() => useWorkflowStore.getState().nodes, []);
@@ -53,6 +55,16 @@ export default function Canvas() {
     window.addEventListener("nexus:auto-layout", handler);
     return () => window.removeEventListener("nexus:auto-layout", handler);
   }, [autoLayout]);
+
+  // Re-center the canvas when a new workflow is created or loaded
+  useEffect(() => {
+    const handler = () => {
+      // Small delay so React Flow processes the new nodes first
+      requestAnimationFrame(() => fitView({ duration: 300, maxZoom: 0.85, padding: 0.3 }));
+    };
+    window.addEventListener("nexus:fit-view", handler);
+    return () => window.removeEventListener("nexus:fit-view", handler);
+  }, [fitView]);
 
   const handleGroupIntoSubWorkflow = useCallback(() => {
     const selectedIds = useWorkflowStore.getState().nodes

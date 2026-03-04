@@ -80,6 +80,7 @@ export default function Header() {
   const handleNew = () => {
     reset();
     useSavedWorkflowsStore.getState().clearActiveId();
+    window.dispatchEvent(new CustomEvent("nexus:fit-view"));
     toast.success("New workflow created");
   };
 

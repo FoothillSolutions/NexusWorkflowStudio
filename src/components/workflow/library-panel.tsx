@@ -510,6 +510,7 @@ export default function LibraryPanel() {
       const data = load(id);
       if (data) {
         loadWorkflow(data);
+        window.dispatchEvent(new CustomEvent("nexus:fit-view"));
         toast.success("Workflow loaded");
       } else {
         toast.error("Failed to load workflow");
