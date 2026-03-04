@@ -12,8 +12,16 @@ import { RequiredIndicator } from "@/nodes/shared/required-indicator";
 import { SubAgentMemory } from "./types";
 import { AGENT_TOOLS, PRESET_COLORS } from "./constants";
 import type { AgentTool } from "./constants";
-import { Check, Zap, Plus, Minus, ArrowRight, X, FileText, Link, Upload } from "lucide-react";
+import { Check, Zap, Plus, Minus, ArrowRight, X, FileText, Link, Upload, ChevronDown, FileIcon, BoltIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+	DropdownMenu,
+	DropdownMenuTrigger,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuLabel,
+	DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { NODE_ACCENT } from "@/lib/node-colors";
 import { useWorkflowStore } from "@/store/workflow-store";
 import { ModelSelect } from "@/nodes/shared/model-select";
@@ -348,72 +356,146 @@ export function Fields({ control, setValue, nodeId }: SubAgentFieldsProps) {
 
 			{/* Static Variable Mapping — map {{vars}} to connected docs/skills */}
 			{staticVars.length > 0 && (
-				<div className="space-y-2 overflow-hidden">
+				<div className="space-y-2.5 overflow-hidden">
 					<div className="flex items-center justify-between">
 						<Label className="text-xs text-zinc-400 flex items-center gap-1.5">
 							<Link className="h-3 w-3" />
 							Variable Mapping
 						</Label>
-						{availableResources.length > 0 && (
-							<span className="text-[10px] text-zinc-500 shrink-0">
-								{Object.keys(variableMappings).filter((k) => staticVars.includes(k) && variableMappings[k]).length} / {staticVars.length} mapped
-							</span>
-						)}
+						{availableResources.length > 0 && (() => {
+							const mappedCount = Object.keys(variableMappings).filter((k) => staticVars.includes(k) && variableMappings[k]).length;
+							const allMapped = mappedCount === staticVars.length;
+							return (
+								<span className={cn(
+									"text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0",
+									allMapped
+										? "bg-emerald-950/40 text-emerald-400 border border-emerald-800/30"
+										: "text-zinc-500"
+								)}>
+									{mappedCount}/{staticVars.length} mapped
+								</span>
+							);
+						})()}
 					</div>
-					<p className="text-[11px] text-zinc-600">
-						Map <code className="text-amber-400">{"{{"}</code>static<code className="text-amber-400">{"}}"}</code> variables to connected documents or skills.
+					<p className="text-[11px] text-zinc-500 leading-relaxed">
+						Map <code className="text-amber-400/80 font-semibold">{"{{"}</code>static<code className="text-amber-400/80 font-semibold">{"}}"}</code> variables to connected documents or skills.
 					</p>
-					<div className="rounded-xl border border-zinc-700/50 bg-zinc-800/30 p-3 space-y-2 overflow-hidden">
+					<div className="rounded-xl border border-zinc-700/40 bg-zinc-800/20 divide-y divide-zinc-700/30 overflow-hidden">
 						{staticVars.map((varName) => {
 							const currentValue = variableMappings[varName] ?? "";
 							const isMapped = !!currentValue;
 							const hasResources = availableResources.length > 0;
 							return (
-								<div key={varName} className="flex items-center gap-2 min-w-0 overflow-hidden">
+								<div key={varName} className="flex items-center gap-2.5 px-3 py-2.5 min-w-0 overflow-hidden hover:bg-zinc-700/10 transition-colors">
 									<span
-										className="text-[11px] font-mono text-amber-300 bg-amber-950/40 border border-amber-800/30 px-1.5 py-0.5 rounded-md shrink-0 truncate max-w-[100px]"
+										className={cn(
+											"text-[11px] font-mono px-2 py-1 rounded-lg shrink-0 truncate max-w-[110px] transition-colors",
+											isMapped
+												? "text-amber-300 bg-amber-500/10 border border-amber-500/20"
+												: "text-amber-300/70 bg-amber-950/30 border border-amber-800/20"
+										)}
 										title={`{{${varName}}}`}
 									>
 										{`{{${varName}}}`}
 									</span>
-									<span className="text-[10px] text-zinc-600 shrink-0">→</span>
+									<svg className="h-3 w-3 text-zinc-600 shrink-0" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+										<path d="M2.5 6h7M7 3.5 9.5 6 7 8.5" />
+									</svg>
 									{hasResources ? (
-										<select
-											value={currentValue}
-											onChange={(e) => updateVarMapping(varName, e.target.value)}
-											className={cn(
-												"w-0 flex-1 rounded-lg bg-zinc-900/60 border text-xs font-mono h-8 px-2",
-												isMapped
-													? "border-amber-800/40 text-amber-200"
-													: "border-zinc-700/60 text-zinc-500"
-											)}
-										>
-											<option value="">— select —</option>
-											{availableResources.filter((r) => r.kind === "doc").length > 0 && (
-												<optgroup label="Documents">
-													{availableResources
-														.filter((r) => r.kind === "doc")
-														.map((r) => (
-															<option key={r.value} value={r.value}>
-																{r.label}
-															</option>
-														))}
-												</optgroup>
-											)}
-											{availableResources.filter((r) => r.kind === "skill").length > 0 && (
-												<optgroup label="Skills">
-													{availableResources
-														.filter((r) => r.kind === "skill")
-														.map((r) => (
-															<option key={r.value} value={r.value}>
-																{r.label}
-															</option>
-														))}
-												</optgroup>
-											)}
-										</select>
+										<DropdownMenu>
+											<DropdownMenuTrigger asChild>
+												<button
+													type="button"
+													className={cn(
+														"w-0 flex-1 flex items-center justify-between rounded-lg border text-xs px-2.5 h-8 transition-all cursor-pointer truncate",
+														"bg-zinc-900/50 hover:bg-zinc-800/60 focus:outline-none focus:ring-1 focus:ring-zinc-600",
+														isMapped
+															? "border-amber-700/30 text-amber-200"
+															: "border-zinc-700/50 text-zinc-500"
+													)}
+												>
+													<span className="truncate">
+														{isMapped
+															? availableResources.find((r) => r.value === currentValue)?.label ?? currentValue
+															: "Select resource…"}
+													</span>
+													<ChevronDown className="h-3 w-3 shrink-0 opacity-50" />
+												</button>
+											</DropdownMenuTrigger>
+											<DropdownMenuContent align="start" className="w-56 bg-zinc-900 border-zinc-700/60">
+												{isMapped && (
+													<>
+														<DropdownMenuItem
+															onClick={() => updateVarMapping(varName, "")}
+															className="text-xs text-zinc-500 focus:bg-zinc-800 focus:text-zinc-300"
+														>
+															Clear selection
+														</DropdownMenuItem>
+														<DropdownMenuSeparator className="bg-zinc-700/40" />
+													</>
+												)}
+												{availableResources.filter((r) => r.kind === "doc").length > 0 && (
+													<>
+														<DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-zinc-500 font-medium">
+															Documents
+														</DropdownMenuLabel>
+														{availableResources
+															.filter((r) => r.kind === "doc")
+															.map((r) => (
+																<DropdownMenuItem
+																	key={r.value}
+																	onClick={() => updateVarMapping(varName, r.value)}
+																	className={cn(
+																		"text-xs gap-2 focus:bg-zinc-800",
+																		currentValue === r.value
+																			? "text-amber-200 focus:text-amber-200"
+																			: "text-zinc-300 focus:text-zinc-100"
+																	)}
+																>
+																	<FileIcon className="h-3 w-3 text-yellow-500/70 shrink-0" />
+																	<span className="truncate flex-1">{r.label.replace(/^📄\s*/, "")}</span>
+																	{currentValue === r.value && (
+																		<Check className="h-3 w-3 text-amber-400 shrink-0 ml-auto" />
+																	)}
+																</DropdownMenuItem>
+															))}
+													</>
+												)}
+												{availableResources.filter((r) => r.kind === "doc").length > 0 &&
+													availableResources.filter((r) => r.kind === "skill").length > 0 && (
+														<DropdownMenuSeparator className="bg-zinc-700/40" />
+													)}
+												{availableResources.filter((r) => r.kind === "skill").length > 0 && (
+													<>
+														<DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-zinc-500 font-medium">
+															Skills
+														</DropdownMenuLabel>
+														{availableResources
+															.filter((r) => r.kind === "skill")
+															.map((r) => (
+																<DropdownMenuItem
+																	key={r.value}
+																	onClick={() => updateVarMapping(varName, r.value)}
+																	className={cn(
+																		"text-xs gap-2 focus:bg-zinc-800",
+																		currentValue === r.value
+																			? "text-amber-200 focus:text-amber-200"
+																			: "text-zinc-300 focus:text-zinc-100"
+																	)}
+																>
+																	<BoltIcon className="h-3 w-3 text-cyan-500/70 shrink-0" />
+																	<span className="truncate flex-1">{r.label.replace(/^⚡\s*/, "")}</span>
+																	{currentValue === r.value && (
+																		<Check className="h-3 w-3 text-amber-400 shrink-0 ml-auto" />
+																	)}
+																</DropdownMenuItem>
+															))}
+													</>
+												)}
+											</DropdownMenuContent>
+										</DropdownMenu>
 									) : (
-										<span className="flex-1 min-w-0 text-[11px] text-zinc-600 italic truncate">
+										<span className="flex-1 min-w-0 text-[11px] text-zinc-500 italic truncate">
 											Connect a Document or Skill to map
 										</span>
 									)}
@@ -426,54 +508,67 @@ export function Fields({ control, setValue, nodeId }: SubAgentFieldsProps) {
 
 			{/* Parameter Mapping — map workflow-level args to this agent's $N slots */}
 			{(parameterMappings.length > 0 || dynamic.length > 0) && (
-				<div className="space-y-2">
+				<div className="space-y-2.5">
 					<div className="flex items-center justify-between">
 						<Label className="text-xs text-zinc-400 flex items-center gap-1.5">
 							<ArrowRight className="h-3 w-3" />
 							Parameter Mapping
 						</Label>
-						<span className="text-[10px] text-zinc-500">
+						<span className={cn(
+							"text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0",
+							parameterMappings.filter(Boolean).length === parameterMappings.length && parameterMappings.length > 0
+								? "bg-emerald-950/40 text-emerald-400 border border-emerald-800/30"
+								: "text-zinc-500"
+						)}>
 							{parameterMappings.filter(Boolean).length} mapped
 						</span>
 					</div>
-					<p className="text-[11px] text-zinc-600">
+					<p className="text-[11px] text-zinc-500 leading-relaxed">
 						Map workflow-level values to this agent&apos;s positional parameters.
-						Use <code className="text-blue-400">$N</code> for positional passthrough,{" "}
-						<code className="text-amber-400">{"{{ref}}"}</code> for static refs, or a literal value.
+						Use <code className="text-blue-400/80 font-semibold">$N</code> for positional passthrough,{" "}
+						<code className="text-amber-400/80 font-semibold">{"{{ref}}"}</code> for static refs, or a literal value.
 					</p>
-					<div className="rounded-xl border border-zinc-700/50 bg-zinc-800/30 p-3 space-y-2">
-						{parameterMappings.map((value, index) => (
-							<div key={index} className="flex items-center gap-2">
-								<span className="text-[11px] font-mono text-zinc-500 w-14 shrink-0 text-right">
-									→ ${index + 1}
-								</span>
-								<Input
-									value={value}
-									onChange={(e) => updateMapping(index, e.target.value)}
-									placeholder={`e.g. $${index + 1}, {{name}}, or literal`}
-									className={cn(
-										"bg-zinc-900/60 border-zinc-700/60 rounded-lg text-xs font-mono h-8 flex-1",
-										mappingValueClass(value)
-									)}
-								/>
-								<button
-									type="button"
-									onClick={() => removeMappingSlot(index)}
-									className="p-1 rounded-md text-zinc-600 hover:text-red-400 hover:bg-red-950/30 transition-colors"
-									title="Remove slot"
-								>
-									<Minus className="h-3.5 w-3.5" />
-								</button>
-							</div>
-						))}
-						<button
-							type="button"
-							onClick={addMappingSlot}
-							className="flex items-center gap-1.5 text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors mt-1"
-						>
-							<Plus className="h-3 w-3" />
-							Add parameter slot
-						</button>
+					<div className="rounded-xl border border-zinc-700/40 bg-zinc-800/20 overflow-hidden">
+						<div className="divide-y divide-zinc-700/30">
+							{parameterMappings.map((value, index) => (
+								<div key={index} className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-zinc-700/10 transition-colors">
+									<span className="text-[11px] font-mono text-zinc-400 bg-zinc-800/60 border border-zinc-700/40 w-10 h-6 flex items-center justify-center rounded-md shrink-0">
+										${index + 1}
+									</span>
+									<svg className="h-3 w-3 text-zinc-600 shrink-0" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+										<path d="M2.5 6h7M7 3.5 9.5 6 7 8.5" />
+									</svg>
+									<Input
+										value={value}
+										onChange={(e) => updateMapping(index, e.target.value)}
+										placeholder={`e.g. $${index + 1}, {{name}}, or literal`}
+										className={cn(
+											"bg-zinc-900/50 border-zinc-700/50 rounded-lg text-xs font-mono h-8 flex-1 transition-all",
+											"focus:ring-1 focus:ring-zinc-600 focus:border-zinc-600",
+											mappingValueClass(value)
+										)}
+									/>
+									<button
+										type="button"
+										onClick={() => removeMappingSlot(index)}
+										className="p-1.5 rounded-lg text-zinc-600 hover:text-red-400 hover:bg-red-950/20 transition-all shrink-0"
+										title="Remove slot"
+									>
+										<Minus className="h-3 w-3" />
+									</button>
+								</div>
+							))}
+						</div>
+						<div className="px-3 py-2 border-t border-zinc-700/30">
+							<button
+								type="button"
+								onClick={addMappingSlot}
+								className="flex items-center gap-1.5 text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors w-full justify-center py-0.5 rounded-lg hover:bg-zinc-700/10"
+							>
+								<Plus className="h-3 w-3" />
+								Add parameter slot
+							</button>
+						</div>
 					</div>
 				</div>
 			)}
