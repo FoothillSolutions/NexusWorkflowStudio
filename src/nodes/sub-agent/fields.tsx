@@ -10,9 +10,8 @@ import { detectVariables, DetectedVariablesPanel, DYNAMIC_VAR_RE, STATIC_VAR_RE 
 import type { FormControl, FormSetValue } from "@/nodes/shared/form-types";
 import { RequiredIndicator } from "@/nodes/shared/required-indicator";
 import { SubAgentMemory } from "./types";
-import { AGENT_TOOLS, PRESET_COLORS } from "./constants";
-import type { AgentTool } from "./constants";
-import { Check, Zap, Plus, Minus, ArrowRight, X, FileText, Link, Upload, ChevronDown, FileIcon, BoltIcon } from "lucide-react";
+import { PRESET_COLORS } from "./constants";
+import { Check, Zap, Plus, Minus, ArrowRight, X, FileText, Link, Upload, ChevronDown, FileIcon, BoltIcon, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
 	DropdownMenu,
@@ -28,6 +27,7 @@ import { ModelSelect } from "@/nodes/shared/model-select";
 import { AiPromptGenerator } from "./ai-prompt-generator";
 import { parseAgentFile } from "./parse-agent-file";
 import { toast } from "sonner";
+import { useTools } from "@/hooks/use-tools";
 
 const MEMORY_OPTIONS = [
 	{ value: SubAgentMemory.Default, label: "- (default)" },
@@ -53,6 +53,10 @@ export function Fields({ control, setValue, nodeId }: SubAgentFieldsProps) {
   const disabledTools: string[] = useWatch({ control, name: "disabledTools" }) ?? [];
   const parameterMappings: string[] = useWatch({ control, name: "parameterMappings" }) ?? [];
   const variableMappings: Record<string, string> = useWatch({ control, name: "variableMappings" }) ?? {};
+  const modelValue: string  = useWatch({ control, name: "model" }) ?? "inherit";
+
+  // Fetch dynamic tools for the selected model (falls back to static AGENT_TOOLS)
+  const { tools: availableTools, isLoading: toolsLoading, isStatic: toolsStatic } = useTools(modelValue);
 
   // Keep a ref in sync so the updateVarMapping callback can read the latest
   // value without depending on the object identity (avoids re-render loops).
@@ -233,7 +237,7 @@ export function Fields({ control, setValue, nodeId }: SubAgentFieldsProps) {
 		return "text-zinc-100";
 	};
 
-	const toggleTool = (tool: AgentTool) => {
+	const toggleTool = (tool: string) => {
 		const next = disabledTools.includes(tool)
 			? disabledTools.filter((t) => t !== tool)
 			: [...disabledTools, tool];
@@ -722,82 +726,118 @@ export function Fields({ control, setValue, nodeId }: SubAgentFieldsProps) {
 			</div>
 
 			{/* Tools */}
-			<div className="space-y-2">
+			<div className="space-y-2.5">
 				<div className="flex items-center justify-between">
-					<Label>Disabled Tools</Label>
-					<span className="text-[10px] text-zinc-500">
-						{disabledTools.length === 0 ? "All enabled" : `${disabledTools.length} disabled`}
-					</span>
+					<Label className="flex items-center gap-1.5">
+						Tools
+						{!toolsStatic && !toolsLoading && (
+							<span className="text-[9px] font-medium text-violet-400/70 bg-violet-500/10 border border-violet-500/20 px-1.5 py-0.5 rounded-full leading-none">
+								dynamic
+							</span>
+						)}
+					</Label>
+					<div className="flex items-center gap-1.5">
+						{toolsLoading && <Loader2 size={10} className="animate-spin text-zinc-500" />}
+						<span className="text-[10px] text-zinc-500 tabular-nums">
+							{disabledTools.length === 0 ? "All enabled" : `${disabledTools.length} disabled`}
+						</span>
+					</div>
 				</div>
-				<p className="text-xs text-zinc-600">Toggle off tools you want to disable for this agent.</p>
-				<div className="grid grid-cols-3 gap-1.5">
-					{AGENT_TOOLS.map((tool) => {
-						const isDisabled = disabledTools.includes(tool);
-						return (
-							<button
-								key={tool}
-								type="button"
-								onClick={() => toggleTool(tool)}
-								className={cn(
-									"flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg border text-[11px] font-mono transition-all duration-150",
-									isDisabled
-										? "bg-red-950/50 border-red-800/50 text-red-400 line-through opacity-70"
-										: "bg-zinc-800/50 border-zinc-700/50 text-zinc-300 hover:bg-zinc-700/50"
-								)}
-							>
-								{tool}
-							</button>
-						);
-					})}
+				<div className="rounded-xl border border-zinc-700/40 bg-zinc-800/20 p-2.5">
+					<div className="flex flex-wrap gap-1.5">
+						{availableTools.map((tool) => {
+							const isDisabled = disabledTools.includes(tool);
+							return (
+								<button
+									key={tool}
+									type="button"
+									onClick={() => toggleTool(tool)}
+									title={tool}
+									className={cn(
+										"inline-flex items-center gap-1.5 pl-1.5 pr-2.5 py-1 rounded-lg border text-[11px] font-mono transition-all duration-150 whitespace-nowrap select-none",
+										isDisabled
+											? "bg-red-950/40 border-red-900/40 text-red-400/80 hover:bg-red-950/60"
+											: "bg-zinc-800/60 border-zinc-700/50 text-zinc-300 hover:bg-zinc-700/60 hover:border-zinc-600/60"
+									)}
+								>
+									<span className={cn(
+										"w-1.5 h-1.5 rounded-full shrink-0 transition-colors",
+										isDisabled ? "bg-red-500/70" : "bg-emerald-500/70"
+									)} />
+									<span className={cn(isDisabled && "line-through decoration-red-500/40")}>
+										{tool}
+									</span>
+								</button>
+							);
+						})}
+					</div>
 				</div>
 			</div>
 
 			{/* Color */}
-			<div className="space-y-2">
+			<div className="space-y-2.5">
 				<Label>Color</Label>
-				<div className="flex flex-col gap-2">
-					<div className="flex flex-wrap gap-2">
-						{PRESET_COLORS.map((preset) => (
-							<button
-								key={preset}
-								type="button"
-								onClick={() => setValue("color" as never, preset as never, { shouldDirty: true })}
-								className={cn(
-									"w-7 h-7 rounded-full border-2 transition-all duration-150 hover:scale-110 flex items-center justify-center",
-									color === preset
-										? "border-white ring-2 ring-white/30 scale-110"
-										: "border-transparent"
-								)}
-								style={{ backgroundColor: preset }}
-								title={preset}
-							>
-								{color === preset && (
-									<Check className="h-3 w-3 text-white/90 drop-shadow" />
-								)}
-							</button>
-						))}
+				<div className="rounded-xl border border-zinc-700/40 bg-zinc-800/20 overflow-hidden">
+					{/* Live preview bar */}
+					<div
+						className="h-2 w-full transition-colors duration-200"
+						style={{ backgroundColor: color }}
+					/>
+					{/* Preset swatches */}
+					<div className="p-3 pb-2.5">
+						<div className="flex flex-wrap gap-1.5 justify-center">
+							{PRESET_COLORS.map((preset) => {
+								const isActive = color === preset;
+								return (
+									<button
+										key={preset}
+										type="button"
+										onClick={() => setValue("color" as never, preset as never, { shouldDirty: true })}
+										className={cn(
+											"w-6 h-6 rounded-full transition-all duration-150 flex items-center justify-center ring-offset-1 ring-offset-zinc-900",
+											isActive
+												? "ring-2 ring-white/60 scale-110"
+												: "hover:scale-110 hover:ring-1 hover:ring-white/20"
+										)}
+										style={{ backgroundColor: preset }}
+										title={preset}
+									>
+										{isActive && (
+											<Check className="h-2.5 w-2.5 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]" />
+										)}
+									</button>
+								);
+							})}
+						</div>
 					</div>
-					<div className="flex items-center gap-2">
+					{/* Custom color row */}
+					<div className="px-3 pb-3">
 						<Controller
 							name="color"
 							control={control}
 							render={({ field }) => (
-								<>
-									<input
-										type="color"
-										value={field.value?.trim() ? field.value : NODE_ACCENT.agent}
-										onChange={(e) => field.onChange(e.target.value)}
-										className="w-8 h-8 rounded-lg cursor-pointer border border-zinc-700/60 bg-transparent p-0.5"
-										title="Custom color"
-									/>
+								<div className="flex items-center gap-2 rounded-lg bg-zinc-900/60 border border-zinc-700/30 px-2 py-1.5">
+									<div className="relative">
+										<input
+											type="color"
+											value={field.value?.trim() ? field.value : NODE_ACCENT.agent}
+											onChange={(e) => field.onChange(e.target.value)}
+											className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+											title="Pick custom color"
+										/>
+										<div
+											className="w-6 h-6 rounded-md border border-zinc-600/50 cursor-pointer shadow-sm"
+											style={{ backgroundColor: field.value?.trim() ? field.value : NODE_ACCENT.agent }}
+										/>
+									</div>
 									<Input
 										value={field.value?.trim() ? field.value : NODE_ACCENT.agent}
 										onChange={(e) => field.onChange(e.target.value)}
-										className="bg-zinc-800/60 border-zinc-700/60 rounded-xl focus-visible:ring-zinc-600 font-mono text-xs uppercase"
+										className="bg-transparent border-0 shadow-none focus-visible:ring-0 font-mono text-xs uppercase text-zinc-300 h-6 px-1"
 										placeholder={NODE_ACCENT.agent}
 										maxLength={7}
 									/>
-								</>
+								</div>
 							)}
 						/>
 					</div>

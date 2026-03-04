@@ -170,7 +170,7 @@ export function ModelSelect({ value, onChange }: ModelSelectProps) {
 
             {/* Grouped models */}
             {groups.map((group) => (
-              <div key={group.providerId}>
+              <div key={group.label}>
                 {/* Category header */}
                 <div className="flex items-center gap-2 px-3 pt-3 pb-1.5">
                   <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", group.color)} />
