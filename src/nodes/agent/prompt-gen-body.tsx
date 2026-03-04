@@ -244,7 +244,7 @@ export function PromptGenBody() {
 
       {/* ── Result preview ─────────────────────────────────────── */}
       {(isGenerating || hasResult) && (
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 min-w-0 overflow-hidden">
           <div className="flex items-center justify-between">
             <Label className="text-[11px] text-zinc-500 uppercase tracking-wider font-medium flex items-center gap-1.5">
               {isGenerating
@@ -268,7 +268,7 @@ export function PromptGenBody() {
             </div>
           </div>
           <div ref={resultRef} className={cn(
-            "rounded-lg border bg-zinc-900/60 p-3 text-xs font-mono text-zinc-300 leading-relaxed max-h-[200px] overflow-y-auto whitespace-pre-wrap break-words",
+            "rounded-lg border bg-zinc-900/60 p-3 text-xs font-mono text-zinc-300 leading-relaxed max-h-[200px] overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-all min-w-0",
             isGenerating ? "border-violet-700/30 shadow-inner shadow-violet-950/20" : "border-emerald-700/30",
           )}>
             {generatedText || <span className="text-zinc-600 italic">Waiting for response…</span>}
