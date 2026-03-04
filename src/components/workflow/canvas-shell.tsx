@@ -92,6 +92,7 @@ export function CanvasShell({
     () => ({ type: "deletable" as const, style: { stroke: CANVAS_EDGE_STROKE, strokeWidth: 4 }, animated: false }),
     []
   );
+  const fitViewOptions = useMemo(() => ({ maxZoom: 0.85, padding: 0.3 }), []);
   const proOptions = useMemo(() => ({ hideAttribution: true }), []);
   const rfStyle = useMemo(() => ({ backgroundColor: BG_CANVAS_HEX }), []);
   const panOnDrag = useMemo(
@@ -127,6 +128,7 @@ export function CanvasShell({
         connectionLineType={connectionLineType}
         connectionLineStyle={connectionLineStyle}
         fitView
+        fitViewOptions={fitViewOptions}
         defaultEdgeOptions={defaultEdgeOptions}
         proOptions={proOptions}
         style={rfStyle}
