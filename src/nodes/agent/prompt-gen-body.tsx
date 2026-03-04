@@ -86,6 +86,7 @@ export function PromptGenBody() {
   const isConnected = useOpenCodeStore((s) => s.status) === "connected";
 
   const isPromptNode = targetNodeType === "prompt";
+  const isSkillNode = targetNodeType === "skill";
 
   const isGenerating = status === "generating" || status === "streaming" || status === "creating-session";
   const hasResult = status === "done" && generatedText.trim().length > 0;
@@ -159,14 +160,16 @@ export function PromptGenBody() {
           {mode === "freeform" && (
             <div className="space-y-1.5">
               <Label className="text-[11px] text-zinc-500 uppercase tracking-wider font-medium">
-                {isPromptNode ? "Describe the prompt you want" : "Describe the prompt you need"}
+                {isSkillNode ? "Describe what this skill teaches" : isPromptNode ? "Describe the prompt you want" : "Describe the prompt you need"}
               </Label>
               <Textarea
                 value={freeformText}
                 onChange={(e) => setFreeformText(e.target.value)}
-                placeholder={isPromptNode
-                  ? "e.g. Write a prompt that takes a topic and generates a structured blog post with an intro, 3 key points, and a conclusion…"
-                  : "e.g. Create an agent that triages support tickets, categorizes by priority, and generates a daily report…"}
+                placeholder={isSkillNode
+                  ? "e.g. A skill that teaches the agent how to write clean unit tests with proper mocking, assertions, and edge case coverage…"
+                  : isPromptNode
+                    ? "e.g. Write a prompt that takes a topic and generates a structured blog post with an intro, 3 key points, and a conclusion…"
+                    : "e.g. Create an agent that triages support tickets, categorizes by priority, and generates a daily report…"}
                 className="bg-zinc-800/40 border-zinc-700/40 rounded-lg text-sm min-h-[80px] resize-none focus-visible:ring-violet-600/40 placeholder:text-zinc-600"
                 rows={3}
                 disabled={isGenerating}

@@ -12,6 +12,7 @@ import type { FormSetValue } from "@/nodes/shared/form-types";
 export type PromptGenStatus = "idle" | "creating-session" | "generating" | "streaming" | "done" | "error";
 export type PromptGenView = "closed" | "generate" | "edit";
 export type PromptGenMode = "structured" | "freeform";
+export type PromptGenNodeType = "agent" | "prompt" | "skill";
 
 interface PromptGenState {
   /** The active OpenCode session for prompt generation */
@@ -44,7 +45,7 @@ interface PromptGenState {
   expandedSections: Set<string>;
   /** The node ID + current prompt text this generator is targeting */
   targetNodeId: string | null;
-  targetNodeType: "agent" | "prompt" | null;
+  targetNodeType: PromptGenNodeType | null;
   targetPrompt: string;
   /** Whether the panel is undocked/floating (vs inline in properties panel) */
   floating: boolean;
@@ -52,7 +53,7 @@ interface PromptGenState {
   collapsed: boolean;
 
   /** Open the generator for a specific node */
-  open: (nodeId: string, currentPrompt: string, view: PromptGenView, nodeType?: "agent" | "prompt") => void;
+  open: (nodeId: string, currentPrompt: string, view: PromptGenView, nodeType?: PromptGenNodeType) => void;
   /** Close the generator panel */
   close: () => void;
   /** Set the panel view */
@@ -117,7 +118,7 @@ export interface GeneratePayload {
   /** Names of connected skills and documents so the AI can reference them */
   connectedResourceNames?: { skills: string[]; docs: string[] };
   /** The type of node being targeted — affects system prompt style */
-  nodeType?: "agent" | "prompt";
+  nodeType?: PromptGenNodeType;
 }
 
 export interface EditPayload {
@@ -128,7 +129,7 @@ export interface EditPayload {
   /** Names of connected skills and documents so the AI can reference them */
   connectedResourceNames?: { skills: string[]; docs: string[] };
   /** The type of node being targeted — affects system prompt style */
-  nodeType?: "agent" | "prompt";
+  nodeType?: PromptGenNodeType;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -192,7 +193,23 @@ Example 2 — Missing optional input: input → default fallback
 Example 3 — Edge case: invalid input → error + accepted formats
 `.trim();
 
-function buildSystemMessage(nodeType?: "agent" | "prompt"): string {
+function buildSystemMessage(nodeType?: PromptGenNodeType): string {
+  if (nodeType === "skill") {
+    return `You are a skill-prompt generator. A "skill" is a reusable instruction block that teaches an AI agent **how to do something** — like a procedure, technique, coding pattern, or domain-specific method. You receive a description and output **only the skill prompt text** — nothing else.
+
+CRITICAL RULES:
+- Your ENTIRE response must be the skill prompt text itself. No preamble, no "Here is the skill:", no explanation, no commentary before or after.
+- Output raw Markdown directly. Do NOT wrap the output in a code block.
+- Fill in concrete, actionable content — never leave placeholder brackets like [text] in the final output.
+- Write the skill as clear, step-by-step instructions that an AI agent can follow.
+- Use imperative style: "Do X", "When Y happens, do Z", "Always ensure…"
+- Include edge cases, constraints, and quality checks where relevant.
+- Use $1, $2, $3 for dynamic positional parameters when the skill takes inputs.
+- Use {{variable_name}} for static/config values.
+- Structure with sections if the skill is complex, but keep it concise for simple skills.
+- Focus on the *how* — the agent already knows *what* to do from its main prompt; the skill teaches the specific technique.`;
+  }
+
   if (nodeType === "prompt") {
     return `You are a prompt-text generator. You receive a description of a prompt and you output **only the prompt text** — nothing else.
 
@@ -231,7 +248,7 @@ Style rules:
 }
 
 function buildGenerateUserMessage(payload: GeneratePayload): string {
-  const isPromptNode = payload.nodeType === "prompt";
+  const nodeType = payload.nodeType ?? "agent";
   const sections: string[] = [];
   const f = payload.fields;
 
@@ -250,11 +267,43 @@ function buildGenerateUserMessage(payload: GeneratePayload): string {
 
   // Build connected-resources context (may be empty)
   const resBlock = buildConnectedResourcesBlock(payload.connectedResourceNames);
+  const nodeLabel = nodeType === "skill" ? "skill" : nodeType === "prompt" ? "prompt" : "agent";
   const resSection = resBlock
-    ? `\n\n## Connected Resources\nThe ${isPromptNode ? "prompt" : "agent"} has the following skills and documents connected to it. Reference them in the prompt using the exact {{name}} syntax shown below:\n\n${resBlock}`
+    ? `\n\n## Connected Resources\nThe ${nodeLabel} has the following skills and documents connected to it. Reference them in the prompt using the exact {{name}} syntax shown below:\n\n${resBlock}`
     : "";
 
-  if (isPromptNode) {
+  if (nodeType === "skill") {
+    // ── Skill node messages ──
+    if (hasFreeform && hasFields) {
+      return `Write the skill prompt text for a skill described as:
+${payload.freeformDescription!.trim()}
+
+Additional details:
+
+${sections.join("\n\n")}${resSection}
+
+Remember: output ONLY the skill prompt text — step-by-step instructions that teach an AI agent how to perform this skill. No plan, no explanation.`;
+    }
+
+    if (hasFreeform) {
+      return `Write the skill prompt text for a skill described as:
+${payload.freeformDescription!.trim()}${resSection}
+
+Output ONLY the skill prompt text. Write clear, actionable instructions that teach an AI agent how to perform this technique or procedure. Use steps, rules, and examples as appropriate.`;
+    }
+
+    if (hasFields) {
+      return `Write the skill prompt text using these details:
+
+${sections.join("\n\n")}${resSection}
+
+You may add additional content only if clearly inferred from the input. Output ONLY the skill prompt text.`;
+    }
+
+    return `Write a well-structured skill prompt that teaches an AI agent a useful technique or procedure. Fill in realistic, actionable content. Output ONLY the skill prompt text.${resSection}`;
+  }
+
+  if (nodeType === "prompt") {
     // ── Prompt node messages ──
     if (hasFreeform && hasFields) {
       return `Write prompt text based on this description:
@@ -321,22 +370,23 @@ You may add other template sections only if clearly inferred from the input. Out
 }
 
 function buildEditUserMessage(payload: EditPayload): string {
-  const isPromptNode = payload.nodeType === "prompt";
+  const nodeType = payload.nodeType ?? "agent";
+  const nodeLabel = nodeType === "skill" ? "skill" : nodeType === "prompt" ? "prompt" : "agent prompt";
   const resBlock = buildConnectedResourcesBlock(payload.connectedResourceNames);
   const resSection = resBlock
-    ? `\n\nThe ${isPromptNode ? "prompt" : "agent"} has the following skills and documents connected — reference them using the exact {{name}} syntax:\n\n${resBlock}`
+    ? `\n\nThe ${nodeType === "agent" ? "agent" : nodeType} has the following skills and documents connected — reference them using the exact {{name}} syntax:\n\n${resBlock}`
     : "";
 
-  return `Here is the current ${isPromptNode ? "prompt" : "agent prompt"}:
+  return `Here is the current ${nodeLabel}:
 
 ---
 ${payload.currentPrompt}
 ---
 
-Modify this prompt according to the following instruction:
+Modify this ${nodeType === "agent" ? "prompt" : nodeType} according to the following instruction:
 ${payload.editInstruction}${resSection}
 
-${isPromptNode ? "Keep a clear structure." : "Keep the same template structure."} Output ONLY the modified prompt text — no explanation, no commentary.`;
+${nodeType === "agent" ? "Keep the same template structure." : "Keep a clear structure."} Output ONLY the modified ${nodeType === "agent" ? "prompt" : nodeType} text — no explanation, no commentary.`;
 }
 
 /** Extract text from assistant message parts */

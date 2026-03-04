@@ -5,6 +5,7 @@ import { Sparkles, PenLine, ExternalLink, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useOpenCodeStore } from "@/store/opencode-store";
 import { usePromptGenStore } from "@/store/prompt-gen-store";
+import type { PromptGenNodeType } from "@/store/prompt-gen-store";
 import type { FormSetValue } from "@/nodes/shared/form-types";
 import { PromptGenBody } from "./prompt-gen-body";
 
@@ -14,7 +15,7 @@ interface AiPromptGeneratorProps {
   setValue: FormSetValue;
   currentPrompt: string;
   nodeId?: string;
-  nodeType?: "agent" | "prompt";
+  nodeType?: PromptGenNodeType;
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
