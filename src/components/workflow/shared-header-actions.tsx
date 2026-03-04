@@ -31,6 +31,7 @@ import {
 import { toast } from "sonner";
 import { TEXT_MUTED } from "@/lib/theme";
 import ShortcutsDialog from "./shortcuts-dialog";
+import AboutDialog from "./about-dialog";
 
 /* ── Save Button ─────────────────────────────────────────────────────────── */
 
@@ -110,6 +111,7 @@ interface HelpMenuProps {
 
 export function HelpMenu({ className }: HelpMenuProps) {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
 
   const handleComingSoon = useCallback(() => toast("Coming soon!", { icon: "🚧" }), []);
 
@@ -164,17 +166,15 @@ export function HelpMenu({ className }: HelpMenuProps) {
             </DropdownMenuShortcut>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem disabled onClick={handleComingSoon}>
+          <DropdownMenuItem onClick={() => setAboutOpen(true)}>
             <Info className="h-4 w-4 mr-2" />
             About
-            <DropdownMenuShortcut className="text-[10px] text-zinc-600">
-              Soon
-            </DropdownMenuShortcut>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
       <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+      <AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} />
     </>
   );
 }
