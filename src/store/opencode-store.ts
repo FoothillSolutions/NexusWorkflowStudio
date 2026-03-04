@@ -1,6 +1,12 @@
 import { create } from "zustand";
+import {
+  createOpenCodeClient,
+  type OpenCodeClient,
+  OpenCodeError,
+} from "@/lib/opencode";
 
 const STORAGE_KEY = "nexus:opencode-url";
+const DEFAULT_URL = "http://127.0.0.1:4096";
 
 type ConnectionStatus = "disconnected" | "connecting" | "connected" | "error";
 
@@ -9,14 +15,16 @@ interface OpenCodeState {
   status: ConnectionStatus;
   version: string | null;
   error: string | null;
+  /** The active API client instance — available after a successful `connect()`. */
+  client: OpenCodeClient | null;
   setUrl: (url: string) => void;
   connect: () => Promise<void>;
   disconnect: () => void;
 }
 
 function loadUrl(): string {
-  if (typeof window === "undefined") return "http://127.0.0.1:4096";
-  return localStorage.getItem(STORAGE_KEY) ?? "http://127.0.0.1:4096";
+  if (typeof window === "undefined") return DEFAULT_URL;
+  return localStorage.getItem(STORAGE_KEY) ?? DEFAULT_URL;
 }
 
 function persistUrl(url: string) {
@@ -30,51 +38,40 @@ export const useOpenCodeStore = create<OpenCodeState>((set, get) => ({
   status: "disconnected",
   version: null,
   error: null,
+  client: null,
 
   setUrl: (url) => {
     persistUrl(url);
-    set({ url });
+    set({ url, client: null, status: "disconnected", version: null, error: null });
   },
 
   connect: async () => {
     const { url } = get();
-    set({ status: "connecting", error: null, version: null });
+    set({ status: "connecting", error: null, version: null, client: null });
 
     try {
-      // Normalise: strip trailing slash
-      const base = url.replace(/\/+$/, "");
+      const client = createOpenCodeClient(url, { timeout: 8_000 });
+      const health = await client.health.check();
 
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000);
-
-      const res = await fetch(`${base}/api/health`, {
-        signal: controller.signal,
+      set({
+        status: "connected",
+        version: health.version ?? null,
+        error: null,
+        client,
       });
-      clearTimeout(timeout);
-
-      if (!res.ok) {
-        throw new Error(`Server responded with ${res.status}`);
-      }
-
-      const data = await res.json().catch(() => ({}));
-      const version = data.version ?? data.ver ?? null;
-
-      set({ status: "connected", version, error: null });
     } catch (err: unknown) {
       const message =
-        err instanceof DOMException && err.name === "AbortError"
-          ? "Connection timed out"
-          : err instanceof TypeError
-            ? "Could not reach server — check the URL and make sure the server is running"
-            : err instanceof Error
-              ? err.message
-              : "Unknown error";
-      set({ status: "error", error: message, version: null });
+        err instanceof OpenCodeError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : "Unknown error";
+      set({ status: "error", error: message, version: null, client: null });
     }
   },
 
   disconnect: () => {
-    set({ status: "disconnected", version: null, error: null });
+    set({ status: "disconnected", version: null, error: null, client: null });
   },
 }));
 
