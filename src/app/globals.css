@@ -161,6 +161,25 @@
   cursor: pointer;
 }
 
+/* ── Library panel thin scrollbar ─────────────────────────────────────────── */
+.library-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.library-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.library-scroll::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+  border-radius: 3px;
+}
+.library-scroll::-webkit-scrollbar-thumb:hover {
+  background: #52525b;
+}
+.library-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #3f3f46 transparent;
+}
+
 /* ── Animated edge flow when selected ────────────────────────────────────── */
 @keyframes edge-flow {
   from {

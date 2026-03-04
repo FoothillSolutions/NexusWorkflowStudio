@@ -9,7 +9,6 @@ import type { NodeType } from "@/types/workflow";
 import { NODE_REGISTRY } from "@/lib/node-registry";
 import { NODE_ACCENT } from "@/lib/node-colors";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -692,7 +691,7 @@ export default function LibraryPanel() {
         <div className="border-t border-zinc-700/30 mx-3" />
 
         {/* ── Content ── */}
-        <ScrollArea className="flex-1 min-h-0">
+        <div className="flex-1 min-h-0 overflow-y-auto library-scroll">
           <div className="p-3.5 space-y-2.5">
             {!hasItems && <EmptyState category={activeCategory} />}
 
@@ -746,7 +745,7 @@ export default function LibraryPanel() {
               </>
             )}
           </div>
-        </ScrollArea>
+        </div>
       </div>
 
       {/* ── Delete confirmation ── */}
