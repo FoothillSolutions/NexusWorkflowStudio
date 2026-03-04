@@ -33,7 +33,7 @@ import {
 import { toast } from "sonner";
 import ImportDialog from "./import-dialog";
 import WorkflowPreviewDialog from "./workflow-preview-dialog";
-import { LibraryToggleButton, HelpMenu } from "./shared-header-actions";
+import { LibraryToggleButton, HelpMenu, ConnectButton } from "./shared-header-actions";
 import {
   BG_SURFACE,
   BORDER_DEFAULT,
@@ -215,6 +215,9 @@ export default function Header() {
 
         {/* Library toggle */}
         <LibraryToggleButton />
+
+        {/* Connect to OpenCode */}
+        <ConnectButton />
 
         <Divider />
 

@@ -27,11 +27,14 @@ import {
   Bug,
   Info,
   Keyboard,
+  Radio,
 } from "lucide-react";
 import { toast } from "sonner";
 import { TEXT_MUTED } from "@/lib/theme";
+import { useOpenCodeStore } from "@/store/opencode-store";
 import ShortcutsDialog from "./shortcuts-dialog";
 import AboutDialog from "./about-dialog";
+import ConnectDialog from "./connect-dialog";
 
 /* ── Save Button ─────────────────────────────────────────────────────────── */
 
@@ -175,6 +178,72 @@ export function HelpMenu({ className }: HelpMenuProps) {
 
       <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
       <AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} />
+    </>
+  );
+}
+
+/* ── Connect to OpenCode Button ──────────────────────────────────────────── */
+
+interface ConnectButtonProps {
+  className?: string;
+  variant?: "compact" | "default";
+}
+
+export function ConnectButton({ className, variant = "default" }: ConnectButtonProps) {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const status = useOpenCodeStore((s) => s.status);
+
+  const px = variant === "compact" ? "px-2" : "px-3";
+
+  const isConnected = status === "connected";
+  const isConnecting = status === "connecting";
+  const isError = status === "error";
+
+  const dotColor = isConnected
+    ? "bg-emerald-400"
+    : isError
+      ? "bg-red-400"
+      : isConnecting
+        ? "bg-amber-400"
+        : "bg-zinc-600";
+
+  const labelColor = isConnected
+    ? "text-emerald-400"
+    : isError
+      ? "text-red-400"
+      : TEXT_MUTED;
+
+  return (
+    <>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setDialogOpen(true)}
+            className={`h-8 ${px} text-sm ${labelColor} hover:text-zinc-100 gap-1.5 ${className ?? ""}`}
+          >
+            <span className="relative flex items-center">
+              <Radio className="h-4 w-4" />
+              <span
+                className={`absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full ${dotColor} ${
+                  isConnected ? "animate-pulse" : ""
+                } ${isConnecting ? "animate-pulse" : ""} ring-2 ring-zinc-900`}
+              />
+            </span>
+            {isConnected ? "Connected" : "Connect"}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          {isConnected
+            ? "Connected to opencode server"
+            : isError
+              ? "Connection failed — click to retry"
+              : "Connect to opencode server"}
+        </TooltipContent>
+      </Tooltip>
+
+      <ConnectDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </>
   );
 }
