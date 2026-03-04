@@ -112,7 +112,7 @@ nexus-workflow-studio/
 │       │
 │       └── workflow/                # 7 layout/feature components
 │           ├── workflow-editor.tsx   # Root: ReactFlowProvider, keyboard shortcuts, auto-save
-│           ├── header.tsx            # Top bar: app name, editable workflow name, Save/Load/Export
+│           ├── header.tsx            # Top bar: brand, editable name, File/Library/Help, Preview (dev), Generate
 │           ├── node-palette.tsx      # Left sidebar: collapsible, tabbed (Basic/Control), draggable
 │           ├── canvas.tsx            # ReactFlow instance: drag-drop, background, controls, minimap
 │           ├── properties-panel.tsx  # Right Sheet: react-hook-form + zodResolver, type fields
@@ -254,7 +254,8 @@ New edges are created with `type: "smoothstep"` via `addEdge({ ...connection, ty
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │ Header (h-12, bg-zinc-900)                                      │
-│  "Nexus Workflow Studio"  │  [editable name]  │  Save Load Export│
+│  "Nexus Workflow Studio"  │  [editable name]  │ File Library     │
+│  │ Preview (dev only) Generate │ Help                            │
 ├────────────┬─────────────────────────────────────────────────────┤
 │ NodePalette│ Canvas (ReactFlow)                     Properties  │
 │ (w-280px   │  bg: #181818                           Panel       │
@@ -447,6 +448,13 @@ Mode resets to "latest" when the dialog closes.
 - Text: `text-zinc-100` (primary), `text-zinc-400` (secondary), `text-zinc-500` (muted)
 - Canvas: `bg-[#181818]` with `#333` dotted grid
 - All CSS variables use oklch color space
+
+### Header Button Order (left → right)
+
+`Brand` | `Editable Name` | **File** | **Library** | divider | **Preview** *(dev only)* | **Generate** | divider | **Help**
+
+- **Preview** button is conditionally rendered via `process.env.NODE_ENV === "development"`. It is tree-shaken out of production builds.
+- **Generate** is the primary action button (green accent).
 
 ### shadcn/ui Configuration
 

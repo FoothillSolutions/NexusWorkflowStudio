@@ -218,23 +218,25 @@ export default function Header() {
 
         <Divider />
 
-        {/* Preview */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleView}
-              className={`${TEXT_MUTED} hover:text-zinc-100 h-8 px-3 text-sm`}
-            >
-              <Eye className="h-4 w-4 mr-1.5" />
-              Preview
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">
-            Preview generated output
-          </TooltipContent>
-        </Tooltip>
+        {/* Preview — dev only */}
+        {process.env.NODE_ENV === "development" && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleView}
+                className={`${TEXT_MUTED} hover:text-zinc-100 h-8 px-3 text-sm`}
+              >
+                <Eye className="h-4 w-4 mr-1.5" />
+                Preview
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              Preview generated output
+            </TooltipContent>
+          </Tooltip>
+        )}
 
         {/* Generate (primary action) */}
         <Button
