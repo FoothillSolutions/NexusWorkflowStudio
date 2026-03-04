@@ -180,6 +180,35 @@
   scrollbar-color: #3f3f46 transparent;
 }
 
+/* ── Patch notes dialog scrollbar ────────────────────────────────────────── */
+.patch-notes-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.patch-notes-scroll::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 4px 0;
+}
+.patch-notes-scroll::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background-clip: content-box;
+}
+.patch-notes-scroll::-webkit-scrollbar-thumb:hover {
+  background: #7c3aed;
+  border: 1px solid transparent;
+  background-clip: content-box;
+}
+.patch-notes-scroll::-webkit-scrollbar-thumb:active {
+  background: #8b5cf6;
+  border: 1px solid transparent;
+  background-clip: content-box;
+}
+.patch-notes-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #3f3f46 transparent;
+}
+
 /* ── Animated edge flow when selected ────────────────────────────────────── */
 @keyframes edge-flow {
   from {

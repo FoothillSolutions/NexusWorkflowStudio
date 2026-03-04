@@ -9,7 +9,6 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { CHANGELOG, CURRENT_VERSION } from "@/lib/changelog";
@@ -116,9 +115,13 @@ export default function WhatsNewDialog({ open, onDismiss }: WhatsNewDialogProps)
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); }}>
-      <DialogContent className="bg-zinc-900 border-zinc-700/60 sm:max-w-lg max-h-[85vh] flex flex-col gap-0 p-0 overflow-hidden">
+      <DialogContent
+        showCloseButton={false}
+        style={{ display: "flex", flexDirection: "column" }}
+        className="bg-zinc-900 border-zinc-700/60 sm:max-w-lg max-h-[85vh] gap-0 p-0 overflow-hidden"
+      >
         {/* Header */}
-        <DialogHeader className="px-6 pt-6 pb-4 border-b border-zinc-800">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b border-zinc-800 shrink-0">
           <div className="flex items-center gap-3">
             <div
               className={`flex items-center justify-center w-10 h-10 rounded-xl border ${
@@ -145,7 +148,7 @@ export default function WhatsNewDialog({ open, onDismiss }: WhatsNewDialogProps)
         </DialogHeader>
 
         {/* Body */}
-        <ScrollArea className="flex-1 min-h-0">
+        <div className="flex-1 min-h-0 overflow-y-auto patch-notes-scroll">
           <div className="px-6 py-5 space-y-5">
             {isFullMode ? (
               // ── Full changelog ──
@@ -176,10 +179,10 @@ export default function WhatsNewDialog({ open, onDismiss }: WhatsNewDialogProps)
               <ChangelogEntryView entry={latestEntry} />
             )}
           </div>
-        </ScrollArea>
+        </div>
 
         {/* Footer */}
-        <DialogFooter className="px-6 py-4 border-t border-zinc-800 sm:justify-between">
+        <DialogFooter className="px-6 py-4 border-t border-zinc-800 shrink-0 sm:justify-between">
           {!isFullMode && (
             <Button
               variant="ghost"
