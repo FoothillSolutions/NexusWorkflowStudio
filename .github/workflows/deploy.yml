@@ -1,0 +1,19 @@
+name: Deploy NexusWorkflowStudio
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger deployment webhook
+        run: |
+          curl -X POST \
+            -H "Content-Type: application/json" \
+            -H "X-Webhook-Secret: nexus-workflow-webhook-secret-2026" \
+            -d '{"ref": "refs/heads/main"}' \
+            https://webhook.foothilltech.net/hooks/nexus-workflow-deploy
