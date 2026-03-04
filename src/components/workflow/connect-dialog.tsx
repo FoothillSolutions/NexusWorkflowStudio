@@ -38,7 +38,7 @@ const STEPS = [
   {
     title: "Start the server",
     description: "Run the serve command from your project directory.",
-    command: "opencode serve",
+    command: null as string | null, // filled dynamically with current origin
   },
   {
     title: "Connect below",
@@ -47,6 +47,13 @@ const STEPS = [
     command: null,
   },
 ];
+
+/** Build the serve command using the current origin for CORS. */
+function getServeCommand() {
+  if (typeof window === "undefined") return "opencode serve";
+  const origin = window.location.origin;
+  return `opencode serve --cors ${origin}`;
+}
 
 export default function ConnectDialog({
   open,
@@ -63,6 +70,11 @@ export default function ConnectDialog({
   const isConnecting = status === "connecting";
   const isConnected = status === "connected";
   const isError = status === "error";
+
+  // Fill in the dynamic serve command for step 2
+  const steps = STEPS.map((step, i) =>
+    i === 1 ? { ...step, command: getServeCommand() } : step,
+  );
 
   const handleConnect = useCallback(async () => {
     await connect();
@@ -84,7 +96,7 @@ export default function ConnectDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg bg-zinc-900 border-zinc-800 p-0 overflow-hidden gap-0">
+      <DialogContent className="sm:max-w-2xl bg-zinc-900 border-zinc-800 p-0 overflow-hidden gap-0">
         {/* ── Hero ──────────────────────────────────────────────── */}
         <div className="relative px-6 pt-8 pb-6 text-center overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-b from-blue-600/8 via-transparent to-transparent pointer-events-none" />
@@ -126,7 +138,7 @@ export default function ConnectDialog({
 
         {/* ── Steps ─────────────────────────────────────────────── */}
         <div className="px-6 py-5 space-y-4">
-          {STEPS.map((step, i) => (
+          {steps.map((step, i) => (
             <div key={i} className="flex gap-3">
               {/* Step number */}
               <div className="flex-shrink-0 flex h-6 w-6 items-center justify-center rounded-full bg-zinc-800 border border-zinc-700/50 text-[11px] font-bold text-zinc-400 mt-0.5">
