@@ -76,7 +76,41 @@ nexus-workflow-studio/
 │   │   ├── use-auto-layout.ts       # Dagre-based auto-layout with animation (shared by both canvases)
 │   │   ├── use-canvas-interactions.ts # Context menu, drag-drop, keyboard shortcuts
 │   │   ├── use-drag-tracking.ts     # MiniMap suppression during node drags
+│   │   ├── use-models.ts            # Dynamic model list from OpenCode provider API
+│   │   ├── use-tools.ts             # Dynamic tool list per model from /experimental/tool API
 │   │   └── use-whats-new.ts         # "What's New" dialog open/dismiss with localStorage version tracking
+│   │
+│   ├── nodes/                       # Node type modules (one folder per type)
+│   │   ├── shared/                  # Cross-node shared utilities (form-types, variable-utils, etc.)
+│   │   ├── agent/                   # Agent node module (formerly sub-agent)
+│   │   │   ├── index.ts             # Barrel export
+│   │   │   ├── types.ts             # SubAgentNodeData interface
+│   │   │   ├── enums.ts             # SubAgentModel, SubAgentMemory enums
+│   │   │   ├── constants.ts         # Registry entry, Zod schema, AGENT_TOOLS, PRESET_COLORS
+│   │   │   ├── node.tsx             # React Flow node component
+│   │   │   ├── fields.tsx           # Properties panel orchestrator (~200 lines)
+│   │   │   ├── generator.ts         # Code generation logic
+│   │   │   ├── ai-prompt-generator.tsx  # AI prompt generation dialog
+│   │   │   ├── prompt-gen-body.tsx   # Prompt generation form body
+│   │   │   ├── parse-agent-file.ts  # .md agent file parser
+│   │   │   └── properties/          # Extracted property panel sub-components
+│   │   │       ├── upload-agent-button.tsx      # File upload + agent parsing
+│   │   │       ├── static-variable-mapping.tsx  # {{var}} → resource dropdown mapping
+│   │   │       ├── parameter-mapping.tsx        # $N positional slot CRUD
+│   │   │       ├── connected-nodes-list.tsx     # Unified skills/docs connected list
+│   │   │       ├── tools-grid.tsx               # Dynamic tools enable/disable grid
+│   │   │       ├── color-picker.tsx             # Preset swatches + custom hex picker
+│   │   │       └── use-connected-resources.ts   # Hook: derives connected skills/docs from store
+│   │   ├── sub-workflow/            # Sub-workflow node module
+│   │   ├── prompt/                  # Prompt node module
+│   │   ├── skill/                   # Skill node module
+│   │   ├── mcp-tool/                # MCP Tool node module
+│   │   ├── start/                   # Start node module
+│   │   ├── end/                     # End node module
+│   │   ├── if-else/                 # If-Else node module
+│   │   ├── switch/                  # Switch node module
+│   │   ├── ask-user/                # Ask User node module
+│   │   └── document/                # Document node module
 │   │
 │   ├── store/
 │   │   └── workflow-store.ts         # Zustand store (single flat store, all state + actions)
@@ -101,7 +135,7 @@ nexus-workflow-studio/
 │       │   ├── base-node.tsx         # Shared visual wrapper (accent bar, icon, label, handles)
 │       │   ├── start-node.tsx
 │       │   ├── prompt-node.tsx
-│       │   ├── sub-agent-node.tsx
+│       │   ├── sub-agent-node.tsx    # Re-exports from src/nodes/agent/
 │       │   ├── sub-workflow-node.tsx
 │       │   ├── skill-node.tsx
 │       │   ├── mcp-tool-node.tsx
@@ -130,18 +164,18 @@ nexus-workflow-studio/
 All node data types extend `BaseNodeData { type: NodeType; label: string }` via `Record<string, unknown>`.
 The discriminated union key is the `type` field.
 
-| Type | Extra Fields | Icon | Accent Hex | Category |
-|---|---|---|---|---|
-| `start` | (none) | Play | `#10b981` (emerald) | basic |
-| `prompt` | `promptText: string`, `detectedVariables: string[]` | MessageSquareText | `#3b82f6` (blue) | basic |
-| `sub-agent` | `agentName: string`, `taskText: string` | Bot | `#8b5cf6` (violet) | basic |
-| `sub-workflow` | `flowRef: string`, `nodeCount: number` | GitBranch | `#a855f7` (purple) | basic |
-| `skill` | `skillName: string`, `projectName: string` | Wrench | `#06b6d4` (cyan) | basic |
-| `mcp-tool` | `toolName: string`, `paramsText: string` | Plug | `#14b8a6` (teal) | basic |
-| `if-else` | `expression: string` | GitFork | `#f59e0b` (amber) | control-flow |
-| `switch` | `switchExpr: string`, `cases: string[]` | ArrowRightLeft | `#f97316` (orange) | control-flow |
-| `ask-user` | `questionText: string`, `options: string[]` | HelpCircle | `#ec4899` (pink) | control-flow |
-| `end` | (none) | Square | `#ef4444` (red) | control-flow |
+| Type | Extra Fields | Icon | Accent Hex | Category | Module |
+|---|---|---|---|---|---|
+| `start` | (none) | Play | `#10b981` (emerald) | basic | `nodes/start/` |
+| `prompt` | `promptText: string`, `detectedVariables: string[]` | MessageSquareText | `#3b82f6` (blue) | basic | `nodes/prompt/` |
+| `sub-agent` | `agentName: string`, `taskText: string` | Bot | `#8b5cf6` (violet) | basic | `nodes/agent/` |
+| `sub-workflow` | `flowRef: string`, `nodeCount: number` | GitBranch | `#a855f7` (purple) | basic | `nodes/sub-workflow/` |
+| `skill` | `skillName: string`, `projectName: string` | Wrench | `#06b6d4` (cyan) | basic | `nodes/skill/` |
+| `mcp-tool` | `toolName: string`, `paramsText: string` | Plug | `#14b8a6` (teal) | basic | `nodes/mcp-tool/` |
+| `if-else` | `expression: string` | GitFork | `#f59e0b` (amber) | control-flow | `nodes/if-else/` |
+| `switch` | `switchExpr: string`, `cases: string[]` | ArrowRightLeft | `#f97316` (orange) | control-flow | `nodes/switch/` |
+| `ask-user` | `questionText: string`, `options: string[]` | HelpCircle | `#ec4899` (pink) | control-flow | `nodes/ask-user/` |
+| `end` | (none) | Square | `#ef4444` (red) | control-flow | `nodes/end/` |
 
 ### React Flow Type Aliases
 
@@ -556,9 +590,12 @@ The Zustand subscription in `workflow-editor.tsx` fires on EVERY state change (i
    - `types.ts` — TypeScript interface for node data
    - `constants.ts` — Zod schema + registry entry
    - `node.tsx` — React Flow node component (named export)
-   - `fields.tsx` — Properties panel form fields
+   - `fields.tsx` — Properties panel form fields (orchestrator)
    - `generator.ts` — Code generation logic
    - `index.ts` — Barrel export
+   - `properties/` — (optional) Extracted sub-components for complex property panels
+     (see `src/nodes/agent/properties/` for the canonical example: tools-grid, color-picker, etc.
+      These are reusable — sub-workflow imports ToolsGrid and ColorPicker from agent/properties/)
 
 3. **Registry** — `src/lib/node-registry.ts`:
    - Import node module and add to `NODE_REGISTRY`, `NODE_TYPE_COMPONENTS`, `nodeSchemaMap`

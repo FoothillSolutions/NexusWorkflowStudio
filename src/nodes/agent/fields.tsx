@@ -13,13 +13,13 @@ import { ModelSelect } from "@/nodes/shared/model-select";
 import { useTools } from "@/hooks/use-tools";
 import { SubAgentMemory } from "./types";
 import { AiPromptGenerator } from "./ai-prompt-generator";
-import { UploadAgentButton } from "./upload-agent-button";
-import { StaticVariableMapping } from "./static-variable-mapping";
-import { ParameterMapping } from "./parameter-mapping";
-import { ConnectedNodesList } from "./connected-nodes-list";
-import { ToolsGrid } from "./tools-grid";
-import { ColorPicker } from "./color-picker";
-import { useConnectedResources } from "./use-connected-resources";
+import { UploadAgentButton } from "./properties/upload-agent-button";
+import { StaticVariableMapping } from "./properties/static-variable-mapping";
+import { ParameterMapping } from "./properties/parameter-mapping";
+import { ConnectedNodesList } from "./properties/connected-nodes-list";
+import { ToolsGrid } from "./properties/tools-grid";
+import { ColorPicker } from "./properties/color-picker";
+import { useConnectedResources } from "./properties/use-connected-resources";
 
 const MEMORY_OPTIONS = [
   { value: SubAgentMemory.Default, label: "- (default)" },

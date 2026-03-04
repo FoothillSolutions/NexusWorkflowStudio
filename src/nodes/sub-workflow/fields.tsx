@@ -6,12 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Layers, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NODE_ACCENT } from "@/lib/node-colors";
-import { SubAgentMemory } from "@/nodes/sub-agent/enums";
+import { SubAgentMemory } from "@/nodes/agent/enums";
 import type { FormControl, FormSetValue } from "@/nodes/shared/form-types";
 import { ModelSelect } from "@/nodes/shared/model-select";
 import { useTools } from "@/hooks/use-tools";
-import { ToolsGrid } from "@/nodes/sub-agent/tools-grid";
-import { ColorPicker } from "@/nodes/sub-agent/color-picker";
+import { ToolsGrid } from "@/nodes/agent/properties/tools-grid";
+import { ColorPicker } from "@/nodes/agent/properties/color-picker";
 import type { SubWorkflowMode } from "./types";
 
 // ── Shared select / option configs ──────────────────────────────────────────

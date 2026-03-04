@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { PRESET_COLORS } from "./constants";
+import { PRESET_COLORS } from "../constants";
 import type { FormControl, FormSetValue } from "@/nodes/shared/form-types";
 
 interface ColorPickerProps {

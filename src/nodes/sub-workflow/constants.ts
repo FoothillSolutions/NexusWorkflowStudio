@@ -4,7 +4,7 @@ import { NodeCategory } from "@/nodes/shared/registry-types";
 import type { NodeRegistryEntry } from "@/nodes/shared/registry-types";
 import { NodeSize } from "@/nodes/shared/base-node";
 import { NODE_ACCENT } from "@/lib/node-colors";
-import { SubAgentModel, SubAgentMemory } from "@/nodes/sub-agent/enums";
+import { SubAgentModel, SubAgentMemory } from "@/nodes/agent/enums";
 import type { SubWorkflowNodeData } from "./types";
 
 export const subWorkflowRegistryEntry: NodeRegistryEntry = {

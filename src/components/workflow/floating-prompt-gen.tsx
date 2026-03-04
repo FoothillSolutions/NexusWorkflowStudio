@@ -7,7 +7,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useWorkflowStore } from "@/store/workflow-store";
 import { usePromptGenStore } from "@/store/prompt-gen-store";
-import { PromptGenBody } from "@/nodes/sub-agent/prompt-gen-body";
+import { PromptGenBody } from "@/nodes/agent/prompt-gen-body";
 
 // ── Component ────────────────────────────────────────────────────────────────
 // Renders as a floating panel only when the user has explicitly undocked.

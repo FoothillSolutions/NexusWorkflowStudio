@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { FullscreenMarkdownEditor } from "@/components/ui/fullscreen-markdown-editor";
 import { ModelSelect } from "@/nodes/shared/model-select";
-import { SubAgentModel } from "@/nodes/sub-agent/enums";
+import { SubAgentModel } from "@/nodes/agent/enums";
 import { useOpenCodeStore } from "@/store/opencode-store";
 import {
   usePromptGenStore,

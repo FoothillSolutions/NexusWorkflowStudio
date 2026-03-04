@@ -1,5 +1,5 @@
 import type { NodeType, WorkflowNode, WorkflowEdge } from "@/types/workflow";
-import type { SubAgentMemory } from "@/nodes/sub-agent/enums";
+import type { SubAgentMemory } from "@/nodes/agent/enums";
 
 export type SubWorkflowMode = "same-context" | "agent";
 

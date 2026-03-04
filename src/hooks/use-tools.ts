@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useOpenCodeStore } from "@/store/opencode-store";
-import { AGENT_TOOLS } from "@/nodes/sub-agent/constants";
+import { AGENT_TOOLS } from "@/nodes/agent/constants";
 
 export interface UseToolsResult {
   /** Tool names to render in the Disabled Tools grid */

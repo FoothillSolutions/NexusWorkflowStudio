@@ -4,7 +4,7 @@ import { useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Upload } from "lucide-react";
 import type { FormSetValue } from "@/nodes/shared/form-types";
-import { parseAgentFile } from "./parse-agent-file";
+import { parseAgentFile } from "../parse-agent-file";
 import { toast } from "sonner";
 
 interface UploadAgentButtonProps {

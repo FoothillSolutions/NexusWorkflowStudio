@@ -18,7 +18,7 @@ import type {
   WorkflowJSON,
 } from "@/types/workflow";
 import type { SubWorkflowNodeData } from "@/nodes/sub-workflow/types";
-import { SubAgentModel, SubAgentMemory } from "@/nodes/sub-agent/enums";
+import { SubAgentModel, SubAgentMemory } from "@/nodes/agent/enums";
 import { createNodeFromType } from "@/lib/node-registry";
 import { stripTransientProperties } from "@/lib/persistence";
 import { usePromptGenStore } from "@/store/prompt-gen-store";

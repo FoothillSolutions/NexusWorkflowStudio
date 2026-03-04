@@ -1,8 +1,8 @@
 import type { Node, Edge, Viewport } from "@xyflow/react";
 
-// ── Agent enums (canonical source: @/nodes/sub-agent/enums) ────────────
-export { SubAgentModel, SubAgentMemory, MODEL_DISPLAY_NAMES } from "@/nodes/sub-agent/enums";
-import { SubAgentMemory } from "@/nodes/sub-agent/enums";
+// ── Agent enums (canonical source: @/nodes/agent/enums) ────────────
+export { SubAgentModel, SubAgentMemory, MODEL_DISPLAY_NAMES } from "@/nodes/agent/enums";
+import { SubAgentMemory } from "@/nodes/agent/enums";
 
 // ── Node Types ──────────────────────────────────────────────────────────────
 export const NODE_TYPES = [

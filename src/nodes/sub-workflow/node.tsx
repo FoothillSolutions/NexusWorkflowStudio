@@ -4,7 +4,7 @@ import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import { BaseNode, NodeSize } from "@/nodes/shared/base-node";
 import { HANDLE_CLASS } from "@/lib/theme";
 import { Layers, Cpu, Thermometer, Wrench, Bot, Workflow, ArrowUpRight } from "lucide-react";
-import { SubAgentModel, MODEL_DISPLAY_NAMES } from "@/nodes/sub-agent/enums";
+import { SubAgentModel, MODEL_DISPLAY_NAMES } from "@/nodes/agent/enums";
 import { subWorkflowRegistryEntry } from "./constants";
 import type { SubWorkflowNodeData } from "./types";
 

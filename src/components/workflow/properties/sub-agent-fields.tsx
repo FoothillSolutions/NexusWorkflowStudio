@@ -1,1 +1,1 @@
-export { Fields as SubAgentFields } from "@/nodes/sub-agent/fields";
+export { Fields as SubAgentFields } from "@/nodes/agent/fields";

@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from "react";
 import { ChevronDown, Check, Sparkles, Lock, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SubAgentModel, MODEL_DISPLAY_NAMES, MODEL_COST_MULTIPLIER } from "@/nodes/sub-agent/enums";
+import { SubAgentModel, MODEL_DISPLAY_NAMES, MODEL_COST_MULTIPLIER } from "@/nodes/agent/enums";
 import { useModels } from "@/hooks/use-models";
 
 // ── Cost badge ──────────────────────────────────────────────────────────────

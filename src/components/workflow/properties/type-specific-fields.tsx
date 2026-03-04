@@ -2,7 +2,7 @@
 import type { NodeType } from "@/types/workflow";
 import type { FormRegister, FormControl, FormSetValue, FormErrors } from "@/nodes/shared/form-types";
 import { Fields as PromptFields }       from "@/nodes/prompt/fields";
-import { Fields as SubAgentFields }     from "@/nodes/sub-agent/fields";
+import { Fields as SubAgentFields }     from "@/nodes/agent/fields";
 import { Fields as SubWorkflowFields } from "@/nodes/sub-workflow/fields";
 import { Fields as SkillFields }        from "@/nodes/skill/fields";
 import { Fields as DocumentFields }     from "@/nodes/document/fields";
