@@ -92,7 +92,7 @@ export function CanvasShell({
     () => ({ type: "deletable" as const, style: { stroke: CANVAS_EDGE_STROKE, strokeWidth: 4 }, animated: false }),
     []
   );
-  const proOptions = useMemo(() => ({ hideAttribution: false }), []);
+  const proOptions = useMemo(() => ({ hideAttribution: true }), []);
   const rfStyle = useMemo(() => ({ backgroundColor: BG_CANVAS_HEX }), []);
   const panOnDrag = useMemo(
     () => (canvasMode === "hand" ? [0, 1, 2] : [1, 2]),

@@ -306,7 +306,7 @@ RootLayout (layout.tsx)
     type: "smoothstep",
     style: { stroke: "#555", strokeWidth: 2 },
   }}
-  proOptions={{ hideAttribution: false }}
+  proOptions={{ hideAttribution: true }}
 />
 ```
 
