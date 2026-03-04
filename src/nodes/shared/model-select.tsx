@@ -1,66 +1,9 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
-import { ChevronDown, Check, Sparkles } from "lucide-react";
+import { ChevronDown, Check, Sparkles, Lock, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SubAgentModel, MODEL_DISPLAY_NAMES, MODEL_COST_MULTIPLIER } from "@/nodes/sub-agent/enums";
-
-// ── Model groups by provider ────────────────────────────────────────────────
-
-interface ModelEntry {
-  value: SubAgentModel;
-}
-
-interface ModelGroup {
-  label: string;
-  color: string;       // dot color for the category
-  textColor: string;   // label text color
-  models: ModelEntry[];
-}
-
-const MODEL_GROUPS: ModelGroup[] = [
-  {
-    label: "Anthropic",
-    color: "bg-orange-400",
-    textColor: "text-orange-400/70",
-    models: [
-      { value: SubAgentModel.ClaudeHaiku45 },
-      { value: SubAgentModel.ClaudeOpus41 },
-      { value: SubAgentModel.ClaudeOpus45 },
-      { value: SubAgentModel.ClaudeOpus46 },
-      { value: SubAgentModel.ClaudeSonnet4 },
-      { value: SubAgentModel.ClaudeSonnet45 },
-      { value: SubAgentModel.ClaudeSonnet46 },
-    ],
-  },
-  {
-    label: "Google",
-    color: "bg-blue-400",
-    textColor: "text-blue-400/70",
-    models: [
-      { value: SubAgentModel.Gemini25Pro },
-      { value: SubAgentModel.Gemini3FlashPreview },
-      { value: SubAgentModel.Gemini3ProPreview },
-      { value: SubAgentModel.Gemini31ProPreview },
-    ],
-  },
-  {
-    label: "OpenAI",
-    color: "bg-emerald-400",
-    textColor: "text-emerald-400/70",
-    models: [
-      { value: SubAgentModel.GPT41 },
-      { value: SubAgentModel.GPT4o },
-      { value: SubAgentModel.GPT5 },
-      { value: SubAgentModel.GPT5Mini },
-      { value: SubAgentModel.GPT51 },
-      { value: SubAgentModel.GPT51Codex },
-      { value: SubAgentModel.GPT51CodexMax },
-      { value: SubAgentModel.GPT51CodexMini },
-      { value: SubAgentModel.GPT52 },
-      { value: SubAgentModel.GPT52Codex },
-    ],
-  },
-];
+import { useModels } from "@/hooks/use-models";
 
 // ── Cost badge ──────────────────────────────────────────────────────────────
 
@@ -88,13 +31,14 @@ function CostBadge({ cost }: { cost: number | undefined }) {
 // ── ModelSelect ─────────────────────────────────────────────────────────────
 
 interface ModelSelectProps {
-  value: SubAgentModel;
-  onChange: (value: SubAgentModel) => void;
+  value: string;
+  onChange: (value: string) => void;
 }
 
 export function ModelSelect({ value, onChange }: ModelSelectProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const { groups, isLoading, isDisabled } = useModels();
 
   // Close on outside click
   useEffect(() => {
@@ -118,13 +62,27 @@ export function ModelSelect({ value, onChange }: ModelSelectProps) {
     return () => document.removeEventListener("keydown", handleKey);
   }, [open]);
 
-  const displayName =
-    value === SubAgentModel.Inherit
-      ? MODEL_DISPLAY_NAMES[SubAgentModel.Inherit]
-      : MODEL_DISPLAY_NAMES[value] ?? value;
+  // Resolve display name — prefer API data, fall back to static map, then raw value
+  const resolveDisplayName = (modelValue: string): string => {
+    if (modelValue === SubAgentModel.Inherit) {
+      return MODEL_DISPLAY_NAMES[SubAgentModel.Inherit];
+    }
+    // Try to find in dynamic groups
+    for (const group of groups) {
+      const found = group.models.find((m) => m.value === modelValue);
+      if (found) return found.displayName;
+    }
+    // Fall back to static map
+    if (MODEL_DISPLAY_NAMES[modelValue]) return MODEL_DISPLAY_NAMES[modelValue];
+    // Last resort: show the raw "providerID/modelID" in a nicer way
+    const parts = modelValue.split("/");
+    return parts.length === 2 ? parts[1] : modelValue;
+  };
+
+  const displayName = resolveDisplayName(value);
 
   // Find which group the selected model belongs to
-  const selectedGroup = MODEL_GROUPS.find((g) =>
+  const selectedGroup = groups.find((g) =>
     g.models.some((m) => m.value === value)
   );
 
@@ -133,36 +91,46 @@ export function ModelSelect({ value, onChange }: ModelSelectProps) {
       {/* Trigger */}
       <button
         type="button"
-        onClick={() => setOpen((p) => !p)}
+        onClick={() => !isDisabled && setOpen((p) => !p)}
+        disabled={isDisabled}
         className={cn(
           "w-full flex items-center gap-2.5 rounded-xl px-3 py-2.5",
           "bg-zinc-800/60 border border-zinc-700/60",
           "text-sm text-zinc-100 transition-all duration-150",
-          "hover:bg-zinc-800/80 hover:border-zinc-600/60",
-          "focus:outline-none focus:ring-1 focus:ring-zinc-600",
-          open && "ring-1 ring-zinc-600 bg-zinc-800/80"
+          isDisabled
+            ? "opacity-60 cursor-not-allowed"
+            : "hover:bg-zinc-800/80 hover:border-zinc-600/60 focus:outline-none focus:ring-1 focus:ring-zinc-600",
+          open && !isDisabled && "ring-1 ring-zinc-600 bg-zinc-800/80"
         )}
       >
-        {value === SubAgentModel.Inherit ? (
+        {isDisabled ? (
+          <Lock size={14} className="text-zinc-500 shrink-0" />
+        ) : value === SubAgentModel.Inherit ? (
           <Sparkles size={14} className="text-violet-400 shrink-0" />
         ) : selectedGroup ? (
           <span className={cn("w-2 h-2 rounded-full shrink-0", selectedGroup.color)} />
         ) : null}
         <span className="truncate text-left flex-1">{displayName}</span>
-        {value !== SubAgentModel.Inherit && (
+        {!isDisabled && value !== SubAgentModel.Inherit && (
           <CostBadge cost={MODEL_COST_MULTIPLIER[value]} />
         )}
-        <ChevronDown
-          size={14}
-          className={cn(
-            "text-zinc-500 shrink-0 transition-transform duration-150",
-            open && "rotate-180"
-          )}
-        />
+        {isDisabled ? (
+          <span className="text-[10px] text-zinc-500 font-medium shrink-0">Not connected</span>
+        ) : isLoading ? (
+          <Loader2 size={14} className="text-zinc-500 shrink-0 animate-spin" />
+        ) : (
+          <ChevronDown
+            size={14}
+            className={cn(
+              "text-zinc-500 shrink-0 transition-transform duration-150",
+              open && "rotate-180"
+            )}
+          />
+        )}
       </button>
 
       {/* Dropdown */}
-      {open && (
+      {open && !isDisabled && (
         <div
           className={cn(
             "absolute z-50 mt-1.5 w-full rounded-xl overflow-hidden",
@@ -192,9 +160,17 @@ export function ModelSelect({ value, onChange }: ModelSelectProps) {
               )}
             </button>
 
+            {/* Loading state */}
+            {isLoading && (
+              <div className="flex items-center justify-center gap-2 px-3 py-4 text-zinc-500 text-sm">
+                <Loader2 size={14} className="animate-spin" />
+                <span>Loading models…</span>
+              </div>
+            )}
+
             {/* Grouped models */}
-            {MODEL_GROUPS.map((group) => (
-              <div key={group.label}>
+            {groups.map((group) => (
+              <div key={group.providerId}>
                 {/* Category header */}
                 <div className="flex items-center gap-2 px-3 pt-3 pb-1.5">
                   <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", group.color)} />
@@ -228,7 +204,7 @@ export function ModelSelect({ value, onChange }: ModelSelectProps) {
                         )}
                       </span>
                       <span className="flex-1 text-left truncate">
-                        {MODEL_DISPLAY_NAMES[m.value]}
+                        {m.displayName}
                       </span>
                       <CostBadge cost={cost} />
                     </button>
@@ -236,6 +212,13 @@ export function ModelSelect({ value, onChange }: ModelSelectProps) {
                 })}
               </div>
             ))}
+
+            {/* Empty state when no groups and not loading */}
+            {!isLoading && groups.length === 0 && (
+              <div className="px-3 py-4 text-zinc-500 text-sm text-center">
+                No models available
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -52,7 +52,7 @@ export const subAgentSchema = z.object({
   description: z.string().default(""),
   promptText: z.string(),
   detectedVariables: z.array(z.string()).optional().default([]),
-  model: z.enum(SubAgentModel).default(SubAgentModel.Inherit),
+  model: z.string().default(SubAgentModel.Inherit),
   memory: z.enum(SubAgentMemory).default(SubAgentMemory.Default),
   temperature: z.number().min(0).max(1).default(0),
   color: z.string().default(NODE_ACCENT.agent),

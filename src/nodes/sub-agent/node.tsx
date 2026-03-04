@@ -95,7 +95,7 @@ export const SubAgentNode = memo(function SubAgentNode({ data, selected, id }: N
             {hasModel && (
               <span className="inline-flex items-center gap-1 text-[10px] font-mono bg-violet-950/60 text-violet-300 border border-violet-800/40 px-1.5 py-0.5 rounded-md">
                 <Cpu className="h-2.5 w-2.5" />
-                {truncate(MODEL_DISPLAY_NAMES[data.model] ?? data.model, 18)}
+                {truncate(MODEL_DISPLAY_NAMES[data.model] ?? (data.model.includes("/") ? data.model.split("/")[1] : data.model), 18)}
               </span>
             )}
             {hasTemp && (

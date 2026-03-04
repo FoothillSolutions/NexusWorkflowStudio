@@ -1,6 +1,6 @@
 import type { NodeType } from "@/types/workflow";
 export { SubAgentModel, SubAgentMemory, MODEL_DISPLAY_NAMES, MODEL_COST_MULTIPLIER } from "./enums";
-import type { SubAgentModel, SubAgentMemory } from "./enums";
+import type { SubAgentMemory } from "./enums";
 
 export interface SubAgentNodeData extends Record<string, unknown> {
   type: Extract<NodeType, "agent">;
@@ -9,7 +9,7 @@ export interface SubAgentNodeData extends Record<string, unknown> {
   description: string;
   promptText: string;
   detectedVariables: string[];
-  model: SubAgentModel;
+  model: string;
   memory: SubAgentMemory;
   temperature: number;
   color: string;

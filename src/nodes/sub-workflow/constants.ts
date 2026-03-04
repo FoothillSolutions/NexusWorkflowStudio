@@ -42,7 +42,7 @@ export const subWorkflowSchema = z.object({
   nodeCount: z.coerce.number().int().min(0),
   // Agent-mode fields
   description: z.string().default(""),
-  model: z.enum(SubAgentModel).default(SubAgentModel.Inherit),
+  model: z.string().default(SubAgentModel.Inherit),
   memory: z.enum(SubAgentMemory).default(SubAgentMemory.Default),
   temperature: z.number().min(0).max(1).default(0),
   color: z.string().default(NODE_ACCENT["sub-workflow"]),

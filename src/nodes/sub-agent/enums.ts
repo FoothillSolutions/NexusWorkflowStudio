@@ -1,81 +1,56 @@
-export enum SubAgentModel {
-  Inherit             = "inherit",
-  // Anthropic Claude
-  ClaudeHaiku45       = "github-copilot/claude-haiku-4.5",
-  ClaudeOpus45        = "github-copilot/claude-opus-4.5",
-  ClaudeOpus46        = "github-copilot/claude-opus-4.6",
-  ClaudeOpus41        = "github-copilot/claude-opus-41",
-  ClaudeSonnet4       = "github-copilot/claude-sonnet-4",
-  ClaudeSonnet45      = "github-copilot/claude-sonnet-4.5",
-  ClaudeSonnet46      = "github-copilot/claude-sonnet-4.6",
-  // Google Gemini
-  Gemini25Pro         = "github-copilot/gemini-2.5-pro",
-  Gemini3FlashPreview = "github-copilot/gemini-3-flash-preview",
-  Gemini3ProPreview   = "github-copilot/gemini-3-pro-preview",
-  Gemini31ProPreview  = "github-copilot/gemini-3.1-pro-preview",
-  // OpenAI
-  GPT41               = "github-copilot/gpt-4.1",
-  GPT4o               = "github-copilot/gpt-4o",
-  GPT5                = "github-copilot/gpt-5",
-  GPT5Mini            = "github-copilot/gpt-5-mini",
-  GPT51               = "github-copilot/gpt-5.1",
-  GPT51Codex          = "github-copilot/gpt-5.1-codex",
-  GPT51CodexMax       = "github-copilot/gpt-5.1-codex-max",
-  GPT51CodexMini      = "github-copilot/gpt-5.1-codex-mini",
-  GPT52               = "github-copilot/gpt-5.2",
-  GPT52Codex          = "github-copilot/gpt-5.2-codex",
-}
+/** Model identifier — either the special "inherit" sentinel or a "providerID/modelID" string. */
+export type SubAgentModel = string;
 
-/** Human-readable display names for each model */
-export const MODEL_DISPLAY_NAMES: Record<SubAgentModel, string> = {
-  [SubAgentModel.Inherit]:             "Inherit from workflow",
-  [SubAgentModel.ClaudeHaiku45]:       "Claude Haiku 4.5",
-  [SubAgentModel.ClaudeOpus45]:        "Claude Opus 4.5",
-  [SubAgentModel.ClaudeOpus46]:        "Claude Opus 4.6",
-  [SubAgentModel.ClaudeOpus41]:        "Claude Opus 4.1",
-  [SubAgentModel.ClaudeSonnet4]:       "Claude Sonnet 4",
-  [SubAgentModel.ClaudeSonnet45]:      "Claude Sonnet 4.5",
-  [SubAgentModel.ClaudeSonnet46]:      "Claude Sonnet 4.6",
-  [SubAgentModel.Gemini25Pro]:         "Gemini 2.5 Pro",
-  [SubAgentModel.Gemini3FlashPreview]: "Gemini 3 Flash Preview",
-  [SubAgentModel.Gemini3ProPreview]:   "Gemini 3 Pro Preview",
-  [SubAgentModel.Gemini31ProPreview]:  "Gemini 3.1 Pro Preview",
-  [SubAgentModel.GPT41]:              "GPT 4.1",
-  [SubAgentModel.GPT4o]:              "GPT 4o",
-  [SubAgentModel.GPT5]:               "GPT 5",
-  [SubAgentModel.GPT5Mini]:           "GPT 5 Mini",
-  [SubAgentModel.GPT51]:              "GPT 5.1",
-  [SubAgentModel.GPT51Codex]:         "GPT 5.1 Codex",
-  [SubAgentModel.GPT51CodexMax]:      "GPT 5.1 Codex Max",
-  [SubAgentModel.GPT51CodexMini]:     "GPT 5.1 Codex Mini",
-  [SubAgentModel.GPT52]:              "GPT 5.2",
-  [SubAgentModel.GPT52Codex]:         "GPT 5.2 Codex",
+/** Named constants for well-known model values */
+export const SubAgentModel = {
+  Inherit: "inherit" as SubAgentModel,
+} as const;
+
+/**
+ * Static display-name fallback map.
+ * When connected to OpenCode, names come from the API; this is used offline or for the inherit option.
+ */
+export const MODEL_DISPLAY_NAMES: Record<string, string> = {
+  inherit: "Inherit from workflow",
 };
 
-/** Cost multiplier for each model (relative to baseline 1.0x) */
-export const MODEL_COST_MULTIPLIER: Record<SubAgentModel, number> = {
-  [SubAgentModel.Inherit]:             1.0,
-  [SubAgentModel.ClaudeHaiku45]:       0.33,
-  [SubAgentModel.ClaudeOpus45]:        3.0,
-  [SubAgentModel.ClaudeOpus46]:        3.0,
-  [SubAgentModel.ClaudeOpus41]:        3.0,
-  [SubAgentModel.ClaudeSonnet4]:       1.0,
-  [SubAgentModel.ClaudeSonnet45]:      1.0,
-  [SubAgentModel.ClaudeSonnet46]:      1.0,
-  [SubAgentModel.Gemini25Pro]:         1.0,
-  [SubAgentModel.Gemini3FlashPreview]: 0.33,
-  [SubAgentModel.Gemini3ProPreview]:   1.0,
-  [SubAgentModel.Gemini31ProPreview]:  1.0,
-  [SubAgentModel.GPT41]:              0.5,
-  [SubAgentModel.GPT4o]:              0.5,
-  [SubAgentModel.GPT5]:               2.0,
-  [SubAgentModel.GPT5Mini]:           0.33,
-  [SubAgentModel.GPT51]:              1.0,
-  [SubAgentModel.GPT51Codex]:         1.0,
-  [SubAgentModel.GPT51CodexMax]:      2.0,
-  [SubAgentModel.GPT51CodexMini]:     0.33,
-  [SubAgentModel.GPT52]:              1.0,
-  [SubAgentModel.GPT52Codex]:         1.0,
+/**
+ * Static cost-multiplier map (premium-request weighting).
+ * The API doesn't return these, so we keep them as constants.
+ * Unknown models default to 1.0x in the UI.
+ */
+export const MODEL_COST_MULTIPLIER: Record<string, number> = {
+  // Anthropic Claude
+  "github-copilot/claude-haiku-4.5":       0.33,
+  "github-copilot/claude-opus-4.5":        3.0,
+  "github-copilot/claude-opus-4.6":        3.0,
+  "github-copilot/claude-opus-41":         3.0,
+  "github-copilot/claude-sonnet-4":        1.0,
+  "github-copilot/claude-sonnet-4.5":      1.0,
+  "github-copilot/claude-sonnet-4.6":      1.0,
+  // Google Gemini
+  "github-copilot/gemini-2.5-pro":         1.0,
+  "github-copilot/gemini-3-flash-preview": 0.33,
+  "github-copilot/gemini-3-pro-preview":   1.0,
+  "github-copilot/gemini-3.1-pro-preview": 1.0,
+  // OpenAI
+  "github-copilot/gpt-4.1":               0.5,
+  "github-copilot/gpt-4o":                0.5,
+  "github-copilot/gpt-5":                 2.0,
+  "github-copilot/gpt-5-mini":            0.33,
+  "github-copilot/gpt-5.1":               1.0,
+  "github-copilot/gpt-5.1-codex":         1.0,
+  "github-copilot/gpt-5.1-codex-max":     2.0,
+  "github-copilot/gpt-5.1-codex-mini":    0.33,
+  "github-copilot/gpt-5.2":               1.0,
+  "github-copilot/gpt-5.2-codex":         1.0,
+  // xAI
+  "github-copilot/grok-code-fast-1":      0.33,
+  // OpenCode Zen
+  "opencode/trinity-large-preview-free":   0.5,
+  "opencode/big-pickle":                   1.0,
+  "opencode/minimax-m2.5-free":            0.5,
+  "opencode/gpt-5-nano":                   0.33,
 };
 
 export enum SubAgentMemory {

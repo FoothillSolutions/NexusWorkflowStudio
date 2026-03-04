@@ -3,7 +3,7 @@ import { SubAgentModel, SubAgentMemory } from "./enums";
 /** Result of parsing an agent `.md` file. Only non-undefined fields should be applied. */
 export interface ParsedAgentFile {
   description?: string;
-  model?: SubAgentModel;
+  model?: string;
   memory?: SubAgentMemory;
   temperature?: number;
   color?: string;
@@ -12,8 +12,6 @@ export interface ParsedAgentFile {
   promptText?: string;
 }
 
-/** All known SubAgentModel values keyed by their string representation */
-const MODEL_VALUES = new Set(Object.values(SubAgentModel) as string[]);
 
 /** All known SubAgentMemory values keyed by their string representation */
 const MEMORY_VALUES = new Set(Object.values(SubAgentMemory) as string[]);
@@ -86,8 +84,9 @@ export function parseAgentFile(raw: string): ParsedAgentFile {
         result.description = val;
         break;
       case "model":
-        if (MODEL_VALUES.has(val)) {
-          result.model = val as SubAgentModel;
+        // Accept "inherit" or any "providerID/modelID" format string
+        if (val === SubAgentModel.Inherit || val.includes("/")) {
+          result.model = val;
         }
         break;
       case "memory":
