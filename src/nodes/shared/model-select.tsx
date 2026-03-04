@@ -64,6 +64,7 @@ export function ModelSelect({ value, onChange }: ModelSelectProps) {
 
   // Resolve display name — prefer API data, fall back to static map, then raw value
   const resolveDisplayName = (modelValue: string): string => {
+    if (!modelValue) return MODEL_DISPLAY_NAMES[SubAgentModel.Inherit];
     if (modelValue === SubAgentModel.Inherit) {
       return MODEL_DISPLAY_NAMES[SubAgentModel.Inherit];
     }

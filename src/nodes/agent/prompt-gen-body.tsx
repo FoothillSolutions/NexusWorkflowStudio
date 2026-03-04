@@ -19,6 +19,7 @@ import {
   usePromptGenStore,
   type PromptGenTemplateFields,
 } from "@/store/prompt-gen-store";
+import { getConnectedResourceNames } from "@/nodes/agent/properties/use-connected-resources";
 
 // ── Template section config ──────────────────────────────────────────────────
 
@@ -108,13 +109,17 @@ export function PromptGenBody() {
 
   const handleGenerate = useCallback(() => {
     const { providerId, modelId } = resolveModelIds(genModel);
-    generate({ fields, modelId, providerId, mode, freeformDescription: mode === "freeform" ? freeformText : undefined });
+    const targetNodeId = usePromptGenStore.getState().targetNodeId;
+    const connectedResourceNames = getConnectedResourceNames(targetNodeId);
+    generate({ fields, modelId, providerId, mode, freeformDescription: mode === "freeform" ? freeformText : undefined, connectedResourceNames });
   }, [fields, genModel, mode, freeformText, generate]);
 
   const handleEdit = useCallback(() => {
     if (!editInstruction.trim()) return;
     const { providerId, modelId } = resolveModelIds(genModel);
-    editWithAi({ currentPrompt: targetPrompt, editInstruction, modelId, providerId });
+    const targetNodeId = usePromptGenStore.getState().targetNodeId;
+    const connectedResourceNames = getConnectedResourceNames(targetNodeId);
+    editWithAi({ currentPrompt: targetPrompt, editInstruction, modelId, providerId, connectedResourceNames });
   }, [targetPrompt, editInstruction, genModel, editWithAi]);
 
   return (
@@ -167,7 +172,7 @@ export function PromptGenBody() {
                 <Label className="text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Template Sections</Label>
                 <span className="text-[10px] text-zinc-600">All optional</span>
               </div>
-              <div className="rounded-lg border border-zinc-700/30 bg-zinc-900/30 divide-y divide-zinc-800/50 max-h-[280px] overflow-y-auto">
+              <div className="rounded-lg border border-zinc-700/30 bg-zinc-900/30 divide-y divide-zinc-800/50">
                 {SECTIONS.map((sec) => {
                   const isOpen = expandedSections.has(sec.key);
                   const filled = !!fields[sec.key]?.trim();

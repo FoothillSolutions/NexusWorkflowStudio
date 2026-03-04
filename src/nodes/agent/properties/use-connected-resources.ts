@@ -122,3 +122,41 @@ export function useConnectedResources(nodeId?: string) {
   return { connectedSkills, connectedDocs, availableResources, deleteEdge };
 }
 
+/**
+ * Pure (non-hook) helper that reads the workflow store snapshot to extract
+ * connected skill and document names for a given node.
+ * Safe to call from callbacks / outside React render.
+ */
+export function getConnectedResourceNames(
+  nodeId: string | null | undefined,
+): { skills: string[]; docs: string[] } {
+  if (!nodeId) return { skills: [], docs: [] };
+  const state = useWorkflowStore.getState();
+  const skills: string[] = [];
+  const docs: string[] = [];
+
+  for (const edge of state.edges) {
+    if (edge.target !== nodeId) continue;
+    const src = state.nodes.find((n) => n.id === edge.source);
+    if (!src) continue;
+
+    if (src.data?.type === "skill") {
+      const d = src.data as { skillName?: string; label?: string; name?: string };
+      const name = d.skillName?.trim() || d.label?.trim() || d.name?.trim();
+      if (name) skills.push(name);
+    } else if (src.data?.type === "document") {
+      const d = src.data as { docName?: string; fileExtension?: string; label?: string; name?: string };
+      const docName = d.docName?.trim();
+      if (docName) {
+        const ext = d.fileExtension || "md";
+        docs.push(`${docName}.${ext}`);
+      } else {
+        const fallback = d.label?.trim() || d.name?.trim();
+        if (fallback) docs.push(fallback);
+      }
+    }
+  }
+
+  return { skills, docs };
+}
+

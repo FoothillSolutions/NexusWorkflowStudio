@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Sparkles, PenLine, ExternalLink, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useOpenCodeStore } from "@/store/opencode-store";
@@ -29,6 +29,7 @@ export function AiPromptGenerator({ setValue, currentPrompt, nodeId }: AiPromptG
   const setTargetPrompt = usePromptGenStore((s) => s.setTargetPrompt);
   const registerFormSetValue = usePromptGenStore((s) => s.registerFormSetValue);
 
+  const panelRef = useRef<HTMLDivElement>(null);
   const hasPrompt = currentPrompt.trim().length > 0;
   const isActiveForThisNode = targetNodeId === nodeId && view !== "closed";
 
@@ -52,6 +53,16 @@ export function AiPromptGenerator({ setValue, currentPrompt, nodeId }: AiPromptG
     }
   }, [currentPrompt, isActiveForThisNode, setTargetPrompt]);
 
+  // Scroll the panel into view when opened (docked)
+  useEffect(() => {
+    if (isActiveForThisNode && !floating && panelRef.current) {
+      const t = setTimeout(() => {
+        panelRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }, 80);
+      return () => clearTimeout(t);
+    }
+  }, [isActiveForThisNode, floating]);
+
   // If active for this node but floating, show a compact indicator with dock-back
   if (isActiveForThisNode && floating) {
     return (
@@ -65,7 +76,7 @@ export function AiPromptGenerator({ setValue, currentPrompt, nodeId }: AiPromptG
   // If active and docked, render the full panel inline
   if (isActiveForThisNode && !floating) {
     return (
-      <div className="rounded-xl border border-violet-800/30 bg-gradient-to-b from-violet-950/30 to-zinc-900/50 overflow-hidden">
+      <div ref={panelRef} className="rounded-xl border border-violet-800/30 bg-gradient-to-b from-violet-950/30 to-zinc-900/50 overflow-hidden transition-all duration-300 ease-in-out">
         {/* Header */}
         <div className={cn(
           "flex items-center justify-between px-3.5 py-2 border-b shrink-0",

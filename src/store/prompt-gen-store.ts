@@ -5,6 +5,7 @@
 
 import { create } from "zustand";
 import { useOpenCodeStore } from "./opencode-store";
+import { useWorkflowStore } from "./workflow-store";
 import type { Part } from "@/lib/opencode";
 import type { FormSetValue } from "@/nodes/shared/form-types";
 
@@ -112,6 +113,8 @@ export interface GeneratePayload {
   mode: "structured" | "freeform";
   /** For freeform mode: a plain description of the desired prompt */
   freeformDescription?: string;
+  /** Names of connected skills and documents so the AI can reference them */
+  connectedResourceNames?: { skills: string[]; docs: string[] };
 }
 
 export interface EditPayload {
@@ -119,9 +122,27 @@ export interface EditPayload {
   editInstruction: string;
   modelId: string;
   providerId: string;
+  /** Names of connected skills and documents so the AI can reference them */
+  connectedResourceNames?: { skills: string[]; docs: string[] };
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Build a Markdown snippet listing connected skills & docs (empty string if none). */
+function buildConnectedResourcesBlock(res?: { skills: string[]; docs: string[] }): string {
+  if (!res) return "";
+  const lines: string[] = [];
+  if (res.skills.length > 0) {
+    lines.push("**Connected Skills:**");
+    for (const s of res.skills) lines.push(`- {{${s}}}`);
+  }
+  if (res.docs.length > 0) {
+    if (lines.length > 0) lines.push("");
+    lines.push("**Connected Documents:**");
+    for (const d of res.docs) lines.push(`- {{${d}}}`);
+  }
+  return lines.length > 0 ? lines.join("\n") : "";
+}
 
 /** The canonical template that every generated prompt should follow. */
 const PROMPT_TEMPLATE = `
@@ -167,22 +188,27 @@ Example 3 — Edge case: invalid input → error + accepted formats
 `.trim();
 
 function buildSystemMessage(): string {
-  return `You are an expert AI prompt engineer. Your task is to generate high-quality, structured agent prompts for workflow automation systems.
+  return `You are a prompt-text generator. You receive a description of an agent and you output **only the prompt text** that will be assigned to that agent — nothing else.
 
-Below is the reference template. **Every section is optional.** Only include the sections that are relevant and useful for the specific agent being described — skip any section that does not add value. Do NOT pad the output with empty or generic sections just to fill the template.
+CRITICAL RULES:
+- Your ENTIRE response must be the prompt text itself. No preamble, no "Here is the prompt:", no explanation, no plan, no steps to build anything, no commentary before or after.
+- Do NOT create a plan. Do NOT describe how to build the agent. Do NOT list implementation steps.
+- You are writing THE PROMPT that the agent will receive as its system instructions.
+- Output raw Markdown directly. Do NOT wrap the output in a code block.
+- Fill in concrete, actionable content — never leave placeholder brackets like [text] in the final output.
+
+Use the following reference template structure. **Every section is optional.** Only include sections that are relevant — skip any that do not add value.
 
 ${PROMPT_TEMPLATE}
 
-Rules:
-- Write in a direct, imperative style
+Style rules:
+- Write in a direct, imperative style addressed to the agent (e.g. "You are a…", "Your task is to…")
 - Be specific and unambiguous
 - Include edge case handling when relevant
 - Use $1, $2, $3 for dynamic positional parameters
 - Use {{variable_name}} for static/config values
-- Structure the output logically following the template sections above
-- **Only include sections that are needed** — a simple agent may only need Title, Purpose, and Instructions; a complex one may use all sections
-- Do NOT wrap the entire output in a code block — output raw Markdown directly
-- Fill in concrete, actionable content — never leave placeholder brackets like [text] in the final output`;
+- **Only include sections that are needed** — a simple agent may only need Title, Purpose, and Instructions
+- When the user provides connected skills or documents, reference them using the exact {{name}} syntax as given`;
 }
 
 function buildGenerateUserMessage(payload: GeneratePayload): string {
@@ -202,56 +228,61 @@ function buildGenerateUserMessage(payload: GeneratePayload): string {
   const hasFields = sections.length > 0;
   const hasFreeform = payload.mode === "freeform" && payload.freeformDescription?.trim();
 
+  // Build connected-resources context (may be empty)
+  const resBlock = buildConnectedResourcesBlock(payload.connectedResourceNames);
+  const resSection = resBlock
+    ? `\n\n## Connected Resources\nThe agent has the following skills and documents connected to it. Reference them in the prompt using the exact {{name}} syntax shown below:\n\n${resBlock}`
+    : "";
+
   // Both freeform description + structured fields filled
   if (hasFreeform && hasFields) {
-    return `Generate a comprehensive agent prompt following the template structure from your system instructions.
-
-Here is a high-level description of what the agent should do:
+    return `Write the agent prompt text for an agent described as:
 ${payload.freeformDescription!.trim()}
 
-And here are the specific details the user has provided for the template sections:
+Additional details for the template sections:
 
-${sections.join("\n\n")}
+${sections.join("\n\n")}${resSection}
 
-Use both the description and the structured sections to produce the final prompt. Follow the template format.`;
+Remember: output ONLY the prompt text. No plan, no explanation.`;
   }
 
   // Freeform only — still generate using the template
   if (hasFreeform) {
-    return `Generate a comprehensive agent prompt following the template structure from your system instructions.
+    return `Write the agent prompt text for an agent described as:
+${payload.freeformDescription!.trim()}${resSection}
 
-Here is a description of what the agent should do:
-${payload.freeformDescription!.trim()}
-
-Infer which template sections are relevant from this description and fill only those in with concrete, actionable content. Skip any sections that don't apply.`;
+Infer which template sections are relevant and fill only those with concrete content. Skip sections that don't apply. Output ONLY the prompt text.`;
   }
 
   // Structured fields only
   if (hasFields) {
-    return `Generate a comprehensive agent prompt following the template structure from your system instructions.
+    return `Write the agent prompt text using these details:
 
-Here are the details the user has provided:
+${sections.join("\n\n")}${resSection}
 
-${sections.join("\n\n")}
-
-Use these to produce the final prompt. You may add other template sections only if they can be clearly inferred from the input — otherwise leave them out.`;
+You may add other template sections only if clearly inferred from the input. Output ONLY the prompt text.`;
   }
 
   // Nothing filled — general-purpose
-  return `Generate a general-purpose agent prompt template following the template structure from your system instructions. Fill each section with realistic placeholder content that demonstrates how the template should be used.`;
+  return `Write a general-purpose agent prompt template following the template structure. Fill each section with realistic content that demonstrates how the template should be used. Output ONLY the prompt text.${resSection}`;
 }
 
 function buildEditUserMessage(payload: EditPayload): string {
+  const resBlock = buildConnectedResourcesBlock(payload.connectedResourceNames);
+  const resSection = resBlock
+    ? `\n\nThe agent has the following skills and documents connected — reference them using the exact {{name}} syntax:\n\n${resBlock}`
+    : "";
+
   return `Here is the current agent prompt:
 
 ---
 ${payload.currentPrompt}
 ---
 
-Please modify this prompt according to the following instruction:
-${payload.editInstruction}
+Modify this prompt according to the following instruction:
+${payload.editInstruction}${resSection}
 
-Keep the output in the same template structure. If the edit adds new concerns, slot them into the appropriate template section (Title, Purpose, Variables, Instructions, Workflow, etc.).`;
+Keep the same template structure. Output ONLY the modified prompt text — no explanation, no commentary.`;
 }
 
 /** Extract text from assistant message parts */
@@ -346,12 +377,23 @@ export const usePromptGenStore = create<PromptGenState>((set, get) => ({
   registerFormSetValue: (sv) => set({ _formSetValue: sv }),
 
   applyResult: () => {
-    const { generatedText, _formSetValue } = get();
+    const { generatedText, _formSetValue, targetNodeId } = get();
     if (!generatedText.trim()) return;
 
     // Use the form's setValue (updates react-hook-form → triggers watchedValues → workflow store sync)
     if (_formSetValue) {
       _formSetValue("promptText" as never, generatedText as never, { shouldDirty: true });
+    } else if (targetNodeId) {
+      // Fallback: when floating/undocked and the properties panel is closed,
+      // _formSetValue is null. Update the workflow store node data directly.
+      const ws = useWorkflowStore.getState();
+      const inMain = ws.nodes.some((n: { id: string }) => n.id === targetNodeId);
+      const inSub = !inMain && ws.subWorkflowNodes.some((n: { id: string }) => n.id === targetNodeId);
+      if (inMain) {
+        ws.updateNodeData(targetNodeId, { promptText: generatedText } as never);
+      } else if (inSub) {
+        ws.updateSubNodeData(targetNodeId, { promptText: generatedText } as never);
+      }
     }
 
     set({
