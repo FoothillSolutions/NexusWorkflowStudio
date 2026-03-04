@@ -145,12 +145,9 @@ export function HelpMenu({ className }: HelpMenuProps) {
               Soon
             </DropdownMenuShortcut>
           </DropdownMenuItem>
-          <DropdownMenuItem disabled onClick={handleComingSoon}>
+          <DropdownMenuItem onClick={() => window.dispatchEvent(new CustomEvent("nexus:open-patch-notes"))}>
             <Newspaper className="h-4 w-4 mr-2" />
             Patch Notes
-            <DropdownMenuShortcut className="text-[10px] text-zinc-600">
-              Soon
-            </DropdownMenuShortcut>
           </DropdownMenuItem>
           <DropdownMenuItem disabled onClick={handleComingSoon}>
             <MessageSquare className="h-4 w-4 mr-2" />

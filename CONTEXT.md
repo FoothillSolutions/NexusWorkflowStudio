@@ -69,12 +69,14 @@ nexus-workflow-studio/
 │   │   ├── utils.ts                 # cn() helper (clsx + tailwind-merge)
 │   │   ├── workflow-schema.ts       # Zod v4 workflowJsonSchema for import/load validation
 │   │   ├── node-registry.ts         # NODE_REGISTRY, NODE_TYPE_COMPONENTS, createNodeFromType(), palette groups
-│   │   └── persistence.ts           # localStorage save/load, JSON export/import, throttledSave
+│   │   ├── persistence.ts           # localStorage save/load, JSON export/import, throttledSave
+│   │   └── changelog.ts             # Versioned changelog data (CHANGELOG array, CURRENT_VERSION)
 │   │
 │   ├── hooks/
 │   │   ├── use-auto-layout.ts       # Dagre-based auto-layout with animation (shared by both canvases)
 │   │   ├── use-canvas-interactions.ts # Context menu, drag-drop, keyboard shortcuts
-│   │   └── use-drag-tracking.ts     # MiniMap suppression during node drags
+│   │   ├── use-drag-tracking.ts     # MiniMap suppression during node drags
+│   │   └── use-whats-new.ts         # "What's New" dialog open/dismiss with localStorage version tracking
 │   │
 │   ├── store/
 │   │   └── workflow-store.ts         # Zustand store (single flat store, all state + actions)
@@ -115,7 +117,8 @@ nexus-workflow-studio/
 │           ├── canvas.tsx            # ReactFlow instance: drag-drop, background, controls, minimap
 │           ├── properties-panel.tsx  # Right Sheet: react-hook-form + zodResolver, type fields
 │           ├── delete-dialog.tsx     # AlertDialog for delete confirmation
-│           └── load-dialog.tsx       # Dialog with react-dropzone + "Load Last Saved"
+│           ├── load-dialog.tsx       # Dialog with react-dropzone + "Load Last Saved"
+│           └── whats-new-dialog.tsx  # "What's New" / Patch Notes dialog (latest + full changelog)
 ```
 
 ---
@@ -238,6 +241,8 @@ New edges are created with `type: "smoothstep"` via `addEdge({ ...connection, ty
 
 **localStorage key**: `"nexus-workflow-studio:last"`
 
+**What's New version key**: `"nexus-workflow-studio:last-seen-version"` — stores the last changelog version the user dismissed. Compared against `CURRENT_VERSION` (derived from `CHANGELOG[0].version` in `src/lib/changelog.ts`) on load. If they differ, the "What's New" dialog auto-shows.
+
 **Auto-save mechanism**: `workflow-editor.tsx` subscribes to the entire Zustand store via `useWorkflowStore.subscribe()` and calls `throttledSave()` on every state change.
 
 ---
@@ -260,6 +265,8 @@ New edges are created with `type: "smoothstep"` via `addEdge({ ...connection, ty
 │  Control   │                                                    │
 ├────────────┴─────────────────────────────────────────────────────┤
 │ DeleteDialog (AlertDialog, modal, centered)                      │
+│ WhatsNewDialog (Dialog, modal — auto-shows on version update,    │
+│   also openable from Help → Patch Notes for full changelog)      │
 │ LoadDialog (Dialog, modal, centered)                             │
 └──────────────────────────────────────────────────────────────────┘
 ```
@@ -283,7 +290,8 @@ RootLayout (layout.tsx)
                  │   │   └─ MiniMap (conditional)
                  │   └─ Minimap toggle Button
                  ├─ PropertiesPanel (Sheet)
-                 └─ DeleteDialog (AlertDialog)
+                 ├─ DeleteDialog (AlertDialog)
+                 └─ WhatsNewDialog (Dialog — auto-popup + Help → Patch Notes)
 ```
 
 ### ReactFlow Configuration
@@ -371,6 +379,47 @@ Handled in `workflow-editor.tsx` via `window.addEventListener("keydown", ...)`:
 | `Ctrl+S` / `Cmd+S` | Save to localStorage + toast | `e.preventDefault()` |
 | `Escape` | Close properties panel | — |
 | `Delete` / `Backspace` | Open delete confirmation for selected node | Skipped if focus is in input/textarea/contentEditable |
+
+---
+
+## Changelog / What's New System
+
+**File**: `src/lib/changelog.ts`
+
+Declares a `CHANGELOG` array of `ChangelogEntry` objects (newest first). Each entry has:
+- `version` — semver string (e.g. `"1.2.0"`)
+- `date` — human-readable date string
+- `categories` — array of `{ category: ChangeCategory; items: string[] }`
+
+`ChangeCategory` is a union: `"New" | "Improved" | "Fixed" | "Removed" | "Breaking"`.
+
+`CURRENT_VERSION` is derived from `CHANGELOG[0].version`.
+
+### Adding a New Version
+
+Add a new entry at the **top** of the `CHANGELOG` array in `src/lib/changelog.ts`. The dialog will automatically show once for every user who hasn't seen that version yet.
+
+### Hook: `useWhatsNew`
+
+**File**: `src/hooks/use-whats-new.ts`
+
+Returns `{ open, dismiss }`. Uses a `useState` lazy initializer that reads `localStorage("nexus-workflow-studio:last-seen-version")` and compares to `CURRENT_VERSION`. Also listens for the `nexus:open-patch-notes` custom event to allow manual opening from the header Help menu.
+
+### Dialog: `WhatsNewDialog`
+
+**File**: `src/components/workflow/whats-new-dialog.tsx`
+
+Supports two modes:
+- **"latest"** — Auto-popup showing only the newest changelog entry. Footer includes a "View all patch notes" button.
+- **"full"** — Shows all changelog versions with separators and a "Latest" badge on the newest. Opened via `nexus:open-patch-notes` event from Help → Patch Notes.
+
+Mode resets to "latest" when the dialog closes.
+
+### Custom Events
+
+| Event | Dispatched By | Handled By |
+|---|---|---|
+| `nexus:open-patch-notes` | `HelpMenu` (Patch Notes menu item) | `useWhatsNew` hook + `WhatsNewDialog` (switches to "full" mode) |
 
 ---
 
@@ -534,6 +583,9 @@ npm run dev
 #   - Escape closes properties panel
 #   - Minimap toggles via bottom-right button
 #   - Sidebar collapses/expands via chevron button
+#   - "What's New" dialog shows on first visit (or after version bump)
+#   - Help → Patch Notes opens full changelog with all versions
+#   - Dismissing "What's New" prevents re-show until next version
 ```
 
 ---

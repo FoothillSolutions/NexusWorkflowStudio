@@ -17,6 +17,8 @@ import PropertiesPanel from "./properties-panel";
 import DeleteDialog from "./delete-dialog";
 import LibraryPanel from "./library-panel";
 import SubWorkflowCanvas from "./sub-workflow-canvas";
+import WhatsNewDialog from "./whats-new-dialog";
+import { useWhatsNew } from "@/hooks/use-whats-new";
 
 export default function WorkflowEditor() {
   const closePropertiesPanel = useWorkflowStore((s) => s.closePropertiesPanel);
@@ -24,6 +26,7 @@ export default function WorkflowEditor() {
   const reset = useWorkflowStore((s) => s.reset);
   const activeSubWorkflowNodeId = useWorkflowStore((s) => s.activeSubWorkflowNodeId);
   const openSubWorkflow = useWorkflowStore((s) => s.openSubWorkflow);
+  const whatsNew = useWhatsNew();
 
   // Listen for sub-workflow open events from properties panel
   useEffect(() => {
@@ -177,6 +180,7 @@ export default function WorkflowEditor() {
           </div>
         </div>
         <DeleteDialog />
+        <WhatsNewDialog open={whatsNew.open} onDismiss={whatsNew.dismiss} />
         {/* Sub-workflow editor overlay */}
         {activeSubWorkflowNodeId && (
           <SubWorkflowCanvas key={activeSubWorkflowNodeId} nodeId={activeSubWorkflowNodeId} />
