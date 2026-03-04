@@ -26,16 +26,6 @@ function GitHubIcon({ className }: { className?: string }) {
   );
 }
 
-/* ── Tech pills ─────────────────────────────────────────────────────────── */
-const TECH_STACK = [
-  "Next.js 16",
-  "React 19",
-  "React Flow",
-  "Zustand",
-  "Zod",
-  "Tailwind CSS 4",
-  "shadcn/ui",
-] as const;
 
 /* ── Links ───────────────────────────────────────────────────────────────── */
 const REPO_URL = "https://github.com/FoothillSolutions/NexusWorkflowStudio";
@@ -81,7 +71,7 @@ export default function AboutDialog({ open, onOpenChange }: AboutDialogProps) {
         <Separator className="bg-zinc-800" />
 
         {/* ── Description ───────────────────────────────────────── */}
-        <div className="px-6 py-5 space-y-4">
+        <div className="px-6 py-5">
           <p className="text-[13px] leading-relaxed text-zinc-400">
             Design, compose, and export AI agent workflows with a beautiful
             drag-and-drop canvas. Built for{" "}
@@ -89,18 +79,6 @@ export default function AboutDialog({ open, onOpenChange }: AboutDialogProps) {
             every workflow you create generates clean, portable artifacts you
             fully own.
           </p>
-
-          {/* Tech stack pills */}
-          <div className="flex flex-wrap gap-1.5">
-            {TECH_STACK.map((tech) => (
-              <span
-                key={tech}
-                className="inline-flex items-center rounded-md bg-zinc-800/60 border border-zinc-700/40 px-2 py-0.5 text-[11px] font-medium text-zinc-400 select-none"
-              >
-                {tech}
-              </span>
-            ))}
-          </div>
         </div>
 
         <Separator className="bg-zinc-800" />
