@@ -109,3 +109,63 @@ export const throttledSave = throttle(saveToLocalStorage, 2000, {
   leading: false,
   trailing: true,
 });
+
+// ── Custom project directories ──────────────────────────────────────────────
+
+const CUSTOM_DIRS_KEY = "nexus:custom-project-dirs";
+const ACTIVE_DIR_KEY = "nexus:active-project-dir";
+
+export function loadCustomProjectDirs(): string[] {
+  try {
+    const raw = localStorage.getItem(CUSTOM_DIRS_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) as string[];
+  } catch {
+    return [];
+  }
+}
+
+export function saveCustomProjectDirs(dirs: string[]): void {
+  try {
+    localStorage.setItem(CUSTOM_DIRS_KEY, JSON.stringify(dirs));
+  } catch {
+    console.error("Failed to save custom project dirs");
+  }
+}
+
+export function addCustomProjectDir(dir: string): string[] {
+  const dirs = loadCustomProjectDirs();
+  const normalized = dir.replace(/[\\/]+$/, "");
+  if (!dirs.includes(normalized)) {
+    dirs.push(normalized);
+    saveCustomProjectDirs(dirs);
+  }
+  return dirs;
+}
+
+export function removeCustomProjectDir(dir: string): string[] {
+  const dirs = loadCustomProjectDirs().filter((d) => d !== dir);
+  saveCustomProjectDirs(dirs);
+  return dirs;
+}
+
+export function getActiveProjectDir(): string | null {
+  try {
+    return localStorage.getItem(ACTIVE_DIR_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setActiveProjectDir(dir: string | null): void {
+  try {
+    if (dir) {
+      localStorage.setItem(ACTIVE_DIR_KEY, dir);
+    } else {
+      localStorage.removeItem(ACTIVE_DIR_KEY);
+    }
+  } catch {
+    console.error("Failed to save active project dir");
+  }
+}
+

@@ -4,7 +4,7 @@ import {
   type OpenCodeClient,
   OpenCodeError,
 } from "@/lib/opencode";
-import type { Provider } from "@/lib/opencode/types";
+import type { Provider, Project } from "@/lib/opencode/types";
 
 const STORAGE_KEY = "nexus:opencode-url";
 const DEFAULT_URL = "http://127.0.0.1:4096";
@@ -155,11 +155,15 @@ interface OpenCodeState {
   modelGroups: ModelGroup[];
   /** Whether model groups are currently being fetched */
   modelGroupsLoading: boolean;
+  /** The currently active project from the connected instance */
+  currentProject: Project | null;
   setUrl: (url: string) => void;
   connect: () => Promise<void>;
   disconnect: () => void;
   /** Fetch model groups from the connected instance. No-ops if already cached or not connected. */
   fetchModelGroups: () => Promise<void>;
+  /** Fetch the current project from the connected instance. */
+  fetchCurrentProject: () => Promise<void>;
 }
 
 function loadUrl(): string {
@@ -181,15 +185,16 @@ export const useOpenCodeStore = create<OpenCodeState>((set, get) => ({
   client: null,
   modelGroups: [],
   modelGroupsLoading: false,
+  currentProject: null,
 
   setUrl: (url) => {
     persistUrl(url);
-    set({ url, client: null, status: "disconnected", version: null, error: null, modelGroups: [], modelGroupsLoading: false });
+    set({ url, client: null, status: "disconnected", version: null, error: null, modelGroups: [], modelGroupsLoading: false, currentProject: null });
   },
 
   connect: async () => {
     const { url } = get();
-    set({ status: "connecting", error: null, version: null, client: null, modelGroups: [], modelGroupsLoading: false });
+    set({ status: "connecting", error: null, version: null, client: null, modelGroups: [], modelGroupsLoading: false, currentProject: null });
 
     try {
       const client = createOpenCodeClient(url, { timeout: 8_000 });
@@ -200,6 +205,13 @@ export const useOpenCodeStore = create<OpenCodeState>((set, get) => ({
         version: health.version ?? null,
         error: null,
         client,
+      });
+
+      // Fetch current project in the background after connecting
+      client.projects.current().then((project) => {
+        set({ currentProject: project });
+      }).catch(() => {
+        // Silently ignore — project info is optional
       });
     } catch (err: unknown) {
       const message =
@@ -213,7 +225,7 @@ export const useOpenCodeStore = create<OpenCodeState>((set, get) => ({
   },
 
   disconnect: () => {
-    set({ status: "disconnected", version: null, error: null, client: null, modelGroups: [], modelGroupsLoading: false });
+    set({ status: "disconnected", version: null, error: null, client: null, modelGroups: [], modelGroupsLoading: false, currentProject: null });
   },
 
   fetchModelGroups: async () => {
@@ -228,6 +240,17 @@ export const useOpenCodeStore = create<OpenCodeState>((set, get) => ({
       set({ modelGroups: buildModelGroups(res.providers), modelGroupsLoading: false });
     } catch {
       set({ modelGroupsLoading: false });
+    }
+  },
+
+  fetchCurrentProject: async () => {
+    const { client, status } = get();
+    if (status !== "connected" || !client) return;
+    try {
+      const project = await client.projects.current();
+      set({ currentProject: project });
+    } catch {
+      // Silently ignore
     }
   },
 }));

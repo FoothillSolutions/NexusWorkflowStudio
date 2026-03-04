@@ -34,6 +34,7 @@ import { toast } from "sonner";
 import ImportDialog from "./import-dialog";
 import WorkflowPreviewDialog from "./workflow-preview-dialog";
 import { LibraryToggleButton, HelpMenu, ConnectButton } from "./shared-header-actions";
+import { ProjectSwitcher } from "./project-switcher";
 import {
   BG_SURFACE,
   BORDER_DEFAULT,
@@ -157,6 +158,7 @@ export default function Header() {
 
       <Divider />
 
+
       {/* ── Workflow name (editable) ──────────────────────────── */}
       <div className="flex-1 min-w-0">
         {isEditingName ? (
@@ -187,7 +189,10 @@ export default function Header() {
         {/* Library toggle */}
         <LibraryToggleButton />
 
-        {/* File dropdown */}
+        {/* Project directory switcher */}
+        <ProjectSwitcher />
+
+          {/* File dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
