@@ -181,6 +181,12 @@ export default function Header() {
 
       {/* ── Actions ───────────────────────────────────────────── */}
       <div className="flex items-center gap-1 shrink-0">
+        {/* Connect to OpenCode */}
+        <ConnectButton />
+
+        {/* Library toggle */}
+        <LibraryToggleButton />
+
         {/* File dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -214,11 +220,6 @@ export default function Header() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Library toggle */}
-        <LibraryToggleButton />
-
-        {/* Connect to OpenCode */}
-        <ConnectButton />
 
         <Divider />
 
