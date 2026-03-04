@@ -50,6 +50,53 @@ npm run build
 npm start
 ```
 
+### Docker
+
+The project includes Docker support with two runtime options: **Bun** (default) and **Node.js**. Both produce the same Next.js standalone output — the difference is the runtime that serves the application.
+
+#### Default: Bun
+
+A faster runtime using `oven/bun`. Offers quicker dependency installs and cold starts. Runs by default with `docker compose up`.
+
+```bash
+# Using npm script
+npm run docker:bun
+
+# Or using Docker Compose directly
+docker compose up --build
+```
+
+#### Alternative: Node.js
+
+The standard, production-proven runtime using `node:24-slim`. Requires the `node` profile.
+
+```bash
+# Using npm script
+npm run docker:node
+
+# Or using Docker Compose directly
+docker compose --profile node up nextjs-standalone --build
+```
+
+#### Running in Detached Mode
+
+Append the `-d` flag to run in the background:
+
+```bash
+docker compose up --build -d
+docker compose --profile node up nextjs-standalone --build -d
+```
+
+#### Stopping
+
+```bash
+npm run docker:down
+# or
+docker compose --profile node down
+```
+
+Once running, open [http://localhost:3000](http://localhost:3000) in your browser.
+
 ## Tech Stack
 
 | Layer | Technology |

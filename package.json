@@ -10,7 +10,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "docker:bun": "docker compose up --build",
+    "docker:node": "docker compose --profile node up nextjs-standalone --build",
+    "docker:down": "docker compose --profile node down"
   },
   "dependencies": {
     "@dagrejs/dagre": "^2.0.4",
