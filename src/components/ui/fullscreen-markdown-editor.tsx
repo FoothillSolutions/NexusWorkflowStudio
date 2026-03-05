@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import dynamic from "next/dynamic";
+import { cn } from "@/lib/utils";
 import "@uiw/react-md-editor/markdown-editor.css";
 import "@uiw/react-markdown-preview/markdown.css";
 import {
@@ -51,6 +52,8 @@ export function FullscreenMarkdownEditor({
     onSave(draft);
     onOpenChange(false);
   }, [draft, onSave, onOpenChange]);
+
+  const hasChanges = draft !== value;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -176,11 +179,16 @@ export function FullscreenMarkdownEditor({
             Cancel
           </Button>
           <Button
-            onClick={handleSave}
-            className="rounded-xl gap-2 bg-zinc-100 text-zinc-900 hover:bg-white"
+            onClick={hasChanges ? handleSave : () => onOpenChange(false)}
+            className={cn(
+              "rounded-xl gap-2",
+              hasChanges
+                ? "bg-zinc-100 text-zinc-900 hover:bg-white"
+                : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
+            )}
           >
             <Check size={14} />
-            Save Changes
+            {hasChanges ? "Save Changes" : "Ok"}
           </Button>
         </DialogFooter>
       </DialogContent>
