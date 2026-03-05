@@ -177,7 +177,7 @@ export default function FloatingWorkflowGen() {
   return (
     <div
       className={cn(
-        "absolute z-40 flex flex-col rounded-2xl border bg-zinc-900/95 backdrop-blur-xl shadow-2xl shadow-black/40",
+        "absolute z-40 flex flex-col rounded-2xl border bg-zinc-900/95 backdrop-blur-xl shadow-2xl shadow-black/40 overflow-hidden",
         "animate-in slide-in-from-top-4 fade-in-0 duration-200",
         "border-violet-700/30",
       )}
@@ -190,12 +190,15 @@ export default function FloatingWorkflowGen() {
       }}
     >
       {/* ── Header ──────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between px-3.5 py-2.5 border-b shrink-0 bg-violet-950/30 border-violet-800/20">
+      <div className="flex items-center justify-between px-3.5 py-2.5 border-b shrink-0 bg-violet-950/30 border-violet-800/20 rounded-t-2xl">
         <div className="flex items-center gap-2 min-w-0">
           <Sparkles size={14} className="text-violet-400 shrink-0" />
           <div className="min-w-0">
-            <span className="text-xs font-semibold text-zinc-200 block">
+            <span className="text-xs font-semibold text-zinc-200 flex items-center gap-1.5">
               Generate Workflow with AI
+              <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/30 leading-none">
+                Beta
+              </span>
             </span>
             {isStreaming && (
               <span className="text-[10px] text-violet-400/80 block">

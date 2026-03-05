@@ -316,7 +316,7 @@ export function ProjectSwitcher({
           </div>
 
           {/* Scrollable project list */}
-          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain custom-scroll">
             {loading ? (
               <div className="flex items-center justify-center py-8 gap-2 text-zinc-500">
                 <Loader2 className="h-4 w-4 animate-spin" />

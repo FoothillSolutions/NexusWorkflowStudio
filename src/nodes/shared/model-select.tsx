@@ -141,7 +141,7 @@ export function ModelSelect({ value, onChange, hideInherit }: ModelSelectProps) 
             "shadow-2xl shadow-black/50",
           )}
         >
-          <div className="max-h-[380px] overflow-y-auto py-1">
+          <div className="max-h-[380px] overflow-y-auto py-1 custom-scroll">
             {/* Inherit option */}
             {!hideInherit && (
               <button

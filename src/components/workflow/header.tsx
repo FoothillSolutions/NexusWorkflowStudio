@@ -268,6 +268,9 @@ export default function Header() {
             >
               <Sparkles className="h-4 w-4 text-violet-400" />
               AI Generate
+              <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/30 leading-none">
+                Beta
+              </span>
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom">
