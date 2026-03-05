@@ -22,6 +22,55 @@ export interface ChangelogEntry {
 // ─────────────────────────────────────────────────────────────────────────────
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.7.0",
+    date: "March 5, 2026",
+    categories: [
+      {
+        category: "New",
+        items: [
+          "AI Workflow Generation",
+          "Dynamic example prompts for quick-start AI workflow generation",
+          "On-the-fly component rendering — nodes and edges appear live on the canvas as the AI streams the workflow",
+        ],
+      },
+      {
+        category: "Improved",
+        items: [
+          "Improved performance for large workflows with many nodes and edges",
+          "Enhanced auto-layout algorithm with better spacing and grouping",
+        ],
+      },
+      {
+        category: "Fixed",
+        items: [
+          "Edge delete icon no longer appears on hover — now only shown when the edge is selected",
+        ],
+      },
+    ],
+  },
+  {
+    version: "1.6.0",
+    date: "March 5, 2026",
+    categories: [
+      {
+        category: "New",
+        items: [
+          "AI Workflow Generation floating panel — undockable, collapsible panel for generating workflows from natural language",
+          "Real-time streaming progress — live node/edge count and token count during AI workflow generation",
+          "Example prompts — pre-built prompt suggestions for quick-start AI workflow generation",
+          "Dynamic tool discovery per model — browse and toggle tools fetched from the OpenCode provider API",
+        ],
+      },
+      {
+        category: "Improved",
+        items: [
+          "Project directory switcher moved into the header for quicker directory changes",
+          "Delete confirmation dialog now supports multi-select deletion targets",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.5.0",
     date: "March 5, 2026",
     categories: [
