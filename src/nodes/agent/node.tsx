@@ -63,7 +63,7 @@ export const SubAgentNode = memo(function SubAgentNode({ data, selected, id }: N
   const hasMeta     = hasModel || hasTemp || hasDisabled;
 
   return (
-    <BaseNode accentHex={accentHex} selected={selected} label={data.label || displayName} type={data.type} icon={icon} size={NodeSize.Large}>
+    <BaseNode accentHex={accentHex} selected={selected} label={data.label || displayName} type={data.type} icon={icon} size={NodeSize.Large} nodeId={id}>
       <div className="flex flex-col gap-2">
         {data.promptText && (() => {
           const lines = data.promptText.split("\n");

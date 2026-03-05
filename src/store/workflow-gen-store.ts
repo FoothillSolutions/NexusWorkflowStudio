@@ -51,6 +51,18 @@ interface WorkflowGenState {
   _addedEdgeIds: Set<string>;
   /** Edges waiting for their source/target nodes to appear */
   _pendingEdges: Array<Record<string, unknown>>;
+  /** Node IDs currently showing the AI rainbow border (reactive — components subscribe to this) */
+  _glowingNodeIds: string[];
+
+  // ── AI-generated examples ──
+  /** AI-suggested example prompts (supplement the hardcoded ones) */
+  aiExamples: string[];
+  /** Status of the AI example generation */
+  aiExamplesStatus: "idle" | "loading" | "done" | "error";
+  /** Session ID used for generating examples (separate from the main gen session) */
+  _examplesSessionId: string | null;
+  /** AbortController for the examples request */
+  _examplesAbortController: AbortController | null;
 
   // Actions
   setFloating: (open: boolean) => void;
@@ -62,6 +74,8 @@ interface WorkflowGenState {
   cancel: () => void;
   reset: () => void;
   disposeSession: () => Promise<void>;
+  /** Fetch AI-generated example prompts using the connected model */
+  fetchAiExamples: () => Promise<void>;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -113,8 +127,16 @@ You generate workflow JSON for Nexus Workflow Studio.
 - data.type MUST match the node type field
 - data.name MUST equal the node id
 - POSITION RULES (these are critical — the layout is NOT auto-corrected):
+  - Node widths by type (use these to calculate horizontal spacing):
+    - small nodes (180px wide): start, end, skill, document, mcp-tool
+    - medium nodes (250px wide): if-else, switch, ask-user
+    - large nodes (350px wide): agent, prompt, sub-workflow
+  - Horizontal spacing: place each subsequent column so there is at least 150px of empty gap between the right edge of the previous node and the left edge of the next one. 
+    Formula: next_x = prev_x + prev_node_width + 150.
+    Examples: start (180px) at x:80 → next node at x:80+180+150 = x:410. agent (350px) at x:410 → next at x:410+350+150 = x:910. if-else (250px) at x:910 → next at x:910+250+150 = x:1310.
+    IMPORTANT: When an agent has skill or document nodes, those sit to the LEFT of the agent (behind it). You must leave extra horizontal room so they don't overlap with the previous node. If an agent has skills/docs, increase the gap between the PREVIOUS node and the agent to at least 400px (i.e. next_x = prev_x + prev_node_width + 400). This accounts for the 180px skill/doc width + 60px gap + extra breathing room.
   - Start node at x:80, y:300.
-  - Flow left-to-right. Each subsequent column of nodes is ~300px further right.
+  - Flow left-to-right. Calculate each column's x using the formula above.
   - Nodes in a straight sequential chain share the same y value.
   - BRANCHING: when an if-else or switch fans out, the branching node stays on the main y line.
     The TRUE / first-branch target MUST have a SMALLER y (higher on screen) than the FALSE / later-branch targets.
@@ -184,7 +206,9 @@ Skills are reusable knowledge/instruction units that get attached to agents. The
 - **metadata**: Optional key-value pairs (e.g. [{"key":"workflow","value":"github"}]).
 - Skills connect ONLY to agent nodes via: sourceHandle: "skill-out", targetHandle: "skills".
 - A skill is NOT part of the main workflow flow — it sits beside its parent agent and provides it with extra capabilities.
-- Position skill nodes ABOVE their connected agent (same x, y offset -120 to -160).
+- Position skill nodes BEHIND (to the LEFT of) their connected agent AND BELOW the agent's bottom edge.
+  Formula: skill_x = agent_x - 180 - 40 (skill width + 40px gap). skill_y = agent_y + agent_height + 30 (30px below agent baseline).
+  For an agent at x:410 y:240 (350×120): skill at x:190 y:390. If multiple skills, stack them vertically downward with 16px gap between them.
 
 Generated skill file template (\`.opencode/skills/<skillName>/SKILL.md\`):
 \`\`\`
@@ -209,7 +233,9 @@ Documents are reference materials attached to agents. They provide context, data
 - **description**: Explains what the document contains.
 - Documents connect ONLY to agent nodes via: sourceHandle: "doc-out", targetHandle: "docs".
 - A document is NOT part of the main workflow flow — it sits beside its parent agent and feeds it context.
-- Position document nodes BELOW their connected agent (same x, y offset +120 to +160).
+- Position document nodes BEHIND (to the LEFT of) their connected agent AND BELOW the agent's bottom edge.
+  Use the same x column as skills: doc_x = agent_x - 180 - 40. doc_y = agent_y + agent_height + 30 (below agent baseline).
+  If an agent has BOTH skills and documents, stack them in the same column behind the agent below the baseline: skills first, documents below, each with 16px vertical gap.
 
 Generated document file template (\`.opencode/docs/<docName>.<ext>\`):
 \`\`\`
@@ -290,60 +316,146 @@ sub-workflow: {"type":"sub-workflow","label":"<label>","name":"<id>","mode":"sam
 NOW OUTPUT ONLY JSON.`;
 }
 
+// ── Streaming JSON extractor ─────────────────────────────────────────────
+// Instead of trying to "repair" incomplete JSON (which fails when the LLM
+// is mid-way through a string with special characters), we extract
+// individual complete JSON objects from the "nodes" and "edges" arrays
+// as they stream in.  This way each node/edge appears on the canvas the
+// moment its closing `}` arrives, without waiting for the rest.
+
 /**
- * Attempt to parse a (possibly incomplete) JSON string to extract the
- * full WorkflowJSON. Returns null if the JSON is not yet complete.
+ * Extract the workflow name from a partial JSON stream.
+ * Looks for `"name": "..."` near the start, before the "nodes" array.
  */
-function tryParseWorkflowJSON(text: string): {
+function extractName(text: string): string | undefined {
+  // Only search in the portion before "nodes" to avoid matching node "name" fields
+  const nodesIdx = text.indexOf('"nodes"');
+  const searchArea = nodesIdx > 0 ? text.slice(0, nodesIdx) : text.slice(0, 200);
+  const m = searchArea.match(/"name"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+  return m ? m[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\') : undefined;
+}
+
+/**
+ * Find the start of a top-level array value for a given key.
+ * Returns the index of the `[` character, or -1 if not found.
+ * "Top-level" means inside the outermost `{` only (depth 1).
+ */
+function findArrayStart(text: string, key: string): number {
+  const pattern = `"${key}"`;
+  let braceDepth = 0;
+  let bracketDepth = 0;
+  let inStr = false;
+  let esc = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (esc) { esc = false; continue; }
+    if (ch === '\\' && inStr) { esc = true; continue; }
+    if (ch === '"') {
+      // Before toggling string state, check if this is our key at the right depth
+      if (!inStr && braceDepth === 1 && bracketDepth === 0 && text.startsWith(pattern, i)) {
+        // Found the key — skip past it and find the `[`
+        let j = i + pattern.length;
+        while (j < text.length && /\s|:/.test(text[j])) j++;
+        if (j < text.length && text[j] === '[') return j;
+      }
+      inStr = !inStr;
+      continue;
+    }
+    if (inStr) continue;
+    if (ch === '{') braceDepth++;
+    if (ch === '}') braceDepth--;
+    if (ch === '[') bracketDepth++;
+    if (ch === ']') bracketDepth--;
+  }
+  return -1;
+}
+
+/**
+ * Given text starting from `[`, extract all complete top-level objects
+ * (depth 1 inside the array = complete `{…}` blocks). Returns the
+ * parsed objects and the index up to which we've consumed.
+ */
+function extractCompleteObjects(text: string, arrayStart: number): Array<Record<string, unknown>> {
+  const results: Array<Record<string, unknown>> = [];
+  let i = arrayStart + 1; // skip the `[`
+  let inStr = false;
+  let esc = false;
+  let depth = 0;
+  let objStart = -1;
+
+  while (i < text.length) {
+    const ch = text[i];
+    if (esc) { esc = false; i++; continue; }
+    if (ch === '\\' && inStr) { esc = true; i++; continue; }
+    if (ch === '"') { inStr = !inStr; i++; continue; }
+    if (inStr) { i++; continue; }
+
+    // End of the array
+    if (ch === ']' && depth === 0) break;
+
+    if (ch === '{') {
+      if (depth === 0) objStart = i;
+      depth++;
+    } else if (ch === '}') {
+      depth--;
+      if (depth === 0 && objStart >= 0) {
+        const objStr = text.slice(objStart, i + 1);
+        try {
+          const obj = JSON.parse(objStr);
+          results.push(obj);
+        } catch {
+          // Malformed object — skip it
+        }
+        objStart = -1;
+      }
+    }
+    i++;
+  }
+  return results;
+}
+
+interface StreamParseResult {
   name?: string;
-  nodes?: Array<Record<string, unknown>>;
-  edges?: Array<Record<string, unknown>>;
-  ui?: Record<string, unknown>;
-} | null {
-  // Try direct parse first
+  nodes: Array<Record<string, unknown>>;
+  edges: Array<Record<string, unknown>>;
+}
+
+/**
+ * Incrementally extract workflow data from a partial JSON stream.
+ * Unlike tryParseWorkflowJSON, this never fails — it simply returns
+ * whatever complete nodes/edges have been streamed so far.
+ */
+function extractStreamedWorkflow(text: string): StreamParseResult {
+  const name = extractName(text);
+
+  const nodesStart = findArrayStart(text, "nodes");
+  const nodes = nodesStart >= 0 ? extractCompleteObjects(text, nodesStart) : [];
+
+  const edgesStart = findArrayStart(text, "edges");
+  const edges = edgesStart >= 0 ? extractCompleteObjects(text, edgesStart) : [];
+
+  return { name, nodes, edges };
+}
+
+/**
+ * Attempt to parse the complete JSON (for final validation).
+ * Returns null if the JSON is not yet complete.
+ */
+function tryParseCompleteJSON(text: string): Record<string, unknown> | null {
   try {
     return JSON.parse(text);
-  } catch {
-    // Not yet complete — try to auto-close
-  }
-
-  // Try to repair incomplete JSON by closing open brackets/braces
-  let repaired = text.trim();
-  // Remove trailing comma
-  repaired = repaired.replace(/,\s*$/, "");
-
-  // Count open brackets/braces
-  let braces = 0;
-  let brackets = 0;
-  let inString = false;
-  let escaped = false;
-
-  for (const ch of repaired) {
-    if (escaped) { escaped = false; continue; }
-    if (ch === "\\") { escaped = true; continue; }
-    if (ch === '"') { inString = !inString; continue; }
-    if (inString) continue;
-    if (ch === "{") braces++;
-    if (ch === "}") braces--;
-    if (ch === "[") brackets++;
-    if (ch === "]") brackets--;
-  }
-
-  // Close any open strings (heuristic)
-  if (inString) repaired += '"';
-
-  // Close open brackets then braces
-  while (brackets > 0) { repaired += "]"; brackets--; }
-  while (braces > 0) { repaired += "}"; braces--; }
-
-  try {
-    return JSON.parse(repaired);
   } catch {
     return null;
   }
 }
 
 // ── Store ────────────────────────────────────────────────────────────────────
+
+/**
+ * Module-level sets are no longer used for animation tracking.
+ * Animation state is now reactive via `_glowingNodeIds` in the store,
+ * so components re-render when the glowing set changes.
+ */
 
 /** Fix if-else / switch / ask-user sourceHandles on a set of edges using node type info. */
 function fixEdgeHandles(
@@ -404,6 +516,13 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
   _addedNodeIds: new Set<string>(),
   _addedEdgeIds: new Set<string>(),
   _pendingEdges: [],
+  _glowingNodeIds: [],
+
+  // ── AI examples ──
+  aiExamples: [],
+  aiExamplesStatus: "idle",
+  _examplesSessionId: null,
+  _examplesAbortController: null,
 
   setFloating: (open) => {
     if (!open) {
@@ -444,8 +563,9 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
     // Cancel any in-progress generation
     get()._abortController?.abort();
 
-    // Clear the canvas before starting a new generation
+    // Clear the canvas completely before starting a new generation
     useWorkflowStore.getState().reset();
+    useWorkflowStore.setState({ nodes: [], edges: [], name: "Untitled Workflow", sidebarOpen: false });
 
     // Pause undo/redo history so incremental adds don't flood the stack
     useWorkflowStore.temporal.getState().pause();
@@ -472,6 +592,7 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
     let pendingEdges: Array<Record<string, unknown>> = [];
     /** Snapshot of the last-known data per node so we can detect real changes */
     const nodeDataSnapshots = new Map<string, string>();
+
 
     set({
       status: "streaming",
@@ -589,6 +710,22 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
           });
           useWorkflowStore.setState({ nodes: [...filtered, ...brandNewNodes] });
           for (const n of filtered) addedNodeIds.add(n.id);
+
+          // Fit view to follow the growing workflow
+          window.dispatchEvent(new CustomEvent("nexus:fit-view"));
+
+          // Only the brand-new nodes get the glow
+          const newNodeIds = brandNewNodes.map(n => n.id);
+          set({ _glowingNodeIds: newNodeIds });
+
+          // Remove the effect after a short time
+          setTimeout(() => {
+            // Only clear if these are still the glowing ones
+            const current = get()._glowingNodeIds;
+            if (current === newNodeIds) {
+              set({ _glowingNodeIds: [] });
+            }
+          }, 450);
         }
 
         // Apply data updates to already-rendered nodes
@@ -670,26 +807,51 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
         { signal: abortController.signal },
       );
 
-      // Stream SSE events with throttled parse+push
+      // Stream SSE events with rAF-gated parse+push
       let fullText = "";
       let lastParsedNodeCount = 0;
       let lastParsedEdgeCount = 0;
-      let parseTimer: ReturnType<typeof setTimeout> | null = null;
-      const PARSE_INTERVAL_MS = 150;
+      let rafPending = false;
+      let lastParseTime = 0;
+      const MIN_PARSE_GAP_MS = 80;
 
       /** Run an incremental parse and push results to canvas. */
       const doParse = () => {
-        const parsed = tryParseWorkflowJSON(fullText);
-        if (!parsed) return;
+        const parsed = extractStreamedWorkflow(fullText);
 
-        const nodeCount = parsed.nodes ? (parsed.nodes as unknown[]).length : lastParsedNodeCount;
-        const edgeCount = parsed.edges ? (parsed.edges as unknown[]).length : lastParsedEdgeCount;
+        const nodeCount = parsed.nodes.length;
+        const edgeCount = parsed.edges.length;
+
+        // Only push if we actually have something new
+        if (nodeCount > lastParsedNodeCount || edgeCount > lastParsedEdgeCount || (parsed.name && nodeCount === 0)) {
+          pushIncremental(parsed);
+        }
+
         lastParsedNodeCount = nodeCount;
         lastParsedEdgeCount = edgeCount;
 
-        pushIncremental(parsed);
 
         set({ parsedNodeCount: nodeCount, parsedEdgeCount: edgeCount });
+      };
+
+      /** Schedule a parse on the next animation frame, respecting minimum gap. */
+      const scheduleRafParse = () => {
+        if (rafPending) return;
+        rafPending = true;
+        requestAnimationFrame(() => {
+          rafPending = false;
+          const now = performance.now();
+          if (now - lastParseTime < MIN_PARSE_GAP_MS) {
+            // Too soon since last parse — schedule a delayed follow-up
+            setTimeout(() => {
+              lastParseTime = performance.now();
+              doParse();
+            }, MIN_PARSE_GAP_MS - (now - lastParseTime));
+          } else {
+            lastParseTime = now;
+            doParse();
+          }
+        });
       };
 
       for await (const event of client.events.subscribe({ signal: abortController.signal })) {
@@ -706,13 +868,8 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
               tokenCount: estimateTokens(fullText),
             });
 
-            // Throttled parse — avoids thrashing React on every token
-            if (!parseTimer) {
-              parseTimer = setTimeout(() => {
-                parseTimer = null;
-                doParse();
-              }, PARSE_INTERVAL_MS);
-            }
+            // rAF-gated parse — ties to browser paint cycle for smooth updates
+            scheduleRafParse();
           }
         } else if (event.type === "session.idle") {
           const props = event.properties as { sessionID: string };
@@ -723,7 +880,6 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
             error?: { name: string; data?: { message?: string } };
           };
           if (props.sessionID === sid) {
-            if (parseTimer) clearTimeout(parseTimer);
             useWorkflowStore.temporal.getState().resume();
             set({ error: props.error?.data?.message ?? "Generation failed", status: "error" });
             return;
@@ -731,8 +887,7 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
         }
       }
 
-      // Flush any pending throttled parse
-      if (parseTimer) { clearTimeout(parseTimer); parseTimer = null; }
+      // Flush any pending parse
       doParse();
 
       // If streaming produced nothing, fall back to fetching the last message
@@ -756,69 +911,61 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
           cleanText = cleanText.replace(/^```(?:json)?\s*\n?/, "").replace(/\n?```\s*$/, "");
         }
 
-        try {
-          const parsed = JSON.parse(cleanText);
+        // One final streaming extract to catch any remaining objects
+        const finalStreamed = extractStreamedWorkflow(cleanText);
+        pushIncremental(finalStreamed);
 
-          // Validate against schema
-          const result = workflowJsonSchema.safeParse(parsed);
-          if (!result.success) {
-            useWorkflowStore.temporal.getState().resume();
-            set({ error: `Generated workflow failed validation: ${result.error.message}`, status: "error" });
-            return;
-          }
-
-          // Push any remaining nodes/edges that weren't caught during streaming
-          pushIncremental(parsed);
-
-          // Force flush any remaining pending edges
-          if (pendingEdges.length > 0) {
-            const nodeTypeMap = new Map<string, { type: string; branches?: Array<{ label: string }>; options?: Array<{ label: string }>; multipleSelection?: boolean; aiSuggestOptions?: boolean }>();
-            if (parsed.nodes) {
-              for (const n of parsed.nodes as Array<Record<string, unknown>>) {
-                const d = n.data as Record<string, unknown> | undefined;
-                if (n.id) {
-                  nodeTypeMap.set(n.id as string, {
-                    type: (d?.type as string) ?? (n.type as string) ?? "",
-                    branches: d?.branches as Array<{ label: string }> | undefined,
-                    options: d?.options as Array<{ label: string }> | undefined,
-                    multipleSelection: d?.multipleSelection as boolean | undefined,
-                    aiSuggestOptions: d?.aiSuggestOptions as boolean | undefined,
-                  });
-                }
-              }
+        // Force flush any remaining pending edges
+        if (pendingEdges.length > 0) {
+          const nodeTypeMap = new Map<string, { type: string; branches?: Array<{ label: string }>; options?: Array<{ label: string }> ; multipleSelection?: boolean; aiSuggestOptions?: boolean }>();
+          for (const n of finalStreamed.nodes) {
+            const d = n.data as Record<string, unknown> | undefined;
+            if (n.id) {
+              nodeTypeMap.set(n.id as string, {
+                type: (d?.type as string) ?? (n.type as string) ?? "",
+                branches: d?.branches as Array<{ label: string }> | undefined,
+                options: d?.options as Array<{ label: string }> | undefined,
+                multipleSelection: d?.multipleSelection as boolean | undefined,
+                aiSuggestOptions: d?.aiSuggestOptions as boolean | undefined,
+              });
             }
-            const fixedEdges = fixEdgeHandles(pendingEdges, nodeTypeMap);
-            const existingEdges = useWorkflowStore.getState().edges;
-            useWorkflowStore.setState({ edges: [...existingEdges, ...fixedEdges] });
-            pendingEdges = [];
           }
-
-          // Resume undo/redo history
-          useWorkflowStore.temporal.getState().resume();
-
-          // Auto-layout then fit view
-          setTimeout(() => {
-            window.dispatchEvent(new CustomEvent("nexus:auto-layout"));
-            setTimeout(() => {
-              window.dispatchEvent(new CustomEvent("nexus:fit-view"));
-            }, 500);
-          }, 100);
-
-          const finalNodes = useWorkflowStore.getState().nodes;
-          const finalEdges = useWorkflowStore.getState().edges;
-
-          set({
-            status: "done",
-            parsedNodeCount: finalNodes.length,
-            parsedEdgeCount: finalEdges.length,
-          });
-        } catch (parseErr) {
-          useWorkflowStore.temporal.getState().resume();
-          set({
-            error: `Failed to parse generated JSON: ${parseErr instanceof Error ? parseErr.message : "Unknown error"}`,
-            status: "error",
-          });
+          const fixedEdges = fixEdgeHandles(pendingEdges, nodeTypeMap);
+          const existingEdges = useWorkflowStore.getState().edges;
+          useWorkflowStore.setState({ edges: [...existingEdges, ...fixedEdges] });
+          pendingEdges = [];
         }
+
+        // Validate the complete JSON if possible (non-blocking — we already have nodes on canvas)
+        const fullParsed = tryParseCompleteJSON(cleanText);
+        if (fullParsed) {
+          const result = workflowJsonSchema.safeParse(fullParsed);
+          if (!result.success) {
+            console.warn("Generated workflow has validation issues:", result.error.message);
+            // Don't fail — nodes are already on canvas, just warn
+          }
+        }
+
+        // Resume undo/redo history
+        useWorkflowStore.temporal.getState().resume();
+
+        // Auto-layout then fit view
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent("nexus:auto-layout"));
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent("nexus:fit-view"));
+          }, 500);
+        }, 100);
+
+        const finalNodes = useWorkflowStore.getState().nodes;
+        const finalEdges = useWorkflowStore.getState().edges;
+
+        set({
+          status: "done",
+          _glowingNodeIds: [],
+          parsedNodeCount: finalNodes.length,
+          parsedEdgeCount: finalEdges.length,
+        });
       } else {
         set({ error: "No response received from the AI model.", status: "error" });
       }
@@ -852,6 +999,7 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
       _addedNodeIds: new Set(),
       _addedEdgeIds: new Set(),
       _pendingEdges: [],
+      _glowingNodeIds: [],
     });
   },
 
@@ -867,19 +1015,29 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
       _addedNodeIds: new Set(),
       _addedEdgeIds: new Set(),
       _pendingEdges: [],
+      _glowingNodeIds: [],
     });
   },
 
   disposeSession: async () => {
-    const { sessionId, _abortController } = get();
+    const { sessionId, _abortController, _examplesSessionId, _examplesAbortController } = get();
     _abortController?.abort();
+    _examplesAbortController?.abort();
 
-    if (sessionId) {
-      const client = useOpenCodeStore.getState().client;
-      if (client) {
+    const client = useOpenCodeStore.getState().client;
+    if (client) {
+      if (sessionId) {
         try {
           await client.sessions.abort(sessionId).catch(() => {});
           await client.sessions.delete(sessionId).catch(() => {});
+        } catch {
+          // Ignore cleanup errors
+        }
+      }
+      if (_examplesSessionId) {
+        try {
+          await client.sessions.abort(_examplesSessionId).catch(() => {});
+          await client.sessions.delete(_examplesSessionId).catch(() => {});
         } catch {
           // Ignore cleanup errors
         }
@@ -898,7 +1056,101 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
       _addedNodeIds: new Set(),
       _addedEdgeIds: new Set(),
       _pendingEdges: [],
+      _glowingNodeIds: [],
+      aiExamples: [],
+      aiExamplesStatus: "idle",
+      _examplesSessionId: null,
+      _examplesAbortController: null,
     });
+  },
+
+  fetchAiExamples: async () => {
+    const { aiExamplesStatus, _examplesAbortController: prevAc, selectedModel } = get();
+
+    // Don't re-fetch if already loading or done
+    if (aiExamplesStatus === "loading" || aiExamplesStatus === "done") return;
+
+    const client = useOpenCodeStore.getState().client;
+    if (!client) return;
+
+    // Need a model selected
+    if (!selectedModel) return;
+
+    prevAc?.abort();
+    const abortController = new AbortController();
+    set({ aiExamplesStatus: "loading", _examplesAbortController: abortController });
+
+    try {
+      // Ensure a session for examples
+      let sid = get()._examplesSessionId;
+      if (!sid) {
+        const session = await client.sessions.create({ title: "Nexus Workflow Examples" });
+        sid = session.id;
+        set({ _examplesSessionId: sid });
+      }
+
+      const slashIdx = selectedModel.indexOf("/");
+      const providerId = slashIdx > 0 ? selectedModel.slice(0, slashIdx) : "";
+      const modelId = slashIdx > 0 ? selectedModel.slice(slashIdx + 1) : selectedModel;
+
+      // Send prompt async
+      await client.messages.sendAsync(sid, {
+        parts: [{ type: "text", text: "Generate 5 creative and diverse workflow prompt ideas that a user might want to build. Each should involve multiple node types (agents, if-else, switch, ask-user, skills, documents, sub-workflows). Return ONLY a JSON array of 5 strings, no explanation. Example format: [\"prompt 1\", \"prompt 2\", ...]" }],
+        model: { providerID: providerId, modelID: modelId },
+        system: "You output ONLY valid JSON arrays of strings. No markdown, no code fences, no explanation. Just the JSON array.",
+      }, { signal: abortController.signal });
+
+      // Stream events
+      let fullText = "";
+      for await (const event of client.events.subscribe({ signal: abortController.signal })) {
+        if (abortController.signal.aborted) break;
+
+        if (event.type === "message.part.delta") {
+          const props = event.properties as { sessionID: string; field: string; delta: string };
+          if (props.sessionID === sid && props.field === "text") {
+            fullText += props.delta;
+          }
+        } else if (event.type === "session.idle") {
+          const props = event.properties as { sessionID: string };
+          if (props.sessionID === sid) break;
+        } else if (event.type === "session.error") {
+          const props = event.properties as {
+            sessionID?: string;
+            error?: { name: string; data?: { message?: string } };
+          };
+          if (props.sessionID === sid) {
+            set({ aiExamplesStatus: "error", _examplesAbortController: null });
+            return;
+          }
+        }
+      }
+
+      // Parse the JSON array from the response
+      try {
+        // Strip code fences if the model wraps them anyway
+        let cleaned = fullText.trim();
+        if (cleaned.startsWith("```")) {
+          cleaned = cleaned.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "");
+        }
+        const parsed = JSON.parse(cleaned);
+        if (Array.isArray(parsed)) {
+          const examples = parsed
+            .filter((s: unknown) => typeof s === "string" && s.trim().length > 0)
+            .map((s: string) => s.trim());
+          set({ aiExamples: examples, aiExamplesStatus: "done", _examplesAbortController: null });
+        } else {
+          set({ aiExamplesStatus: "error", _examplesAbortController: null });
+        }
+      } catch {
+        set({ aiExamplesStatus: "error", _examplesAbortController: null });
+      }
+    } catch (err) {
+      if (abortController.signal.aborted) {
+        set({ aiExamplesStatus: "idle", _examplesAbortController: null });
+        return;
+      }
+      set({ aiExamplesStatus: "error", _examplesAbortController: null });
+    }
   },
 }));
 

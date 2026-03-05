@@ -33,7 +33,7 @@ const STEPS = [
   {
     title: "Install opencode",
     description: "If you haven't already, install the opencode CLI.",
-    command: "npm install -g opencode",
+    command: "npm i -g opencode-ai",
   },
   {
     title: "Start the server",

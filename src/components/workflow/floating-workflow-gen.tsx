@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import {
   Sparkles,
   X,
@@ -14,6 +14,8 @@ import {
   Zap,
   StopCircle,
   RotateCcw,
+  BotMessageSquare,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -22,6 +24,7 @@ import { Label } from "@/components/ui/label";
 import { useWorkflowGenStore } from "@/store/workflow-gen-store";
 import { useOpenCodeStore } from "@/store/opencode-store";
 import { useModels } from "@/hooks/use-models";
+import { ModelSelect } from "@/nodes/shared/model-select";
 import { toast } from "sonner";
 
 // ── Example prompts ──────────────────────────────────────────────────────────
@@ -30,7 +33,19 @@ const EXAMPLE_PROMPTS = [
   "A customer support workflow with an ask-user node to classify the issue, then routes to different specialist agents via a switch node",
   "A content generation pipeline with a research agent, writing agent with connected skills for SEO and tone, and an editor agent",
   "A data processing workflow that validates input, transforms data through multiple agents, and handles errors with if-else",
+  "An incident response workflow that detects alerts, triages severity with a switch node, and escalates to on-call agents",
+  "A recruitment pipeline with resume screening agent, interview scheduling via ask-user, and candidate scoring with if-else",
+  "A CI/CD approval workflow where an agent reviews build logs, asks the user for deploy confirmation, and triggers rollback on failure",
+  "A research assistant workflow with a search agent, a summarizer agent, and a fact-checker that loops back using sub-workflows",
+  "An e-commerce order workflow that validates payment, routes to fulfillment or fraud review via switch, and sends confirmation",
+  "A document translation pipeline with language detection, parallel translator agents, and a quality review agent with if-else gating",
 ];
+
+/** Number of workflow examples shown at a time */
+const VISIBLE_EXAMPLE_COUNT = 3;
+
+/** Interval (ms) between example rotations */
+const ROTATION_INTERVAL = 5000;
 
 // ── Component ────────────────────────────────────────────────────────────────
 // Floating panel for AI workflow generation, positioned top-center under the header.
@@ -56,16 +71,54 @@ export default function FloatingWorkflowGen() {
   const close = useWorkflowGenStore((s) => s.close);
   const toggleCollapsed = useWorkflowGenStore((s) => s.toggleCollapsed);
 
+  // AI-generated examples
+  const aiExamples = useWorkflowGenStore((s) => s.aiExamples);
+  const aiExamplesStatus = useWorkflowGenStore((s) => s.aiExamplesStatus);
+  const fetchAiExamples = useWorkflowGenStore((s) => s.fetchAiExamples);
+
   const connectionStatus = useOpenCodeStore((s) => s.status);
   const isConnected = connectionStatus === "connected";
 
-  const { groups, isLoading: modelsLoading } = useModels();
+  const { groups } = useModels();
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const isStreaming = status === "streaming" || status === "creating-session";
   const isDone = status === "done";
   const isError = status === "error";
+
+  // Fetch AI examples when panel opens with a model selected
+  useEffect(() => {
+    if (floating && isConnected && selectedModel && aiExamplesStatus === "idle") {
+      fetchAiExamples();
+    }
+  }, [floating, isConnected, selectedModel, aiExamplesStatus, fetchAiExamples]);
+
+  // ── Dynamic example rotation ──────────────────────────────
+  // Combine hardcoded + AI-generated examples into one pool
+  const allExamples = useMemo(
+    () => [...EXAMPLE_PROMPTS, ...aiExamples],
+    [aiExamples],
+  );
+
+  const [exampleTick, setExampleTick] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setExampleTick((prev) => prev + 1);
+    }, ROTATION_INTERVAL);
+    return () => clearInterval(timer);
+  }, []);
+
+  const exampleOffset = (exampleTick * VISIBLE_EXAMPLE_COUNT) % allExamples.length;
+
+  const visibleExamples = useMemo(() => {
+    const result: string[] = [];
+    for (let i = 0; i < VISIBLE_EXAMPLE_COUNT; i++) {
+      result.push(allExamples[(exampleOffset + i) % allExamples.length]);
+    }
+    return result;
+  }, [allExamples, exampleOffset]);
 
   // Auto-select first model if none selected
   useEffect(() => {
@@ -124,7 +177,7 @@ export default function FloatingWorkflowGen() {
   return (
     <div
       className={cn(
-        "absolute z-40 flex flex-col rounded-2xl border bg-zinc-900/95 backdrop-blur-xl shadow-2xl shadow-black/40 overflow-hidden",
+        "absolute z-40 flex flex-col rounded-2xl border bg-zinc-900/95 backdrop-blur-xl shadow-2xl shadow-black/40",
         "animate-in slide-in-from-top-4 fade-in-0 duration-200",
         "border-violet-700/30",
       )}
@@ -206,7 +259,18 @@ export default function FloatingWorkflowGen() {
 
       {/* ── Body (hidden when collapsed) ──────────────────────────── */}
       {!collapsed && (
-        <div className="flex-1 overflow-y-auto min-h-0 p-3.5 space-y-3.5">
+        <>
+          {/* ── Model selector (outside scroll area so dropdown isn't clipped) ── */}
+          <div className="px-3.5 pt-3.5 pb-0 space-y-1.5 shrink-0">
+            <Label className="text-zinc-400 text-[11px] font-medium">Model</Label>
+            <ModelSelect
+              value={selectedModel}
+              onChange={setSelectedModel}
+              hideInherit
+            />
+          </div>
+
+          <div className="flex-1 overflow-y-auto min-h-0 px-3.5 pb-3.5 pt-3.5 space-y-3.5">
           {/* ── Connection warning ──────────────────────────────── */}
           {!isConnected && (
             <div className="flex items-center gap-2 text-amber-400 bg-amber-950/20 border border-amber-800/30 rounded-lg px-3 py-2 text-xs">
@@ -237,56 +301,55 @@ export default function FloatingWorkflowGen() {
           {/* ── Example prompts ────────────────────────────────── */}
           {!isStreaming && !isDone && (
             <div className="space-y-1.5">
-              <Label className="text-zinc-500 text-[10px] font-medium uppercase tracking-wider">
-                Examples
-              </Label>
-              <div className="grid grid-cols-1 gap-1">
-                {EXAMPLE_PROMPTS.map((example, i) => (
+              <div className="flex items-center justify-between">
+                <Label className="text-zinc-500 text-[10px] font-medium uppercase tracking-wider flex items-center gap-1.5">
+                  Examples
+                  {aiExamplesStatus === "loading" && (
+                    <Loader2 size={9} className="text-violet-400 animate-spin" />
+                  )}
+                  {aiExamplesStatus === "done" && aiExamples.length > 0 && (
+                    <span className="flex items-center gap-0.5 text-violet-400/70 normal-case tracking-normal font-normal">
+                      <BotMessageSquare size={9} />
+                      <span>+{aiExamples.length} AI</span>
+                    </span>
+                  )}
+                </Label>
+                {isConnected && aiExamplesStatus !== "loading" && (
                   <button
-                    key={i}
                     type="button"
-                    onClick={() => handleExampleClick(example)}
-                    className="text-left text-[11px] text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 rounded-lg px-2.5 py-1.5 transition-colors border border-transparent hover:border-zinc-700/50"
+                    onClick={() => {
+                      useWorkflowGenStore.setState({ aiExamples: [], aiExamplesStatus: "idle", _examplesSessionId: null });
+                      fetchAiExamples();
+                    }}
+                    className="flex items-center gap-1 text-[10px] text-zinc-600 hover:text-violet-400 transition-colors"
+                    title="Generate new AI examples"
                   >
-                    <Zap size={9} className="inline mr-1 text-violet-500/60" />
-                    {example}
+                    <RefreshCw size={9} />
+                    Refresh
                   </button>
-                ))}
+                )}
+              </div>
+              <div className="grid grid-cols-1 gap-1">
+                {visibleExamples.map((example, i) => {
+                  const isAiExample = aiExamples.includes(example);
+                  return (
+                    <button
+                      key={`${exampleOffset}-${i}`}
+                      type="button"
+                      onClick={() => handleExampleClick(example)}
+                      className="text-left text-[11px] text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 rounded-lg px-2.5 py-1.5 transition-colors border border-transparent hover:border-zinc-700/50 animate-in fade-in-50 duration-300"
+                    >
+                      {isAiExample
+                        ? <BotMessageSquare size={9} className="inline mr-1 text-violet-400/70" />
+                        : <Zap size={9} className="inline mr-1 text-violet-500/60" />
+                      }
+                      {example}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
-
-          {/* ── Model selector ─────────────────────────────────── */}
-          <div className="space-y-1.5">
-            <Label className="text-zinc-400 text-[11px] font-medium">Model</Label>
-            <div className="relative">
-              <select
-                value={selectedModel}
-                onChange={(e) => setSelectedModel(e.target.value)}
-                disabled={!isConnected || modelsLoading || isStreaming}
-                className="w-full h-8 bg-zinc-800/50 border border-zinc-700/50 rounded-lg text-xs text-zinc-200 px-2.5 pr-7 appearance-none focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {!isConnected && <option value="">Not connected</option>}
-                {isConnected && modelsLoading && <option value="">Loading models…</option>}
-                {isConnected && !modelsLoading && groups.length === 0 && (
-                  <option value="">No models available</option>
-                )}
-                {groups.map((group, idx) => (
-                  <optgroup key={`${group.providerId}-${idx}`} label={group.label}>
-                    {group.models.map((m) => (
-                      <option key={m.value} value={m.value}>
-                        {m.displayName}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-              <ChevronDown
-                size={12}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none"
-              />
-            </div>
-          </div>
 
           {/* ── Streaming progress ─────────────────────────────── */}
           {(isStreaming || isDone || isError) && (
@@ -403,6 +466,7 @@ export default function FloatingWorkflowGen() {
             </div>
           </div>
         </div>
+        </>
       )}
     </div>
   );

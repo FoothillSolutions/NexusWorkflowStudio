@@ -163,10 +163,26 @@ function collectSubtree(
   return visited;
 }
 
+// ── Attachment layout constants ─────────────────────────────────────────────
+
+/** Types that are positioned relative to their parent agent, not by Dagre. */
+const ATTACHMENT_TYPES = new Set<string>(["skill", "document"]);
+
+/** Horizontal gap (px) between the attachment column and the agent's left edge. */
+const ATTACHMENT_X_GAP = 40;
+
+/** Vertical offset (px) below the agent's bottom edge where attachments start. */
+const ATTACHMENT_Y_OFFSET = 30;
+
 /**
- * Hook that provides auto-layout functionality using Dagre.
- * Works for both root canvas (store-based) and sub-workflow canvas (local state).
+ * Estimated rendered height (px) of a skill / document node.
  */
+const ATTACHMENT_RENDERED_HEIGHT = 200;
+
+/** Vertical gap (px) between stacked skill/document nodes. */
+const ATTACHMENT_Y_GAP = 60;
+
+
 export function useAutoLayout({ getNodes, getEdges, setNodes, onComplete }: AutoLayoutOptions) {
   const { fitView } = useReactFlow();
 
@@ -176,20 +192,80 @@ export function useAutoLayout({ getNodes, getEdges, setNodes, onComplete }: Auto
     if (currentNodes.length === 0) return;
 
     const defaultDim = NODE_SIZE_DIMENSIONS[NodeSize.Medium];
-    const g = new Dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
-    g.setGraph({ rankdir: "LR", nodesep: 120, ranksep: 200, marginx: 60, marginy: 60 });
 
-    currentNodes.forEach((node) => {
+    // ── Separate attachment (skill/document) nodes from flow nodes ────
+    const flowNodes: WorkflowNode[] = [];
+    const attachmentNodes: WorkflowNode[] = [];
+    const nodeDataMap = new Map<string, Record<string, unknown>>();
+
+    for (const node of currentNodes) {
+      const d = node.data as Record<string, unknown>;
+      nodeDataMap.set(node.id, d);
+      if (ATTACHMENT_TYPES.has(d.type as string)) {
+        attachmentNodes.push(node);
+      } else {
+        flowNodes.push(node);
+      }
+    }
+
+    // Build map: agent id → list of attachment nodes connected to it
+    // Track which attachment nodes have already been claimed by an agent
+    // so that if a skill/document is wired to multiple agents only the
+    // first one "owns" it for layout purposes.
+    const agentAttachments = new Map<string, WorkflowNode[]>();
+    const claimedAttachments = new Set<string>();
+
+    for (const edge of currentEdges) {
+      const sourceData = nodeDataMap.get(edge.source);
+      const targetData = nodeDataMap.get(edge.target);
+      if (!sourceData || !targetData) continue;
+
+      const srcType = sourceData.type as string;
+      const tgtType = targetData.type as string;
+
+      if (ATTACHMENT_TYPES.has(srcType) && tgtType === "agent") {
+        // Skip if this attachment was already claimed by another agent
+        if (claimedAttachments.has(edge.source)) continue;
+        claimedAttachments.add(edge.source);
+
+        if (!agentAttachments.has(edge.target)) agentAttachments.set(edge.target, []);
+        const list = agentAttachments.get(edge.target)!;
+        // Deduplicate — same node shouldn't appear twice for the same agent
+        if (!list.some(n => n.id === edge.source)) {
+          const attachNode = currentNodes.find(n => n.id === edge.source);
+          if (attachNode) list.push(attachNode);
+        }
+      }
+    }
+
+    // ── Filter edges: only include flow edges for Dagre ──────────────
+    const flowEdges = currentEdges.filter(edge => {
+      const sourceData = nodeDataMap.get(edge.source);
+      if (sourceData && ATTACHMENT_TYPES.has(sourceData.type as string)) return false;
+      const targetData = nodeDataMap.get(edge.target);
+      if (targetData && ATTACHMENT_TYPES.has(targetData.type as string)) return false;
+      return true;
+    });
+
+    // ── Run Dagre on flow nodes only ─────────────────────────────────
+    const g = new Dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
+    g.setGraph({ rankdir: "LR", nodesep: 120, ranksep: 250, marginx: 60, marginy: 60 });
+
+    flowNodes.forEach((node) => {
       const entry = NODE_REGISTRY[node.type as NodeType];
       const dim = NODE_SIZE_DIMENSIONS[entry?.size ?? NodeSize.Medium] ?? defaultDim;
       g.setNode(node.id, { width: dim.width, height: dim.height });
     });
 
-    currentEdges.forEach((edge) => g.setEdge(edge.source, edge.target));
+    flowEdges.forEach((edge) => {
+      if (g.hasNode(edge.source) && g.hasNode(edge.target)) {
+        g.setEdge(edge.source, edge.target);
+      }
+    });
     Dagre.layout(g);
 
     const targetPositions: Record<string, { x: number; y: number }> = {};
-    currentNodes.forEach((node) => {
+    flowNodes.forEach((node) => {
       const dn = g.node(node.id);
       if (dn) {
         targetPositions[node.id] = {
@@ -202,6 +278,91 @@ export function useAutoLayout({ getNodes, getEdges, setNodes, onComplete }: Auto
     // Fix branch ordering: ensure if-else "true" is above "false",
     // and switch branches are ordered top-to-bottom by definition order.
     fixBranchOrdering(targetPositions, currentNodes, currentEdges);
+
+    // ── Shift agents with attachments to make room behind them ───────
+    // Push the agent (and everything at the same rank or later) right so
+    // the single attachment column doesn't overlap with the previous rank.
+    const attachNodeWidth = (NODE_SIZE_DIMENSIONS[NodeSize.Small]?.width ?? 180);
+
+    for (const [agentId, attachments] of agentAttachments) {
+      if (attachments.length === 0) continue;
+      const agentPos = targetPositions[agentId];
+      if (!agentPos) continue;
+
+      // The attachment column left edge
+      const neededLeft = agentPos.x - attachNodeWidth - ATTACHMENT_X_GAP;
+
+      // Find the closest flow node to the left of this agent
+      let closestLeftEdge = -Infinity;
+      for (const node of flowNodes) {
+        if (node.id === agentId) continue;
+        const pos = targetPositions[node.id];
+        if (!pos) continue;
+        const entry = NODE_REGISTRY[node.type as NodeType];
+        const dim = NODE_SIZE_DIMENSIONS[entry?.size ?? NodeSize.Medium] ?? defaultDim;
+        const rightEdge = pos.x + dim.width;
+        if (rightEdge <= agentPos.x && rightEdge > closestLeftEdge) {
+          closestLeftEdge = rightEdge;
+        }
+      }
+
+      if (closestLeftEdge > -Infinity) {
+        const minGap = 40;
+        const overlap = (closestLeftEdge + minGap) - neededLeft;
+        if (overlap > 0) {
+          const agentX = agentPos.x;
+          for (const node of flowNodes) {
+            const pos = targetPositions[node.id];
+            if (pos && pos.x >= agentX) {
+              pos.x += overlap;
+            }
+          }
+        }
+      }
+    }
+
+    // ── Position attachment nodes behind their parent agent ──────────
+    // Attachments sit to the LEFT of the agent and BELOW the agent's
+    // bottom edge (baseline). All stack vertically in a single column:
+    // skills first, then documents, each underneath the previous one.
+    for (const [agentId, attachments] of agentAttachments) {
+      const agentPos = targetPositions[agentId];
+      if (!agentPos) continue;
+
+      const agentEntry = NODE_REGISTRY["agent" as NodeType];
+      const agentDim = NODE_SIZE_DIMENSIONS[agentEntry?.size ?? NodeSize.Large] ?? defaultDim;
+      const attachDim = NODE_SIZE_DIMENSIONS[NodeSize.Small] ?? defaultDim;
+
+      // x: single column to the left of the agent
+      const attachX = agentPos.x - attachDim.width - ATTACHMENT_X_GAP;
+
+      // y: starts below the agent's bottom edge
+      const startY = agentPos.y + agentDim.height + ATTACHMENT_Y_OFFSET;
+
+      // Sort: skills first, then documents
+      const sorted = [...attachments].sort((a, b) => {
+        const aType = (a.data as Record<string, unknown>).type as string;
+        const bType = (b.data as Record<string, unknown>).type as string;
+        if (aType === bType) return 0;
+        return aType === "skill" ? -1 : 1;
+      });
+
+      // Stack all underneath each other, using realistic rendered height
+      sorted.forEach((node, i) => {
+        targetPositions[node.id] = {
+          x: attachX,
+          y: startY + i * (ATTACHMENT_RENDERED_HEIGHT + ATTACHMENT_Y_GAP),
+        };
+      });
+    }
+
+    // ── Handle orphan attachment nodes (not connected to any agent) ──
+    for (const node of attachmentNodes) {
+      if (!targetPositions[node.id]) {
+        // Place it near its current position as fallback
+        targetPositions[node.id] = { ...node.position };
+      }
+    }
 
     const start = performance.now();
     const startPositions: Record<string, { x: number; y: number }> = {};

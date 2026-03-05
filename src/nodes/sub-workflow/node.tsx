@@ -26,7 +26,7 @@ export const SubWorkflowNode = memo(function SubWorkflowNode({ id, data, selecte
   }, [id]);
 
   return (
-    <BaseNode accentHex={accentHex} selected={selected} label={data.label || displayName} type={data.type} icon={icon} size={NodeSize.Large}>
+    <BaseNode accentHex={accentHex} selected={selected} label={data.label || displayName} type={data.type} icon={icon} size={NodeSize.Large} nodeId={id}>
       <div className="flex flex-col gap-2.5">
         {/* Mode badge */}
         <div className="flex items-center gap-2">

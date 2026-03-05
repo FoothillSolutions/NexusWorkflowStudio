@@ -33,9 +33,11 @@ function CostBadge({ cost }: { cost: number | undefined }) {
 interface ModelSelectProps {
   value: string;
   onChange: (value: string) => void;
+  /** When true, hides the "Inherit from workflow" option (useful outside node context). */
+  hideInherit?: boolean;
 }
 
-export function ModelSelect({ value, onChange }: ModelSelectProps) {
+export function ModelSelect({ value, onChange, hideInherit }: ModelSelectProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const { groups, isLoading, isDisabled } = useModels();
@@ -141,25 +143,27 @@ export function ModelSelect({ value, onChange }: ModelSelectProps) {
         >
           <div className="max-h-[380px] overflow-y-auto py-1">
             {/* Inherit option */}
-            <button
-              type="button"
-              onClick={() => { onChange(SubAgentModel.Inherit); setOpen(false); }}
-              className={cn(
-                "w-full flex items-center gap-2.5 px-3 py-2.5 text-sm transition-colors",
-                "hover:bg-violet-500/10",
-                value === SubAgentModel.Inherit
-                  ? "text-violet-300 bg-violet-500/15 border-b border-violet-500/20"
-                  : "text-zinc-400 border-b border-zinc-800/80"
-              )}
-            >
-              <span className="w-[18px] flex items-center justify-center shrink-0">
-                <Sparkles size={13} className="text-violet-400" />
-              </span>
-              <span className="flex-1 text-left font-medium">{MODEL_DISPLAY_NAMES[SubAgentModel.Inherit]}</span>
-              {value === SubAgentModel.Inherit && (
-                <Check size={14} className="text-violet-400 shrink-0" />
-              )}
-            </button>
+            {!hideInherit && (
+              <button
+                type="button"
+                onClick={() => { onChange(SubAgentModel.Inherit); setOpen(false); }}
+                className={cn(
+                  "w-full flex items-center gap-2.5 px-3 py-2.5 text-sm transition-colors",
+                  "hover:bg-violet-500/10",
+                  value === SubAgentModel.Inherit
+                    ? "text-violet-300 bg-violet-500/15 border-b border-violet-500/20"
+                    : "text-zinc-400 border-b border-zinc-800/80"
+                )}
+              >
+                <span className="w-[18px] flex items-center justify-center shrink-0">
+                  <Sparkles size={13} className="text-violet-400" />
+                </span>
+                <span className="flex-1 text-left font-medium">{MODEL_DISPLAY_NAMES[SubAgentModel.Inherit]}</span>
+                {value === SubAgentModel.Inherit && (
+                  <Check size={14} className="text-violet-400 shrink-0" />
+                )}
+              </button>
+            )}
 
             {/* Loading state */}
             {isLoading && (

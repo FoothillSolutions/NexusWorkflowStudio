@@ -3,7 +3,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import {
   Sparkles, Wand2, ChevronDown, Loader2, Check, RotateCcw,
-  Layers, FileText, Square, Lightbulb, Eye, Lock,
+  Layers, FileText, Square, Lightbulb, Eye, Lock, Zap,
   FolderTree, GitBranch, FileCode, TestTubes, Type, Target, Variable, ListChecks,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -43,6 +43,47 @@ const SECTIONS: TemplateSection[] = [
   { key: "template", label: "Template", icon: FileCode, placeholder: "Standard boilerplate or referenced template…", hint: "Output template or boilerplate snippet", rows: 3 },
   { key: "examples", label: "Examples", icon: TestTubes, placeholder: "Example 1: $1=\"2026-03-01\" → Generate summary", hint: "Input/output examples including edge cases", rows: 4 },
 ];
+
+// ── Dynamic example prompts per node type ────────────────────────────────────
+
+const AGENT_EXAMPLES = [
+  "Create an agent that triages support tickets, categorizes by priority, and generates a daily report",
+  "Build a code review agent that checks for security vulnerabilities, code style, and suggests improvements",
+  "Design an agent that summarizes long documents into concise bullet points with key takeaways",
+  "An agent that monitors API health, detects anomalies, and sends alerts with root cause analysis",
+  "Create a data analyst agent that queries databases, generates charts, and writes executive summaries",
+  "Build an onboarding agent that guides new users through setup steps and answers common questions",
+  "An agent that translates technical documentation into multiple languages while preserving code blocks",
+  "Design a meeting assistant that takes notes, extracts action items, and sends follow-up emails",
+];
+
+const SKILL_EXAMPLES = [
+  "A skill that teaches the agent how to write clean unit tests with proper mocking and assertions",
+  "Teach the agent to generate SQL queries from natural language descriptions with optimization hints",
+  "A skill for writing compelling marketing copy with A/B test variations and tone adjustments",
+  "Teach the agent to perform code refactoring following SOLID principles and design patterns",
+  "A skill for generating API documentation from code with examples and error response formats",
+  "Teach the agent to write git commit messages following conventional commit standards",
+  "A skill for creating database migration scripts with rollback strategies",
+  "Teach the agent to analyze log files and identify patterns indicating system issues",
+];
+
+const PROMPT_EXAMPLES = [
+  "Write a prompt that takes a topic and generates a structured blog post with intro, key points, and conclusion",
+  "A prompt that converts user stories into detailed technical specifications with acceptance criteria",
+  "Generate a prompt that creates test plans from feature requirements with edge cases and test data",
+  "A prompt that transforms raw data into formatted reports with charts description and insights",
+  "Write a prompt that generates release notes from a list of commits and pull requests",
+  "A prompt that creates onboarding checklists tailored to different roles and departments",
+  "Generate a prompt that takes meeting transcripts and outputs structured minutes with decisions and actions",
+  "A prompt that generates interview questions based on a job description and candidate level",
+];
+
+/** Number of example prompts shown at a time */
+const VISIBLE_EXAMPLE_COUNT = 3;
+
+/** Interval (ms) between example rotations */
+const ROTATION_INTERVAL = 5000;
 
 function resolveModelIds(model: string): { providerId: string; modelId: string } {
   if (model === SubAgentModel.Inherit || !model) {
@@ -87,6 +128,36 @@ export function PromptGenBody() {
 
   const isPromptNode = targetNodeType === "prompt";
   const isSkillNode = targetNodeType === "skill";
+
+  // ── Dynamic example prompts ──────────────────────────────
+  const examplePool = useMemo(
+    () => isSkillNode ? SKILL_EXAMPLES : isPromptNode ? PROMPT_EXAMPLES : AGENT_EXAMPLES,
+    [isSkillNode, isPromptNode],
+  );
+
+  const [exampleTick, setExampleTick] = useState(0);
+
+  // Rotate examples every ROTATION_INTERVAL ms
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setExampleTick((prev) => prev + 1);
+    }, ROTATION_INTERVAL);
+    return () => clearInterval(timer);
+  }, []);
+
+  const exampleOffset = (exampleTick * VISIBLE_EXAMPLE_COUNT) % examplePool.length;
+
+  const visibleExamples = useMemo(() => {
+    const result: string[] = [];
+    for (let i = 0; i < VISIBLE_EXAMPLE_COUNT; i++) {
+      result.push(examplePool[(exampleOffset + i) % examplePool.length]);
+    }
+    return result;
+  }, [examplePool, exampleOffset]);
+
+  const handleExampleClick = useCallback((example: string) => {
+    setFreeformText(example);
+  }, [setFreeformText]);
 
   const isGenerating = status === "generating" || status === "streaming" || status === "creating-session";
   const hasResult = status === "done" && generatedText.trim().length > 0;
@@ -174,6 +245,28 @@ export function PromptGenBody() {
                 rows={3}
                 disabled={isGenerating}
               />
+
+              {/* Dynamic examples */}
+              {!isGenerating && !hasResult && (
+                <div className="space-y-1.5">
+                  <Label className="text-zinc-500 text-[10px] font-medium uppercase tracking-wider">
+                    Examples
+                  </Label>
+                  <div className="grid grid-cols-1 gap-1">
+                    {visibleExamples.map((example, i) => (
+                      <button
+                        key={`${exampleOffset}-${i}`}
+                        type="button"
+                        onClick={() => handleExampleClick(example)}
+                        className="text-left text-[11px] text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 rounded-lg px-2.5 py-1.5 transition-colors border border-transparent hover:border-zinc-700/50 animate-in fade-in-50 duration-300"
+                      >
+                        <Zap size={9} className="inline mr-1 text-violet-500/60" />
+                        {example}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

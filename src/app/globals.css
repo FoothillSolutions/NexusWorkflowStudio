@@ -219,3 +219,28 @@
   }
 }
 
+/* ── AI generation — node glow indicator ──────────────────────────────────── */
+@keyframes ai-glow {
+  0%, 100% {
+    outline-color: rgba(139, 92, 246, 0.5);
+    outline-offset: 1px;
+    box-shadow:
+      0 0 10px 2px rgba(139, 92, 246, 0.25),
+      0 0 4px 0px rgba(139, 92, 246, 0.15);
+  }
+  50% {
+    outline-color: rgba(139, 92, 246, 0.9);
+    outline-offset: 2px;
+    box-shadow:
+      0 0 24px 6px rgba(139, 92, 246, 0.4),
+      0 0 8px 1px rgba(139, 92, 246, 0.3);
+  }
+}
+
+.ai-node-glow {
+  outline: 2px solid rgba(139, 92, 246, 0.7);
+  outline-offset: 2px;
+  animation: ai-glow 2s ease-in-out infinite;
+}
+
+
