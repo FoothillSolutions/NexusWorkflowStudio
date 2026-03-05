@@ -21,8 +21,10 @@ export type WorkflowGenStatus =
   | "error";
 
 interface WorkflowGenState {
-  /** Whether the dialog is open */
-  open: boolean;
+  /** Whether the floating panel is visible */
+  floating: boolean;
+  /** Whether the floating panel body is collapsed */
+  collapsed: boolean;
   /** Current generation status */
   status: WorkflowGenStatus;
   /** The user's natural-language prompt */
@@ -43,9 +45,17 @@ interface WorkflowGenState {
   sessionId: string | null;
   /** AbortController for the SSE stream */
   _abortController: AbortController | null;
+  /** Tracks which node IDs have already been added to the canvas */
+  _addedNodeIds: Set<string>;
+  /** Tracks which edge IDs have already been added to the canvas */
+  _addedEdgeIds: Set<string>;
+  /** Edges waiting for their source/target nodes to appear */
+  _pendingEdges: Array<Record<string, unknown>>;
 
   // Actions
-  setOpen: (open: boolean) => void;
+  setFloating: (open: boolean) => void;
+  toggleCollapsed: () => void;
+  close: () => void;
   setPrompt: (prompt: string) => void;
   setSelectedModel: (model: string) => void;
   generate: () => Promise<void>;
@@ -117,8 +127,8 @@ You generate workflow JSON for Nexus Workflow Studio.
 ## Edge Rules  
 - Edge IDs: "e-<sourceId>-<targetId>"
 - Normal flow: sourceHandle: "output", targetHandle: "input"
-- Skill→Agent: targetHandle: "skills" (skill nodes can ONLY connect to agent nodes)
-- Document→Agent: targetHandle: "docs" (document nodes can ONLY connect to agent nodes)
+- Skill→Agent: sourceHandle: "skill-out", targetHandle: "skills" (skill nodes can ONLY connect to agent nodes)
+- Document→Agent: sourceHandle: "doc-out", targetHandle: "docs" (document nodes can ONLY connect to agent nodes)
 
 CRITICAL — If-else node edges:
 - If-else nodes have exactly 2 branches. The sourceHandle IDs are ALWAYS "true" for the first branch and "false" for the second branch.
@@ -143,21 +153,120 @@ Every branch MUST have an outgoing edge. Do NOT leave any branch unconnected.
 
 ${buildNodeCatalogue()}
 
+## Understanding Skills and Documents
+
+### Skills (type: "skill")
+Skills are reusable knowledge/instruction units that get attached to agents. They represent specialised capabilities the agent should have. A skill node generates a \`.opencode/skills/<skillName>/SKILL.md\` file containing frontmatter (name, description, metadata) and the skill's instructions (promptText).
+
+- **skillName**: A kebab-case slug used as the folder name (e.g. "code-review", "seo-optimization"). Must match [a-z0-9]+(-[a-z0-9]+)*.
+- **description**: Explains what the skill does.
+- **promptText**: The actual instructions/knowledge content for the skill. This should be detailed and production-ready.
+- **metadata**: Optional key-value pairs (e.g. [{"key":"workflow","value":"github"}]).
+- Skills connect ONLY to agent nodes via: sourceHandle: "skill-out", targetHandle: "skills".
+- A skill is NOT part of the main workflow flow — it sits beside its parent agent and provides it with extra capabilities.
+- Position skill nodes ABOVE their connected agent (same x, y offset -120 to -160).
+
+Generated skill file template (\`.opencode/skills/<skillName>/SKILL.md\`):
+\`\`\`
+---
+name: <skillName>
+description: <description>
+compatibility: opencode
+metadata:
+  workflow: github
+---
+
+<promptText content here - the actual skill instructions>
+\`\`\`
+
+### Documents (type: "document")
+Documents are reference materials attached to agents. They provide context, data, or reference content the agent needs. A document node generates a \`.opencode/docs/<docName>.<ext>\` file.
+
+- **docName**: A kebab-case slug used as the filename (e.g. "api-guide", "style-rules"). Must match [a-z0-9]+(-[a-z0-9]+)*.
+- **contentMode**: "inline" (content typed directly in contentText) or "linked" (external file).
+- **fileExtension**: "md", "txt", "json", or "yaml".
+- **contentText**: The actual document content when contentMode is "inline". Write meaningful reference content.
+- **description**: Explains what the document contains.
+- Documents connect ONLY to agent nodes via: sourceHandle: "doc-out", targetHandle: "docs".
+- A document is NOT part of the main workflow flow — it sits beside its parent agent and feeds it context.
+- Position document nodes BELOW their connected agent (same x, y offset +120 to +160).
+
+Generated document file template (\`.opencode/docs/<docName>.<ext>\`):
+\`\`\`
+<contentText content here - the actual document content>
+\`\`\`
+
+### How Skills and Documents Attach to Agents
+When skills/documents are connected to an agent, they appear in the generated agent file's frontmatter:
+\`\`\`
+---
+description: <agent description>
+mode: subagent
+hidden: true
+skills:
+  - <skillName1>
+  - <skillName2>
+docs:
+  - <docName1>.<ext>
+  - <docName2>.<ext>
+color: "#5f27cd"
+---
+
+<agent promptText here>
+\`\`\`
+
+## Agent Template (Generated .opencode/agents/<name>.md)
+Each agent node produces a \`.opencode/agents/<agentName>.md\` file. The agent's promptText becomes the main body of this file. Write detailed, production-ready prompts.
+
+Full agent file template:
+\`\`\`
+---
+description: <description of what the agent does>
+mode: subagent
+hidden: true
+model: <model if not "inherit">
+memory: <memory if not "default">
+tools:
+  <disabledToolName>: false
+skills:
+  - <connected skill names>
+docs:
+  - <connected document names>
+temperature: <temperature if > 0>
+color: "<color hex>"
+---
+
+## Variables
+- \\\`varName\\\`: \\\`resolved/path\\\`
+
+<promptText — the full agent instructions>
+\`\`\`
+
+The promptText for agents should be a comprehensive, multi-paragraph system prompt that tells the agent exactly what to do, how to handle edge cases, what output format to use, etc. Think of it like writing a system prompt for a real AI agent.
+
 ## Node Data Templates
 
 start: {"type":"start","label":"Start","name":"<id>"}
 end: {"type":"end","label":"End","name":"<id>"}
-agent: {"type":"agent","label":"<label>","name":"<id>","description":"<desc>","promptText":"<prompt>","detectedVariables":[],"model":"inherit","memory":"default","temperature":0,"color":"#5f27cd","disabledTools":[],"parameterMappings":[],"variableMappings":{}}
+agent: {"type":"agent","label":"<label>","name":"<id>","description":"<desc>","promptText":"<detailed multi-line agent instructions>","detectedVariables":[],"model":"inherit","memory":"default","temperature":0,"color":"#5f27cd","disabledTools":[],"parameterMappings":[],"variableMappings":{}}
 prompt: {"type":"prompt","label":"<label>","name":"<id>","promptText":"<text>","detectedVariables":[]}
-skill: {"type":"skill","label":"<label>","name":"<id>","skillName":"<name>","projectName":"","description":"<desc>","promptText":"<instructions>","detectedVariables":[],"metadata":[]}
-document: {"type":"document","label":"<label>","name":"<id>","docName":"<name>","contentMode":"inline","fileExtension":"md","contentText":"<content>","linkedFileName":"","linkedFileContent":"","description":"<desc>"}
+skill: {"type":"skill","label":"<label>","name":"<id>","skillName":"<kebab-case-name>","projectName":"","description":"<what this skill does>","promptText":"<detailed skill instructions and knowledge content>","detectedVariables":[],"metadata":[{"key":"workflow","value":"github"}]}
+document: {"type":"document","label":"<label>","name":"<id>","docName":"<kebab-case-name>","contentMode":"inline","fileExtension":"md","contentText":"<actual document content - reference material, guides, data>","linkedFileName":"","linkedFileContent":"","description":"<what this document contains>"}
 mcp-tool: {"type":"mcp-tool","label":"<label>","name":"<id>","toolName":"<name>","paramsText":""}
 if-else: {"type":"if-else","label":"<label>","name":"<id>","evaluationTarget":"<target>","branches":[{"label":"If <cond>","condition":"<cond>"},{"label":"Else","condition":"else"}]}
 switch: {"type":"switch","label":"<label>","name":"<id>","evaluationTarget":"<target>","branches":[{"label":"<case>","condition":"<cond>"}]}
 ask-user: {"type":"ask-user","label":"<label>","name":"<id>","questionText":"<question>","multipleSelection":false,"aiSuggestOptions":false,"options":[{"label":"<opt>","description":"<desc>"}]}
 sub-workflow: {"type":"sub-workflow","label":"<label>","name":"<id>","mode":"same-context","subNodes":[],"subEdges":[],"nodeCount":0,"description":"","model":"inherit","memory":"default","temperature":0,"color":"#a855f7","disabledTools":[]}
 
-Generate meaningful labels, descriptions, and promptText content. Make it production-ready. NOW OUTPUT ONLY JSON.`;
+## Important Guidelines
+- Generate meaningful labels, descriptions, and promptText content. Make it production-ready.
+- When an agent needs specific capabilities, create skill nodes with detailed instructions and connect them.
+- When an agent needs reference data, context, or guides, create document nodes with real content and connect them.
+- Agent promptText should be comprehensive — write it as a real system prompt for an AI agent.
+- Skill promptText should contain the actual skill instructions/knowledge (not just a placeholder).
+- Document contentText should contain actual reference content (not just a placeholder).
+
+NOW OUTPUT ONLY JSON.`;
 }
 
 /**
@@ -215,8 +324,43 @@ function tryParseWorkflowJSON(text: string): {
 
 // ── Store ────────────────────────────────────────────────────────────────────
 
+/** Fix if-else / switch sourceHandles on a set of edges using node type info. */
+function fixEdgeHandles(
+  edges: Array<Record<string, unknown>>,
+  nodeTypeMap: Map<string, { type: string; branches?: Array<{ label: string }> }>,
+): WorkflowEdge[] {
+  return edges.map((edge) => {
+    const sourceInfo = nodeTypeMap.get(edge.source as string);
+    if (!sourceInfo) return { ...edge, type: "deletable" } as unknown as WorkflowEdge;
+
+    const handle = edge.sourceHandle as string | undefined;
+
+    if (sourceInfo.type === "if-else") {
+      if (handle === "branch-0" || handle === "0") {
+        return { ...edge, sourceHandle: "true", type: "deletable" } as unknown as WorkflowEdge;
+      }
+      if (handle === "branch-1" || handle === "1") {
+        return { ...edge, sourceHandle: "false", type: "deletable" } as unknown as WorkflowEdge;
+      }
+    }
+
+    if (sourceInfo.type === "switch" && sourceInfo.branches) {
+      const branchMatch = handle?.match(/^branch-(\d+)$/);
+      if (branchMatch) {
+        const idx = parseInt(branchMatch[1], 10);
+        if (idx < sourceInfo.branches.length) {
+          return { ...edge, sourceHandle: sourceInfo.branches[idx].label, type: "deletable" } as unknown as WorkflowEdge;
+        }
+      }
+    }
+
+    return { ...edge, type: "deletable" } as unknown as WorkflowEdge;
+  });
+}
+
 export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
-  open: false,
+  floating: false,
+  collapsed: false,
   status: "idle",
   prompt: "",
   selectedModel: "",
@@ -227,16 +371,28 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
   error: null,
   sessionId: null,
   _abortController: null,
+  _addedNodeIds: new Set<string>(),
+  _addedEdgeIds: new Set<string>(),
+  _pendingEdges: [],
 
-  setOpen: (open) => {
+  setFloating: (open) => {
     if (!open) {
-      // Cancel if closing while streaming
       const { status, _abortController } = get();
       if (status === "streaming" || status === "creating-session") {
         _abortController?.abort();
       }
     }
-    set({ open });
+    set({ floating: open });
+  },
+
+  toggleCollapsed: () => set((s) => ({ collapsed: !s.collapsed })),
+
+  close: () => {
+    const { status, _abortController } = get();
+    if (status === "streaming" || status === "creating-session") {
+      _abortController?.abort();
+    }
+    set({ floating: false });
   },
 
   setPrompt: (prompt) => set({ prompt }),
@@ -258,6 +414,12 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
     // Cancel any in-progress generation
     get()._abortController?.abort();
 
+    // Clear the canvas before starting a new generation
+    useWorkflowStore.getState().reset();
+
+    // Pause undo/redo history so incremental adds don't flood the stack
+    useWorkflowStore.temporal.getState().pause();
+
     // Ensure session
     let sid = get().sessionId;
     if (!sid) {
@@ -268,12 +430,17 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
         set({ sessionId: sid });
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Failed to create session";
+        useWorkflowStore.temporal.getState().resume();
         set({ error: msg, status: "error" });
         return;
       }
     }
 
     const abortController = new AbortController();
+    const addedNodeIds = new Set<string>();
+    const addedEdgeIds = new Set<string>();
+    let pendingEdges: Array<Record<string, unknown>> = [];
+
     set({
       status: "streaming",
       streamedText: "",
@@ -282,12 +449,139 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
       tokenCount: 0,
       error: null,
       _abortController: abortController,
+      _addedNodeIds: addedNodeIds,
+      _addedEdgeIds: addedEdgeIds,
+      _pendingEdges: [],
     });
 
     // Parse selected model
     const slashIdx = selectedModel.indexOf("/");
     const providerId = slashIdx > 0 ? selectedModel.slice(0, slashIdx) : "";
     const modelId = slashIdx > 0 ? selectedModel.slice(slashIdx + 1) : selectedModel;
+
+    /** Push newly parsed nodes and edges incrementally to the canvas. */
+    const pushIncremental = (parsed: {
+      name?: string;
+      nodes?: Array<Record<string, unknown>>;
+      edges?: Array<Record<string, unknown>>;
+    }) => {
+      const wfStore = useWorkflowStore.getState();
+
+      // Set workflow name once available
+      if (parsed.name && wfStore.name !== parsed.name) {
+        wfStore.setName(parsed.name);
+      }
+
+      // Build node type map for edge handle fixing
+      const nodeTypeMap = new Map<string, { type: string; branches?: Array<{ label: string }> }>();
+
+      if (parsed.nodes) {
+        // Add new nodes to canvas
+        const newNodes: WorkflowNode[] = [];
+        for (const rawNode of parsed.nodes) {
+          const nodeId = rawNode.id as string;
+          if (!nodeId || addedNodeIds.has(nodeId)) continue;
+
+          const d = rawNode.data as Record<string, unknown> | undefined;
+          nodeTypeMap.set(nodeId, {
+            type: (d?.type as string) ?? (rawNode.type as string) ?? "",
+            branches: d?.branches as Array<{ label: string }> | undefined,
+          });
+
+          // Make start node non-deletable
+          const isStart = d?.type === "start";
+          const node: WorkflowNode = {
+            ...rawNode,
+            type: rawNode.type as string ?? (d?.type as string),
+            ...(isStart ? { deletable: false } : {}),
+          } as unknown as WorkflowNode;
+
+          newNodes.push(node);
+          addedNodeIds.add(nodeId);
+        }
+
+        if (newNodes.length > 0) {
+          // Merge with existing nodes
+          const existingNodes = useWorkflowStore.getState().nodes;
+          // Remove default start/end nodes if the generated data provides them
+          const genNodeIds = new Set(newNodes.map(n => n.id));
+          const filtered = existingNodes.filter(n => {
+            // Remove default start if generation has its own start
+            if (n.data?.type === "start" && newNodes.some(nn => (nn.data as Record<string, unknown>)?.type === "start")) return false;
+            // Remove default end if generation has its own end
+            if (n.data?.type === "end" && newNodes.some(nn => (nn.data as Record<string, unknown>)?.type === "end")) return false;
+            // Remove if duplicate id
+            if (genNodeIds.has(n.id)) return false;
+            return true;
+          });
+
+          useWorkflowStore.setState({ nodes: [...filtered, ...newNodes] });
+
+          // Mark default nodes as added too
+          for (const n of filtered) {
+            addedNodeIds.add(n.id);
+          }
+        }
+
+        // Rebuild full nodeTypeMap with all known nodes
+        for (const n of parsed.nodes) {
+          const d = n.data as Record<string, unknown> | undefined;
+          if (n.id) {
+            nodeTypeMap.set(n.id as string, {
+              type: (d?.type as string) ?? (n.type as string) ?? "",
+              branches: d?.branches as Array<{ label: string }> | undefined,
+            });
+          }
+        }
+      }
+
+      // Process edges (new from parsed + previously pending)
+      const allCandidateEdges = [
+        ...pendingEdges,
+        ...(parsed.edges?.filter(e => !addedEdgeIds.has(e.id as string)) ?? []),
+      ];
+
+      // Deduplicate by id
+      const seenEdgeIds = new Set<string>();
+      const uniqueEdges: Array<Record<string, unknown>> = [];
+      for (const e of allCandidateEdges) {
+        const eid = e.id as string;
+        if (!eid || seenEdgeIds.has(eid) || addedEdgeIds.has(eid)) continue;
+        seenEdgeIds.add(eid);
+        uniqueEdges.push(e);
+      }
+
+      const readyEdges: Array<Record<string, unknown>> = [];
+      const stillPending: Array<Record<string, unknown>> = [];
+
+      for (const edge of uniqueEdges) {
+        const sourceId = edge.source as string;
+        const targetId = edge.target as string;
+        // Only add edge if both endpoints exist on canvas
+        if (addedNodeIds.has(sourceId) && addedNodeIds.has(targetId)) {
+          readyEdges.push(edge);
+        } else {
+          stillPending.push(edge);
+        }
+      }
+
+      pendingEdges = stillPending;
+
+      if (readyEdges.length > 0) {
+        const fixedEdges = fixEdgeHandles(readyEdges, nodeTypeMap);
+        const existingEdges = useWorkflowStore.getState().edges;
+        useWorkflowStore.setState({ edges: [...existingEdges, ...fixedEdges] });
+        for (const e of fixedEdges) {
+          addedEdgeIds.add(e.id);
+        }
+      }
+
+      set({
+        _addedNodeIds: addedNodeIds,
+        _addedEdgeIds: addedEdgeIds,
+        _pendingEdges: stillPending,
+      });
+    };
 
     try {
       const systemPrompt = buildSystemPrompt();
@@ -319,12 +613,17 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
             fullText += props.delta;
             const tokens = estimateTokens(fullText);
 
-            // Try incremental parse to show progress
+            // Try incremental parse to show progress and push nodes/edges
             const parsed = tryParseWorkflowJSON(fullText);
             const nodeCount = parsed?.nodes ? (parsed.nodes as unknown[]).length : lastParsedNodeCount;
             const edgeCount = parsed?.edges ? (parsed.edges as unknown[]).length : lastParsedEdgeCount;
             lastParsedNodeCount = nodeCount;
             lastParsedEdgeCount = edgeCount;
+
+            // Push new nodes/edges to canvas incrementally
+            if (parsed) {
+              pushIncremental(parsed);
+            }
 
             set({
               streamedText: fullText,
@@ -342,6 +641,7 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
             error?: { name: string; data?: { message?: string } };
           };
           if (props.sessionID === sid) {
+            useWorkflowStore.temporal.getState().resume();
             set({ error: props.error?.data?.message ?? "Generation failed", status: "error" });
             return;
           }
@@ -362,9 +662,8 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
         }
       }
 
-      // ── Final parse and load ──────────────────────────────────────────
+      // ── Final parse and load any remaining items ──────────────────
       if (fullText.trim()) {
-        // Strip markdown code fences if the LLM wrapped it
         let cleanText = fullText.trim();
         if (cleanText.startsWith("```")) {
           cleanText = cleanText.replace(/^```(?:json)?\s*\n?/, "").replace(/\n?```\s*$/, "");
@@ -376,65 +675,38 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
           // Validate against schema
           const result = workflowJsonSchema.safeParse(parsed);
           if (!result.success) {
+            useWorkflowStore.temporal.getState().resume();
             set({ error: `Generated workflow failed validation: ${result.error.message}`, status: "error" });
             return;
           }
 
-          const workflowData = result.data as unknown as {
-            name: string;
-            nodes: WorkflowNode[];
-            edges: WorkflowEdge[];
-            ui: { sidebarOpen: boolean; minimapVisible: boolean; viewport: { x: number; y: number; zoom: number }; canvasMode?: string; edgeStyle?: string };
-          };
+          // Push any remaining nodes/edges that weren't caught during streaming
+          pushIncremental(parsed);
 
-          // ── Post-process: fix if-else / switch sourceHandles ──────────
-          // LLMs sometimes use "branch-0"/"branch-1" instead of the real
-          // handle IDs.  Build a lookup of node types so we can correct them.
-          const nodeTypeMap = new Map<string, { type: string; branches?: Array<{ label: string }> }>();
-          for (const n of workflowData.nodes) {
-            const d = n.data as Record<string, unknown>;
-            nodeTypeMap.set(n.id, {
-              type: (d.type as string) ?? (n.type as string) ?? "",
-              branches: d.branches as Array<{ label: string }> | undefined,
-            });
-          }
-
-          workflowData.edges = workflowData.edges.map((edge) => {
-            const sourceInfo = nodeTypeMap.get(edge.source);
-            if (!sourceInfo) return edge;
-
-            const handle = edge.sourceHandle;
-
-            // Fix if-else: real handles are "true" (branch 0) / "false" (branch 1)
-            if (sourceInfo.type === "if-else") {
-              if (handle === "branch-0" || handle === "0") {
-                return { ...edge, sourceHandle: "true" };
-              }
-              if (handle === "branch-1" || handle === "1") {
-                return { ...edge, sourceHandle: "false" };
-              }
-            }
-
-            // Fix switch: real handles are the branch label text
-            if (sourceInfo.type === "switch" && sourceInfo.branches) {
-              const branchMatch = handle?.match(/^branch-(\d+)$/);
-              if (branchMatch) {
-                const idx = parseInt(branchMatch[1], 10);
-                if (idx < sourceInfo.branches.length) {
-                  return { ...edge, sourceHandle: sourceInfo.branches[idx].label };
+          // Force flush any remaining pending edges
+          if (pendingEdges.length > 0) {
+            const nodeTypeMap = new Map<string, { type: string; branches?: Array<{ label: string }> }>();
+            if (parsed.nodes) {
+              for (const n of parsed.nodes as Array<Record<string, unknown>>) {
+                const d = n.data as Record<string, unknown> | undefined;
+                if (n.id) {
+                  nodeTypeMap.set(n.id as string, {
+                    type: (d?.type as string) ?? (n.type as string) ?? "",
+                    branches: d?.branches as Array<{ label: string }> | undefined,
+                  });
                 }
               }
             }
+            const fixedEdges = fixEdgeHandles(pendingEdges, nodeTypeMap);
+            const existingEdges = useWorkflowStore.getState().edges;
+            useWorkflowStore.setState({ edges: [...existingEdges, ...fixedEdges] });
+            pendingEdges = [];
+          }
 
-            return edge;
-          });
+          // Resume undo/redo history
+          useWorkflowStore.temporal.getState().resume();
 
-          // Load into the workflow store
-          useWorkflowStore.getState().loadWorkflow(workflowData);
-
-          // Auto-layout then fit view — Dagre + branch-ordering fix
-          // ensures if-else "true" is above "false", switch branches
-          // are top-to-bottom in definition order.
+          // Auto-layout then fit view
           setTimeout(() => {
             window.dispatchEvent(new CustomEvent("nexus:auto-layout"));
             setTimeout(() => {
@@ -442,12 +714,16 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
             }, 500);
           }, 100);
 
+          const finalNodes = useWorkflowStore.getState().nodes;
+          const finalEdges = useWorkflowStore.getState().edges;
+
           set({
             status: "done",
-            parsedNodeCount: workflowData.nodes.length,
-            parsedEdgeCount: workflowData.edges.length,
+            parsedNodeCount: finalNodes.length,
+            parsedEdgeCount: finalEdges.length,
           });
         } catch (parseErr) {
+          useWorkflowStore.temporal.getState().resume();
           set({
             error: `Failed to parse generated JSON: ${parseErr instanceof Error ? parseErr.message : "Unknown error"}`,
             status: "error",
@@ -458,9 +734,11 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
       }
     } catch (err) {
       if (abortController.signal.aborted) {
+        try { useWorkflowStore.temporal.getState().resume(); } catch { /* ignore */ }
         set({ status: "idle", _abortController: null });
         return;
       }
+      try { useWorkflowStore.temporal.getState().resume(); } catch { /* ignore */ }
       const msg = err instanceof Error ? err.message : "Generation failed";
       set({ error: msg, status: "error", _abortController: null });
     }
@@ -475,7 +753,16 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
       client.sessions.abort(sessionId).catch(() => {});
     }
 
-    set({ status: "idle", _abortController: null });
+    // Resume undo/redo in case it was paused
+    try { useWorkflowStore.temporal.getState().resume(); } catch { /* ignore */ }
+
+    set({
+      status: "idle",
+      _abortController: null,
+      _addedNodeIds: new Set(),
+      _addedEdgeIds: new Set(),
+      _pendingEdges: [],
+    });
   },
 
   reset: () => {
@@ -487,6 +774,9 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
       tokenCount: 0,
       error: null,
       _abortController: null,
+      _addedNodeIds: new Set(),
+      _addedEdgeIds: new Set(),
+      _pendingEdges: [],
     });
   },
 
@@ -515,6 +805,9 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
       tokenCount: 0,
       error: null,
       _abortController: null,
+      _addedNodeIds: new Set(),
+      _addedEdgeIds: new Set(),
+      _pendingEdges: [],
     });
   },
 }));

@@ -18,7 +18,7 @@ import DeleteDialog from "./delete-dialog";
 import LibraryPanel from "./library-panel";
 import SubWorkflowCanvas from "./sub-workflow-canvas";
 import FloatingPromptGen from "./floating-prompt-gen";
-import WorkflowGenDialog from "./workflow-gen-dialog";
+import FloatingWorkflowGen from "./floating-workflow-gen";
 import WhatsNewDialog from "./whats-new-dialog";
 import { useWhatsNew } from "@/hooks/use-whats-new";
 
@@ -187,11 +187,11 @@ export default function WorkflowEditor() {
             <CanvasToolbar />
             <PropertiesPanel />
             <FloatingPromptGen />
+            <FloatingWorkflowGen />
             <LibraryPanel />
           </div>
         </div>
         <DeleteDialog />
-        <WorkflowGenDialog />
         <WhatsNewDialog open={whatsNew.open} onDismiss={whatsNew.dismiss} />
         {/* Sub-workflow editor overlay */}
         {activeSubWorkflowNodeId && (

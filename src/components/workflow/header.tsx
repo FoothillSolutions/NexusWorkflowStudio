@@ -137,7 +137,7 @@ export default function Header() {
     const onOpenImport = () => setImportDialogOpen(true);
     const onOpenPreview = () => handleView();
     const onGenerate = () => handleGenerate();
-    const onOpenWorkflowGen = () => useWorkflowGenStore.getState().setOpen(true);
+    const onOpenWorkflowGen = () => useWorkflowGenStore.getState().setFloating(true);
 
     window.addEventListener("nexus:open-import", onOpenImport);
     window.addEventListener("nexus:open-preview", onOpenPreview);
@@ -262,7 +262,7 @@ export default function Header() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => useWorkflowGenStore.getState().setOpen(true)}
+              onClick={() => useWorkflowGenStore.getState().setFloating(true)}
               disabled={!isOpenCodeConnected}
               className={`${TEXT_MUTED} hover:text-violet-300 h-8 px-3 text-sm gap-1.5 disabled:opacity-40`}
             >
