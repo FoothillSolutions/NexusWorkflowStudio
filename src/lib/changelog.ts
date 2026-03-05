@@ -22,6 +22,21 @@ export interface ChangelogEntry {
 // ─────────────────────────────────────────────────────────────────────────────
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.5.0",
+    date: "March 5, 2026",
+    categories: [
+      {
+        category: "New",
+        items: [
+          "AI Workflow Generation — describe a workflow in natural language and generate it with AI",
+          "Streaming generation with real-time progress tracking (node/edge count, token count)",
+          "Example prompts for quick-start workflow generation",
+          "Keyboard shortcut Ctrl+Alt+A to open AI workflow generation dialog",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.4.0",
     date: "March 4, 2026",
     categories: [

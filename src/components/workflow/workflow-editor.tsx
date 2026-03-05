@@ -18,6 +18,7 @@ import DeleteDialog from "./delete-dialog";
 import LibraryPanel from "./library-panel";
 import SubWorkflowCanvas from "./sub-workflow-canvas";
 import FloatingPromptGen from "./floating-prompt-gen";
+import WorkflowGenDialog from "./workflow-gen-dialog";
 import WhatsNewDialog from "./whats-new-dialog";
 import { useWhatsNew } from "@/hooks/use-whats-new";
 
@@ -109,6 +110,13 @@ export default function WorkflowEditor() {
         return;
       }
 
+      // ── Mod+Alt+A → AI Workflow Generation ─────────────────────────
+      if (mod && e.altKey && e.code === "KeyA") {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent("nexus:open-workflow-gen"));
+        return;
+      }
+
       // ── Mod+Alt+P → Preview output ────────────────────────────────
       if (mod && e.altKey && e.code === "KeyP") {
         e.preventDefault();
@@ -183,6 +191,7 @@ export default function WorkflowEditor() {
           </div>
         </div>
         <DeleteDialog />
+        <WorkflowGenDialog />
         <WhatsNewDialog open={whatsNew.open} onDismiss={whatsNew.dismiss} />
         {/* Sub-workflow editor overlay */}
         {activeSubWorkflowNodeId && (

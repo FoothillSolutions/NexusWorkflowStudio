@@ -29,10 +29,13 @@ import {
   Upload,
   FilePlus,
   ChevronDown,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import ImportDialog from "./import-dialog";
 import WorkflowPreviewDialog from "./workflow-preview-dialog";
+import { useWorkflowGenStore } from "@/store/workflow-gen-store";
+import { useOpenCodeStore } from "@/store/opencode-store";
 import { LibraryToggleButton, HelpMenu, ConnectButton } from "./shared-header-actions";
 import { ProjectSwitcher } from "./project-switcher";
 import {
@@ -52,6 +55,8 @@ export default function Header() {
   const setName = useWorkflowStore((s) => s.setName);
   const getWorkflowJSON = useWorkflowStore((s) => s.getWorkflowJSON);
   const reset = useWorkflowStore((s) => s.reset);
+  const openCodeStatus = useOpenCodeStore((s) => s.status);
+  const isOpenCodeConnected = openCodeStatus === "connected";
   const [isEditingName, setIsEditingName] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -132,15 +137,18 @@ export default function Header() {
     const onOpenImport = () => setImportDialogOpen(true);
     const onOpenPreview = () => handleView();
     const onGenerate = () => handleGenerate();
+    const onOpenWorkflowGen = () => useWorkflowGenStore.getState().setOpen(true);
 
     window.addEventListener("nexus:open-import", onOpenImport);
     window.addEventListener("nexus:open-preview", onOpenPreview);
     window.addEventListener("nexus:generate", onGenerate);
+    window.addEventListener("nexus:open-workflow-gen", onOpenWorkflowGen);
 
     return () => {
       window.removeEventListener("nexus:open-import", onOpenImport);
       window.removeEventListener("nexus:open-preview", onOpenPreview);
       window.removeEventListener("nexus:generate", onGenerate);
+      window.removeEventListener("nexus:open-workflow-gen", onOpenWorkflowGen);
     };
   }, [handleView, handleGenerate]);
 
@@ -247,6 +255,25 @@ export default function Header() {
             </TooltipContent>
           </Tooltip>
         )}
+
+        {/* AI Workflow Generation */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => useWorkflowGenStore.getState().setOpen(true)}
+              disabled={!isOpenCodeConnected}
+              className={`${TEXT_MUTED} hover:text-violet-300 h-8 px-3 text-sm gap-1.5 disabled:opacity-40`}
+            >
+              <Sparkles className="h-4 w-4 text-violet-400" />
+              AI Generate
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            Generate a workflow from a description <kbd className="ml-1 text-[10px] opacity-60">Ctrl+Alt+A</kbd>
+          </TooltipContent>
+        </Tooltip>
 
         {/* Generate (primary action) */}
         <Button

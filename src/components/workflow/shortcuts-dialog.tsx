@@ -65,6 +65,7 @@ export default function ShortcutsDialog({ open, onOpenChange }: ShortcutsDialogP
             <Row keys={[MOD, ALT, "E"]} label="Export workflow" />
             <Row keys={[MOD, ALT, "O"]} label="Import workflow" />
             <Row keys={[MOD, ALT, "G"]} label="Generate & download" />
+            <Row keys={[MOD, ALT, "A"]} label="AI generate workflow" />
             <Row keys={[MOD, ALT, "P"]} label="Preview output" />
           </Section>
 
