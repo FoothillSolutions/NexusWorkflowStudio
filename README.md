@@ -97,48 +97,6 @@ docker compose --profile node down
 
 Once running, open [http://localhost:3000](http://localhost:3000) in your browser.
 
-## Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Framework | [Next.js 16](https://nextjs.org) (App Router) |
-| Canvas | [React Flow 12](https://reactflow.dev) |
-| State | [Zustand 5](https://zustand.docs.pmnd.rs) + [Zundo](https://github.com/charkour/zundo) |
-| Validation | [Zod 4](https://zod.dev) |
-| Forms | [React Hook Form 7](https://react-hook-form.com) |
-| UI | [Radix UI](https://www.radix-ui.com) + [Tailwind CSS 4](https://tailwindcss.com) |
-| Layout | [Dagre](https://github.com/dagrejs/dagre) |
-| Icons | [Lucide React](https://lucide.dev) |
-
-## Project Structure
-
-```
-src/
-├── app/              # Next.js App Router pages & layout
-├── components/
-│   ├── edges/        # Custom React Flow edge components
-│   ├── nodes/        # React Flow node components
-│   ├── ui/           # Shared UI primitives (shadcn/ui)
-│   └── workflow/     # Workflow editor components (canvas, panels, dialogs)
-├── hooks/            # Shared React hooks (canvas interactions, layout, etc.)
-├── lib/              # Core utilities (registry, persistence, theme, codegen)
-├── nodes/            # Node module definitions (schema, fields, generator, types)
-│   ├── shared/       # Shared node utilities (base node, form types, etc.)
-│   ├── start/
-│   ├── end/
-│   ├── prompt/
-│   ├── sub-agent/
-│   ├── sub-workflow/
-│   ├── skill/
-│   ├── document/
-│   ├── mcp-tool/
-│   ├── if-else/
-│   ├── switch/
-│   └── ask-user/
-├── store/            # Zustand stores (workflow state, library state)
-└── types/            # TypeScript type definitions
-```
-
 ## Adding a New Node Type
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the step-by-step guide.
