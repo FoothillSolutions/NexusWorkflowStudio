@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, memo } from "react";
+import { useCallback, memo } from "react";
 import {
   BaseEdge,
   EdgeLabelRenderer,
@@ -24,7 +24,6 @@ export const DeletableEdge = memo(function DeletableEdge({
   markerEnd,
   style,
 }: EdgeProps) {
-  const [hovered, setHovered] = useState(false);
   const deleteEdge = useWorkflowStore((s) => s.deleteEdge);
   const edgeStyle = useWorkflowStore((s) => s.edgeStyle);
 
@@ -50,9 +49,8 @@ export const DeletableEdge = memo(function DeletableEdge({
     [id, deleteEdge]
   );
 
-  const isActive = selected || hovered;
-  const strokeColor = isActive ? "#e4e4e7" : (style?.stroke as string) ?? CANVAS_EDGE_STROKE;
-  const strokeWidth = isActive ? 2.5 : (style?.strokeWidth as number) ?? 2;
+  const strokeColor = selected ? "#e4e4e7" : (style?.stroke as string) ?? CANVAS_EDGE_STROKE;
+  const strokeWidth = selected ? 2.5 : (style?.strokeWidth as number) ?? 2;
 
   return (
     <>
@@ -63,8 +61,6 @@ export const DeletableEdge = memo(function DeletableEdge({
         stroke="transparent"
         strokeWidth={24}
         className="cursor-pointer"
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
       />
 
       <BaseEdge
@@ -86,8 +82,8 @@ export const DeletableEdge = memo(function DeletableEdge({
         }}
       />
 
-      {/* Delete button — shown when selected or hovered */}
-      {isActive && (
+      {/* Delete button — shown when selected */}
+      {selected && (
         <EdgeLabelRenderer>
           <div
             style={{
