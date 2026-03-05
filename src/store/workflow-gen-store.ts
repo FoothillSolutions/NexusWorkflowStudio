@@ -147,6 +147,26 @@ CRITICAL — Switch node edges:
   {"id":"e-switch-abc-agent-b","source":"switch-abc","target":"agent-b","sourceHandle":"Case 2","targetHandle":"input"}  (agent-b at y:300)
   {"id":"e-switch-abc-end-xyz","source":"switch-abc","target":"end-xyz","sourceHandle":"default","targetHandle":"input"}  (end-xyz at y:480)
 
+CRITICAL — Ask-user node edges:
+- Ask-user nodes have TWO different modes that affect their output handles:
+
+  MODE 1 — Single-select with manual options (multipleSelection: false AND aiSuggestOptions: false):
+  - Each option gets its OWN output handle: "option-0", "option-1", "option-2", etc.
+  - You MUST create one edge per option using "option-N" as the sourceHandle.
+  - This means the ask-user node acts like a switch — each option branches to a different target. There is NO need for a separate switch or if-else node after it.
+  - Option targets should be stacked top-to-bottom matching option order (option-0 target = smallest y, last option target = largest y).
+  - Example: ask-user "ask-user-abc" at y:300 with 3 options:
+    {"id":"e-ask-user-abc-agent-a","source":"ask-user-abc","target":"agent-a","sourceHandle":"option-0","targetHandle":"input"}  (agent-a at y:100)
+    {"id":"e-ask-user-abc-agent-b","source":"ask-user-abc","target":"agent-b","sourceHandle":"option-1","targetHandle":"input"}  (agent-b at y:300)
+    {"id":"e-ask-user-abc-agent-c","source":"ask-user-abc","target":"agent-c","sourceHandle":"option-2","targetHandle":"input"}  (agent-c at y:500)
+
+  MODE 2 — Multi-select or AI-suggested options (multipleSelection: true OR aiSuggestOptions: true):
+  - Uses a SINGLE output handle: "output" (just like a normal node).
+  - The selected option(s) are passed as text to the next node in the flow.
+  - Example: {"id":"e-ask-user-abc-agent-x","source":"ask-user-abc","target":"agent-x","sourceHandle":"output","targetHandle":"input"}
+
+  DEFAULT: Use MODE 1 (single-select with manual options) unless the user specifically asks for multi-select or AI-generated options. This is the most common and useful pattern because it lets the workflow branch based on the user's choice.
+
 Every branch MUST have an outgoing edge. Do NOT leave any branch unconnected.
 
 ## Available Node Types
@@ -255,7 +275,8 @@ document: {"type":"document","label":"<label>","name":"<id>","docName":"<kebab-c
 mcp-tool: {"type":"mcp-tool","label":"<label>","name":"<id>","toolName":"<name>","paramsText":""}
 if-else: {"type":"if-else","label":"<label>","name":"<id>","evaluationTarget":"<target>","branches":[{"label":"If <cond>","condition":"<cond>"},{"label":"Else","condition":"else"}]}
 switch: {"type":"switch","label":"<label>","name":"<id>","evaluationTarget":"<target>","branches":[{"label":"<case>","condition":"<cond>"}]}
-ask-user: {"type":"ask-user","label":"<label>","name":"<id>","questionText":"<question>","multipleSelection":false,"aiSuggestOptions":false,"options":[{"label":"<opt>","description":"<desc>"}]}
+ask-user: {"type":"ask-user","label":"<label>","name":"<id>","questionText":"<question>","multipleSelection":false,"aiSuggestOptions":false,"options":[{"label":"<option1>","description":"<desc1>"},{"label":"<option2>","description":"<desc2>"}]}
+  NOTE: With multipleSelection:false and aiSuggestOptions:false (the default), each option becomes its own output handle (option-0, option-1, ...). Create one edge per option to branch the flow. At least 2 options are required.
 sub-workflow: {"type":"sub-workflow","label":"<label>","name":"<id>","mode":"same-context","subNodes":[],"subEdges":[],"nodeCount":0,"description":"","model":"inherit","memory":"default","temperature":0,"color":"#a855f7","disabledTools":[]}
 
 ## Important Guidelines
@@ -324,10 +345,10 @@ function tryParseWorkflowJSON(text: string): {
 
 // ── Store ────────────────────────────────────────────────────────────────────
 
-/** Fix if-else / switch sourceHandles on a set of edges using node type info. */
+/** Fix if-else / switch / ask-user sourceHandles on a set of edges using node type info. */
 function fixEdgeHandles(
   edges: Array<Record<string, unknown>>,
-  nodeTypeMap: Map<string, { type: string; branches?: Array<{ label: string }> }>,
+  nodeTypeMap: Map<string, { type: string; branches?: Array<{ label: string }>; options?: Array<{ label: string }>; multipleSelection?: boolean; aiSuggestOptions?: boolean }>,
 ): WorkflowEdge[] {
   return edges.map((edge) => {
     const sourceInfo = nodeTypeMap.get(edge.source as string);
@@ -351,6 +372,15 @@ function fixEdgeHandles(
         if (idx < sourceInfo.branches.length) {
           return { ...edge, sourceHandle: sourceInfo.branches[idx].label, type: "deletable" } as unknown as WorkflowEdge;
         }
+      }
+    }
+
+    // Fix ask-user: when single-select (not multi, not AI), handles are "option-N"
+    // LLM might use "branch-N" instead
+    if (sourceInfo.type === "ask-user" && !sourceInfo.multipleSelection && !sourceInfo.aiSuggestOptions) {
+      const branchMatch = handle?.match(/^branch-(\d+)$/);
+      if (branchMatch) {
+        return { ...edge, sourceHandle: `option-${branchMatch[1]}`, type: "deletable" } as unknown as WorkflowEdge;
       }
     }
 
@@ -440,6 +470,8 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
     const addedNodeIds = new Set<string>();
     const addedEdgeIds = new Set<string>();
     let pendingEdges: Array<Record<string, unknown>> = [];
+    /** Snapshot of the last-known data per node so we can detect real changes */
+    const nodeDataSnapshots = new Map<string, string>();
 
     set({
       status: "streaming",
@@ -459,6 +491,27 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
     const providerId = slashIdx > 0 ? selectedModel.slice(0, slashIdx) : "";
     const modelId = slashIdx > 0 ? selectedModel.slice(slashIdx + 1) : selectedModel;
 
+    /**
+     * Check whether a raw node object looks "complete enough" to render.
+     * Requires id, position with both x/y, and data with type + label.
+     * The last node in the array is likely still being streamed — we also
+     * require `name` for it as a safety gate.
+     */
+    const isNodeReady = (raw: Record<string, unknown>, isLast: boolean): boolean => {
+      if (!raw.id) return false;
+      const pos = raw.position as Record<string, unknown> | undefined;
+      if (!pos || typeof pos.x !== "number" || typeof pos.y !== "number") return false;
+      const d = raw.data as Record<string, unknown> | undefined;
+      if (!d || !d.type || !d.label) return false;
+      if (isLast && !d.name) return false;
+      return true;
+    };
+
+    /** Check if an edge has all required fields. */
+    const isEdgeReady = (raw: Record<string, unknown>): boolean => {
+      return !!(raw.id && raw.source && raw.target);
+    };
+
     /** Push newly parsed nodes and edges incrementally to the canvas. */
     const pushIncremental = (parsed: {
       name?: string;
@@ -473,72 +526,93 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
       }
 
       // Build node type map for edge handle fixing
-      const nodeTypeMap = new Map<string, { type: string; branches?: Array<{ label: string }> }>();
+      const nodeTypeMap = new Map<string, { type: string; branches?: Array<{ label: string }>; options?: Array<{ label: string }>; multipleSelection?: boolean; aiSuggestOptions?: boolean }>();
 
-      if (parsed.nodes) {
-        // Add new nodes to canvas
-        const newNodes: WorkflowNode[] = [];
-        for (const rawNode of parsed.nodes) {
+      if (parsed.nodes && parsed.nodes.length > 0) {
+        const brandNewNodes: WorkflowNode[] = [];
+        const updatedNodes = new Map<string, Record<string, unknown>>();
+
+        for (let i = 0; i < parsed.nodes.length; i++) {
+          const rawNode = parsed.nodes[i];
           const nodeId = rawNode.id as string;
-          if (!nodeId || addedNodeIds.has(nodeId)) continue;
+          const isLast = i === parsed.nodes.length - 1;
 
+          if (!nodeId) continue;
+
+          // Register in type map regardless of readiness
           const d = rawNode.data as Record<string, unknown> | undefined;
-          nodeTypeMap.set(nodeId, {
-            type: (d?.type as string) ?? (rawNode.type as string) ?? "",
-            branches: d?.branches as Array<{ label: string }> | undefined,
-          });
-
-          // Make start node non-deletable
-          const isStart = d?.type === "start";
-          const node: WorkflowNode = {
-            ...rawNode,
-            type: rawNode.type as string ?? (d?.type as string),
-            ...(isStart ? { deletable: false } : {}),
-          } as unknown as WorkflowNode;
-
-          newNodes.push(node);
-          addedNodeIds.add(nodeId);
-        }
-
-        if (newNodes.length > 0) {
-          // Merge with existing nodes
-          const existingNodes = useWorkflowStore.getState().nodes;
-          // Remove default start/end nodes if the generated data provides them
-          const genNodeIds = new Set(newNodes.map(n => n.id));
-          const filtered = existingNodes.filter(n => {
-            // Remove default start if generation has its own start
-            if (n.data?.type === "start" && newNodes.some(nn => (nn.data as Record<string, unknown>)?.type === "start")) return false;
-            // Remove default end if generation has its own end
-            if (n.data?.type === "end" && newNodes.some(nn => (nn.data as Record<string, unknown>)?.type === "end")) return false;
-            // Remove if duplicate id
-            if (genNodeIds.has(n.id)) return false;
-            return true;
-          });
-
-          useWorkflowStore.setState({ nodes: [...filtered, ...newNodes] });
-
-          // Mark default nodes as added too
-          for (const n of filtered) {
-            addedNodeIds.add(n.id);
-          }
-        }
-
-        // Rebuild full nodeTypeMap with all known nodes
-        for (const n of parsed.nodes) {
-          const d = n.data as Record<string, unknown> | undefined;
-          if (n.id) {
-            nodeTypeMap.set(n.id as string, {
-              type: (d?.type as string) ?? (n.type as string) ?? "",
-              branches: d?.branches as Array<{ label: string }> | undefined,
+          if (d?.type) {
+            nodeTypeMap.set(nodeId, {
+              type: (d.type as string) ?? "",
+              branches: d.branches as Array<{ label: string }> | undefined,
+              options: d.options as Array<{ label: string }> | undefined,
+              multipleSelection: d.multipleSelection as boolean | undefined,
+              aiSuggestOptions: d.aiSuggestOptions as boolean | undefined,
             });
           }
+
+          if (!isNodeReady(rawNode, isLast)) continue;
+
+          // Compute a snapshot to detect whether the data has changed
+          const snapshot = JSON.stringify(rawNode.data);
+
+          if (!addedNodeIds.has(nodeId)) {
+            // ── Brand new node — add to canvas ──────────────────────
+            const isStart = d?.type === "start";
+            const node: WorkflowNode = {
+              ...rawNode,
+              type: rawNode.type as string ?? (d?.type as string),
+              ...(isStart ? { deletable: false } : {}),
+            } as unknown as WorkflowNode;
+
+            brandNewNodes.push(node);
+            addedNodeIds.add(nodeId);
+            nodeDataSnapshots.set(nodeId, snapshot);
+          } else {
+            // ── Already on canvas — update if data grew ─────────────
+            const prev = nodeDataSnapshots.get(nodeId);
+            if (prev !== snapshot) {
+              updatedNodes.set(nodeId, rawNode);
+              nodeDataSnapshots.set(nodeId, snapshot);
+            }
+          }
+        }
+
+        // Apply brand-new nodes
+        if (brandNewNodes.length > 0) {
+          const existingNodes = useWorkflowStore.getState().nodes;
+          const filtered = existingNodes.filter(n => {
+            if (n.data?.type === "start" && brandNewNodes.some(nn => (nn.data as Record<string, unknown>)?.type === "start")) return false;
+            if (n.data?.type === "end" && brandNewNodes.some(nn => (nn.data as Record<string, unknown>)?.type === "end")) return false;
+            if (brandNewNodes.some(nn => nn.id === n.id)) return false;
+            return true;
+          });
+          useWorkflowStore.setState({ nodes: [...filtered, ...brandNewNodes] });
+          for (const n of filtered) addedNodeIds.add(n.id);
+        }
+
+        // Apply data updates to already-rendered nodes
+        if (updatedNodes.size > 0) {
+          const currentNodes = useWorkflowStore.getState().nodes;
+          const patched = currentNodes.map(n => {
+            const update = updatedNodes.get(n.id);
+            if (!update) return n;
+            return {
+              ...n,
+              data: { ...(update.data as Record<string, unknown>) },
+            } as unknown as WorkflowNode;
+          });
+          useWorkflowStore.setState({ nodes: patched });
         }
       }
 
-      // Process edges (new from parsed + previously pending)
+      // ── Process edges (new + previously pending) ────────────────────
       const allCandidateEdges = [
         ...pendingEdges,
-        ...(parsed.edges?.filter(e => !addedEdgeIds.has(e.id as string)) ?? []),
+        ...(parsed.edges?.filter(e => {
+          const eid = e.id as string;
+          return eid && !addedEdgeIds.has(eid) && isEdgeReady(e);
+        }) ?? []),
       ];
 
       // Deduplicate by id
@@ -557,7 +631,6 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
       for (const edge of uniqueEdges) {
         const sourceId = edge.source as string;
         const targetId = edge.target as string;
-        // Only add edge if both endpoints exist on canvas
         if (addedNodeIds.has(sourceId) && addedNodeIds.has(targetId)) {
           readyEdges.push(edge);
         } else {
@@ -571,9 +644,7 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
         const fixedEdges = fixEdgeHandles(readyEdges, nodeTypeMap);
         const existingEdges = useWorkflowStore.getState().edges;
         useWorkflowStore.setState({ edges: [...existingEdges, ...fixedEdges] });
-        for (const e of fixedEdges) {
-          addedEdgeIds.add(e.id);
-        }
+        for (const e of fixedEdges) addedEdgeIds.add(e.id);
       }
 
       set({
@@ -599,10 +670,27 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
         { signal: abortController.signal },
       );
 
-      // Stream SSE events
+      // Stream SSE events with throttled parse+push
       let fullText = "";
       let lastParsedNodeCount = 0;
       let lastParsedEdgeCount = 0;
+      let parseTimer: ReturnType<typeof setTimeout> | null = null;
+      const PARSE_INTERVAL_MS = 150;
+
+      /** Run an incremental parse and push results to canvas. */
+      const doParse = () => {
+        const parsed = tryParseWorkflowJSON(fullText);
+        if (!parsed) return;
+
+        const nodeCount = parsed.nodes ? (parsed.nodes as unknown[]).length : lastParsedNodeCount;
+        const edgeCount = parsed.edges ? (parsed.edges as unknown[]).length : lastParsedEdgeCount;
+        lastParsedNodeCount = nodeCount;
+        lastParsedEdgeCount = edgeCount;
+
+        pushIncremental(parsed);
+
+        set({ parsedNodeCount: nodeCount, parsedEdgeCount: edgeCount });
+      };
 
       for await (const event of client.events.subscribe({ signal: abortController.signal })) {
         if (abortController.signal.aborted) break;
@@ -611,26 +699,20 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
           const props = event.properties as { sessionID: string; field: string; delta: string };
           if (props.sessionID === sid && props.field === "text") {
             fullText += props.delta;
-            const tokens = estimateTokens(fullText);
 
-            // Try incremental parse to show progress and push nodes/edges
-            const parsed = tryParseWorkflowJSON(fullText);
-            const nodeCount = parsed?.nodes ? (parsed.nodes as unknown[]).length : lastParsedNodeCount;
-            const edgeCount = parsed?.edges ? (parsed.edges as unknown[]).length : lastParsedEdgeCount;
-            lastParsedNodeCount = nodeCount;
-            lastParsedEdgeCount = edgeCount;
-
-            // Push new nodes/edges to canvas incrementally
-            if (parsed) {
-              pushIncremental(parsed);
-            }
-
+            // Always update raw counters immediately
             set({
               streamedText: fullText,
-              tokenCount: tokens,
-              parsedNodeCount: nodeCount,
-              parsedEdgeCount: edgeCount,
+              tokenCount: estimateTokens(fullText),
             });
+
+            // Throttled parse — avoids thrashing React on every token
+            if (!parseTimer) {
+              parseTimer = setTimeout(() => {
+                parseTimer = null;
+                doParse();
+              }, PARSE_INTERVAL_MS);
+            }
           }
         } else if (event.type === "session.idle") {
           const props = event.properties as { sessionID: string };
@@ -641,12 +723,17 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
             error?: { name: string; data?: { message?: string } };
           };
           if (props.sessionID === sid) {
+            if (parseTimer) clearTimeout(parseTimer);
             useWorkflowStore.temporal.getState().resume();
             set({ error: props.error?.data?.message ?? "Generation failed", status: "error" });
             return;
           }
         }
       }
+
+      // Flush any pending throttled parse
+      if (parseTimer) { clearTimeout(parseTimer); parseTimer = null; }
+      doParse();
 
       // If streaming produced nothing, fall back to fetching the last message
       if (!fullText.trim()) {
@@ -685,7 +772,7 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
 
           // Force flush any remaining pending edges
           if (pendingEdges.length > 0) {
-            const nodeTypeMap = new Map<string, { type: string; branches?: Array<{ label: string }> }>();
+            const nodeTypeMap = new Map<string, { type: string; branches?: Array<{ label: string }>; options?: Array<{ label: string }>; multipleSelection?: boolean; aiSuggestOptions?: boolean }>();
             if (parsed.nodes) {
               for (const n of parsed.nodes as Array<Record<string, unknown>>) {
                 const d = n.data as Record<string, unknown> | undefined;
@@ -693,6 +780,9 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
                   nodeTypeMap.set(n.id as string, {
                     type: (d?.type as string) ?? (n.type as string) ?? "",
                     branches: d?.branches as Array<{ label: string }> | undefined,
+                    options: d?.options as Array<{ label: string }> | undefined,
+                    multipleSelection: d?.multipleSelection as boolean | undefined,
+                    aiSuggestOptions: d?.aiSuggestOptions as boolean | undefined,
                   });
                 }
               }

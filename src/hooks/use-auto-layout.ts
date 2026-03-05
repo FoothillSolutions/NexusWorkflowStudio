@@ -23,8 +23,9 @@ const MIN_BRANCH_GAP = 300;
 
 /**
  * After Dagre computes positions, reorder branch targets so that:
- *   - if-else: "true" target is ABOVE (smaller y) "false" target
- *   - switch:  branch targets are stacked top-to-bottom in branch order
+ *   - if-else:  "true" target is ABOVE (smaller y) "false" target
+ *   - switch:   branch targets are stacked top-to-bottom in branch order
+ *   - ask-user: option targets are stacked top-to-bottom in option order
  *
  * Also enforces a minimum vertical gap between branch targets and centres
  * them around the branching node so the edges fan out cleanly.
@@ -83,6 +84,23 @@ function fixBranchOrdering(
           if (target) ordered.push(target);
         }
         if (ordered.length >= 2) orderedTargetIds = ordered;
+      }
+    } else if (nodeType === "ask-user") {
+      // Single-select mode (not multi-select, not AI-suggested): each option
+      // has its own handle "option-0", "option-1", etc.
+      const multiSelect = d.multipleSelection as boolean | undefined;
+      const aiSuggest = d.aiSuggestOptions as boolean | undefined;
+      if (!multiSelect && !aiSuggest) {
+        // Sort edges by option index extracted from "option-N" handles
+        const optionEdges = branchEdges.filter((e) => e.sourceHandle?.startsWith("option-"));
+        if (optionEdges.length >= 2) {
+          const sorted = [...optionEdges].sort((a, b) => {
+            const idxA = parseInt(a.sourceHandle?.replace("option-", "") ?? "99", 10);
+            const idxB = parseInt(b.sourceHandle?.replace("option-", "") ?? "99", 10);
+            return idxA - idxB;
+          });
+          orderedTargetIds = sorted.map((e) => e.target);
+        }
       }
     }
 
