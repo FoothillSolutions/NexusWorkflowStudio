@@ -88,6 +88,16 @@ interface CompileBundle {
   unsupportedNodes: UnsupportedNode[];
 }
 
+class PiExtensionExportError extends Error {
+  diagnostics: ExportDiagnostic[];
+
+  constructor(message: string, diagnostics: ExportDiagnostic[]) {
+    super(message);
+    this.name = "PiExtensionExportError";
+    this.diagnostics = diagnostics;
+  }
+}
+
 const PHASE1_SUPPORTED = new Set([
   "start",
   "end",
@@ -463,6 +473,12 @@ function compileBundle(workflow: WorkflowJSON): CompileBundle {
       const support = classifyNodeSupport(node);
       if (support.supported) {
         supportedNodeTypes.add(node.data.type);
+        runtimeNodes.push({
+          id: node.id,
+          type: node.data.type,
+          label: node.data.label || node.id,
+          config: nodeConfig(node, childWorkflowId),
+        });
       } else {
         const unsupported: UnsupportedNode = {
           workflowId: task.workflowId,
@@ -473,21 +489,24 @@ function compileBundle(workflow: WorkflowJSON): CompileBundle {
         };
         unsupportedNodes.push(unsupported);
         workflowUnsupported.push(unsupported);
+        workflowDiagnostics.push({
+          workflowId: task.workflowId,
+          severity: "error",
+          code: "WF_NODE_UNSUPPORTED",
+          nodeId: node.id,
+          message: `${unsupported.type} node '${unsupported.label}' is unsupported for pi-extension export: ${unsupported.reason}`,
+        });
       }
-
-      runtimeNodes.push({
-        id: node.id,
-        type: node.data.type,
-        label: node.data.label || node.id,
-        config: nodeConfig(node, childWorkflowId),
-      });
     }
 
-    const transitions: RuntimeTransition[] = reachableEdges.map((edge) => ({
-      sourceNodeId: edge.source,
-      sourceHandle: (edge.sourceHandle && edge.sourceHandle.trim()) || "output",
-      targetNodeId: edge.target,
-    }));
+    const includedNodeIds = new Set(runtimeNodes.map((node) => node.id));
+    const transitions: RuntimeTransition[] = reachableEdges
+      .filter((edge) => includedNodeIds.has(edge.source) && includedNodeIds.has(edge.target))
+      .map((edge) => ({
+        sourceNodeId: edge.source,
+        sourceHandle: (edge.sourceHandle && edge.sourceHandle.trim()) || "output",
+        targetNodeId: edge.target,
+      }));
 
     const definition: RuntimeWorkflowDefinition = {
       version: 1,
@@ -697,6 +716,25 @@ function buildPreview(bundle: CompileBundle): string {
   return lines.join("\n") + "\n";
 }
 
+function getFatalDiagnostics(bundle: CompileBundle): ExportDiagnostic[] {
+  return bundle.diagnostics.filter((d) => d.severity === "error");
+}
+
+function assertPiExtensionBundleExportable(bundle: CompileBundle): void {
+  const fatal = getFatalDiagnostics(bundle);
+  if (fatal.length === 0) return;
+
+  const summary = fatal
+    .slice(0, 5)
+    .map((d) => `${d.workflowId}${d.nodeId ? `/${d.nodeId}` : ""}: ${d.message}`)
+    .join("; ");
+  const more = fatal.length > 5 ? ` (+${fatal.length - 5} more)` : "";
+  throw new PiExtensionExportError(
+    `pi-extension export blocked by ${fatal.length} error(s): ${summary}${more}`,
+    fatal
+  );
+}
+
 function getRuntimeFiles(rootWorkflowId: string): GeneratedFile[] {
   return [
     {
@@ -845,17 +883,40 @@ function getRuntimeFiles(rootWorkflowId: string): GeneratedFile[] {
         "  });",
         "",
         "  pi.registerCommand('wf-continue', {",
-        "    description: 'Continue a waiting or paused run: /wf-continue <runId> [answer]',",
+        "    description: 'Continue a waiting or paused run: /wf-continue [runId] [answer]',",
         "    handler: async (args, ctx) => {",
         "      const raw = (args ?? '').trim();",
-        "      if (!raw) {",
-        "        ctx.ui.notify('Usage: /wf-continue <runId> [answer]', 'error');",
-        "        return;",
-        "      }",
+        "      const waitingOrPaused = scheduler",
+        "        .listRuns()",
+        "        .filter((run) => run.status === 'waiting_user' || run.status === 'paused');",
         "",
-        "      const split = raw.indexOf(' ');",
-        "      const runId = split === -1 ? raw : raw.slice(0, split).trim();",
-        "      const answer = split === -1 ? '' : raw.slice(split + 1).trim();",
+        "      let runId = '';",
+        "      let answer = '';",
+        "",
+        "      if (!raw) {",
+        "        if (waitingOrPaused.length !== 1) {",
+        "          ctx.ui.notify(",
+        "            waitingOrPaused.length === 0",
+        "              ? 'No waiting/paused runs found. Use /wf-status to inspect runs.'",
+        "              : 'Multiple waiting/paused runs found. Use /wf-continue <runId> [answer].',",
+        "            'warning'",
+        "          );",
+        "          return;",
+        "        }",
+        "        runId = waitingOrPaused[0]!.runId;",
+        "      } else {",
+        "        const split = raw.indexOf(' ');",
+        "        runId = split === -1 ? raw : raw.slice(0, split).trim();",
+        "        answer = split === -1 ? '' : raw.slice(split + 1).trim();",
+        "",
+        "        if (runId === 'latest' || runId === '@waiting') {",
+        "          if (waitingOrPaused.length === 0) {",
+        "            ctx.ui.notify('No waiting/paused runs found', 'warning');",
+        "            return;",
+        "          }",
+        "          runId = waitingOrPaused[0]!.runId;",
+        "        }",
+        "      }",
         "",
         "      const resumed = await scheduler.continueRun(runId, answer || undefined, ctx);",
         "      if (!resumed) {",
@@ -864,6 +925,23 @@ function getRuntimeFiles(rootWorkflowId: string): GeneratedFile[] {
         "      }",
         "      ctx.ui.notify(`Run ${runId} resumed`, 'info');",
         "    },",
+        "  });",
+        "",
+        "  pi.on('input', async (event, ctx) => {",
+        "    if (event.source !== 'interactive') return { action: 'continue' as const };",
+        "",
+        "    const text = (event.text ?? '').trim();",
+        "    if (!text || text.startsWith('/')) return { action: 'continue' as const };",
+        "",
+        "    const waitingRuns = scheduler.listRuns().filter((run) => run.status === 'waiting_user');",
+        "    if (waitingRuns.length !== 1) return { action: 'continue' as const };",
+        "",
+        "    const target = waitingRuns[0]!;",
+        "    const resumed = await scheduler.continueRun(target.runId, text, ctx);",
+        "    if (!resumed) return { action: 'continue' as const };",
+        "",
+        "    ctx.ui.notify(`Applied feedback to ${target.runId}`, 'info');",
+        "    return { action: 'handled' as const };",
         "  });",
         "",
         "  pi.registerCommand('wf-cancel', {",
@@ -1092,6 +1170,13 @@ function getRuntimeFiles(rootWorkflowId: string): GeneratedFile[] {
         "  }",
         "}",
         "",
+        "export function hasOutgoingTransition(",
+        "  workflow: RuntimeWorkflowDefinition,",
+        "  sourceNodeId: string",
+        "): boolean {",
+        "  return workflow.transitions.some((t) => t.sourceNodeId === sourceNodeId);",
+        "}",
+        "",
         "export function resolveNextNode(",
         "  workflow: RuntimeWorkflowDefinition,",
         "  sourceNodeId: string,",
@@ -1105,7 +1190,7 @@ function getRuntimeFiles(rootWorkflowId: string): GeneratedFile[] {
         "    if (match) return match.targetNodeId;",
         "  }",
         "",
-        "  return outgoing[0]?.targetNodeId ?? null;",
+        "  return null;",
         "}",
         "",
       ].join("\n"),
@@ -1447,15 +1532,45 @@ function getRuntimeFiles(rootWorkflowId: string): GeneratedFile[] {
         "  if (pathExpr in run.outputs) return run.outputs[pathExpr];",
         "",
         "  const dot = pathExpr.split('.');",
-        "  let cursor: any = { variables: run.variables, outputs: run.outputs };",
+        "  let cursor: unknown = { variables: run.variables, outputs: run.outputs };",
         "  for (const part of dot) {",
-        "    if (cursor && typeof cursor === 'object' && part in cursor) {",
-        "      cursor = cursor[part];",
+        "    if (cursor && typeof cursor === 'object' && part in (cursor as Record<string, unknown>)) {",
+        "      cursor = (cursor as Record<string, unknown>)[part];",
         "    } else {",
         "      return undefined;",
         "    }",
         "  }",
         "  return cursor;",
+        "}",
+        "",
+        "function buildContextForAgent(node: RuntimeWorkflowNode, run: RunState): string {",
+        "  const outputs: Record<string, unknown> = {};",
+        "  for (const [nodeId, value] of Object.entries(run.outputs)) {",
+        "    if (nodeId === node.id) continue;",
+        "",
+        "    if (value && typeof value === 'object') {",
+        "      const rec = value as Record<string, unknown>;",
+        "      const resultText = typeof rec.resultText === 'string' ? rec.resultText : undefined;",
+        "      if (resultText !== undefined) {",
+        "        outputs[nodeId] = {",
+        "          ...rec,",
+        "          resultText: resultText.length > 1200 ? `${resultText.slice(0, 1200)}...` : resultText,",
+        "        };",
+        "        continue;",
+        "      }",
+        "    }",
+        "",
+        "    outputs[nodeId] = value;",
+        "  }",
+        "",
+        "  const context = {",
+        "    workflowRunId: run.runId,",
+        "    variables: run.variables,",
+        "    previousOutputs: outputs,",
+        "  };",
+        "",
+        "  const serialized = JSON.stringify(context, null, 2);",
+        "  return serialized.length > 6000 ? `${serialized.slice(0, 6000)}...` : serialized;",
         "}",
         "",
         "function renderTemplate(template: string, run: RunState, extra: Record<string, unknown> = {}): string {",
@@ -1570,7 +1685,18 @@ function getRuntimeFiles(rootWorkflowId: string): GeneratedFile[] {
         "  const tools = enabledToolsCsv(Array.isArray(node.config.disabledTools) ? (node.config.disabledTools as string[]) : []);",
         "  if (tools) args.push('--tools', tools);",
         "",
-        "  args.push(finalPrompt);",
+        "  const promptWithContext = [",
+        "    'You are executing a workflow node inside Nexus Workflow Runner.',",
+        "    'Use the workflow context below as source-of-truth for prior steps and user choices.',",
+        "    '',",
+        "    'Workflow context (JSON):',",
+        "    buildContextForAgent(node, run),",
+        "    '',",
+        "    'Task:',",
+        "    finalPrompt,",
+        "  ].join('\\n');",
+        "",
+        "  args.push(promptWithContext);",
         "",
         "  return await new Promise<ExecutionResult>((resolve) => {",
         "    const proc = spawn('pi', args, {",
@@ -1665,16 +1791,22 @@ function getRuntimeFiles(rootWorkflowId: string): GeneratedFile[] {
         "        return;",
         "      }",
         "",
+        "      const previewLine = outputText",
+        "        .split('\\n')",
+        "        .map((line) => line.trim())",
+        "        .find((line) => line.length > 0) ?? '';",
+        "",
         "      resolve({",
         "        type: 'advance',",
         "        handle: 'output',",
-        "        message: `Agent node '${node.label}' completed in ${Math.round(elapsedMs / 1000)}s`,",
+        "        message: `Agent node '${node.label}' completed in ${Math.round(elapsedMs / 1000)}s${previewLine ? ` — ${previewLine.slice(0, 120)}` : ''}`,",
         "        output: {",
         "          nodeId: node.id,",
         "          sessionFile,",
         "          elapsedMs,",
         "          toolCount,",
         "          resultText: outputText,",
+        "          resultPreview: previewLine,",
         "        },",
         "      });",
         "    });",
@@ -1783,7 +1915,7 @@ function getRuntimeFiles(rootWorkflowId: string): GeneratedFile[] {
         'import path from "node:path";',
         'import type { ChildProcess } from "node:child_process";',
         'import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";',
-        'import { WorkflowRegistry, resolveNextNode } from "./engine";',
+        'import { WorkflowRegistry, hasOutgoingTransition, resolveNextNode } from "./engine";',
         'import { renderWorkflowWidget } from "./ui/widget";',
         'import { executePromptNode } from "./executors/prompt";',
         'import { executeIfElseNode } from "./executors/if-else";',
@@ -2073,6 +2205,14 @@ function getRuntimeFiles(rootWorkflowId: string): GeneratedFile[] {
         "      }",
         "",
         "      const returnNodeId = resolveNextNode(workflow, node.id, [result.returnHandle ?? 'output', 'output']);",
+        "      if (!returnNodeId && hasOutgoingTransition(workflow, node.id)) {",
+        "        this.failRun(run, ctx.cwd, {",
+        "          code: 'WF_TRANSITION_INVALID',",
+        "          nodeId: node.id,",
+        "          message: `No transition found for handle '${result.returnHandle ?? 'output'}'`,",
+        "        });",
+        "        return;",
+        "      }",
         "      run.stack.push({",
         "        workflowId: run.workflowId,",
         "        returnNodeId,",
@@ -2115,8 +2255,31 @@ function getRuntimeFiles(rootWorkflowId: string): GeneratedFile[] {
         "    }",
         "",
         "    if (result.type === 'advance') {",
+        "      if (node.type === 'agent' && result.output && typeof result.output === 'object') {",
+        "        const agentOutput = result.output as Record<string, unknown>;",
+        "        const preview =",
+        "          typeof agentOutput.resultPreview === 'string'",
+        "            ? agentOutput.resultPreview",
+        "            : typeof agentOutput.resultText === 'string'",
+        "              ? agentOutput.resultText.split('\\n').find((line) => line.trim().length > 0)",
+        "              : undefined;",
+        "",
+        "        if (preview && preview.trim()) {",
+        "          ctx.ui.notify(`Agent ${node.label}: ${preview.slice(0, 180)}`, 'info');",
+        "        }",
+        "      }",
+        "",
         "      const nextNodeId = resolveNextNode(workflow, node.id, [result.handle ?? 'output', 'output']);",
         "      if (!nextNodeId) {",
+        "        if (hasOutgoingTransition(workflow, node.id)) {",
+        "          this.failRun(run, ctx.cwd, {",
+        "            code: 'WF_TRANSITION_INVALID',",
+        "            nodeId: node.id,",
+        "            message: `No transition found for handle '${result.handle ?? 'output'}'`,",
+        "          });",
+        "          return;",
+        "        }",
+        "",
         "        run.status = 'done';",
         "        run.currentNodeId = null;",
         "        this.trace(run, 'run_done', node.id, 'No outgoing transition, run completed');",
@@ -2269,6 +2432,7 @@ function getRuntimeFiles(rootWorkflowId: string): GeneratedFile[] {
 
 export function generatePiExtensionFiles(workflow: WorkflowJSON): GeneratedFile[] {
   const bundle = compileBundle(workflow);
+  assertPiExtensionBundleExportable(bundle);
 
   const files: GeneratedFile[] = [];
   files.push(...getRuntimeFiles(bundle.rootWorkflowId));
