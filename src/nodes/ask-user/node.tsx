@@ -12,6 +12,7 @@ const truncate = (str: string, n: number) =>
   str?.length > n ? str.slice(0, n) + "..." : str;
 
 export const AskUserNode = memo(function AskUserNode({
+  id,
   data,
   selected,
 }: NodeProps<Node<AskUserNodeData>>) {
@@ -30,6 +31,7 @@ export const AskUserNode = memo(function AskUserNode({
       label={data.label || displayName}
       type={data.type}
       icon={icon}
+      nodeId={id}
     >
       <div className="flex flex-col gap-2">
         {/* Question text */}

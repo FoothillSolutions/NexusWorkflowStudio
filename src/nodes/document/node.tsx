@@ -13,7 +13,7 @@ const truncate = (str: string, n: number) => (str?.length ?? 0) > n ? str.slice(
 
 const EXT_LABELS: Record<string, string> = { md: "Markdown", txt: "Text", json: "JSON", yaml: "YAML" };
 
-export const DocumentNode = memo(function DocumentNode({ data, selected }: NodeProps<Node<DocumentNodeData>>) {
+export const DocumentNode = memo(function DocumentNode({ id, data, selected }: NodeProps<Node<DocumentNodeData>>) {
   const { icon, accentHex, displayName } = documentRegistryEntry;
 
   const isValidAgentConnection = useCallback(
@@ -28,7 +28,7 @@ export const DocumentNode = memo(function DocumentNode({ data, selected }: NodeP
   const ext = data.fileExtension || "md";
 
   return (
-    <BaseNode accentHex={accentHex} selected={selected} label={data.label || displayName} type={data.type} icon={icon} size={NodeSize.Small}>
+    <BaseNode accentHex={accentHex} selected={selected} label={data.label || displayName} type={data.type} icon={icon} size={NodeSize.Small} nodeId={id}>
       <div className="flex flex-col gap-2">
         {/* Doc name */}
         {data.docName && (

@@ -7,8 +7,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-geist-sans, system-ui, sans-serif);
+  --font-mono: var(--font-geist-mono, ui-monospace, monospace);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -161,6 +161,54 @@
   cursor: pointer;
 }
 
+/* ── Custom thin scrollbar ────────────────────────────────────────────────── */
+.custom-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scroll::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+  border-radius: 3px;
+}
+.custom-scroll::-webkit-scrollbar-thumb:hover {
+  background: #52525b;
+}
+.custom-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #3f3f46 transparent;
+}
+
+/* ── Patch notes dialog scrollbar ────────────────────────────────────────── */
+.patch-notes-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.patch-notes-scroll::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 4px 0;
+}
+.patch-notes-scroll::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background-clip: content-box;
+}
+.patch-notes-scroll::-webkit-scrollbar-thumb:hover {
+  background: #7c3aed;
+  border: 1px solid transparent;
+  background-clip: content-box;
+}
+.patch-notes-scroll::-webkit-scrollbar-thumb:active {
+  background: #8b5cf6;
+  border: 1px solid transparent;
+  background-clip: content-box;
+}
+.patch-notes-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #3f3f46 transparent;
+}
+
 /* ── Animated edge flow when selected ────────────────────────────────────── */
 @keyframes edge-flow {
   from {
@@ -170,4 +218,29 @@
     stroke-dashoffset: 0;
   }
 }
+
+/* ── AI generation — node glow indicator ──────────────────────────────────── */
+@keyframes ai-glow {
+  0%, 100% {
+    outline-color: rgba(139, 92, 246, 0.5);
+    outline-offset: 1px;
+    box-shadow:
+      0 0 10px 2px rgba(139, 92, 246, 0.25),
+      0 0 4px 0 rgba(139, 92, 246, 0.15);
+  }
+  50% {
+    outline-color: rgba(139, 92, 246, 0.9);
+    outline-offset: 2px;
+    box-shadow:
+      0 0 24px 6px rgba(139, 92, 246, 0.4),
+      0 0 8px 1px rgba(139, 92, 246, 0.3);
+  }
+}
+
+.ai-node-glow {
+  outline: 2px solid rgba(139, 92, 246, 0.7);
+  outline-offset: 2px;
+  animation: ai-glow 2s ease-in-out infinite;
+}
+
 

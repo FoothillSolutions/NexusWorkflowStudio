@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { PromptFieldGroup } from "@/nodes/shared/prompt-field-group";
+import { AiPromptGenerator } from "@/nodes/agent/ai-prompt-generator";
 import { Plus, Trash2 } from "lucide-react";
 import { detectVariables, DetectedVariablesPanel } from "@/nodes/shared/variable-utils";
 import type { FormControl, FormSetValue, FormRegister } from "@/nodes/shared/form-types";
@@ -19,9 +20,10 @@ interface SkillFieldsProps {
   register: FormRegister;
   control: FormControl;
   setValue: FormSetValue;
+  nodeId?: string;
 }
 
-export function Fields({ control, setValue }: SkillFieldsProps) {
+export function Fields({ control, setValue, nodeId }: SkillFieldsProps) {
   const promptText: string = useWatch({ control, name: "promptText" }) ?? "";
   const metadata: SkillMetadataEntry[] = useWatch({ control, name: "metadata" }) ?? [];
 
@@ -71,6 +73,7 @@ export function Fields({ control, setValue }: SkillFieldsProps) {
         placeholder="The content of the skill goes here"
         required
       />
+      <AiPromptGenerator setValue={setValue} currentPrompt={promptText} nodeId={nodeId} nodeType="skill" />
       <DetectedVariablesPanel dynamic={dynamic} staticVars={staticVars} />
 
       {/* Metadata */}

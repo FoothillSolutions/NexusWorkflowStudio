@@ -13,7 +13,10 @@
     "test": "node --import tsx --test tests/**/*.test.ts",
     "test:workflow": "node --import tsx --test tests/pi-extension.integration.test.ts",
     "test:workflow:cli": "node --import tsx --test tests/pi-extension.cli-smoke.test.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "docker:bun": "docker compose up --build",
+    "docker:node": "docker compose --profile node up nextjs-standalone --build",
+    "docker:down": "docker compose --profile node down"
   },
   "dependencies": {
     "@dagrejs/dagre": "^2.0.4",

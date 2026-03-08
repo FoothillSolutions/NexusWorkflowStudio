@@ -6,10 +6,10 @@ import { HANDLE_CLASS } from "@/lib/theme";
 import { Box } from "lucide-react";
 import { mcpToolRegistryEntry } from "./constants";
 import type { McpToolNodeData } from "./types";
-export const McpToolNode = memo(function McpToolNode({ data, selected }: NodeProps<Node<McpToolNodeData>>) {
+export const McpToolNode = memo(function McpToolNode({ id, data, selected }: NodeProps<Node<McpToolNodeData>>) {
   const { icon, accentHex, displayName } = mcpToolRegistryEntry;
   return (
-    <BaseNode accentHex={accentHex} selected={selected} label={data.label || displayName} type={data.type} icon={icon}>
+    <BaseNode accentHex={accentHex} selected={selected} label={data.label || displayName} type={data.type} icon={icon} nodeId={id}>
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-1.5 font-medium text-zinc-200">
           <Box size={14} className="text-zinc-500" /><span className="truncate">{data.toolName || "No tool selected"}</span>

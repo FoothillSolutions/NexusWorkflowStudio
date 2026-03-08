@@ -12,7 +12,7 @@ import { useWorkflowStore } from "@/store/workflow-store";
 
 const truncate = (str: string, n: number) => (str?.length ?? 0) > n ? str.slice(0, n) + "..." : str;
 
-export const SkillNode = memo(function SkillNode({ data, selected }: NodeProps<Node<SkillNodeData>>) {
+export const SkillNode = memo(function SkillNode({ id, data, selected }: NodeProps<Node<SkillNodeData>>) {
   const { icon, accentHex, displayName } = skillRegistryEntry;
 
   // Read nodes at call-time via getState() to avoid subscribing
@@ -29,7 +29,7 @@ export const SkillNode = memo(function SkillNode({ data, selected }: NodeProps<N
   const totalVars = varCounts.dynamic + varCounts.static;
 
   return (
-    <BaseNode accentHex={accentHex} selected={selected} label={data.label || displayName} type={data.type} icon={icon} size={NodeSize.Small}>
+    <BaseNode accentHex={accentHex} selected={selected} label={data.label || displayName} type={data.type} icon={icon} size={NodeSize.Small} nodeId={id}>
       <div className="flex flex-col gap-2">
         {/* Prompt preview */}
         {data.promptText && (() => {

@@ -50,47 +50,52 @@ npm run build
 npm start
 ```
 
-## Tech Stack
+### Docker
 
-| Layer | Technology |
-|-------|-----------|
-| Framework | [Next.js 16](https://nextjs.org) (App Router) |
-| Canvas | [React Flow 12](https://reactflow.dev) |
-| State | [Zustand 5](https://zustand.docs.pmnd.rs) + [Zundo](https://github.com/charkour/zundo) |
-| Validation | [Zod 4](https://zod.dev) |
-| Forms | [React Hook Form 7](https://react-hook-form.com) |
-| UI | [Radix UI](https://www.radix-ui.com) + [Tailwind CSS 4](https://tailwindcss.com) |
-| Layout | [Dagre](https://github.com/dagrejs/dagre) |
-| Icons | [Lucide React](https://lucide.dev) |
+The project includes Docker support with two runtime options: **Bun** (default) and **Node.js**. Both produce the same Next.js standalone output — the difference is the runtime that serves the application.
 
-## Project Structure
+#### Default: Bun
 
+A faster runtime using `oven/bun`. Offers quicker dependency installs and cold starts. Runs by default with `docker compose up`.
+
+```bash
+# Using npm script
+npm run docker:bun
+
+# Or using Docker Compose directly
+docker compose up --build
 ```
-src/
-├── app/              # Next.js App Router pages & layout
-├── components/
-│   ├── edges/        # Custom React Flow edge components
-│   ├── nodes/        # React Flow node components
-│   ├── ui/           # Shared UI primitives (shadcn/ui)
-│   └── workflow/     # Workflow editor components (canvas, panels, dialogs)
-├── hooks/            # Shared React hooks (canvas interactions, layout, etc.)
-├── lib/              # Core utilities (registry, persistence, theme, codegen)
-├── nodes/            # Node module definitions (schema, fields, generator, types)
-│   ├── shared/       # Shared node utilities (base node, form types, etc.)
-│   ├── start/
-│   ├── end/
-│   ├── prompt/
-│   ├── sub-agent/
-│   ├── sub-workflow/
-│   ├── skill/
-│   ├── document/
-│   ├── mcp-tool/
-│   ├── if-else/
-│   ├── switch/
-│   └── ask-user/
-├── store/            # Zustand stores (workflow state, library state)
-└── types/            # TypeScript type definitions
+
+#### Alternative: Node.js
+
+The standard, production-proven runtime using `node:24-slim`. Requires the `node` profile.
+
+```bash
+# Using npm script
+npm run docker:node
+
+# Or using Docker Compose directly
+docker compose --profile node up nextjs-standalone --build
 ```
+
+#### Running in Detached Mode
+
+Append the `-d` flag to run in the background:
+
+```bash
+docker compose up --build -d
+docker compose --profile node up nextjs-standalone --build -d
+```
+
+#### Stopping
+
+```bash
+npm run docker:down
+# or
+docker compose --profile node down
+```
+
+Once running, open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## Adding a New Node Type
 

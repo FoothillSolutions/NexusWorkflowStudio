@@ -4,7 +4,7 @@ import { NodeCategory } from "@/nodes/shared/registry-types";
 import type { NodeRegistryEntry } from "@/nodes/shared/registry-types";
 import { NodeSize } from "@/nodes/shared/base-node";
 import { NODE_ACCENT } from "@/lib/node-colors";
-import { SubAgentModel, SubAgentMemory } from "@/nodes/sub-agent/enums";
+import { SubAgentModel, SubAgentMemory } from "@/nodes/agent/enums";
 import type { SubWorkflowNodeData } from "./types";
 
 export const subWorkflowRegistryEntry: NodeRegistryEntry = {
@@ -42,7 +42,7 @@ export const subWorkflowSchema = z.object({
   nodeCount: z.coerce.number().int().min(0),
   // Agent-mode fields
   description: z.string().default(""),
-  model: z.enum(SubAgentModel).default(SubAgentModel.Inherit),
+  model: z.string().default(SubAgentModel.Inherit),
   memory: z.enum(SubAgentMemory).default(SubAgentMemory.Default),
   temperature: z.number().min(0).max(1).default(0),
   color: z.string().default(NODE_ACCENT["sub-workflow"]),

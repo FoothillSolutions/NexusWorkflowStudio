@@ -2,7 +2,7 @@ import type { NodeGeneratorModule } from "@/nodes/shared/registry-types";
 import { mermaidId, mermaidLabel } from "@/nodes/shared/mermaid-utils";
 import type { WorkflowNodeData, WorkflowJSON } from "@/types/workflow";
 import { NODE_ACCENT } from "@/lib/node-colors";
-import { SubAgentModel } from "@/nodes/sub-agent/enums";
+import { SubAgentModel } from "@/nodes/agent/enums";
 import type { SubWorkflowNodeData } from "./types";
 
 /** Sanitise a human label into a safe kebab-case slug. */

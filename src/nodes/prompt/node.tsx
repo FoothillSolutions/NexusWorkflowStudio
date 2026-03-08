@@ -8,12 +8,12 @@ import { Braces, DollarSign } from "lucide-react";
 import { promptRegistryEntry } from "./constants";
 import type { PromptNodeData } from "./types";
 const truncate = (str: string, n: number) => str?.length > n ? str.slice(0, n) + "..." : str;
-export const PromptNode = memo(function PromptNode({ data, selected }: NodeProps<Node<PromptNodeData>>) {
+export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeProps<Node<PromptNodeData>>) {
   const { icon, accentHex, displayName } = promptRegistryEntry;
   const varCounts = data.promptText ? detectVarCounts(data.promptText) : { dynamic: 0, static: 0 };
   const totalVars = varCounts.dynamic + varCounts.static;
   return (
-    <BaseNode accentHex={accentHex} selected={selected} label={data.label || displayName} type={data.type} icon={icon} size={NodeSize.Large}>
+    <BaseNode accentHex={accentHex} selected={selected} label={data.label || displayName} type={data.type} icon={icon} size={NodeSize.Large} nodeId={id}>
       <div className="flex flex-col gap-2">
         {data.promptText && (() => {
           const lines = data.promptText.split("\n");

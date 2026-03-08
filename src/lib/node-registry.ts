@@ -16,7 +16,7 @@ import type { NodeRegistryEntry } from "@/nodes/shared/registry-types";
 import { startRegistryEntry, startSchema, StartNode } from "@/nodes/start";
 import { endRegistryEntry, endSchema, EndNode } from "@/nodes/end";
 import { promptRegistryEntry, promptSchema, PromptNode } from "@/nodes/prompt";
-import { subAgentRegistryEntry, subAgentSchema, SubAgentNode } from "@/nodes/sub-agent";
+import { subAgentRegistryEntry, subAgentSchema, SubAgentNode } from "@/nodes/agent";
 import { subWorkflowRegistryEntry, subWorkflowSchema, SubWorkflowNode } from "@/nodes/sub-workflow";
 import { skillRegistryEntry, skillSchema, SkillNode } from "@/nodes/skill";
 import { documentRegistryEntry, documentSchema, DocumentNode } from "@/nodes/document";

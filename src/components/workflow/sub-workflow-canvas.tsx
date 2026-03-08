@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, LayoutDashboard, ChevronRight } from "lucide-react";
 import { createNodeFromType } from "@/lib/node-registry";
 import type { SubWorkflowNodeData } from "@/nodes/sub-workflow/types";
-import { LibraryToggleButton, HelpMenu } from "./shared-header-actions";
+import { LibraryToggleButton, HelpMenu, ConnectButton } from "./shared-header-actions";
 import NodePalette from "./node-palette";
 import CanvasToolbar from "./canvas-toolbar";
 import DeleteDialog from "./delete-dialog";
@@ -439,6 +439,7 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
           <span className="text-[10px] text-zinc-500 font-mono">{subEdges.length} edges</span>
           <div className="h-4 w-px bg-zinc-700 mx-1" />
           <LibraryToggleButton variant="compact" />
+          <ConnectButton variant="compact" />
           <HelpMenu />
         </div>
       </div>

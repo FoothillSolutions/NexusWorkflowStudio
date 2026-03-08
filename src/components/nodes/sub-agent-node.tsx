@@ -1,1 +1,1 @@
-export { SubAgentNode } from "@/nodes/sub-agent/node";
+export { SubAgentNode } from "@/nodes/agent/node";

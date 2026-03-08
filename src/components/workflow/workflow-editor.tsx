@@ -5,7 +5,7 @@ import { ReactFlowProvider } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useWorkflowStore } from "@/store/workflow-store";
 import { useSavedWorkflowsStore } from "@/store/library-store";
-import { throttledSave, exportWorkflow } from "@/lib/persistence";
+import { throttledSave, exportWorkflow, stripTransientProperties } from "@/lib/persistence";
 import { isModKey } from "@/lib/platform";
 import { toast } from "sonner";
 import { BG_APP, TEXT_PRIMARY } from "@/lib/theme";
@@ -17,6 +17,10 @@ import PropertiesPanel from "./properties-panel";
 import DeleteDialog from "./delete-dialog";
 import LibraryPanel from "./library-panel";
 import SubWorkflowCanvas from "./sub-workflow-canvas";
+import FloatingPromptGen from "./floating-prompt-gen";
+import FloatingWorkflowGen from "./floating-workflow-gen";
+import WhatsNewDialog from "./whats-new-dialog";
+import { useWhatsNew } from "@/hooks/use-whats-new";
 
 export default function WorkflowEditor() {
   const closePropertiesPanel = useWorkflowStore((s) => s.closePropertiesPanel);
@@ -24,6 +28,7 @@ export default function WorkflowEditor() {
   const reset = useWorkflowStore((s) => s.reset);
   const activeSubWorkflowNodeId = useWorkflowStore((s) => s.activeSubWorkflowNodeId);
   const openSubWorkflow = useWorkflowStore((s) => s.openSubWorkflow);
+  const whatsNew = useWhatsNew();
 
   // Listen for sub-workflow open events from properties panel
   useEffect(() => {
@@ -78,6 +83,7 @@ export default function WorkflowEditor() {
         e.preventDefault();
         reset();
         useSavedWorkflowsStore.getState().clearActiveId();
+        window.dispatchEvent(new CustomEvent("nexus:fit-view"));
         toast.success("New workflow created");
         return;
       }
@@ -101,6 +107,13 @@ export default function WorkflowEditor() {
       if (mod && e.altKey && e.code === "KeyG") {
         e.preventDefault();
         window.dispatchEvent(new CustomEvent("nexus:generate"));
+        return;
+      }
+
+      // ── Mod+Alt+A → AI Workflow Generation ─────────────────────────
+      if (mod && e.altKey && e.code === "KeyA") {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent("nexus:open-workflow-gen"));
         return;
       }
 
@@ -147,7 +160,7 @@ export default function WorkflowEditor() {
         prevName = state.name;
 
         // Throttle will coalesce rapid position updates into one trailing save
-        throttledSave({
+        throttledSave(stripTransientProperties({
             name: state.name,
             nodes: state.nodes,
             edges: state.edges,
@@ -158,7 +171,7 @@ export default function WorkflowEditor() {
                 canvasMode: state.canvasMode,
                 edgeStyle: state.edgeStyle,
             }
-        });
+        }));
     });
     return () => unsub();
   }, []);
@@ -173,10 +186,13 @@ export default function WorkflowEditor() {
             <NodePalette />
             <CanvasToolbar />
             <PropertiesPanel />
+            <FloatingPromptGen />
+            <FloatingWorkflowGen />
             <LibraryPanel />
           </div>
         </div>
         <DeleteDialog />
+        <WhatsNewDialog open={whatsNew.open} onDismiss={whatsNew.dismiss} />
         {/* Sub-workflow editor overlay */}
         {activeSubWorkflowNodeId && (
           <SubWorkflowCanvas key={activeSubWorkflowNodeId} nodeId={activeSubWorkflowNodeId} />

@@ -6,7 +6,7 @@ import { BaseNode } from "@/nodes/shared/base-node";
 import { switchRegistryEntry } from "./constants";
 import type { SwitchNodeData, SwitchBranch } from "./types";
 
-export const SwitchNode = memo(function SwitchNode({ data, selected }: NodeProps<Node<SwitchNodeData>>) {
+export const SwitchNode = memo(function SwitchNode({ id, data, selected }: NodeProps<Node<SwitchNodeData>>) {
   const { icon, accentHex, displayName } = switchRegistryEntry;
   const branches: SwitchBranch[] = data.branches ?? [
     { label: "Case 1", condition: "" },
@@ -21,6 +21,7 @@ export const SwitchNode = memo(function SwitchNode({ data, selected }: NodeProps
       label={data.label || displayName}
       type={data.type}
       icon={icon}
+      nodeId={id}
     >
       {/* Evaluation target */}
       {data.evaluationTarget && (

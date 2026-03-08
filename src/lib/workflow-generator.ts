@@ -9,7 +9,7 @@ import type { WorkflowJSON, WorkflowNode, WorkflowEdge } from "@/types/workflow"
 import { generator as startGen }        from "@/nodes/start/generator";
 import { generator as endGen }          from "@/nodes/end/generator";
 import { generator as promptGen }       from "@/nodes/prompt/generator";
-import { generator as subAgentGen }     from "@/nodes/sub-agent/generator";
+import { generator as subAgentGen }     from "@/nodes/agent/generator";
 import { generator as subWorkflowGen } from "@/nodes/sub-workflow/generator";
 import { generator as skillGen }        from "@/nodes/skill/generator";
 import { generator as documentGen }     from "@/nodes/document/generator";
@@ -155,7 +155,7 @@ function buildSubAgentDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[
     const node = allNodeById.get(id);
     if (!node || node.data.type !== "agent") continue;
 
-    const d = node.data as import("@/nodes/sub-agent/types").SubAgentNodeData;
+    const d = node.data as import("@/nodes/agent/types").SubAgentNodeData;
     const agentName = d.name || `agent-${node.id}`;
 
     const lines: string[] = [

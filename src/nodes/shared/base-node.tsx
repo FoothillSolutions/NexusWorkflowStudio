@@ -1,7 +1,9 @@
 "use client";
 
+import { useCallback } from "react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useWorkflowGenStore } from "@/store/workflow-gen-store";
 import {
   BG_SURFACE,
   BORDER_NODE,
@@ -46,6 +48,8 @@ interface BaseNodeProps {
   type: string;
   icon: LucideIcon;
   size?: NodeSize;
+  /** The React Flow node ID — used to check entrance animation state */
+  nodeId?: string;
 }
 
 export function BaseNode({
@@ -56,13 +60,19 @@ export function BaseNode({
   type,
   icon: Icon,
   size = NodeSize.Medium,
+  nodeId,
 }: BaseNodeProps) {
+  const isGlowing = useWorkflowGenStore(
+    useCallback((s) => nodeId ? s._glowingNodeIds.includes(nodeId) : false, [nodeId])
+  );
+
   return (
     <div
       className={cn(
         `flex flex-col ${SIZE_CLASSES[size]} rounded-lg ${BG_SURFACE} transition-shadow duration-200`,
         `border ${BORDER_NODE} shadow-md cursor-pointer`,
-        selected && `${BORDER_SELECTED} ring-1 ${RING_SELECTED}`
+        selected && `${BORDER_SELECTED} ring-1 ${RING_SELECTED}`,
+        isGlowing && "ai-node-glow"
       )}
       style={{ borderTopColor: accentHex, borderTopWidth: "3px" }}
     >
@@ -86,4 +96,3 @@ export function BaseNode({
     </div>
   );
 }
-

@@ -54,6 +54,7 @@ export default function LoadDialog({ open, onOpenChange }: LoadDialogProps) {
         const file = acceptedFiles[0];
         const data = await importWorkflow(file);
         loadWorkflow(data);
+        window.dispatchEvent(new CustomEvent("nexus:fit-view"));
         toast.success("Workflow imported successfully");
         onOpenChange(false);
       } catch (error) {
@@ -77,6 +78,7 @@ export default function LoadDialog({ open, onOpenChange }: LoadDialogProps) {
     const data = loadFromLocalStorage();
     if (data) {
       loadWorkflow(data);
+      window.dispatchEvent(new CustomEvent("nexus:fit-view"));
       toast.success("Last saved workflow loaded");
       onOpenChange(false);
     } else {

@@ -19,7 +19,7 @@ const BRANCH_BORDER_STYLE = (color: string) => ({
   borderBottom: "1px solid rgba(63,63,70,0.4)",
 });
 
-export const IfElseNode = memo(function IfElseNode({ data, selected }: NodeProps<Node<IfElseNodeData>>) {
+export const IfElseNode = memo(function IfElseNode({ id, data, selected }: NodeProps<Node<IfElseNodeData>>) {
   const { icon, accentHex, displayName } = ifElseRegistryEntry;
   const branches: IfElseBranch[] = data.branches ?? [
     { label: "True", condition: "" },
@@ -33,6 +33,7 @@ export const IfElseNode = memo(function IfElseNode({ data, selected }: NodeProps
       label={data.label || displayName}
       type={data.type}
       icon={icon}
+      nodeId={id}
     >
       {/* Evaluation target */}
       {data.evaluationTarget && (

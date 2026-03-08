@@ -32,11 +32,15 @@ import {
   Upload,
   FilePlus,
   ChevronDown,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import ImportDialog from "./import-dialog";
 import WorkflowPreviewDialog from "./workflow-preview-dialog";
-import { LibraryToggleButton, HelpMenu } from "./shared-header-actions";
+import { useWorkflowGenStore } from "@/store/workflow-gen-store";
+import { useOpenCodeStore } from "@/store/opencode-store";
+import { LibraryToggleButton, HelpMenu, ConnectButton } from "./shared-header-actions";
+import { ProjectSwitcher } from "./project-switcher";
 import {
   BG_SURFACE,
   BORDER_DEFAULT,
@@ -59,6 +63,8 @@ export default function Header() {
   const setName = useWorkflowStore((s) => s.setName);
   const getWorkflowJSON = useWorkflowStore((s) => s.getWorkflowJSON);
   const reset = useWorkflowStore((s) => s.reset);
+  const openCodeStatus = useOpenCodeStore((s) => s.status);
+  const isOpenCodeConnected = openCodeStatus === "connected";
   const [isEditingName, setIsEditingName] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -89,6 +95,7 @@ export default function Header() {
   const handleNew = () => {
     reset();
     useSavedWorkflowsStore.getState().clearActiveId();
+    window.dispatchEvent(new CustomEvent("nexus:fit-view"));
     toast.success("New workflow created");
   };
 
@@ -174,15 +181,18 @@ export default function Header() {
     const onOpenImport = () => setImportDialogOpen(true);
     const onOpenPreview = () => handleView();
     const onGenerate = () => handleGenerate();
+    const onOpenWorkflowGen = () => useWorkflowGenStore.getState().setFloating(true);
 
     window.addEventListener("nexus:open-import", onOpenImport);
     window.addEventListener("nexus:open-preview", onOpenPreview);
     window.addEventListener("nexus:generate", onGenerate);
+    window.addEventListener("nexus:open-workflow-gen", onOpenWorkflowGen);
 
     return () => {
       window.removeEventListener("nexus:open-import", onOpenImport);
       window.removeEventListener("nexus:open-preview", onOpenPreview);
       window.removeEventListener("nexus:generate", onGenerate);
+      window.removeEventListener("nexus:open-workflow-gen", onOpenWorkflowGen);
     };
   }, [handleView, handleGenerate]);
 
@@ -199,6 +209,7 @@ export default function Header() {
       </div>
 
       <Divider />
+
 
       {/* ── Workflow name (editable) ──────────────────────────── */}
       <div className="flex-1 min-w-0">
@@ -224,7 +235,16 @@ export default function Header() {
 
       {/* ── Actions ───────────────────────────────────────────── */}
       <div className="flex items-center gap-1 shrink-0">
-        {/* File dropdown */}
+        {/* Connect to OpenCode */}
+        <ConnectButton />
+
+        {/* Library toggle */}
+        <LibraryToggleButton />
+
+        {/* Project directory switcher */}
+        <ProjectSwitcher />
+
+          {/* File dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -257,26 +277,48 @@ export default function Header() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Library toggle */}
-        <LibraryToggleButton />
 
         <Divider />
 
-        {/* Preview */}
+        {/* Preview — dev only */}
+        {process.env.NODE_ENV === "development" && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleView}
+                className={`${TEXT_MUTED} hover:text-zinc-100 h-8 px-3 text-sm`}
+              >
+                <Eye className="h-4 w-4 mr-1.5" />
+                Preview
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              Preview {activeProfile.label} output
+            </TooltipContent>
+          </Tooltip>
+        )}
+
+        {/* AI Workflow Generation */}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
               variant="ghost"
               size="sm"
-              onClick={handleView}
-              className={`${TEXT_MUTED} hover:text-zinc-100 h-8 px-3 text-sm`}
+              onClick={() => useWorkflowGenStore.getState().setFloating(true)}
+              disabled={!isOpenCodeConnected}
+              className={`${TEXT_MUTED} hover:text-violet-300 h-8 px-3 text-sm gap-1.5 disabled:opacity-40`}
             >
-              <Eye className="h-4 w-4 mr-1.5" />
-              Preview
+              <Sparkles className="h-4 w-4 text-violet-400" />
+              AI Generate
+              <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/30 leading-none">
+                Beta
+              </span>
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom">
-            Preview {activeProfile.label} output
+            Generate a workflow from a description <kbd className="ml-1 text-[10px] opacity-60">Ctrl+Alt+A</kbd>
           </TooltipContent>
         </Tooltip>
 

@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Nexus Workflow Studio",
-  description: "Dark-theme drag & drop workflow editor",
+  description: "Your first AI agentic workflow website editor",
 };
 
 export default function RootLayout({

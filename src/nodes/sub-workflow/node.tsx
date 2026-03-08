@@ -4,7 +4,7 @@ import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import { BaseNode, NodeSize } from "@/nodes/shared/base-node";
 import { HANDLE_CLASS } from "@/lib/theme";
 import { Layers, Cpu, Thermometer, Wrench, Bot, Workflow, ArrowUpRight } from "lucide-react";
-import { SubAgentModel, MODEL_DISPLAY_NAMES } from "@/nodes/sub-agent/enums";
+import { SubAgentModel, MODEL_DISPLAY_NAMES } from "@/nodes/agent/enums";
 import { subWorkflowRegistryEntry } from "./constants";
 import type { SubWorkflowNodeData } from "./types";
 
@@ -26,7 +26,7 @@ export const SubWorkflowNode = memo(function SubWorkflowNode({ id, data, selecte
   }, [id]);
 
   return (
-    <BaseNode accentHex={accentHex} selected={selected} label={data.label || displayName} type={data.type} icon={icon} size={NodeSize.Large}>
+    <BaseNode accentHex={accentHex} selected={selected} label={data.label || displayName} type={data.type} icon={icon} size={NodeSize.Large} nodeId={id}>
       <div className="flex flex-col gap-2.5">
         {/* Mode badge */}
         <div className="flex items-center gap-2">
@@ -61,7 +61,7 @@ export const SubWorkflowNode = memo(function SubWorkflowNode({ id, data, selecte
             {hasModel && (
               <span className="inline-flex items-center gap-1 text-[10px] font-mono bg-violet-950/60 text-violet-300 border border-violet-800/40 px-1.5 py-0.5 rounded-md">
                 <Cpu className="h-2.5 w-2.5" />
-                {truncate(MODEL_DISPLAY_NAMES[data.model as SubAgentModel] ?? String(data.model), 18)}
+                {truncate(MODEL_DISPLAY_NAMES[data.model] ?? (data.model.includes("/") ? data.model.split("/")[1] : String(data.model)), 18)}
               </span>
             )}
             {hasTemp && (

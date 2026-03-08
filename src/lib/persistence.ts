@@ -1,8 +1,46 @@
 import throttle from "lodash.throttle";
-import type { WorkflowJSON } from "@/types/workflow";
+import type { WorkflowJSON, WorkflowNode, WorkflowEdge } from "@/types/workflow";
 import { workflowJsonSchema } from "@/lib/workflow-schema";
 
 const STORAGE_KEY = "nexus-workflow-studio:last";
+
+// ── Strip transient React Flow properties from serialized JSON ───────────
+// These properties are runtime-only (measured, selected, dragging) or
+// always re-applied on load (edge type/style/animated, node deletable).
+
+function cleanNode(node: WorkflowNode): WorkflowNode {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { measured, selected, dragging, deletable, ...rest } = node;
+
+  // Recursively strip sub-workflow embedded nodes/edges
+  if (rest.data?.type === "sub-workflow" && rest.data.subNodes) {
+    return {
+      ...rest,
+      data: {
+        ...rest.data,
+        subNodes: (rest.data.subNodes as WorkflowNode[]).map(cleanNode),
+        subEdges: (rest.data.subEdges as WorkflowEdge[]).map(cleanEdge),
+      },
+    } as WorkflowNode;
+  }
+
+  return rest as WorkflowNode;
+}
+
+function cleanEdge(edge: WorkflowEdge): WorkflowEdge {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { type, style, animated, selected, ...rest } = edge;
+  return rest as WorkflowEdge;
+}
+
+/** Remove transient / redundant React Flow properties before persisting. */
+export function stripTransientProperties(data: WorkflowJSON): WorkflowJSON {
+  return {
+    ...data,
+    nodes: data.nodes.map(cleanNode),
+    edges: data.edges.map(cleanEdge),
+  };
+}
 
 // ── Save ────────────────────────────────────────────────────────────────────
 export function saveToLocalStorage(data: WorkflowJSON): void {
@@ -71,3 +109,63 @@ export const throttledSave = throttle(saveToLocalStorage, 2000, {
   leading: false,
   trailing: true,
 });
+
+// ── Custom project directories ──────────────────────────────────────────────
+
+const CUSTOM_DIRS_KEY = "nexus:custom-project-dirs";
+const ACTIVE_DIR_KEY = "nexus:active-project-dir";
+
+export function loadCustomProjectDirs(): string[] {
+  try {
+    const raw = localStorage.getItem(CUSTOM_DIRS_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) as string[];
+  } catch {
+    return [];
+  }
+}
+
+export function saveCustomProjectDirs(dirs: string[]): void {
+  try {
+    localStorage.setItem(CUSTOM_DIRS_KEY, JSON.stringify(dirs));
+  } catch {
+    console.error("Failed to save custom project dirs");
+  }
+}
+
+export function addCustomProjectDir(dir: string): string[] {
+  const dirs = loadCustomProjectDirs();
+  const normalized = dir.replace(/[\\/]+$/, "");
+  if (!dirs.includes(normalized)) {
+    dirs.push(normalized);
+    saveCustomProjectDirs(dirs);
+  }
+  return dirs;
+}
+
+export function removeCustomProjectDir(dir: string): string[] {
+  const dirs = loadCustomProjectDirs().filter((d) => d !== dir);
+  saveCustomProjectDirs(dirs);
+  return dirs;
+}
+
+export function getActiveProjectDir(): string | null {
+  try {
+    return localStorage.getItem(ACTIVE_DIR_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setActiveProjectDir(dir: string | null): void {
+  try {
+    if (dir) {
+      localStorage.setItem(ACTIVE_DIR_KEY, dir);
+    } else {
+      localStorage.removeItem(ACTIVE_DIR_KEY);
+    }
+  } catch {
+    console.error("Failed to save active project dir");
+  }
+}
+
