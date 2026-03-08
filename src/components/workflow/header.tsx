@@ -26,6 +26,7 @@ import {
   Download,
   Cpu,
   Eye,
+  Play,
   Upload,
   FilePlus,
   ChevronDown,
@@ -33,7 +34,9 @@ import {
 import { toast } from "sonner";
 import ImportDialog from "./import-dialog";
 import WorkflowPreviewDialog from "./workflow-preview-dialog";
+import StudioPanel from "./studio-panel";
 import { LibraryToggleButton, HelpMenu } from "./shared-header-actions";
+import { demoWorkflow } from "@/lib/demo-workflow";
 import {
   BG_SURFACE,
   BORDER_DEFAULT,
@@ -55,6 +58,7 @@ export default function Header() {
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewMarkdown, setPreviewMarkdown] = useState("");
+  const [studioOpen, setStudioOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -86,6 +90,11 @@ export default function Header() {
   const handleExport = () => {
     exportWorkflow(getWorkflowJSON());
     toast.success("Workflow exported");
+  };
+
+  const handleLoadDemo = () => {
+    useWorkflowStore.getState().loadWorkflow(demoWorkflow);
+    toast.success("Demo workflow loaded");
   };
 
   const handleGenerate = useCallback(async () => {
@@ -236,6 +245,24 @@ export default function Header() {
           </TooltipContent>
         </Tooltip>
 
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setStudioOpen(true)}
+              className={`${TEXT_MUTED} hover:text-zinc-100 h-8 px-3 text-sm`}
+              data-testid="open-studio-button"
+            >
+              <Play className="h-4 w-4 mr-1.5" />
+              Studio
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            Open workflow run studio
+          </TooltipContent>
+        </Tooltip>
+
         {/* Generate (primary action) */}
         <Button
           size="sm"
@@ -248,6 +275,16 @@ export default function Header() {
         </Button>
 
         <Divider />
+
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleLoadDemo}
+          className={`${TEXT_MUTED} hover:text-zinc-100 h-8 px-3 text-sm`}
+          data-testid="load-demo-button"
+        >
+          Load Demo
+        </Button>
 
         {/* Help / More dropdown */}
         <HelpMenu />
@@ -265,6 +302,7 @@ export default function Header() {
         title={`Preview — ${name}`}
         onDownload={handleGenerate}
       />
+      <StudioPanel open={studioOpen} onOpenChange={setStudioOpen} />
     </header>
   );
 }
