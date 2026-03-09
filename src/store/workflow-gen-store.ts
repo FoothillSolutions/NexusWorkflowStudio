@@ -54,6 +54,14 @@ interface WorkflowGenState {
   /** Node IDs currently showing the AI rainbow border (reactive — components subscribe to this) */
   _glowingNodeIds: string[];
 
+  // ── Project folder context ──
+  /** Whether to include the selected project folder's file tree as context */
+  useProjectContext: boolean;
+  /** The fetched project folder context string (file tree) */
+  projectContext: string | null;
+  /** Status of folder context fetching */
+  projectContextStatus: "idle" | "loading" | "done" | "error";
+
   // ── AI-generated examples ──
   /** AI-suggested example prompts (supplement the hardcoded ones) */
   aiExamples: string[];
@@ -70,6 +78,9 @@ interface WorkflowGenState {
   close: () => void;
   setPrompt: (prompt: string) => void;
   setSelectedModel: (model: string) => void;
+  setUseProjectContext: (use: boolean) => void;
+  /** Fetch the project folder's file tree for context */
+  fetchProjectContext: () => Promise<void>;
   generate: () => Promise<void>;
   cancel: () => void;
   reset: () => void;
@@ -105,8 +116,61 @@ ${fieldList}
   return lines.join("\n");
 }
 
+/** Recursively fetch a project file tree and format it as an indented string. */
+async function fetchFileTree(
+  client: { files: { list: (path: string) => Promise<Array<{ name: string; path: string; type: "file" | "directory"; ignored: boolean }>> } },
+  rootPath: string,
+  maxDepth: number = 3,
+  maxFiles: number = 200,
+): Promise<string> {
+  let fileCount = 0;
+  const IGNORED_DIRS = new Set([
+    "node_modules", ".git", ".next", "dist", "build", "__pycache__",
+    ".venv", "venv", ".tox", ".mypy_cache", ".pytest_cache",
+    "target", ".idea", ".vscode", ".DS_Store", "coverage",
+  ]);
+
+  async function walk(path: string, depth: number, prefix: string): Promise<string[]> {
+    if (depth > maxDepth || fileCount >= maxFiles) return [];
+    try {
+      const entries = await client.files.list(path);
+      const lines: string[] = [];
+      // Sort: directories first, then files
+      const sorted = [...entries].sort((a, b) => {
+        if (a.type === b.type) return a.name.localeCompare(b.name);
+        return a.type === "directory" ? -1 : 1;
+      });
+      for (const entry of sorted) {
+        if (fileCount >= maxFiles) {
+          lines.push(`${prefix}… (truncated — ${maxFiles} file limit)`);
+          break;
+        }
+        if (entry.ignored || IGNORED_DIRS.has(entry.name)) continue;
+        if (entry.type === "directory") {
+          lines.push(`${prefix}${entry.name}/`);
+          const children = await walk(entry.path, depth + 1, prefix + "  ");
+          lines.push(...children);
+        } else {
+          lines.push(`${prefix}${entry.name}`);
+          fileCount++;
+        }
+      }
+      return lines;
+    } catch {
+      return [`${prefix}(unable to read)`];
+    }
+  }
+
+  const lines = await walk(rootPath, 0, "  ");
+  return lines.join("\n");
+}
+
 /** Build the system prompt that instructs the LLM how to generate workflows. */
-function buildSystemPrompt(): string {
+function buildSystemPrompt(projectContext?: string | null): string {
+  const contextSection = projectContext
+    ? `\n\n## Project Context\nThe user has a project with the following file structure. Use this to inform agent names, skill content, document references, and overall workflow design. Tailor the workflow to be relevant to this project:\n\`\`\`\n${projectContext}\n\`\`\`\n`
+    : "";
+
   return `You are a JSON generator. You output ONLY raw JSON. No planning. No thinking. No explanation. No tool calls. No code fences. No markdown. Just a single JSON object.
 
 ABSOLUTE RULES — VIOLATING ANY OF THESE IS A FAILURE:
@@ -312,7 +376,7 @@ sub-workflow: {"type":"sub-workflow","label":"<label>","name":"<id>","mode":"sam
 - Agent promptText should be comprehensive — write it as a real system prompt for an AI agent.
 - Skill promptText should contain the actual skill instructions/knowledge (not just a placeholder).
 - Document contentText should contain actual reference content (not just a placeholder).
-
+${contextSection}
 NOW OUTPUT ONLY JSON.`;
 }
 
@@ -518,6 +582,11 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
   _pendingEdges: [],
   _glowingNodeIds: [],
 
+  // ── Project folder context ──
+  useProjectContext: false,
+  projectContext: null,
+  projectContextStatus: "idle",
+
   // ── AI examples ──
   aiExamples: [],
   aiExamplesStatus: "idle",
@@ -546,6 +615,38 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
 
   setPrompt: (prompt) => set({ prompt }),
   setSelectedModel: (model) => set({ selectedModel: model }),
+
+  setUseProjectContext: (use) => {
+    set({ useProjectContext: use });
+    if (use && get().projectContextStatus === "idle") {
+      // Auto-fetch when toggled on
+      get().fetchProjectContext();
+    }
+  },
+
+  fetchProjectContext: async () => {
+    const { projectContextStatus } = get();
+    if (projectContextStatus === "loading") return;
+
+    const client = useOpenCodeStore.getState().client;
+    const project = useOpenCodeStore.getState().currentProject;
+    if (!client) {
+      set({ projectContext: null, projectContextStatus: "error" });
+      return;
+    }
+
+    set({ projectContextStatus: "loading", projectContext: null });
+
+    try {
+      const rootPath = project?.worktree ?? ".";
+      const tree = await fetchFileTree(client, rootPath);
+      const projectName = project?.name ?? project?.worktree?.split(/[/\\]/).pop() ?? "project";
+      const contextStr = `Project: ${projectName}\nRoot: ${project?.worktree ?? "(default)"}\n\n${tree}`;
+      set({ projectContext: contextStr, projectContextStatus: "done" });
+    } catch {
+      set({ projectContext: null, projectContextStatus: "error" });
+    }
+  },
 
   generate: async () => {
     const { prompt, selectedModel } = get();
@@ -792,7 +893,8 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
     };
 
     try {
-      const systemPrompt = buildSystemPrompt();
+      const { useProjectContext, projectContext } = get();
+      const systemPrompt = buildSystemPrompt(useProjectContext ? projectContext : null);
 
       // Send the message
       await client.messages.sendAsync(
@@ -1061,6 +1163,8 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
       aiExamplesStatus: "idle",
       _examplesSessionId: null,
       _examplesAbortController: null,
+      projectContext: null,
+      projectContextStatus: "idle",
     });
   },
 
