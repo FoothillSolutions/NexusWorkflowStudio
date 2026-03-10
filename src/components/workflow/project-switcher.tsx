@@ -28,6 +28,7 @@ import {
 import { toast } from "sonner";
 import { TEXT_MUTED } from "@/lib/theme";
 import type { Project } from "@/lib/opencode/types";
+import { useWorkflowGenStore } from "@/store/workflow-gen-store";
 
 /* ── Helpers ──────────────────────────────────────────────────────────────── */
 
@@ -122,6 +123,9 @@ export function ProjectSwitcher({
       toast.success(`Switched to ${folderName(worktree)}`);
       // Update the store's current project
       fetchCurrentProject();
+      // Dispose any existing AI workflow generation session so the new
+      // directory gets a fresh context
+      useWorkflowGenStore.getState().disposeSession();
     },
     [client, fetchCurrentProject],
   );

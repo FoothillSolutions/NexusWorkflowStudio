@@ -10,6 +10,7 @@ import { useWorkflowStore } from "./workflow-store";
 import { NODE_REGISTRY } from "@/lib/node-registry";
 import type { WorkflowNode, WorkflowEdge } from "@/types/workflow";
 import { workflowJsonSchema } from "@/lib/workflow-schema";
+import { AGENT_TOOLS } from "@/nodes/agent/constants";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -85,8 +86,10 @@ interface WorkflowGenState {
   cancel: () => void;
   reset: () => void;
   disposeSession: () => Promise<void>;
-  /** Fetch AI-generated example prompts using the connected model */
-  fetchAiExamples: () => Promise<void>;
+  /** Fetch AI-generated example prompts using the connected model.
+   *  When `prepend` is true, new examples are added before existing ones
+   *  instead of replacing them (keeps the UI populated while loading). */
+  fetchAiExamples: (opts?: { prepend?: boolean }) => Promise<void>;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -166,9 +169,22 @@ async function fetchFileTree(
 }
 
 /** Build the system prompt that instructs the LLM how to generate workflows. */
-function buildSystemPrompt(projectContext?: string | null): string {
+function buildSystemPrompt(opts?: {
+  projectContext?: string | null;
+  availableModels?: string[];
+  availableTools?: string[];
+}): string {
+  const { projectContext, availableModels, availableTools } = opts ?? {};
   const contextSection = projectContext
     ? `\n\n## Project Context\nThe user has a project with the following file structure. Use this to inform agent names, skill content, document references, and overall workflow design. Tailor the workflow to be relevant to this project:\n\`\`\`\n${projectContext}\n\`\`\`\n`
+    : "";
+
+  const modelsSection = availableModels && availableModels.length > 0
+    ? `\n\n## Available Models\nThe following models are available for use in agent "model" fields. Use the full "provider/modelId" value. If you set model to "inherit", the agent inherits the parent's model.\nPrefer Claude (Anthropic) models as the default for most agents. Use lighter/cheaper models for simple tasks (e.g. summarisation, formatting) and more capable models for complex reasoning tasks.\n\nAvailable models:\n${availableModels.map((m) => `- ${m}`).join("\n")}\n`
+    : "";
+
+  const toolsSection = availableTools && availableTools.length > 0
+    ? `\n\n## Available Tools\nThe following tools are available for agents. By default ALL tools are enabled. Only add tool names to the "disabledTools" array if you want to DISABLE specific tools for that agent. Only disable tools that are not relevant to the agent's task.\n\nAvailable tools: ${availableTools.join(", ")}\n`
     : "";
 
   return `You are a JSON generator. You output ONLY raw JSON. No planning. No thinking. No explanation. No tool calls. No code fences. No markdown. Just a single JSON object.
@@ -253,7 +269,11 @@ CRITICAL — Ask-user node edges:
 
   DEFAULT: Use MODE 1 (single-select with manual options) unless the user specifically asks for multi-select or AI-generated options. This is the most common and useful pattern because it lets the workflow branch based on the user's choice.
 
-Every branch MUST have an outgoing edge. Do NOT leave any branch unconnected.
+CRITICAL — EVERY branch output handle MUST be connected:
+- Every if-else node MUST have BOTH "true" and "false" output handles connected to a target node. Never leave one dangling.
+- Every switch node MUST have ALL branch labels connected to target nodes. If you define 3 branches, you need 3 outgoing edges.
+- Every ask-user node (in single-select mode) MUST have ALL option handles ("option-0", "option-1", ...) connected. If you define 3 options, you need 3 outgoing edges.
+- No branching node output handle may be left unconnected. This is a hard requirement.
 
 ## Available Node Types
 
@@ -269,6 +289,8 @@ Skills are reusable knowledge/instruction units that get attached to agents. The
 - **promptText**: The actual instructions/knowledge content for the skill. This should be detailed and production-ready.
 - **metadata**: Optional key-value pairs (e.g. [{"key":"workflow","value":"github"}]).
 - Skills connect ONLY to agent nodes via: sourceHandle: "skill-out", targetHandle: "skills".
+- An agent can have MULTIPLE skills connected to it — each skill adds a different capability. Create a separate skill node for each distinct capability and connect them all to the agent.
+- A skill node can be connected to MULTIPLE agents simultaneously — the same skill feeds capabilities to all connected agents. Create one edge per agent it connects to.
 - A skill is NOT part of the main workflow flow — it sits beside its parent agent and provides it with extra capabilities.
 - Position skill nodes BEHIND (to the LEFT of) their connected agent AND BELOW the agent's bottom edge.
   Formula: skill_x = agent_x - 180 - 40 (skill width + 40px gap). skill_y = agent_y + agent_height + 30 (30px below agent baseline).
@@ -296,6 +318,8 @@ Documents are reference materials attached to agents. They provide context, data
 - **contentText**: The actual document content when contentMode is "inline". Write meaningful reference content.
 - **description**: Explains what the document contains.
 - Documents connect ONLY to agent nodes via: sourceHandle: "doc-out", targetHandle: "docs".
+- An agent can have MULTIPLE documents connected to it — each document provides different reference material. Create a separate document node for each distinct piece of context and connect them all to the agent.
+- A document node can be connected to MULTIPLE agents simultaneously — the same document provides context to all connected agents. Create one edge per agent it connects to.
 - A document is NOT part of the main workflow flow — it sits beside its parent agent and feeds it context.
 - Position document nodes BEHIND (to the LEFT of) their connected agent AND BELOW the agent's bottom edge.
   Use the same x column as skills: doc_x = agent_x - 180 - 40. doc_y = agent_y + agent_height + 30 (below agent baseline).
@@ -307,7 +331,7 @@ Generated document file template (\`.opencode/docs/<docName>.<ext>\`):
 \`\`\`
 
 ### How Skills and Documents Attach to Agents
-When skills/documents are connected to an agent, they appear in the generated agent file's frontmatter:
+The relationship is MANY-TO-MANY: one agent can have many skills and many documents, and one skill or document can be shared by many agents. When skills/documents are connected to an agent, they appear in the generated agent file's frontmatter:
 \`\`\`
 ---
 description: <agent description>
@@ -324,6 +348,24 @@ color: "#5f27cd"
 
 <agent promptText here>
 \`\`\`
+
+IMPORTANT — Referencing connected documents and skills in agent prompts:
+When an agent has documents or skills connected to it, reference them by name in the agent's promptText using the \`{{name}}\` template syntax. This creates a static variable that auto-maps to the connected resource.
+- For a document with docName "api-guide" and fileExtension "md", write \`{{api-guide}}\` in the agent's promptText where it needs that document's content.
+- For a skill with skillName "code-review", write \`{{code-review}}\` in the agent's promptText where it needs that skill's instructions.
+- The variable name inside \`{{}}\` must match the docName or skillName exactly (kebab-case).
+- These variables MUST be listed in the agent's "detectedVariables" array.
+- These variables MUST be mapped in the agent's "variableMappings" object:
+  - For documents: \`"variableMappings": {"api-guide": "doc:api-guide.md"}\` (format: \`"doc:<docName>.<fileExtension>"\`)
+  - For skills: \`"variableMappings": {"code-review": "skill:code-review"}\` (format: \`"skill:<skillName>"\`)
+- COMPLETE EXAMPLE: An agent connected to document "api-guide" (md) and skill "code-review":
+  \`\`\`
+  {
+    "promptText": "Review the code following the API standards in {{api-guide}} and ensure quality using {{code-review}} guidelines.",
+    "detectedVariables": ["api-guide", "code-review"],
+    "variableMappings": {"api-guide": "doc:api-guide.md", "code-review": "skill:code-review"}
+  }
+  \`\`\`
 
 ## Agent Template (Generated .opencode/agents/<name>.md)
 Each agent node produces a \`.opencode/agents/<agentName>.md\` file. The agent's promptText becomes the main body of this file. Write detailed, production-ready prompts.
@@ -368,15 +410,30 @@ switch: {"type":"switch","label":"<label>","name":"<id>","evaluationTarget":"<ta
 ask-user: {"type":"ask-user","label":"<label>","name":"<id>","questionText":"<question>","multipleSelection":false,"aiSuggestOptions":false,"options":[{"label":"<option1>","description":"<desc1>"},{"label":"<option2>","description":"<desc2>"}]}
   NOTE: With multipleSelection:false and aiSuggestOptions:false (the default), each option becomes its own output handle (option-0, option-1, ...). Create one edge per option to branch the flow. At least 2 options are required.
 sub-workflow: {"type":"sub-workflow","label":"<label>","name":"<id>","mode":"same-context","subNodes":[],"subEdges":[],"nodeCount":0,"description":"","model":"inherit","memory":"default","temperature":0,"color":"#a855f7","disabledTools":[]}
+  NOTE on sub-workflow:
+  - mode can be "same-context" (runs inline, shares parent context) or "agent" (spawns a dedicated sub-agent). When mode is "agent", fill in description, model, memory, temperature, and color.
+  - subNodes and subEdges define the INNER workflow of the sub-workflow. They follow the exact same node/edge schema as the top-level nodes/edges.
+  - A sub-workflow MUST contain at least a start node and an end node inside subNodes, plus any other nodes (agents, prompts, if-else, etc.) that form the inner flow.
+  - subEdges connect the inner nodes together, using the same format as top-level edges.
+  - nodeCount should equal the number of subNodes.
+  - Example with inner nodes: {"type":"sub-workflow","label":"Data Pipeline","name":"sub-wf-abc","mode":"agent","description":"Handles data ingestion","subNodes":[{"id":"start-inner","type":"start","position":{"x":0,"y":200},"data":{"type":"start","label":"Start","name":"start-inner"}},{"id":"agent-inner","type":"agent","position":{"x":400,"y":200},"data":{"type":"agent","label":"Process Data","name":"agent-inner","description":"Processes incoming data","promptText":"Process and validate the data...","detectedVariables":[],"model":"inherit","memory":"-","temperature":0,"color":"#5f27cd","disabledTools":[]}},{"id":"end-inner","type":"end","position":{"x":800,"y":200},"data":{"type":"end","label":"End","name":"end-inner"}}],"subEdges":[{"id":"e-start-agent","source":"start-inner","target":"agent-inner","type":"deletable"},{"id":"e-agent-end","source":"agent-inner","target":"end-inner","type":"deletable"}],"nodeCount":3,"model":"inherit","memory":"default","temperature":0,"color":"#a855f7","disabledTools":[]}
 
 ## Important Guidelines
 - Generate meaningful labels, descriptions, and promptText content. Make it production-ready.
 - When an agent needs specific capabilities, create skill nodes with detailed instructions and connect them.
 - When an agent needs reference data, context, or guides, create document nodes with real content and connect them.
 - Agent promptText should be comprehensive — write it as a real system prompt for an AI agent.
+- Choose models wisely for each agent: use capable models (Claude Sonnet/Opus) for complex reasoning, coding, and analysis tasks; use lighter models (Claude Haiku, GPT-4o-mini) for simple formatting, summarisation, or routing tasks. Prefer Claude (Anthropic) models as the default when available.
+- Only set temperature > 0 when creativity/variation is needed (e.g. content generation, brainstorming). Keep temperature at 0 for deterministic tasks (code review, analysis, routing).
+- Only add tools to disabledTools when you specifically want to prevent an agent from using certain tools. Leave disabledTools empty to give the agent full access.
 - Skill promptText should contain the actual skill instructions/knowledge (not just a placeholder).
 - Document contentText should contain actual reference content (not just a placeholder).
-${contextSection}
+- When connecting documents or skills to an agent, ALWAYS reference them in the agent's promptText using \`{{docName}}\` or \`{{skillName}}\` syntax, add those names to detectedVariables, and populate variableMappings with the correct \`"doc:<docName>.<ext>"\` or \`"skill:<skillName>"\` values.
+- When a workflow section is complex or reusable, wrap it in a sub-workflow node with fully populated subNodes and subEdges. Use mode "same-context" for simple inline grouping, and mode "agent" when the sub-workflow should run as an independent agent with its own model and description.
+- Sub-workflows must always contain at least a start and end node inside subNodes, with subEdges connecting the inner flow.
+- Skills and documents have a MANY-TO-MANY relationship with agents: one agent can have multiple skills and documents, and one skill/document can be shared across multiple agents. Be generous — give each agent the skills and documents it needs.
+- NEVER leave a branch output handle unconnected. Every if-else must have both true/false edges, every switch must have an edge per branch, and every ask-user (single-select) must have an edge per option.
+${modelsSection}${toolsSection}${contextSection}
 NOW OUTPUT ONLY JSON.`;
 }
 
@@ -894,7 +951,19 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
 
     try {
       const { useProjectContext, projectContext } = get();
-      const systemPrompt = buildSystemPrompt(useProjectContext ? projectContext : null);
+
+      // Collect available models from the opencode store
+      const modelGroups = useOpenCodeStore.getState().modelGroups;
+      const availableModels = modelGroups.flatMap((g) => g.models.map((m) => m.value));
+
+      // Collect available tools
+      const availableTools: string[] = [...AGENT_TOOLS];
+
+      const systemPrompt = buildSystemPrompt({
+        projectContext: useProjectContext ? projectContext : null,
+        availableModels,
+        availableTools,
+      });
 
       // Send the message
       await client.messages.sendAsync(
@@ -1168,11 +1237,12 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
     });
   },
 
-  fetchAiExamples: async () => {
+  fetchAiExamples: async (opts) => {
     const { aiExamplesStatus, _examplesAbortController: prevAc, selectedModel } = get();
+    const prepend = opts?.prepend ?? false;
 
-    // Don't re-fetch if already loading or done
-    if (aiExamplesStatus === "loading" || aiExamplesStatus === "done") return;
+    // When not prepending, skip if already loading or done
+    if (!prepend && (aiExamplesStatus === "loading" || aiExamplesStatus === "done")) return;
 
     const client = useOpenCodeStore.getState().client;
     if (!client) return;
@@ -1198,8 +1268,13 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
       const modelId = slashIdx > 0 ? selectedModel.slice(slashIdx + 1) : selectedModel;
 
       // Send prompt async
+      const { useProjectContext, projectContext } = get();
+      const projectHint = useProjectContext && projectContext
+        ? `\n\nThe user is working on a project with this structure — tailor examples to be relevant:\n${projectContext}`
+        : "";
+
       await client.messages.sendAsync(sid, {
-        parts: [{ type: "text", text: "Generate 5 creative and diverse workflow prompt ideas that a user might want to build. Each should involve multiple node types (agents, if-else, switch, ask-user, skills, documents, sub-workflows). Return ONLY a JSON array of 5 strings, no explanation. Example format: [\"prompt 1\", \"prompt 2\", ...]" }],
+        parts: [{ type: "text", text: `Generate 5 creative and diverse workflow prompt ideas that a user might want to build. Each should involve multiple node types (agents, if-else, switch, ask-user, skills, documents, sub-workflows). Return ONLY a JSON array of 5 strings, no explanation. Example format: [\"prompt 1\", \"prompt 2\", ...]${projectHint}` }],
         model: { providerID: providerId, modelID: modelId },
         system: "You output ONLY valid JSON arrays of strings. No markdown, no code fences, no explanation. Just the JSON array.",
       }, { signal: abortController.signal });
@@ -1238,10 +1313,19 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
         }
         const parsed = JSON.parse(cleaned);
         if (Array.isArray(parsed)) {
-          const examples = parsed
+          const newExamples = parsed
             .filter((s: unknown) => typeof s === "string" && s.trim().length > 0)
             .map((s: string) => s.trim());
-          set({ aiExamples: examples, aiExamplesStatus: "done", _examplesAbortController: null });
+
+          if (prepend) {
+            // Prepend new examples before existing ones, deduplicate
+            const existing = get().aiExamples;
+            const existingSet = new Set(existing);
+            const unique = newExamples.filter((e: string) => !existingSet.has(e));
+            set({ aiExamples: [...unique, ...existing], aiExamplesStatus: "done", _examplesAbortController: null });
+          } else {
+            set({ aiExamples: newExamples, aiExamplesStatus: "done", _examplesAbortController: null });
+          }
         } else {
           set({ aiExamplesStatus: "error", _examplesAbortController: null });
         }

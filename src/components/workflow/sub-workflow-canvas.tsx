@@ -331,6 +331,21 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
     onComplete: (nodes) => syncToParent(nodes, subEdgesRef.current),
   });
 
+  // Auto-layout on first mount when there are existing nodes (> just start/end)
+  const didInitialLayout = useRef(false);
+  useEffect(() => {
+    if (didInitialLayout.current) return;
+    didInitialLayout.current = true;
+    // Defer so React Flow has measured node dimensions
+    const timer = setTimeout(() => {
+      if (subNodesRef.current.length > 2) {
+        autoLayout();
+      }
+    }, 150);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     const handler = () => autoLayout();
     window.addEventListener("nexus:auto-layout", handler);

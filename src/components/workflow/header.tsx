@@ -57,6 +57,7 @@ export default function Header() {
   const reset = useWorkflowStore((s) => s.reset);
   const openCodeStatus = useOpenCodeStore((s) => s.status);
   const isOpenCodeConnected = openCodeStatus === "connected";
+  const isWorkflowGenOpen = useWorkflowGenStore((s) => s.floating);
   const [isEditingName, setIsEditingName] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -137,7 +138,10 @@ export default function Header() {
     const onOpenImport = () => setImportDialogOpen(true);
     const onOpenPreview = () => handleView();
     const onGenerate = () => handleGenerate();
-    const onOpenWorkflowGen = () => useWorkflowGenStore.getState().setFloating(true);
+    const onOpenWorkflowGen = () => {
+      const store = useWorkflowGenStore.getState();
+      store.setFloating(!store.floating);
+    };
 
     window.addEventListener("nexus:open-import", onOpenImport);
     window.addEventListener("nexus:open-preview", onOpenPreview);
@@ -262,9 +266,16 @@ export default function Header() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => useWorkflowGenStore.getState().setFloating(true)}
+              onClick={() => {
+                const store = useWorkflowGenStore.getState();
+                store.setFloating(!store.floating);
+              }}
               disabled={!isOpenCodeConnected}
-              className={`${TEXT_MUTED} hover:text-violet-300 h-8 px-3 text-sm gap-1.5 disabled:opacity-40`}
+              className={`h-8 px-3 text-sm gap-1.5 disabled:opacity-40 ${
+                isWorkflowGenOpen
+                  ? "text-violet-300 bg-violet-500/15 hover:bg-violet-500/20"
+                  : `${TEXT_MUTED} hover:text-violet-300`
+              }`}
             >
               <Sparkles className="h-4 w-4 text-violet-400" />
               AI Generate

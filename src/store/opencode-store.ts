@@ -143,6 +143,55 @@ function buildModelGroups(providers: Provider[]): ModelGroup[] {
   return result;
 }
 
+// ── Health-check heartbeat ───────────────────────────────────────────────────
+// Pings the server every HEARTBEAT_MS while connected.  If the check fails the
+// status flips to "error".  If a previous error/disconnect recovers, we silently
+// restore the "connected" state without a full reconnect.
+
+const HEARTBEAT_MS = 30_000;
+let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+
+function startHeartbeat() {
+  stopHeartbeat();
+  heartbeatTimer = setInterval(async () => {
+    const { client, status } = useOpenCodeStore.getState();
+    if (!client) return;
+
+    try {
+      const health = await client.health.check({ timeout: 8_000 });
+
+      // If we were in error / disconnected but the server is back, restore
+      if (status !== "connected") {
+        useOpenCodeStore.setState({
+          status: "connected",
+          version: health.version ?? null,
+          error: null,
+        });
+
+        // Re-fetch project info in the background
+        client.projects.current().then((project) => {
+          useOpenCodeStore.setState({ currentProject: project });
+        }).catch(() => { /* optional */ });
+      }
+    } catch {
+      // Only transition if we were previously connected
+      if (status === "connected") {
+        useOpenCodeStore.setState({
+          status: "error",
+          error: "Connection lost — retrying…",
+        });
+      }
+    }
+  }, HEARTBEAT_MS);
+}
+
+function stopHeartbeat() {
+  if (heartbeatTimer !== null) {
+    clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
+  }
+}
+
 // ── Store ────────────────────────────────────────────────────────────────────
 
 interface OpenCodeState {
@@ -188,6 +237,7 @@ export const useOpenCodeStore = create<OpenCodeState>((set, get) => ({
   currentProject: null,
 
   setUrl: (url) => {
+    stopHeartbeat();
     persistUrl(url);
     set({ url, client: null, status: "disconnected", version: null, error: null, modelGroups: [], modelGroupsLoading: false, currentProject: null });
   },
@@ -207,6 +257,9 @@ export const useOpenCodeStore = create<OpenCodeState>((set, get) => ({
         client,
       });
 
+      // Start background health-check heartbeat
+      startHeartbeat();
+
       // Fetch current project in the background after connecting
       client.projects.current().then((project) => {
         set({ currentProject: project });
@@ -225,6 +278,7 @@ export const useOpenCodeStore = create<OpenCodeState>((set, get) => ({
   },
 
   disconnect: () => {
+    stopHeartbeat();
     set({ status: "disconnected", version: null, error: null, client: null, modelGroups: [], modelGroupsLoading: false, currentProject: null });
   },
 

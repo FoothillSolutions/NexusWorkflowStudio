@@ -243,4 +243,16 @@
   animation: ai-glow 2s ease-in-out infinite;
 }
 
+/* ── Shimmer placeholder animation ──────────────────────────────────────── */
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
 
+.animate-shimmer {
+  animation: shimmer 2s ease-in-out infinite;
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useCallback, useState, useMemo } from "react";
+import { useEffect, useRef, useCallback, useMemo } from "react";
 import {
   Sparkles,
   X,
@@ -11,12 +11,12 @@ import {
   XCircle,
   AlertCircle,
   Workflow,
-  Zap,
   StopCircle,
   RotateCcw,
   BotMessageSquare,
   RefreshCw,
   FolderOpen,
+  GripHorizontal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -28,25 +28,15 @@ import { useModels } from "@/hooks/use-models";
 import { ModelSelect } from "@/nodes/shared/model-select";
 import { toast } from "sonner";
 
-// ── Example prompts ──────────────────────────────────────────────────────────
-const EXAMPLE_PROMPTS = [
-  "A code review workflow with an agent that analyzes PRs, checks for issues using if-else branching, and provides feedback",
-  "A customer support workflow with an ask-user node to classify the issue, then routes to different specialist agents via a switch node",
-  "A content generation pipeline with a research agent, writing agent with connected skills for SEO and tone, and an editor agent",
-  "A data processing workflow that validates input, transforms data through multiple agents, and handles errors with if-else",
-  "An incident response workflow that detects alerts, triages severity with a switch node, and escalates to on-call agents",
-  "A recruitment pipeline with resume screening agent, interview scheduling via ask-user, and candidate scoring with if-else",
-  "A CI/CD approval workflow where an agent reviews build logs, asks the user for deploy confirmation, and triggers rollback on failure",
-  "A research assistant workflow with a search agent, a summarizer agent, and a fact-checker that loops back using sub-workflows",
-  "An e-commerce order workflow that validates payment, routes to fulfillment or fraud review via switch, and sends confirmation",
-  "A document translation pipeline with language detection, parallel translator agents, and a quality review agent with if-else gating",
-];
-
-/** Number of workflow examples shown at a time */
+/** Number of AI examples shown at a time */
 const VISIBLE_EXAMPLE_COUNT = 3;
 
-/** Interval (ms) between example rotations */
-const ROTATION_INTERVAL = 5000;
+/**
+ * Fixed height for each example row (in px).
+ * 3 lines of 11px text ≈ ~16px line-height × 3 = 48px + 12px padding = 60px.
+ * Using a fixed height prevents the container from jumping when examples change.
+ */
+const EXAMPLE_ROW_HEIGHT = 54;
 
 // ── Component ────────────────────────────────────────────────────────────────
 // Floating panel for AI workflow generation, positioned top-center under the header.
@@ -59,7 +49,6 @@ export default function FloatingWorkflowGen() {
   const prompt = useWorkflowGenStore((s) => s.prompt);
   const selectedModel = useWorkflowGenStore((s) => s.selectedModel);
   const parsedNodeCount = useWorkflowGenStore((s) => s.parsedNodeCount);
-  const parsedEdgeCount = useWorkflowGenStore((s) => s.parsedEdgeCount);
   const tokenCount = useWorkflowGenStore((s) => s.tokenCount);
   const error = useWorkflowGenStore((s) => s.error);
   const streamedText = useWorkflowGenStore((s) => s.streamedText);
@@ -90,10 +79,84 @@ export default function FloatingWorkflowGen() {
   const { groups } = useModels();
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const isStreaming = status === "streaming" || status === "creating-session";
   const isDone = status === "done";
   const isError = status === "error";
+
+  // ── Drag ────────────────────────────────────────────────────
+  // Pure ref-based drag with a single `translate3d` (GPU layer, no layout, no calc).
+  // We store the absolute top-left position so the transform is always a plain px value.
+  const posRef = useRef({ x: 0, y: 0 });       // current absolute top-left offset from initial center
+  const dragStart = useRef({ mx: 0, my: 0, ox: 0, oy: 0 });
+  const rafId = useRef(0);
+
+  /** Write the current posRef to the DOM in a single translate3d (GPU-composited). */
+  const flush = useCallback(() => {
+    const el = panelRef.current;
+    if (!el) return;
+    const { x, y } = posRef.current;
+    // translate3d promotes to its own compositor layer → zero layout cost
+    el.style.transform = `translate3d(calc(-50% + ${x}px), ${y}px, 0)`;
+  }, []);
+
+  /** Snap back to center with a short CSS transition. */
+  const resetPosition = useCallback(() => {
+    const el = panelRef.current;
+    if (!el) return;
+    // If already at origin, nothing to animate
+    if (posRef.current.x === 0 && posRef.current.y === 0) return;
+    posRef.current = { x: 0, y: 0 };
+    el.style.transition = "transform 0.2s cubic-bezier(.4,0,.2,1)";
+    el.style.transform = "translate3d(-50%, 0px, 0)";
+    const cleanup = () => { el.style.transition = ""; el.removeEventListener("transitionend", cleanup); };
+    el.addEventListener("transitionend", cleanup);
+    // Fallback: if transitionend never fires (e.g. already at target), clean up after 250ms
+    setTimeout(cleanup, 250);
+  }, []);
+
+  const handleDragStart = useCallback((e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    if ((e.target as HTMLElement).closest("button")) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const el = panelRef.current;
+    if (el) el.style.transition = "";           // kill any reset transition in progress
+
+    const { x, y } = posRef.current;
+    dragStart.current = { mx: e.clientX, my: e.clientY, ox: x, oy: y };
+    document.body.style.userSelect = "none";
+
+    const onMove = (ev: MouseEvent) => {
+      posRef.current = {
+        x: dragStart.current.ox + (ev.clientX - dragStart.current.mx),
+        y: dragStart.current.oy + (ev.clientY - dragStart.current.my),
+      };
+      // Coalesce to the next frame — at most one DOM write per paint
+      cancelAnimationFrame(rafId.current);
+      rafId.current = requestAnimationFrame(flush);
+    };
+
+    const onUp = () => {
+      document.body.style.userSelect = "";
+      cancelAnimationFrame(rafId.current);
+      flush();                                   // final position commit
+      document.removeEventListener("mousemove", onMove, true);
+      document.removeEventListener("mouseup", onUp, true);
+    };
+
+    document.addEventListener("mousemove", onMove, true);
+    document.addEventListener("mouseup", onUp, true);
+  }, [flush]);
+
+  // Reset position whenever the panel opens or closes so it always starts centered
+  useEffect(() => {
+    posRef.current = { x: 0, y: 0 };
+    const el = panelRef.current;
+    if (el) { el.style.transition = ""; el.style.transform = "translateX(-50%)"; }
+  }, [floating]);
 
   // Fetch AI examples when panel opens with a model selected
   useEffect(() => {
@@ -105,38 +168,41 @@ export default function FloatingWorkflowGen() {
   // Re-fetch project context when the project changes while toggle is on
   useEffect(() => {
     if (floating && isConnected && useProjectContext && currentProject) {
-      // Reset status so it re-fetches for the new project
       useWorkflowGenStore.setState({ projectContextStatus: "idle", projectContext: null });
       fetchProjectContext();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentProject?.worktree]);
 
-  // ── Dynamic example rotation ──────────────────────────────
-  // Combine hardcoded + AI-generated examples into one pool
-  const allExamples = useMemo(
-    () => [...EXAMPLE_PROMPTS, ...aiExamples],
+  // When project context finishes loading, fetch context-aware examples
+  // and prepend them to the existing ones (no clearing, no shimmers).
+  const prevContextKeyRef = useRef<string>("");
+  useEffect(() => {
+    const key = useProjectContext ? `on:${projectContextStatus}` : "off";
+    const prev = prevContextKeyRef.current;
+    prevContextKeyRef.current = key;
+
+    // Skip the initial render
+    if (!prev) return;
+
+    if (floating && isConnected && selectedModel) {
+      // Context just finished loading → fetch project-aware examples and prepend
+      if (useProjectContext && projectContextStatus === "done" && prev !== key) {
+        // Reset session so the new fetch uses project context in its prompt
+        useWorkflowGenStore.setState({ aiExamplesStatus: "idle", _examplesSessionId: null });
+        fetchAiExamples({ prepend: true });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [useProjectContext, projectContextStatus]);
+
+  // ── AI examples (no rotation — just show the first N) ──────
+  const visibleExamples = useMemo(
+    () => aiExamples.slice(0, VISIBLE_EXAMPLE_COUNT),
     [aiExamples],
   );
 
-  const [exampleTick, setExampleTick] = useState(0);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setExampleTick((prev) => prev + 1);
-    }, ROTATION_INTERVAL);
-    return () => clearInterval(timer);
-  }, []);
-
-  const exampleOffset = (exampleTick * VISIBLE_EXAMPLE_COUNT) % allExamples.length;
-
-  const visibleExamples = useMemo(() => {
-    const result: string[] = [];
-    for (let i = 0; i < VISIBLE_EXAMPLE_COUNT; i++) {
-      result.push(allExamples[(exampleOffset + i) % allExamples.length]);
-    }
-    return result;
-  }, [allExamples, exampleOffset]);
+  const showShimmers = visibleExamples.length === 0 && (aiExamplesStatus === "loading" || aiExamplesStatus === "idle");
 
   // Auto-select first model if none selected
   useEffect(() => {
@@ -156,6 +222,8 @@ export default function FloatingWorkflowGen() {
   }, [floating, collapsed]);
 
   const handleGenerate = useCallback(async () => {
+    // Auto-collapse when generation starts so the user sees the canvas
+    useWorkflowGenStore.setState({ collapsed: true });
     await generate();
     const newStatus = useWorkflowGenStore.getState().status;
     if (newStatus === "done") {
@@ -194,6 +262,7 @@ export default function FloatingWorkflowGen() {
 
   return (
     <div
+      ref={panelRef}
       className={cn(
         "absolute z-40 flex flex-col rounded-2xl border bg-zinc-900/95 backdrop-blur-xl shadow-2xl shadow-black/40 overflow-hidden",
         "animate-in slide-in-from-top-4 fade-in-0 duration-200",
@@ -205,11 +274,18 @@ export default function FloatingWorkflowGen() {
         transform: "translateX(-50%)",
         width: 520,
         maxHeight: collapsed ? undefined : "calc(100vh - 140px)",
+        willChange: "transform",
       }}
+      onPointerDown={(e) => e.stopPropagation()}
     >
-      {/* ── Header ──────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between px-3.5 py-2.5 border-b shrink-0 bg-violet-950/30 border-violet-800/20 rounded-t-2xl">
+      {/* ── Header (draggable) ──────────────────────────────────── */}
+      <div
+        className="flex items-center justify-between px-3.5 py-2.5 border-b shrink-0 bg-violet-950/30 border-violet-800/20 rounded-t-2xl cursor-grab active:cursor-grabbing select-none"
+        onMouseDown={handleDragStart}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center gap-2 min-w-0">
+          <GripHorizontal size={14} className="text-zinc-600 shrink-0" />
           <Sparkles size={14} className="text-violet-400 shrink-0" />
           <div className="min-w-0">
             <span className="text-xs font-semibold text-zinc-200 flex items-center gap-1.5">
@@ -220,21 +296,25 @@ export default function FloatingWorkflowGen() {
             </span>
             {isStreaming && (
               <span className="text-[10px] text-violet-400/80 block">
-                Streaming nodes to canvas…
+                ~{tokenCount} tokens · {parsedNodeCount} nodes
               </span>
             )}
             {isDone && (
               <span className="text-[10px] text-emerald-400/80 block">
-                Complete — {parsedNodeCount} nodes, {parsedEdgeCount} edges
+                ~{tokenCount} tokens · {parsedNodeCount} nodes
               </span>
             )}
           </div>
         </div>
         <div className="flex items-center gap-0.5 shrink-0">
-          {/* Collapse / expand toggle */}
+          {/* Collapse / expand toggle — also resets position */}
           <button
             type="button"
-            onClick={toggleCollapsed}
+            onClick={() => {
+              toggleCollapsed();
+              // Defer reset to next frame so the collapse re-render settles first
+              requestAnimationFrame(() => resetPosition());
+            }}
             title={collapsed ? "Expand" : "Collapse"}
             className="p-1 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 transition-colors"
           >
@@ -257,12 +337,12 @@ export default function FloatingWorkflowGen() {
           {isStreaming ? (
             <>
               <Loader2 size={11} className="text-violet-400 animate-spin" />
-              Generating… {parsedNodeCount} nodes, {parsedEdgeCount} edges
+              Generating… ~{tokenCount} tokens · {parsedNodeCount} nodes
             </>
           ) : isDone ? (
             <>
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400" />
-              Complete — {parsedNodeCount} nodes, {parsedEdgeCount} edges
+              Complete — ~{tokenCount} tokens · {parsedNodeCount} nodes
             </>
           ) : isError ? (
             <>
@@ -401,14 +481,8 @@ export default function FloatingWorkflowGen() {
                   {aiExamplesStatus === "loading" && (
                     <Loader2 size={9} className="text-violet-400 animate-spin" />
                   )}
-                  {aiExamplesStatus === "done" && aiExamples.length > 0 && (
-                    <span className="flex items-center gap-0.5 text-violet-400/70 normal-case tracking-normal font-normal">
-                      <BotMessageSquare size={9} />
-                      <span>+{aiExamples.length} AI</span>
-                    </span>
-                  )}
                 </Label>
-                {isConnected && aiExamplesStatus !== "loading" && (
+                {isConnected && aiExamplesStatus === "done" && aiExamples.length > 0 && (
                   <button
                     type="button"
                     onClick={() => {
@@ -424,23 +498,45 @@ export default function FloatingWorkflowGen() {
                 )}
               </div>
               <div className="grid grid-cols-1 gap-1">
-                {visibleExamples.map((example, i) => {
-                  const isAiExample = aiExamples.includes(example);
-                  return (
-                    <button
-                      key={`${exampleOffset}-${i}`}
-                      type="button"
-                      onClick={() => handleExampleClick(example)}
-                      className="text-left text-[11px] text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 rounded-lg px-2.5 py-1.5 transition-colors border border-transparent hover:border-zinc-700/50 animate-in fade-in-50 duration-300"
+                {/* Shimmer placeholders */}
+                {showShimmers && (
+                  Array.from({ length: VISIBLE_EXAMPLE_COUNT }).map((_, i) => (
+                    <div
+                      key={`shimmer-${i}`}
+                      className="rounded-lg px-2.5 border border-zinc-800/40 overflow-hidden"
+                      style={{ height: EXAMPLE_ROW_HEIGHT }}
                     >
-                      {isAiExample
-                        ? <BotMessageSquare size={9} className="inline mr-1 text-violet-400/70" />
-                        : <Zap size={9} className="inline mr-1 text-violet-500/60" />
-                      }
-                      {example}
-                    </button>
-                  );
-                })}
+                      <div className="flex flex-col justify-center gap-1.5 h-full">
+                        <div
+                          className="h-2.5 rounded-md bg-gradient-to-r from-zinc-800/60 via-zinc-700/30 to-zinc-800/60 animate-shimmer"
+                          style={{ width: `${85 - i * 10}%`, backgroundSize: "200% 100%" }}
+                        />
+                        <div
+                          className="h-2.5 rounded-md bg-gradient-to-r from-zinc-800/60 via-zinc-700/30 to-zinc-800/60 animate-shimmer"
+                          style={{ width: `${70 - i * 8}%`, backgroundSize: "200% 100%", animationDelay: `${0.15 * (i + 1)}s` }}
+                        />
+                        <div
+                          className="h-2.5 rounded-md bg-gradient-to-r from-zinc-800/60 via-zinc-700/30 to-zinc-800/60 animate-shimmer"
+                          style={{ width: `${55 - i * 5}%`, backgroundSize: "200% 100%", animationDelay: `${0.3 * (i + 1)}s` }}
+                        />
+                      </div>
+                    </div>
+                  ))
+                )}
+
+                {/* Actual AI examples — each row has a fixed height with hard overflow cut */}
+                {!showShimmers && visibleExamples.map((example, i) => (
+                  <button
+                    key={`ai-example-${i}`}
+                    type="button"
+                    onClick={() => handleExampleClick(example)}
+                    className="text-left text-[11px] leading-[16px] text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 rounded-lg px-2.5 transition-colors border border-transparent hover:border-zinc-700/50 animate-in fade-in-50 duration-300 overflow-hidden"
+                    style={{ height: EXAMPLE_ROW_HEIGHT, display: "flex", alignItems: "flex-start", paddingTop: 6, paddingBottom: 0 }}
+                  >
+                    <BotMessageSquare size={9} className="text-violet-400/70 shrink-0 mt-[3px] mr-1.5" />
+                    <span className="overflow-hidden" style={{ display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }}>{example}</span>
+                  </button>
+                ))}
               </div>
             </div>
           )}
@@ -490,7 +586,6 @@ export default function FloatingWorkflowGen() {
                     <Workflow size={10} />
                     {parsedNodeCount} nodes
                   </span>
-                  <span>{parsedEdgeCount} edges</span>
                   <span>~{tokenCount} tokens</span>
                 </div>
               )}
