@@ -1,105 +1,87 @@
 # Nexus Workflow Studio
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Next.js](https://img.shields.io/badge/Next.js-16-black)](https://nextjs.org)
-[![React Flow](https://img.shields.io/badge/React%20Flow-12-ff0072)](https://reactflow.dev)
-
-A visual workflow editor for designing, composing, and exporting AI agent workflows. Built with **Next.js**, **React Flow**, **Zustand**, and **Zod**.
+A visual workflow editor for designing, composing, and exporting AI agent workflows. Build complex multi-agent systems with a drag-and-drop interface — no code required.
 
 ## Features
 
-- **Visual Drag-and-Drop Canvas** — design workflows by dragging nodes from the palette onto an infinite canvas
-- **11 Node Types** — Start, End, Prompt, Agent, Skill, Document, MCP Tool, If-Else, Switch, Ask User, Sub-Workflow
-- **Sub-Workflows** — nest workflows inside sub-workflow nodes with full breadcrumb navigation
-- **Properties Panel** — configure every node via a type-safe form with Zod validation
-- **Library System** — save/load workflows and reusable node configurations to localStorage
-- **Code Generation** — export workflows as `.opencode` command files with a single click
-- **Mermaid Preview** — visualize workflow structure as a Mermaid diagram
-- **Auto-Layout** — automatic Dagre-based graph layout with smooth animation
-- **Undo/Redo** — full history support via Zundo
-- **Keyboard Shortcuts** — comprehensive shortcut set (`?` to view all)
-- **Dark Theme** — purpose-built dark UI optimized for extended use
+### 🎨 Visual Workflow Canvas
+- **Drag-and-Drop Editor** — design workflows by dragging nodes from the palette onto an infinite canvas
+- **Hand & Selection Tools** — switch between panning and multi-select modes
+- **Edge Styles** — toggle between bezier and smoothstep connection lines
+- **Auto-Layout** — one-click automatic graph arrangement with smooth animation
+- **Minimap** — toggleable bird's-eye view for navigating large workflows
+- **Right-Click Context Menu** — quick access to duplicate, delete, save to library, and group actions
 
-## Getting Started
+### 🧩 11 Node Types
+| Category | Nodes | Description |
+|---|---|---|
+| **Basic** | Start, End | Define workflow entry and exit points |
+| **AI** | Agent, Prompt, Skill | Configure AI agents with models, memory, tools, and detailed prompts |
+| **Resources** | Document, MCP Tool | Attach documents (inline or linked) and external tool integrations |
+| **Control Flow** | If-Else, Switch, Ask User | Conditional branching, multi-path routing, and human-in-the-loop interactions |
+| **Composition** | Sub-Workflow | Nest workflows inside workflows with full breadcrumb navigation |
 
-### Prerequisites
+### 🤖 AI-Powered Generation
+- **AI Workflow Generation** — describe a workflow in natural language and watch it build itself in real-time on the canvas
+- **AI Prompt Generation** — generate or refine agent prompts with freeform or structured template modes
+- **AI Prompt Editing** — send your existing prompt with an edit instruction to iteratively improve it
+- **Streaming Responses** — live token-by-token generation with progress tracking
+- **Dynamic Model Selection** — choose from all available models across connected providers (GitHub Copilot, Anthropic, OpenAI, Google, and more)
 
-- **Node.js** ≥ 18.18
-- **npm** ≥ 9
+### 📚 Library System
+- **Save & Load Workflows** — persist workflows to your browser's local storage
+- **Reusable Node Configs** — save individual node configurations to the library for reuse across workflows
+- **Import & Export** — import/export workflows as JSON files for sharing and backup
+- **Code Generation** — export workflows as `.opencode` command files in a downloadable ZIP
 
-### Installation
+### 🔧 Agent Configuration
+- **Model Selection** — pick from dynamically discovered models across all connected providers
+- **Memory Modes** — configure agent memory strategies (full, summary, last-n, none)
+- **Temperature Control** — fine-tune response creativity per agent
+- **Tool Management** — browse and toggle available tools per model with a visual grid
+- **Parameter Mapping** — define positional `$N` parameters passed to delegated agents
+- **Variable Mapping** — map `{{variables}}` in prompts to connected skills and documents
+- **Color Coding** — assign custom colors to agents for visual organization
+- **Agent File Upload** — import `.md` agent definition files directly
 
-```bash
-git clone https://github.com/anthropics/nexus-workflow-studio.git
-cd nexus-workflow-studio
-npm install
-```
+### 📝 Rich Content Editing
+- **Markdown Editor** — fullscreen split/edit/preview modes for prompt and document content
+- **Document Nodes** — inline content or linked file references with support for `.md`, `.txt`, `.json`, `.yaml`
+- **Variable Detection** — automatic detection and highlighting of `{{variables}}` and `$N` parameters in prompts
 
-### Development
+### 🔄 Sub-Workflows
+- **Nested Composition** — embed workflows inside sub-workflow nodes for modular design
+- **Breadcrumb Navigation** — drill into nested sub-workflows with a clear navigation trail
+- **Two Modes** — run sub-workflows in same-context mode or as an independent agent
 
-```bash
-npm run dev
-```
+### ⌨️ Keyboard Shortcuts
+| Shortcut | Action |
+|---|---|
+| `Ctrl/Cmd + S` | Save workflow |
+| `Ctrl/Cmd + Z` | Undo |
+| `Ctrl/Cmd + Shift + Z` | Redo |
+| `Ctrl/Cmd + A` | Select all |
+| `Ctrl/Cmd + D` | Duplicate |
+| `Ctrl/Cmd + Alt + A` | AI Generate Workflow |
+| `H` / `V` | Hand tool / Selection tool |
+| `?` | View all shortcuts |
+| `Delete` / `Backspace` | Delete selected |
+| `Escape` | Close panel |
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+### 🌙 Dark Theme
+Purpose-built dark UI optimized for extended use, with a carefully tuned color palette across all components.
 
-### Build
+## Connecting to OpenCode
 
-```bash
-npm run build
-npm start
-```
+AI features (prompt generation, workflow generation, model/tool discovery) require a running [OpenCode](https://github.com/nichochar/opencode) server:
 
-### Docker
+1. **Install opencode**: `npm i -g opencode-ai`
+2. **Start the server** from your project directory: `opencode serve --cors http://localhost:3000`
+3. **Connect** via the Connect button in the header
 
-The project includes Docker support with two runtime options: **Bun** (default) and **Node.js**. Both produce the same Next.js standalone output — the difference is the runtime that serves the application.
+Once connected, Nexus automatically discovers available models and tools from your configured providers.
 
-#### Default: Bun
-
-A faster runtime using `oven/bun`. Offers quicker dependency installs and cold starts. Runs by default with `docker compose up`.
-
-```bash
-# Using npm script
-npm run docker:bun
-
-# Or using Docker Compose directly
-docker compose up --build
-```
-
-#### Alternative: Node.js
-
-The standard, production-proven runtime using `node:24-slim`. Requires the `node` profile.
-
-```bash
-# Using npm script
-npm run docker:node
-
-# Or using Docker Compose directly
-docker compose --profile node up nextjs-standalone --build
-```
-
-#### Running in Detached Mode
-
-Append the `-d` flag to run in the background:
-
-```bash
-docker compose up --build -d
-docker compose --profile node up nextjs-standalone --build -d
-```
-
-#### Stopping
-
-```bash
-npm run docker:down
-# or
-docker compose --profile node down
-```
-
-Once running, open [http://localhost:3000](http://localhost:3000) in your browser.
-
-## Adding a New Node Type
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the step-by-step guide.
+> **Note:** The editor works fully offline for designing and exporting workflows. OpenCode is only needed for AI-powered generation features.
 
 ## Contributing
 
