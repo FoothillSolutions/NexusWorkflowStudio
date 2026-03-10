@@ -22,6 +22,20 @@ export interface ChangelogEntry {
 // ─────────────────────────────────────────────────────────────────────────────
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.8.0",
+    date: "March 9, 2026",
+    categories: [
+      {
+        category: "New",
+        items: [
+          "PI Extension support — export workflows as PI-compatible extensions with a built-in workflow runner",
+          "Workflow generation for PI — generate PI extension scaffolding directly from the visual workflow editor",
+          "PI workflow runner with multi-workflow support, sub-workflow traversal, and runtime transition resolution",
+        ],
+      }
+    ],
+  },
+  {
     version: "1.7.0",
     date: "March 5, 2026",
     categories: [
