@@ -2,7 +2,7 @@ import { MessageSquareText } from "lucide-react";
 import { z } from "zod/v4";
 import { NodeCategory } from "@/nodes/shared/registry-types";
 import type { NodeRegistryEntry } from "@/nodes/shared/registry-types";
-import { NodeSize } from "@/nodes/shared/base-node";
+import { NodeSize } from "@/nodes/shared/node-size";
 import { NODE_ACCENT } from "@/lib/node-colors";
 import type { PromptNodeData } from "./types";
 export const promptRegistryEntry: NodeRegistryEntry = {

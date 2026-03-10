@@ -1,6 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import type { NodeType, WorkflowNodeData } from "@/types/workflow";
-import type { NodeSize } from "./base-node";
+import type { NodeSize } from "./node-size";
 
 // ── Node category ───────────────────────────────────────────────────────────
 export enum NodeCategory {

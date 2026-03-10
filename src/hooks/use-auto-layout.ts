@@ -3,7 +3,7 @@ import Dagre from "@dagrejs/dagre";
 import { useReactFlow } from "@xyflow/react";
 import type { NodeType, WorkflowNode, WorkflowEdge } from "@/types/workflow";
 import { NODE_REGISTRY } from "@/lib/node-registry";
-import { NodeSize, NODE_SIZE_DIMENSIONS } from "@/nodes/shared/base-node";
+import { NodeSize, NODE_SIZE_DIMENSIONS } from "@/nodes/shared/node-size";
 
 const LAYOUT_DURATION = 400;
 

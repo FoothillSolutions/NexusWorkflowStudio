@@ -2,7 +2,7 @@ import { GitBranch } from "lucide-react";
 import { z } from "zod/v4";
 import { NodeCategory } from "@/nodes/shared/registry-types";
 import type { NodeRegistryEntry } from "@/nodes/shared/registry-types";
-import { NodeSize } from "@/nodes/shared/base-node";
+import { NodeSize } from "@/nodes/shared/node-size";
 import { NODE_ACCENT } from "@/lib/node-colors";
 import { SubAgentModel, SubAgentMemory } from "@/nodes/agent/enums";
 import type { SubWorkflowNodeData } from "./types";
