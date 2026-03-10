@@ -8,6 +8,7 @@ import { useOpenCodeStore } from "./opencode-store";
 import { useWorkflowStore } from "./workflow-store";
 import type { Part } from "@/lib/opencode";
 import type { FormSetValue } from "@/nodes/shared/form-types";
+import type { ConnectedNodeContext, NodeSummary } from "@/nodes/agent/properties/use-connected-resources";
 
 export type PromptGenStatus = "idle" | "creating-session" | "generating" | "streaming" | "done" | "error";
 export type PromptGenView = "closed" | "generate" | "edit";
@@ -119,6 +120,8 @@ export interface GeneratePayload {
   connectedResourceNames?: { skills: string[]; docs: string[] };
   /** The type of node being targeted — affects system prompt style */
   nodeType?: PromptGenNodeType;
+  /** Upstream and downstream flow-connected nodes and their content */
+  connectedNodeContext?: ConnectedNodeContext;
 }
 
 export interface EditPayload {
@@ -130,6 +133,8 @@ export interface EditPayload {
   connectedResourceNames?: { skills: string[]; docs: string[] };
   /** The type of node being targeted — affects system prompt style */
   nodeType?: PromptGenNodeType;
+  /** Upstream and downstream flow-connected nodes and their content */
+  connectedNodeContext?: ConnectedNodeContext;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -148,6 +153,34 @@ function buildConnectedResourcesBlock(res?: { skills: string[]; docs: string[] }
     for (const d of res.docs) lines.push(`- {{${d}}}`);
   }
   return lines.length > 0 ? lines.join("\n") : "";
+}
+
+/** Format a single node summary as a concise Markdown bullet. */
+function formatNodeSummary(n: NodeSummary): string {
+  const parts: string[] = [`- **[${n.type}]** "${n.label || n.name}"`];
+  if (n.description) parts.push(`  — ${n.description}`);
+  if (n.promptText) parts.push(`  Prompt excerpt: ${n.promptText}`);
+  if (n.branches && n.branches.length > 0) parts.push(`  Branches: ${n.branches.join("; ")}`);
+  return parts.join("\n");
+}
+
+/** Build a Markdown snippet describing upstream/downstream workflow neighbours (empty string if none). */
+function buildConnectedNodeContextBlock(ctx?: ConnectedNodeContext): string {
+  if (!ctx) return "";
+  const { upstream, downstream } = ctx;
+  if (upstream.length === 0 && downstream.length === 0) return "";
+
+  const lines: string[] = [];
+  if (upstream.length > 0) {
+    lines.push("**Upstream Nodes (execute before this node):**");
+    for (const n of upstream) lines.push(formatNodeSummary(n));
+  }
+  if (downstream.length > 0) {
+    if (lines.length > 0) lines.push("");
+    lines.push("**Downstream Nodes (execute after this node):**");
+    for (const n of downstream) lines.push(formatNodeSummary(n));
+  }
+  return lines.join("\n");
 }
 
 /** The canonical template that every generated prompt should follow. */
@@ -207,7 +240,8 @@ CRITICAL RULES:
 - Use $1, $2, $3 for dynamic positional parameters when the skill takes inputs.
 - Use {{variable_name}} for static/config values.
 - Structure with sections if the skill is complex, but keep it concise for simple skills.
-- Focus on the *how* — the agent already knows *what* to do from its main prompt; the skill teaches the specific technique.`;
+- Focus on the *how* — the agent already knows *what* to do from its main prompt; the skill teaches the specific technique.
+- When workflow context (upstream/downstream nodes) is provided, tailor the skill to fit naturally within the pipeline — consider what data arrives from upstream nodes and what downstream nodes expect.`;
   }
 
   if (nodeType === "prompt") {
@@ -221,7 +255,8 @@ CRITICAL RULES:
 - Use $1, $2, $3 for dynamic positional parameters when the user mentions inputs
 - Use {{variable_name}} for static/config values
 - You do NOT need to follow any specific template structure — let the content dictate the format
-- Keep the prompt focused, practical, and directly usable`;
+- Keep the prompt focused, practical, and directly usable
+- When workflow context (upstream/downstream nodes) is provided, consider what precedes and follows this prompt in the pipeline and write content that fits naturally in that flow.`;
   }
 
   return `You are a prompt-text generator. You receive a description of an agent and you output **only the prompt text** that will be assigned to that agent — nothing else.
@@ -244,7 +279,8 @@ Style rules:
 - Use $1, $2, $3 for dynamic positional parameters
 - Use {{variable_name}} for static/config values
 - **Only include sections that are needed** — a simple agent may only need Title, Purpose, and Instructions
-- When the user provides connected skills or documents, reference them using the exact {{name}} syntax as given`;
+- When the user provides connected skills or documents, reference them using the exact {{name}} syntax as given
+- When workflow context (upstream/downstream nodes) is provided, consider the agent's role in the pipeline — what it receives from upstream and what downstream nodes expect from it. Tailor instructions, edge cases, and workflow steps accordingly.`;
 }
 
 function buildGenerateUserMessage(payload: GeneratePayload): string {
@@ -272,6 +308,12 @@ function buildGenerateUserMessage(payload: GeneratePayload): string {
     ? `\n\n## Connected Resources\nThe ${nodeLabel} has the following skills and documents connected to it. Reference them in the prompt using the exact {{name}} syntax shown below:\n\n${resBlock}`
     : "";
 
+  // Build workflow context section (upstream/downstream neighbours)
+  const ctxBlock = buildConnectedNodeContextBlock(payload.connectedNodeContext);
+  const ctxSection = ctxBlock
+    ? `\n\n## Workflow Context\nThis ${nodeLabel} is part of a larger workflow. Here are the nodes connected before and after it — consider its role in this pipeline:\n\n${ctxBlock}`
+    : "";
+
   if (nodeType === "skill") {
     // ── Skill node messages ──
     if (hasFreeform && hasFields) {
@@ -280,14 +322,14 @@ ${payload.freeformDescription!.trim()}
 
 Additional details:
 
-${sections.join("\n\n")}${resSection}
+${sections.join("\n\n")}${resSection}${ctxSection}
 
 Remember: output ONLY the skill prompt text — step-by-step instructions that teach an AI agent how to perform this skill. No plan, no explanation.`;
     }
 
     if (hasFreeform) {
       return `Write the skill prompt text for a skill described as:
-${payload.freeformDescription!.trim()}${resSection}
+${payload.freeformDescription!.trim()}${resSection}${ctxSection}
 
 Output ONLY the skill prompt text. Write clear, actionable instructions that teach an AI agent how to perform this technique or procedure. Use steps, rules, and examples as appropriate.`;
     }
@@ -295,12 +337,12 @@ Output ONLY the skill prompt text. Write clear, actionable instructions that tea
     if (hasFields) {
       return `Write the skill prompt text using these details:
 
-${sections.join("\n\n")}${resSection}
+${sections.join("\n\n")}${resSection}${ctxSection}
 
 You may add additional content only if clearly inferred from the input. Output ONLY the skill prompt text.`;
     }
 
-    return `Write a well-structured skill prompt that teaches an AI agent a useful technique or procedure. Fill in realistic, actionable content. Output ONLY the skill prompt text.${resSection}`;
+    return `Write a well-structured skill prompt that teaches an AI agent a useful technique or procedure. Fill in realistic, actionable content. Output ONLY the skill prompt text.${resSection}${ctxSection}`;
   }
 
   if (nodeType === "prompt") {
@@ -311,14 +353,14 @@ ${payload.freeformDescription!.trim()}
 
 Additional details:
 
-${sections.join("\n\n")}${resSection}
+${sections.join("\n\n")}${resSection}${ctxSection}
 
 Remember: output ONLY the prompt text. No plan, no explanation. Structure the output naturally based on the content — no need to follow a rigid template.`;
     }
 
     if (hasFreeform) {
       return `Write prompt text based on this description:
-${payload.freeformDescription!.trim()}${resSection}
+${payload.freeformDescription!.trim()}${resSection}${ctxSection}
 
 Output ONLY the prompt text. Structure it naturally — use sections, bullets, or plain prose as appropriate for the content. Do not follow a rigid template.`;
     }
@@ -326,12 +368,12 @@ Output ONLY the prompt text. Structure it naturally — use sections, bullets, o
     if (hasFields) {
       return `Write prompt text using these details:
 
-${sections.join("\n\n")}${resSection}
+${sections.join("\n\n")}${resSection}${ctxSection}
 
 You may add additional content only if clearly inferred from the input. Output ONLY the prompt text.`;
     }
 
-    return `Write a well-structured, general-purpose prompt template. Fill each section with realistic content that demonstrates good prompt writing. Output ONLY the prompt text.${resSection}`;
+    return `Write a well-structured, general-purpose prompt template. Fill each section with realistic content that demonstrates good prompt writing. Output ONLY the prompt text.${resSection}${ctxSection}`;
   }
 
   // ── Agent node messages (original behavior) ──
@@ -343,7 +385,7 @@ ${payload.freeformDescription!.trim()}
 
 Additional details for the template sections:
 
-${sections.join("\n\n")}${resSection}
+${sections.join("\n\n")}${resSection}${ctxSection}
 
 Remember: output ONLY the prompt text. No plan, no explanation.`;
   }
@@ -351,7 +393,7 @@ Remember: output ONLY the prompt text. No plan, no explanation.`;
   // Freeform only — still generate using the template
   if (hasFreeform) {
     return `Write the agent prompt text for an agent described as:
-${payload.freeformDescription!.trim()}${resSection}
+${payload.freeformDescription!.trim()}${resSection}${ctxSection}
 
 Infer which template sections are relevant and fill only those with concrete content. Skip sections that don't apply. Output ONLY the prompt text.`;
   }
@@ -360,13 +402,13 @@ Infer which template sections are relevant and fill only those with concrete con
   if (hasFields) {
     return `Write the agent prompt text using these details:
 
-${sections.join("\n\n")}${resSection}
+${sections.join("\n\n")}${resSection}${ctxSection}
 
 You may add other template sections only if clearly inferred from the input. Output ONLY the prompt text.`;
   }
 
   // Nothing filled — general-purpose
-  return `Write a general-purpose agent prompt template following the template structure. Fill each section with realistic content that demonstrates how the template should be used. Output ONLY the prompt text.${resSection}`;
+  return `Write a general-purpose agent prompt template following the template structure. Fill each section with realistic content that demonstrates how the template should be used. Output ONLY the prompt text.${resSection}${ctxSection}`;
 }
 
 function buildEditUserMessage(payload: EditPayload): string {
@@ -377,6 +419,12 @@ function buildEditUserMessage(payload: EditPayload): string {
     ? `\n\nThe ${nodeType === "agent" ? "agent" : nodeType} has the following skills and documents connected — reference them using the exact {{name}} syntax:\n\n${resBlock}`
     : "";
 
+  // Workflow context (upstream/downstream neighbours)
+  const ctxBlock = buildConnectedNodeContextBlock(payload.connectedNodeContext);
+  const ctxSection = ctxBlock
+    ? `\n\nThis ${nodeType === "agent" ? "agent" : nodeType} is part of a larger workflow. Here are the nodes that execute before and after it — consider its role in the pipeline when making edits:\n\n${ctxBlock}`
+    : "";
+
   return `Here is the current ${nodeLabel}:
 
 ---
@@ -384,7 +432,7 @@ ${payload.currentPrompt}
 ---
 
 Modify this ${nodeType === "agent" ? "prompt" : nodeType} according to the following instruction:
-${payload.editInstruction}${resSection}
+${payload.editInstruction}${resSection}${ctxSection}
 
 ${nodeType === "agent" ? "Keep the same template structure." : "Keep a clear structure."} Output ONLY the modified ${nodeType === "agent" ? "prompt" : nodeType} text — no explanation, no commentary.`;
 }

@@ -19,7 +19,7 @@ import {
   usePromptGenStore,
   type PromptGenTemplateFields,
 } from "@/store/prompt-gen-store";
-import { getConnectedResourceNames } from "@/nodes/agent/properties/use-connected-resources";
+import { getConnectedResourceNames, getConnectedNodeContext } from "@/nodes/agent/properties/use-connected-resources";
 
 // ── Template section config ──────────────────────────────────────────────────
 
@@ -186,8 +186,9 @@ export function PromptGenBody() {
     const { providerId, modelId } = resolveModelIds(genModel);
     const targetNodeId = usePromptGenStore.getState().targetNodeId;
     const connectedResourceNames = getConnectedResourceNames(targetNodeId);
+    const connectedNodeContext = getConnectedNodeContext(targetNodeId);
     const nodeType = usePromptGenStore.getState().targetNodeType ?? "agent";
-    generate({ fields, modelId, providerId, mode, freeformDescription: mode === "freeform" ? freeformText : undefined, connectedResourceNames, nodeType });
+    generate({ fields, modelId, providerId, mode, freeformDescription: mode === "freeform" ? freeformText : undefined, connectedResourceNames, nodeType, connectedNodeContext });
   }, [fields, genModel, mode, freeformText, generate]);
 
   const handleEdit = useCallback(() => {
@@ -195,8 +196,9 @@ export function PromptGenBody() {
     const { providerId, modelId } = resolveModelIds(genModel);
     const targetNodeId = usePromptGenStore.getState().targetNodeId;
     const connectedResourceNames = getConnectedResourceNames(targetNodeId);
+    const connectedNodeContext = getConnectedNodeContext(targetNodeId);
     const nodeType = usePromptGenStore.getState().targetNodeType ?? "agent";
-    editWithAi({ currentPrompt: targetPrompt, editInstruction, modelId, providerId, connectedResourceNames, nodeType });
+    editWithAi({ currentPrompt: targetPrompt, editInstruction, modelId, providerId, connectedResourceNames, nodeType, connectedNodeContext });
   }, [targetPrompt, editInstruction, genModel, editWithAi]);
 
   return (
