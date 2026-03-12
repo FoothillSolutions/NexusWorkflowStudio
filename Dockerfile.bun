@@ -48,6 +48,9 @@ RUN bun run build
 
 FROM oven/bun:1 AS runner
 
+ARG GIT_SHA=unknown
+ARG BUILD_TIMESTAMP=unknown
+
 # Set working directory
 WORKDIR /app
 
@@ -55,6 +58,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
+ENV APP_GIT_SHA=${GIT_SHA}
+ENV APP_BUILD_TIMESTAMP=${BUILD_TIMESTAMP}
 
 # Advertise the internal application port for platforms that auto-detect it.
 EXPOSE 3000

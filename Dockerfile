@@ -6,6 +6,8 @@
 # This Dockerfile uses Node.js 24.13.0-slim, which was the latest LTS version at the time of writing.
 # To ensure security and compatibility, regularly update the NODE_VERSION ARG to the latest LTS version.
 ARG NODE_VERSION=24.13.0-slim
+ARG GIT_SHA=unknown
+ARG BUILD_TIMESTAMP=unknown
 
 FROM node:${NODE_VERSION} AS dependencies
 
@@ -73,6 +75,9 @@ RUN if [ -f package-lock.json ]; then \
 
 FROM node:${NODE_VERSION} AS runner
 
+ARG GIT_SHA
+ARG BUILD_TIMESTAMP
+
 # Set working directory
 WORKDIR /app
 
@@ -80,6 +85,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
+ENV APP_GIT_SHA=${GIT_SHA}
+ENV APP_BUILD_TIMESTAMP=${BUILD_TIMESTAMP}
 
 # Advertise the internal application port for platforms that auto-detect it.
 EXPOSE 3000
