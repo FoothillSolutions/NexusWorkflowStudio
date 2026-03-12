@@ -14,7 +14,7 @@ interface ShortcutsDialogProps {
 }
 
 const KBD = ({ children }: { children: React.ReactNode }) => (
-  <kbd className="inline-flex items-center justify-center min-w-[26px] h-[22px] px-1.5 rounded bg-zinc-700 border border-zinc-600 text-zinc-200 text-[11px] font-mono leading-none">
+  <kbd className="inline-flex items-center justify-center min-w-6.5 h-5.5 px-1.5 rounded bg-zinc-700 border border-zinc-600 text-zinc-200 text-[11px] font-mono leading-none">
     {children}
   </kbd>
 );
@@ -62,9 +62,9 @@ export default function ShortcutsDialog({ open, onOpenChange }: ShortcutsDialogP
           <Section title="File">
             <Row keys={[MOD, ALT, "N"]} label="New workflow" />
             <Row keys={[MOD, "S"]} label="Save to library" />
-            <Row keys={[MOD, ALT, "E"]} label="Export workflow" />
+            <Row keys={[MOD, ALT, "E"]} label="Export workflow JSON" />
             <Row keys={[MOD, ALT, "O"]} label="Import workflow" />
-            <Row keys={[MOD, ALT, "G"]} label="Generate & download" />
+            <Row keys={[MOD, ALT, "G"]} label="Open generate/export dialog" />
             <Row keys={[MOD, ALT, "A"]} label="AI generate workflow" />
             <Row keys={[MOD, ALT, "P"]} label="Preview output" />
           </Section>

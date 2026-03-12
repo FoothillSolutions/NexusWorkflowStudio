@@ -2,13 +2,26 @@ import type { NodeGeneratorModule } from "@/nodes/shared/registry-types";
 import { mermaidId, mermaidLabel } from "@/nodes/shared/mermaid-utils";
 import type { WorkflowNodeData } from "@/types/workflow";
 import { NODE_ACCENT } from "@/lib/node-colors";
+import {
+  buildGeneratedAgentFilePath,
+  buildGeneratedDocsFilePath,
+  buildGeneratedSkillFilePath,
+  DEFAULT_GENERATION_TARGET,
+  type GenerationTargetId,
+} from "@/lib/generation-targets";
 import type { SubAgentNodeData } from "./types";
 import { SubAgentModel, SubAgentMemory } from "./types";
 
 /**
  * Build the frontmatter + prompt content for a .opencode/agents/<name>.md file.
  */
-export function buildAgentFile(nodeId: string, d: SubAgentNodeData, connectedSkillNames?: string[], connectedDocNames?: string[]): string {
+export function buildAgentFile(
+  nodeId: string,
+  d: SubAgentNodeData,
+  connectedSkillNames?: string[],
+  connectedDocNames?: string[],
+  target: GenerationTargetId = DEFAULT_GENERATION_TARGET,
+): string {
   const agentName = d.name || `agent-${nodeId}`;
 
   // --- frontmatter ---
@@ -69,10 +82,10 @@ export function buildAgentFile(nodeId: string, d: SubAgentNodeData, connectedSki
       let resolvedPath = ref;
       if (ref.startsWith("doc:")) {
         const fileName = ref.slice(4);
-        resolvedPath = `.opencode/docs/${fileName}`;
+        resolvedPath = buildGeneratedDocsFilePath(fileName, target);
       } else if (ref.startsWith("skill:")) {
         const skillName = ref.slice(6);
-        resolvedPath = `.opencode/skills/${skillName}/SKILL.md`;
+        resolvedPath = buildGeneratedSkillFilePath(skillName, target);
       }
       lines.push(`- \`${varName}\`: \`${resolvedPath}\``);
     }
@@ -85,7 +98,13 @@ export function buildAgentFile(nodeId: string, d: SubAgentNodeData, connectedSki
 }
 
 export const generator: NodeGeneratorModule & {
-  getAgentFile?(nodeId: string, data: WorkflowNodeData, connectedSkillNames?: string[], connectedDocNames?: string[]): { path: string; content: string } | null;
+  getAgentFile?(
+    nodeId: string,
+    data: WorkflowNodeData,
+    connectedSkillNames?: string[],
+    connectedDocNames?: string[],
+    target?: GenerationTargetId,
+  ): { path: string; content: string } | null;
 } = {
   getMermaidShape(nodeId: string, data: WorkflowNodeData): string {
     const d = data as SubAgentNodeData;
@@ -111,12 +130,18 @@ export const generator: NodeGeneratorModule & {
     return lines.join("\n");
   },
 
-  getAgentFile(nodeId: string, data: WorkflowNodeData, connectedSkillNames?: string[], connectedDocNames?: string[]) {
+  getAgentFile(
+    nodeId: string,
+    data: WorkflowNodeData,
+    connectedSkillNames?: string[],
+    connectedDocNames?: string[],
+    target: GenerationTargetId = DEFAULT_GENERATION_TARGET,
+  ) {
     const d = data as SubAgentNodeData;
     const agentName = d.name || `agent-${nodeId}`;
     return {
-      path: `.opencode/agents/${agentName}.md`,
-      content: buildAgentFile(nodeId, d, connectedSkillNames, connectedDocNames),
+      path: buildGeneratedAgentFilePath(agentName, target),
+      content: buildAgentFile(nodeId, d, connectedSkillNames, connectedDocNames, target),
     };
   },
 };

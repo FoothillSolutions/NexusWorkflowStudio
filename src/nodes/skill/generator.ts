@@ -1,6 +1,12 @@
 import type { NodeGeneratorModule } from "@/nodes/shared/registry-types";
 import { mermaidId, mermaidLabel } from "@/nodes/shared/mermaid-utils";
 import type { WorkflowNodeData } from "@/types/workflow";
+import {
+  buildGeneratedSkillFilePath,
+  DEFAULT_GENERATION_TARGET,
+  getGenerationTarget,
+  type GenerationTargetId,
+} from "@/lib/generation-targets";
 import type { SkillNodeData } from "./types";
 
 const SLUG_REGEX = /^[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -10,7 +16,11 @@ function sanitiseSlug(raw: string): string | null {
   return SLUG_REGEX.test(v) ? v : null;
 }
 
-function buildSkillFile(skillName: string, d: SkillNodeData): string {
+function buildSkillFile(
+  skillName: string,
+  d: SkillNodeData,
+  target: GenerationTargetId = DEFAULT_GENERATION_TARGET,
+): string {
   const lines: string[] = ["---"];
 
   // name = folder name (the skill node name)
@@ -20,7 +30,7 @@ function buildSkillFile(skillName: string, d: SkillNodeData): string {
   lines.push(`description: ${d.description?.trim() || skillName}`);
 
   // compatibility
-  lines.push(`compatibility: opencode`);
+  lines.push(`compatibility: ${getGenerationTarget(target).compatibility}`);
 
   // metadata block — always includes workflow: github, plus user-defined entries
   const metaEntries: { key: string; value: string }[] = [
@@ -45,7 +55,11 @@ function buildSkillFile(skillName: string, d: SkillNodeData): string {
 }
 
 export const generator: NodeGeneratorModule & {
-  getSkillFile?(nodeId: string, data: WorkflowNodeData): { path: string; content: string } | null;
+  getSkillFile?(
+    nodeId: string,
+    data: WorkflowNodeData,
+    target?: GenerationTargetId,
+  ): { path: string; content: string } | null;
 } = {
   getMermaidShape(nodeId: string, data: WorkflowNodeData): string {
     const d = data as SkillNodeData;
@@ -60,13 +74,17 @@ export const generator: NodeGeneratorModule & {
       `- **Project:** ${d.projectName || "_not set_"}`,
     ].join("\n");
   },
-  getSkillFile(_nodeId: string, data: WorkflowNodeData) {
+  getSkillFile(
+    _nodeId: string,
+    data: WorkflowNodeData,
+    target: GenerationTargetId = DEFAULT_GENERATION_TARGET,
+  ) {
     const d = data as SkillNodeData;
     const skillName = d.skillName?.trim() || d.name?.trim();
     if (!skillName) return null;
     return {
-      path: `.opencode/skills/${skillName}/SKILL.md`,
-      content: buildSkillFile(skillName, d),
+      path: buildGeneratedSkillFilePath(skillName, target),
+      content: buildSkillFile(skillName, d, target),
     };
   },
 };

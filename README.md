@@ -32,7 +32,7 @@ A visual workflow editor for designing, composing, and exporting AI agent workfl
 - **Save & Load Workflows** — persist workflows to your browser's local storage
 - **Reusable Node Configs** — save individual node configurations to the library for reuse across workflows
 - **Import & Export** — import/export workflows as JSON files for sharing and backup
-- **Code Generation** — export workflows as `.opencode` command files in a downloadable ZIP
+- **Code Generation** — generate OpenCode, PI Mono, or Claude Code workflow files and export them as a ZIP or directly into a folder with merge-style updates
 
 ### 🔧 Agent Configuration
 - **Model Selection** — pick from dynamically discovered models across all connected providers
@@ -62,7 +62,10 @@ A visual workflow editor for designing, composing, and exporting AI agent workfl
 | `Ctrl/Cmd + Shift + Z` | Redo |
 | `Ctrl/Cmd + A` | Select all |
 | `Ctrl/Cmd + D` | Duplicate |
+| `Ctrl/Cmd + Alt + E` | Export workflow JSON |
+| `Ctrl/Cmd + Alt + G` | Open generate/export dialog |
 | `Ctrl/Cmd + Alt + A` | AI Generate Workflow |
+| `Ctrl/Cmd + Alt + P` | Preview generated output |
 | `H` / `V` | Hand tool / Selection tool |
 | `?` | View all shortcuts |
 | `Delete` / `Backspace` | Delete selected |

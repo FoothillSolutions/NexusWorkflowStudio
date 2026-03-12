@@ -22,6 +22,26 @@ export interface ChangelogEntry {
 // ─────────────────────────────────────────────────────────────────────────────
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.8.0",
+    date: "March 12, 2026",
+    categories: [
+      {
+        category: "New",
+        items: [
+          "Multi-target workflow export — generate OpenCode, PI, and Claude Code artifacts",
+          "Direct folder export — write generated files straight into a selected folder or project target directory",
+        ],
+      },
+      {
+        category: "Improved",
+        items: [
+          "Folder export now merges into the selected destination, updating matching generated files without replacing unrelated files",
+          "AI workflow generation now uses project-aware context from the active OpenCode project, including tailored prompts and context-aware example suggestions",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.7.0",
     date: "March 5, 2026",
     categories: [

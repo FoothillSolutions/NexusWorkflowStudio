@@ -19,6 +19,12 @@ import { generator as switchGen }       from "@/nodes/switch/generator";
 import { generator as askUserGen }      from "@/nodes/ask-user/generator";
 import type { NodeGeneratorModule }     from "@/nodes/shared/registry-types";
 import { mermaidId, mermaidLabel }      from "@/nodes/shared/mermaid-utils";
+import {
+  buildGeneratedCommandFilePath,
+  DEFAULT_GENERATION_TARGET,
+  sanitizeGeneratedName,
+  type GenerationTargetId,
+} from "@/lib/generation-targets";
 export interface GeneratedFile {
   path: string;
   content: string;
@@ -266,7 +272,11 @@ function buildDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[]): stri
   if (sections.length === 0) return "";
   return ["## Node Details", "", ...sections].join("\n\n");
 }
-function collectAgentFiles(nodes: WorkflowNode[], edges: WorkflowEdge[]): GeneratedFile[] {
+function collectAgentFiles(
+  nodes: WorkflowNode[],
+  edges: WorkflowEdge[],
+  target: GenerationTargetId,
+): GeneratedFile[] {
   const { nodes: reachable } = filterReachable(nodes, edges);
   const reachableIds = new Set(reachable.map((n) => n.id));
   const allNodeById = new Map<string, WorkflowNode>(nodes.map((n) => [n.id, n]));
@@ -341,7 +351,7 @@ function collectAgentFiles(nodes: WorkflowNode[], edges: WorkflowEdge[]): Genera
 
       const gen = NODE_GENERATORS["agent"];
       if (gen?.getAgentFile) {
-        const f = gen.getAgentFile(node.id, node.data, connectedSkillNames, connectedDocNames);
+        const f = gen.getAgentFile(node.id, node.data, connectedSkillNames, connectedDocNames, target);
         if (f) files.push(f);
       }
     }
@@ -351,11 +361,9 @@ function collectAgentFiles(nodes: WorkflowNode[], edges: WorkflowEdge[]): Genera
   for (const skillId of connectedSkillIds) {
     const skillNode = allNodeById.get(skillId);
     if (skillNode?.data?.type === "skill") {
-      const gen = NODE_GENERATORS["skill"] as typeof NODE_GENERATORS["skill"] & {
-        getSkillFile?(id: string, d: WorkflowNode["data"]): { path: string; content: string } | null;
-      };
+      const gen = NODE_GENERATORS["skill"];
       if (gen?.getSkillFile) {
-        const f = gen.getSkillFile(skillNode.id, skillNode.data);
+        const f = gen.getSkillFile(skillNode.id, skillNode.data, target);
         if (f) files.push(f);
       }
     }
@@ -365,11 +373,9 @@ function collectAgentFiles(nodes: WorkflowNode[], edges: WorkflowEdge[]): Genera
   for (const docId of connectedDocIds) {
     const docNode = allNodeById.get(docId);
     if (docNode?.data?.type === "document") {
-      const gen = NODE_GENERATORS["document"] as typeof NODE_GENERATORS["document"] & {
-        getDocFile?(id: string, d: WorkflowNode["data"]): { path: string; content: string } | null;
-      };
+      const gen = NODE_GENERATORS["document"];
       if (gen?.getDocFile) {
-        const f = gen.getDocFile(docNode.id, docNode.data);
+        const f = gen.getDocFile(docNode.id, docNode.data, target);
         if (f) files.push(f);
       }
     }
@@ -378,9 +384,8 @@ function collectAgentFiles(nodes: WorkflowNode[], edges: WorkflowEdge[]): Genera
   // Generate sub-workflow files (inner command file + agent file if agent mode)
   for (const node of reachable) {
     if (node.data.type === "sub-workflow") {
-      const gen = NODE_GENERATORS["sub-workflow"] as typeof NODE_GENERATORS["sub-workflow"] & {
+      const gen = NODE_GENERATORS["sub-workflow"] as NodeGeneratorModule & {
         getSubWorkflowJSON?(id: string, d: WorkflowNode["data"]): WorkflowJSON | null;
-        getAgentFile?(id: string, d: WorkflowNode["data"]): { path: string; content: string } | null;
       };
       const d = node.data as import("@/nodes/sub-workflow/types").SubWorkflowNodeData;
 
@@ -389,12 +394,12 @@ function collectAgentFiles(nodes: WorkflowNode[], edges: WorkflowEdge[]): Genera
         if (gen?.getSubWorkflowJSON) {
           const innerJSON = gen.getSubWorkflowJSON(node.id, node.data);
           if (innerJSON) {
-            const innerFiles = generateWorkflowFiles(innerJSON);
+            const innerFiles = generateWorkflowFiles(innerJSON, target);
             files.push(...innerFiles);
           }
         }
         if (gen?.getAgentFile) {
-          const f = gen.getAgentFile(node.id, node.data);
+          const f = gen.getAgentFile(node.id, node.data, undefined, undefined, target);
           if (f) files.push(f);
         }
       } else {
@@ -404,12 +409,12 @@ function collectAgentFiles(nodes: WorkflowNode[], edges: WorkflowEdge[]): Genera
           if (innerJSON) {
             const mid = mermaidId(node.id);
             const commandFile: GeneratedFile = {
-              path: `.opencode/commands/${mid}.md`,
+              path: buildGeneratedCommandFilePath(mid, target),
               content: buildCommandMarkdown(innerJSON),
             };
             files.push(commandFile);
             // Recursively collect nested agent/skill/sub-workflow files
-            const innerAgentFiles = collectAgentFiles(innerJSON.nodes, innerJSON.edges);
+            const innerAgentFiles = collectAgentFiles(innerJSON.nodes, innerJSON.edges, target);
             files.push(...innerAgentFiles);
           }
         }
@@ -509,17 +514,16 @@ Workflow arguments are **comma-separated and trimmed**. For example \`/workflow 
   if (otherDetails)    parts.push("", otherDetails);
   return parts.join("\n") + "\n";
 }
-export function generateWorkflowFiles(workflow: WorkflowJSON): GeneratedFile[] {
-  const safeName = workflow.name
-    .replace(/[^a-z0-9\-_ ]/gi, "")
-    .trim()
-    .replace(/\s+/g, "-")
-    .toLowerCase() || "workflow";
+export function generateWorkflowFiles(
+  workflow: WorkflowJSON,
+  target: GenerationTargetId = DEFAULT_GENERATION_TARGET,
+): GeneratedFile[] {
+  const safeName = sanitizeGeneratedName(workflow.name);
   const commandFile: GeneratedFile = {
-    path: `.opencode/commands/${safeName}.md`,
+    path: buildGeneratedCommandFilePath(safeName, target),
     content: buildCommandMarkdown(workflow),
   };
-  const agentFiles = collectAgentFiles(workflow.nodes, workflow.edges);
+  const agentFiles = collectAgentFiles(workflow.nodes, workflow.edges, target);
   return [commandFile, ...agentFiles];
 }
 export function getCommandMarkdown(workflow: WorkflowJSON): string {

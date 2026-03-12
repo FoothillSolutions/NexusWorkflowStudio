@@ -5,9 +5,14 @@ import { useWorkflowStore } from "@/store/workflow-store";
 import { useSavedWorkflowsStore } from "@/store/library-store";
 import { exportWorkflow } from "@/lib/persistence";
 import {
-  generateWorkflowFiles,
   getCommandMarkdown,
 } from "@/lib/workflow-generator";
+import {
+  DEFAULT_GENERATION_TARGET,
+  GENERATION_TARGETS,
+  getGenerationTarget,
+  type GenerationTargetId,
+} from "@/lib/generation-targets";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -30,10 +35,12 @@ import {
   FilePlus,
   ChevronDown,
   Sparkles,
+  Check,
 } from "lucide-react";
 import { toast } from "sonner";
 import ImportDialog from "./import-dialog";
 import WorkflowPreviewDialog from "./workflow-preview-dialog";
+import GeneratedExportDialog from "./generated-export-dialog";
 import { useWorkflowGenStore } from "@/store/workflow-gen-store";
 import { useOpenCodeStore } from "@/store/opencode-store";
 import { LibraryToggleButton, HelpMenu, ConnectButton } from "./shared-header-actions";
@@ -62,6 +69,8 @@ export default function Header() {
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewMarkdown, setPreviewMarkdown] = useState("");
+  const [generateDialogOpen, setGenerateDialogOpen] = useState(false);
+  const [generateTarget, setGenerateTarget] = useState<GenerationTargetId>(DEFAULT_GENERATION_TARGET);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -93,39 +102,20 @@ export default function Header() {
 
   const handleExport = () => {
     exportWorkflow(getWorkflowJSON());
-    toast.success("Workflow exported");
+    toast.success("Workflow JSON exported");
   };
 
-  const handleGenerate = useCallback(async () => {
-    const workflow = getWorkflowJSON();
-    try {
-      const JSZip = (await import("jszip")).default;
-      const zip = new JSZip();
+  const openGenerateDialog = useCallback(
+    (target: GenerationTargetId = generateTarget) => {
+      setGenerateTarget(target);
+      setGenerateDialogOpen(true);
+    },
+    [generateTarget],
+  );
 
-      const files = generateWorkflowFiles(workflow);
-      for (const file of files) {
-        zip.file(file.path, file.content);
-      }
-
-      const blob = await zip.generateAsync({ type: "blob" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      const safeName =
-        workflow.name
-          .replace(/[^a-z0-9\-_ ]/gi, "")
-          .trim()
-          .replace(/\s+/g, "-")
-          .toLowerCase() || "workflow";
-      a.href = url;
-      a.download = `${safeName}-generated.zip`;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast.success("Workflow generated and downloaded");
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to generate workflow");
-    }
-  }, [getWorkflowJSON]);
+  const handleGenerate = useCallback(() => {
+    openGenerateDialog();
+  }, [openGenerateDialog]);
 
   const handleView = useCallback(() => {
     const workflow = getWorkflowJSON();
@@ -232,7 +222,7 @@ export default function Header() {
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleExport}>
               <Download className="h-4 w-4 mr-2" />
-              Export
+              Export JSON
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -290,15 +280,43 @@ export default function Header() {
         </Tooltip>
 
         {/* Generate (primary action) */}
-        <Button
-          size="sm"
-          onClick={handleGenerate}
-          className="h-8 px-4 text-sm bg-emerald-600 hover:bg-emerald-500 text-white gap-1.5 shadow-sm"
-          title="Generate and download workflow artifacts"
-        >
-          <Cpu className="h-4 w-4" />
-          Generate
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              size="sm"
+              className="h-8 px-4 text-sm bg-emerald-600 hover:bg-emerald-500 text-white gap-1.5 shadow-sm"
+              title="Choose a target and export generated workflow artifacts"
+            >
+              <Cpu className="h-4 w-4" />
+              Generate
+              <ChevronDown className="h-3.5 w-3.5 opacity-80" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-60">
+            {GENERATION_TARGETS.map((target) => {
+              const isSelected = generateTarget === target.id;
+              return (
+                <DropdownMenuItem
+                  key={target.id}
+                  onClick={() => openGenerateDialog(target.id)}
+                  className="py-2"
+                >
+                  <div
+                    className={`flex h-7 w-7 items-center justify-center rounded-md ${
+                      isSelected ? "bg-emerald-500/15 text-emerald-300" : "bg-zinc-800 text-zinc-400"
+                    }`}
+                  >
+                    {isSelected ? <Check className="h-4 w-4" /> : <Cpu className="h-4 w-4" />}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm text-zinc-100">{target.label}</div>
+                    <div className="text-xs text-zinc-500">{target.rootDir}</div>
+                  </div>
+                </DropdownMenuItem>
+              );
+            })}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <Divider />
 
@@ -315,8 +333,16 @@ export default function Header() {
         open={previewOpen}
         onOpenChange={setPreviewOpen}
         markdown={previewMarkdown}
-        title={`Preview — ${name}`}
+        title={`Preview — ${name} · ${getGenerationTarget(generateTarget).label}`}
         onDownload={handleGenerate}
+        downloadLabel="Export…"
+      />
+      <GeneratedExportDialog
+        open={generateDialogOpen}
+        onOpenChange={setGenerateDialogOpen}
+        target={generateTarget}
+        onTargetChange={setGenerateTarget}
+        getWorkflow={getWorkflowJSON}
       />
     </header>
   );

@@ -16,6 +16,7 @@ interface WorkflowPreviewDialogProps {
   markdown: string;
   title?: string;
   onDownload?: () => void;
+  downloadLabel?: string;
 }
 
 export default function WorkflowPreviewDialog({
@@ -24,6 +25,7 @@ export default function WorkflowPreviewDialog({
   markdown,
   title = "Workflow Preview",
   onDownload,
+  downloadLabel = "Download",
 }: WorkflowPreviewDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -39,7 +41,7 @@ export default function WorkflowPreviewDialog({
                 className="text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 shrink-0"
               >
                 <Download className="h-4 w-4 mr-2" />
-                Download
+                {downloadLabel}
               </Button>
             )}
             <DialogClose asChild>
@@ -58,7 +60,7 @@ export default function WorkflowPreviewDialog({
           <textarea
             readOnly
             value={markdown}
-            className="w-full h-full min-h-[500px] resize-none bg-zinc-950 text-zinc-200 text-xs font-mono leading-relaxed border border-zinc-700 rounded-lg p-4 outline-none select-all"
+            className="w-full h-full min-h-125 resize-none bg-zinc-950 text-zinc-200 text-xs font-mono leading-relaxed border border-zinc-700 rounded-lg p-4 outline-none select-all"
             spellCheck={false}
           />
         </div>

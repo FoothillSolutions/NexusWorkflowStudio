@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import type { NodeType, WorkflowNodeData } from "@/types/workflow";
+import type { GenerationTargetId } from "@/lib/generation-targets";
 import type { NodeSize } from "./node-size";
 
 // ── Node category ───────────────────────────────────────────────────────────
@@ -41,12 +42,32 @@ export interface NodeGeneratorModule {
    * Optionally returns an extra file to generate alongside the workflow file.
    * e.g. `.opencode/agents/<name>.md` for agent nodes.
    */
-  getAgentFile?(nodeId: string, data: WorkflowNodeData, connectedSkillNames?: string[], connectedDocNames?: string[]): { path: string; content: string } | null;
+  getAgentFile?(
+    nodeId: string,
+    data: WorkflowNodeData,
+    connectedSkillNames?: string[],
+    connectedDocNames?: string[],
+    target?: GenerationTargetId,
+  ): { path: string; content: string } | null;
 
   /**
    * Optionally returns a document file to generate alongside the workflow file.
    * e.g. `.opencode/docs/<name>.md` for document nodes.
    */
-  getDocFile?(nodeId: string, data: WorkflowNodeData): { path: string; content: string } | null;
+  getDocFile?(
+    nodeId: string,
+    data: WorkflowNodeData,
+    target?: GenerationTargetId,
+  ): { path: string; content: string } | null;
+
+  /**
+   * Optionally returns a skill file to generate alongside the workflow file.
+   * e.g. `.opencode/skills/<name>/SKILL.md` for skill nodes.
+   */
+  getSkillFile?(
+    nodeId: string,
+    data: WorkflowNodeData,
+    target?: GenerationTargetId,
+  ): { path: string; content: string } | null;
 }
 

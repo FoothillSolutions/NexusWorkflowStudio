@@ -2,6 +2,11 @@ import type { NodeGeneratorModule } from "@/nodes/shared/registry-types";
 import { mermaidId, mermaidLabel } from "@/nodes/shared/mermaid-utils";
 import type { WorkflowNodeData, WorkflowJSON } from "@/types/workflow";
 import { NODE_ACCENT } from "@/lib/node-colors";
+import {
+  buildGeneratedAgentFilePath,
+  DEFAULT_GENERATION_TARGET,
+  type GenerationTargetId,
+} from "@/lib/generation-targets";
 import { SubAgentModel } from "@/nodes/agent/enums";
 import type { SubWorkflowNodeData } from "./types";
 
@@ -64,7 +69,13 @@ function buildSubWorkflowAgentFile(d: SubWorkflowNodeData): string {
 
 export const generator: NodeGeneratorModule & {
   getSubWorkflowJSON?(nodeId: string, data: WorkflowNodeData): WorkflowJSON | null;
-  getAgentFile?(nodeId: string, data: WorkflowNodeData): { path: string; content: string } | null;
+  getAgentFile?(
+    nodeId: string,
+    data: WorkflowNodeData,
+    connectedSkillNames?: string[],
+    connectedDocNames?: string[],
+    target?: GenerationTargetId,
+  ): { path: string; content: string } | null;
 } = {
   getMermaidShape(nodeId: string, data: WorkflowNodeData): string {
     const d = data as SubWorkflowNodeData;
@@ -115,12 +126,18 @@ export const generator: NodeGeneratorModule & {
     return toWorkflowJSON(d);
   },
 
-  getAgentFile(_nodeId: string, data: WorkflowNodeData): { path: string; content: string } | null {
+  getAgentFile(
+    _nodeId: string,
+    data: WorkflowNodeData,
+    _connectedSkillNames?: string[],
+    _connectedDocNames?: string[],
+    target: GenerationTargetId = DEFAULT_GENERATION_TARGET,
+  ): { path: string; content: string } | null {
     const d = data as SubWorkflowNodeData;
     if (d.mode !== "agent") return null;
     const agentSlug = toSafeName(d.label || "Sub Workflow");
     return {
-      path: `.opencode/agents/${agentSlug}.md`,
+      path: buildGeneratedAgentFilePath(agentSlug, target),
       content: buildSubWorkflowAgentFile(d),
     };
   },

@@ -103,7 +103,7 @@ export default function WorkflowEditor() {
         return;
       }
 
-      // ── Mod+Alt+G → Generate & download ───────────────────────────
+      // ── Mod+Alt+G → Open generated file export ────────────────────
       if (mod && e.altKey && e.code === "KeyG") {
         e.preventDefault();
         window.dispatchEvent(new CustomEvent("nexus:generate"));

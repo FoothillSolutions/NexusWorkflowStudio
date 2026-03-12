@@ -42,7 +42,10 @@ function ChangelogEntryView({ entry }: { entry: ChangelogEntry }) {
         const meta = CATEGORY_META[category];
         const Icon = meta.icon;
         return (
-          <div key={category} className="space-y-2.5">
+          <div
+            key={category}
+            className={`space-y-3 rounded-xl border p-4 ${meta.bg} ${meta.border}`}
+          >
             {/* Category heading */}
             <div className="flex items-center gap-2">
               <div
@@ -51,15 +54,12 @@ function ChangelogEntryView({ entry }: { entry: ChangelogEntry }) {
                 <Icon className="h-3.5 w-3.5" />
                 {category}
               </div>
-              <span className="text-[10px] text-zinc-600">
-                {items.length} {items.length === 1 ? "change" : "changes"}
-              </span>
             </div>
 
             {/* Items */}
-            <ul className="space-y-1.5 pl-1">
+            <ul className="space-y-2 pl-1">
               {items.map((item, i) => (
-                <li key={i} className="flex items-start gap-2.5 text-sm text-zinc-300">
+                <li key={i} className="flex items-start gap-2.5 text-sm leading-relaxed text-zinc-200">
                   <span
                     className={`mt-1.5 h-1.5 w-1.5 rounded-full shrink-0 ${meta.dot}`}
                   />
@@ -118,7 +118,7 @@ export default function WhatsNewDialog({ open, onDismiss }: WhatsNewDialogProps)
       <DialogContent
         showCloseButton={false}
         style={{ display: "flex", flexDirection: "column" }}
-        className="bg-zinc-900 border-zinc-700/60 sm:max-w-lg max-h-[85vh] gap-0 p-0 overflow-hidden"
+        className="bg-zinc-900 border-zinc-700/60 sm:max-w-2xl max-h-[85vh] gap-0 p-0 overflow-hidden shadow-2xl shadow-black/50"
       >
         {/* Header */}
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-zinc-800 shrink-0">
@@ -148,15 +148,15 @@ export default function WhatsNewDialog({ open, onDismiss }: WhatsNewDialogProps)
         </DialogHeader>
 
         {/* Body */}
-        <div className="flex-1 min-h-0 overflow-y-auto patch-notes-scroll">
+        <div className="flex-1 min-h-0 overflow-y-auto custom-scroll">
           <div className="px-6 py-5 space-y-5">
             {isFullMode ? (
               // ── Full changelog ──
               CHANGELOG.map((entry, idx) => (
-                <div key={entry.version}>
+                <div key={entry.version} className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4 sm:p-5">
                   {/* Version header */}
-                  <div className="flex items-center gap-3 mb-4">
-                    <span className="text-sm font-semibold text-zinc-100">
+                  <div className="mb-4 flex flex-wrap items-center gap-2.5">
+                    <span className="text-sm font-semibold text-zinc-100 tracking-tight">
                       v{entry.version}
                     </span>
                     <span className="text-xs text-zinc-500">
@@ -170,7 +170,7 @@ export default function WhatsNewDialog({ open, onDismiss }: WhatsNewDialogProps)
                   </div>
                   <ChangelogEntryView entry={entry} />
                   {idx < CHANGELOG.length - 1 && (
-                    <Separator className="mt-6 mb-1 bg-zinc-800" />
+                    <Separator className="mt-6 mb-1 bg-zinc-800/80" />
                   )}
                 </div>
               ))
