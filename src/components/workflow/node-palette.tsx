@@ -110,7 +110,7 @@ export default function NodePalette() {
   return (
     <>
       {/* Hamburger toggle — always visible in top-left */}
-      <div className="absolute top-4 left-4 z-30">
+      <div className="nexus-no-select absolute top-4 left-4 z-30">
         <Button
           variant="ghost"
           size="icon"
@@ -127,7 +127,7 @@ export default function NodePalette() {
           sidebarOpen
             ? "opacity-100 translate-x-0 pointer-events-auto"
             : "opacity-0 -translate-x-4 pointer-events-none"
-        }`}
+        } nexus-no-select`}
         style={{ width: "min(272px, calc(100vw - 32px))", maxHeight: "calc(100vh - 112px)" }}
       >
         {/* Header */}

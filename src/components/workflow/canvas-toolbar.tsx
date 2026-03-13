@@ -29,7 +29,7 @@ export default function CanvasToolbar() {
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="absolute top-4 left-16 z-30 flex items-center gap-1.5">
+      <div className="nexus-no-select absolute top-4 left-16 z-30 flex items-center gap-1.5">
         {/* Mode toggle group */}
         <div className="flex items-center rounded-xl bg-zinc-900/80 border border-zinc-700/50 backdrop-blur-sm shadow-lg overflow-hidden">
           {modeItems.map(({ mode, icon: Icon, label, shortcut }) => (

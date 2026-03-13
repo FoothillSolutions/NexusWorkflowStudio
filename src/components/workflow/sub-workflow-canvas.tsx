@@ -580,7 +580,7 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
   return (
     <div className="absolute inset-0 z-40 flex flex-col bg-zinc-950">
       {/* Breadcrumb header */}
-      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-zinc-800 bg-zinc-900/90 backdrop-blur-sm shrink-0">
+      <div className="nexus-no-select flex items-center gap-2 px-4 py-2.5 border-b border-zinc-800 bg-zinc-900/90 backdrop-blur-sm shrink-0">
         <Button
           variant="ghost"
           size="sm"

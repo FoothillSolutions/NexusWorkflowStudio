@@ -95,7 +95,7 @@ export function ContextMenu({
     <div
       ref={ref}
       style={style}
-      className="bg-zinc-900/95 backdrop-blur-sm border border-zinc-700/60 rounded-xl shadow-2xl shadow-black/70 p-1 min-w-[160px] text-[13px]"
+        className="nexus-no-select bg-zinc-900/95 backdrop-blur-sm border border-zinc-700/60 rounded-xl shadow-2xl shadow-black/70 p-1 min-w-[160px] text-[13px]"
     >
       {/* ── Single node actions ── */}
       {canSaveToLib && (

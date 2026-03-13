@@ -57,7 +57,7 @@ export function BaseNode({
     <div
       {...containerProps}
       className={cn(
-        `flex flex-col ${SIZE_CLASSES[size]} rounded-lg ${BG_SURFACE} transition-shadow duration-200`,
+        `nexus-no-select flex flex-col ${SIZE_CLASSES[size]} rounded-lg ${BG_SURFACE} transition-shadow duration-200`,
         `border ${BORDER_NODE} shadow-md cursor-pointer`,
         selected && `${BORDER_SELECTED} ring-1 ${RING_SELECTED}`,
         isGlowing && "ai-node-glow",

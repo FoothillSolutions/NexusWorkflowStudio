@@ -161,6 +161,26 @@
   cursor: pointer;
 }
 
+/* ── Prevent accidental text selection in workflow chrome ────────────────── */
+.nexus-no-select,
+.nexus-no-select * {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.nexus-no-select input,
+.nexus-no-select textarea,
+.nexus-no-select [contenteditable="true"],
+.nexus-no-select .nexus-allow-text-selection,
+.nexus-no-select .nexus-allow-text-selection *,
+.nexus-no-select .w-md-editor-text-input,
+.nexus-no-select .w-md-editor-text-pre,
+.nexus-no-select .w-md-editor-preview,
+.nexus-no-select .w-md-editor-preview * {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 /* ── Custom thin scrollbar ────────────────────────────────────────────────── */
 .custom-scroll::-webkit-scrollbar {
   width: 6px;

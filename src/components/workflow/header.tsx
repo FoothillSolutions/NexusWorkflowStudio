@@ -149,7 +149,7 @@ export default function Header() {
 
   return (
     <header
-      className={`min-h-13 ${BG_SURFACE} border-b ${BORDER_DEFAULT} flex flex-wrap items-center px-4 py-2 gap-2 shrink-0 z-10`}
+      className={`nexus-no-select min-h-13 ${BG_SURFACE} border-b ${BORDER_DEFAULT} flex flex-wrap items-center px-4 py-2 gap-2 shrink-0 z-10`}
     >
       {/* ── Brand ─────────────────────────────────────────────── */}
       <div className="flex items-center gap-2 mr-1 shrink-0">
@@ -171,7 +171,7 @@ export default function Header() {
             onChange={(e) => setName(e.target.value)}
             onBlur={handleNameBlur}
             onKeyDown={handleNameKeyDown}
-            className={`${TEXT_PRIMARY} text-sm font-medium bg-transparent border-b border-blue-500 outline-none w-full max-w-sm px-1 py-0.5`}
+            className={`nexus-allow-text-selection ${TEXT_PRIMARY} text-sm font-medium bg-transparent border-b border-blue-500 outline-none w-full max-w-sm px-1 py-0.5`}
           />
         ) : (
           <div
