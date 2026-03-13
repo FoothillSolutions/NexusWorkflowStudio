@@ -26,11 +26,11 @@ import { moveNodeIntoSubWorkflowContext } from "@/lib/subworkflow-transfer";
 
 const nanoid = customAlphabet("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", 8);
 
-// ── Canvas interaction modes ────────────────────────────────────────────────
+// Canvas interaction modes
 export type CanvasMode = "hand" | "selection";
 export type EdgeStyle = "bezier" | "smoothstep";
 
-// ── State shape ─────────────────────────────────────────────────────────────
+// State shape
 interface WorkflowState {
   // Data
   name: string;
@@ -105,7 +105,9 @@ interface WorkflowState {
   reset: () => void;
 }
 
-// ── Helpers ─────────────────────────────────────────────────────────────────/** The fixed ID used for the mandatory Start node. */
+// Helpers
+
+/** The fixed ID used for the mandatory Start node. */
 export const START_NODE_ID = "start-default";
 /** The fixed ID used for the default End node. */
 export const END_NODE_ID = "end-default";
@@ -137,7 +139,7 @@ function ensureEndNode(nodes: WorkflowNode[]): WorkflowNode[] {
   return hasEnd ? nodes : [...nodes, createDefaultEndNode()];
 }
 
-// ── Initial state ───────────────────────────────────────────────────────────
+// Initial state
 
 /**
  * Walk the breadcrumb stack from root to resolve the parent context nodes
@@ -161,6 +163,36 @@ function resolveParentNodes(
   return context;
 }
 
+function updateNestedSubWorkflowNodes(
+  nodes: WorkflowNode[],
+  ancestorPath: string[],
+  nextSubNodes: WorkflowNode[],
+): WorkflowNode[] {
+  if (ancestorPath.length === 0) return nodes;
+
+  const [currentAncestorId, ...remainingPath] = ancestorPath;
+
+  return nodes.map((node) => {
+    if (node.id !== currentAncestorId || node.data?.type !== "sub-workflow") {
+      return node;
+    }
+
+    const data = node.data as SubWorkflowNodeData;
+    const updatedSubNodes = remainingPath.length === 0
+      ? nextSubNodes
+      : updateNestedSubWorkflowNodes(data.subNodes, remainingPath, nextSubNodes);
+
+    return {
+      ...node,
+      data: {
+        ...data,
+        subNodes: updatedSubNodes,
+        nodeCount: updatedSubNodes.length,
+      } as WorkflowNodeData,
+    };
+  });
+}
+
 const initialState = {
   name: "Untitled Workflow",
   nodes: [createDefaultStartNode(), createDefaultEndNode()] as WorkflowNode[],
@@ -180,7 +212,7 @@ const initialState = {
   subWorkflowParentNodes: [] as WorkflowNode[],
 };
 
-// ── Store ───────────────────────────────────────────────────────────────────
+// Store
 
 // Track whether we're in a drag so we can pause/resume temporal tracking
 // SAFETY: this is intentionally outside the store closure to avoid re-renders
@@ -191,7 +223,7 @@ export const useWorkflowStore = create<WorkflowState>()(
     (set, get) => ({
   ...initialState,
 
-  // ── React Flow change handlers ──────────────────────────────────────────
+  // React Flow change handlers
   onNodesChange: (changes) => {
     // Check if any change signals the start or end of a node drag
     const hasDragStart = changes.some(
@@ -275,7 +307,7 @@ export const useWorkflowStore = create<WorkflowState>()(
     set({ edges: addEdge({ ...connection, type: "deletable" }, filtered) });
   },
 
-  // ── Actions ─────────────────────────────────────────────────────────────
+  // Actions
   setName: (name) => set({ name }),
 
   addNode: (type, position) => {
@@ -449,7 +481,7 @@ export const useWorkflowStore = create<WorkflowState>()(
     });
   },
 
-  // ── Sub-workflow editing ────────────────────────────────────────────────
+  // Sub-workflow editing
   activeSubWorkflowNodeId: null,
   subWorkflowStack: [],
   subWorkflowNodes: [],
@@ -549,6 +581,7 @@ export const useWorkflowStore = create<WorkflowState>()(
     const updateInList = (list: WorkflowNode[]): WorkflowNode[] =>
       list.map((node) => {
         if (node.id !== nodeId) return node;
+        if (node.data?.type !== "sub-workflow") return node;
         const d = node.data as SubWorkflowNodeData;
         return {
           ...node,
@@ -565,51 +598,16 @@ export const useWorkflowStore = create<WorkflowState>()(
     // Case 2: target node is in subWorkflowParentNodes (nested sub-workflow)
     if (state.subWorkflowParentNodes.some((n) => n.id === nodeId)) {
       const updatedParentNodes = updateInList(state.subWorkflowParentNodes);
-      set({ subWorkflowParentNodes: updatedParentNodes });
-
-      // Propagate the change up to root by rebuilding from root → deepest ancestor.
-      // Stack = [A, B, C] means: root contains A, A contains B, B contains C.
-      // If C's canvas is editing, parentNodes = B's subNodes (which contains C).
-      // We updated B's subNodes (parentNodes). Now embed that into A, then into root.
       const stack = state.subWorkflowStack;
-      if (stack.length >= 2) {
-        // Walk top-down from root, collect each level's node list
-        let rootNodes = [...state.nodes];
-        // We need to update from the second-to-last ancestor down to root.
-        // stack[0] is in rootNodes, stack[1] is in stack[0]'s subNodes, etc.
-        // The parentNodes we just updated belong to stack[stack.length-2]'s subNodes.
+      const ancestorPath = stack.slice(0, -1).map((entry) => entry.nodeId);
 
-        // Rebuild bottom-up: start with the updatedParentNodes and wrap each ancestor
-        let currentSubNodes: WorkflowNode[] = updatedParentNodes;
-        for (let i = stack.length - 2; i >= 0; i--) {
-          const ancestorId = stack[i].nodeId;
-          // Resolve the context that CONTAINS this ancestor
-          const containingContext = i === 0
-            ? rootNodes
-            : resolveParentNodes(rootNodes, stack.slice(0, i));
-          const ancestorNode = containingContext.find((n) => n.id === ancestorId);
-          if (!ancestorNode) break;
-          const ancestorData = ancestorNode.data as SubWorkflowNodeData;
-          // Update the ancestor's subNodes to currentSubNodes
-          const updatedAncestor: WorkflowNode = {
-            ...ancestorNode,
-            data: {
-              ...ancestorData,
-              subNodes: currentSubNodes,
-              nodeCount: currentSubNodes.length,
-            } as WorkflowNodeData,
-          };
-          if (i === 0) {
-            // Ancestor is in root — update root nodes directly
-            rootNodes = rootNodes.map((n) => n.id === ancestorId ? updatedAncestor : n);
-          } else {
-            // Ancestor is nested — we need its parent's subNodes to become currentSubNodes
-            // for the next iteration
-            currentSubNodes = containingContext.map((n) => n.id === ancestorId ? updatedAncestor : n);
-          }
-        }
-        set({ nodes: rootNodes });
-      }
+      set({
+        subWorkflowParentNodes: updatedParentNodes,
+        nodes:
+          ancestorPath.length === 0
+            ? state.nodes
+            : updateNestedSubWorkflowNodes(state.nodes, ancestorPath, updatedParentNodes),
+      });
       return;
     }
 
@@ -792,7 +790,7 @@ export const useWorkflowStore = create<WorkflowState>()(
     return true;
   },
 
-  // ── Persistence ─────────────────────────────────────────────────────────
+  // Persistence
   loadWorkflow: (json) => {
     // Dispose any active AI prompt-generation session from the previous workflow
     usePromptGenStore.getState().disposeSession();

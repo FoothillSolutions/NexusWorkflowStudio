@@ -1,11 +1,11 @@
 import type { WorkflowJSON, WorkflowNodeData, NodeType } from "@/types/workflow";
 import { workflowJsonSchema } from "@/lib/workflow-schema";
 
-// ── Storage key prefix ──────────────────────────────────────────────────────
+// Storage key prefix
 const COLLECTION_KEY = "nexus-workflow-studio:saved-workflows";
 const LIBRARY_KEY = "nexus-workflow-studio:library";
 
-// ── Library categories ──────────────────────────────────────────────────────
+// Library categories
 export type LibraryCategory = "workflow" | "agent" | "skill" | "document" | "mcp-tool" | "prompt";
 
 export const LIBRARY_CATEGORIES: { value: LibraryCategory | "all"; label: string }[] = [
@@ -29,7 +29,7 @@ export function nodeTypeToCategory(type: NodeType): LibraryCategory | null {
   }
 }
 
-// ── Types ───────────────────────────────────────────────────────────────────
+// Types
 export interface SavedWorkflowMeta {
   /** Unique identifier (nanoid) */
   id: string;
@@ -50,7 +50,7 @@ export interface SavedWorkflowEntry extends SavedWorkflowMeta {
   workflow: WorkflowJSON;
 }
 
-// ── Library item (individual node saved to library) ─────────────────────────
+// Library item (individual node saved to library)
 export interface LibraryItemEntry {
   id: string;
   name: string;
@@ -64,7 +64,7 @@ export interface LibraryItemEntry {
   description?: string;
 }
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
+// Helpers
 
 function readCollection(): SavedWorkflowEntry[] {
   try {
@@ -85,7 +85,7 @@ function writeCollection(entries: SavedWorkflowEntry[]): void {
   }
 }
 
-// ── Public API ──────────────────────────────────────────────────────────────
+// Public API
 
 /** Get all saved workflow metadata (without full data for perf). */
 export function listSavedWorkflows(): SavedWorkflowMeta[] {
@@ -181,9 +181,7 @@ export function duplicateInCollection(
   return duplicate;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
 // Library items (individual nodes: agents, skills, tools, prompts)
-// ═══════════════════════════════════════════════════════════════════════════
 
 function readLibrary(): LibraryItemEntry[] {
   try {
@@ -276,4 +274,3 @@ export function renameLibraryItem(id: string, newName: string): void {
     writeLibrary(entries);
   }
 }
-

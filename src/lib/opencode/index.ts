@@ -1,4 +1,5 @@
-// ─── OpenCode API Client ────────────────────────────────────────────────────
+// OpenCode API Client
+
 // Central entry-point for the entire opencode module.
 //
 // Usage:
@@ -44,7 +45,7 @@ import {
   createResourceService,
 } from "./services";
 
-// ── Client type ──────────────────────────────────────────────────────────────
+// Client type
 
 export interface OpenCodeClient {
   /** The underlying HTTP client — useful for advanced / custom requests. */
@@ -108,7 +109,7 @@ export interface OpenCodeClient {
   readonly resources: ReturnType<typeof createResourceService>;
 }
 
-// ── Factory ──────────────────────────────────────────────────────────────────
+// Factory
 
 /**
  * Create a fully-typed OpenCode API client.
@@ -155,7 +156,7 @@ export function createOpenCodeClient(
   };
 }
 
-// ── Singleton (lazy, reads URL from localStorage) ────────────────────────────
+// Singleton (lazy, reads URL from localStorage)
 
 const STORAGE_KEY = "nexus:opencode-url";
 const DEFAULT_URL = "http://127.0.0.1:4096";
@@ -186,7 +187,8 @@ export function resetOpenCodeClient(): void {
   _singleton = null;
 }
 
-// ── Convenience alias ────────────────────────────────────────────────────────
+// Convenience alias
+
 /** Shorthand: `opencode.sessions.list()` etc. */
 export const opencode: OpenCodeClient = new Proxy({} as OpenCodeClient, {
   get(_target, prop, receiver) {
@@ -194,7 +196,8 @@ export const opencode: OpenCodeClient = new Proxy({} as OpenCodeClient, {
   },
 });
 
-// ── Re-exports ───────────────────────────────────────────────────────────────
+// Re-exports
+
 export { HttpClient, type HttpClientOptions, type RequestOptions } from "./client";
 export * from "./types";
 export * from "./errors";

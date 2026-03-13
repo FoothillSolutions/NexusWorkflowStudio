@@ -1,4 +1,5 @@
-// ─── AI Workflow Generation Store ────────────────────────────────────────────
+// AI Workflow Generation Store
+
 // Manages sessions for AI-powered workflow generation from natural language.
 // Sends a system prompt with the full node catalogue + schema to an LLM,
 // streams back a WorkflowJSON, incrementally parses it, and loads it onto
@@ -26,7 +27,8 @@ export type { WorkflowGenStatus, WorkflowGenState } from "./types";
 // ── Store ────────────────────────────────────────────────────────────────────
 
 export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
-  // ── State ──────────────────────────────────────────────────────────────
+  // State
+
   floating: false,
   collapsed: false,
   status: "idle",
@@ -44,18 +46,19 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
   _pendingEdges: [],
   _glowingNodeIds: [],
 
-  // ── Project folder context ──
+  // Project folder context
+
   useProjectContext: false,
   projectContext: null,
   projectContextStatus: "idle",
 
-  // ── AI examples ──
+  // AI examples ──
   aiExamples: [],
   aiExamplesStatus: "idle",
   _examplesSessionId: null,
   _examplesAbortController: null,
 
-  // ── UI Actions ─────────────────────────────────────────────────────────
+  // UI Actions
 
   setFloating: (open) => {
     if (!open) {
@@ -88,13 +91,13 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
     }
   },
 
-  // ── Delegated Actions ──────────────────────────────────────────────────
+  // Delegated Actions
 
   fetchProjectContext: () => fetchProjectContext(set, get),
   generate: () => generate(set, get),
   fetchAiExamples: (opts) => fetchAiExamples(set, get, opts),
 
-  // ── Cancel / Reset / Dispose ───────────────────────────────────────────
+  // Cancel / Reset / Dispose
 
   cancel: () => {
     const { _abortController, sessionId } = get();

@@ -12,7 +12,7 @@ import { customAlphabet } from "nanoid";
 import { NodeCategory } from "@/nodes/shared/registry-types";
 import type { NodeRegistryEntry } from "@/nodes/shared/registry-types";
 
-// ── Node module imports ─────────────────────────────────────────────────────
+// Node module imports
 import { startRegistryEntry, startSchema, StartNode } from "@/nodes/start";
 import { endRegistryEntry, endSchema, EndNode } from "@/nodes/end";
 import { promptRegistryEntry, promptSchema, PromptNode } from "@/nodes/prompt";
@@ -26,7 +26,7 @@ import { ifElseRegistryEntry, ifElseSchema, IfElseNode } from "@/nodes/if-else";
 import { switchRegistryEntry, switchSchema, SwitchNode } from "@/nodes/switch";
 import { askUserRegistryEntry, askUserSchema, AskUserNode } from "@/nodes/ask-user";
 
-// ── Registry ────────────────────────────────────────────────────────────────
+// Registry
 export const NODE_REGISTRY: Record<NodeType, NodeRegistryEntry> = {
   start:           startRegistryEntry,
   end:             endRegistryEntry,
@@ -42,7 +42,7 @@ export const NODE_REGISTRY: Record<NodeType, NodeRegistryEntry> = {
   "ask-user":      askUserRegistryEntry,
 };
 
-// ── React Flow node type → component map ───────────────────────────────────
+// React Flow node type → component map
 export const NODE_TYPE_COMPONENTS: NodeTypes = {
   start:           StartNode,
   end:             EndNode,
@@ -58,7 +58,7 @@ export const NODE_TYPE_COMPONENTS: NodeTypes = {
   "ask-user":      AskUserNode,
 };
 
-// ── Schema map ──────────────────────────────────────────────────────────────
+// Schema map
 export const nodeSchemaMap = {
   start:           startSchema,
   end:             endSchema,
@@ -74,7 +74,7 @@ export const nodeSchemaMap = {
   "ask-user":      askUserSchema,
 } as const;
 
-// ── Palette groupings ───────────────────────────────────────────────────────
+// Palette groupings
 export const BASIC_NODES = Object.values(NODE_REGISTRY).filter(
   (n) => n.category === NodeCategory.Basic
 );
@@ -82,7 +82,8 @@ export const CONTROL_FLOW_NODES = Object.values(NODE_REGISTRY).filter(
   (n) => n.category === NodeCategory.ControlFlow
 );
 
-// ── Node creation helper ─────────────────────────────────────────────────────
+// Node creation helper
+
 const nanoid = customAlphabet("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", 8);
 
 export function createNodeFromType(

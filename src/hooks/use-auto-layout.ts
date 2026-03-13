@@ -14,7 +14,7 @@ interface AutoLayoutOptions {
   onComplete?: (nodes: WorkflowNode[]) => void;
 }
 
-// ── Branch handle ordering ──────────────────────────────────────────────────
+// Branch handle ordering
 // If-else handles: "true" (first/top) → "false" (second/bottom)
 const IF_ELSE_HANDLE_ORDER: Record<string, number> = { true: 0, false: 1 };
 
@@ -174,7 +174,7 @@ function collectSubtree(
   return visited;
 }
 
-// ── Attachment layout constants ─────────────────────────────────────────────
+// Attachment layout constants
 
 /** Types that are positioned relative to their parent agent-like node, not by Dagre. */
 const ATTACHMENT_TYPES = new Set<string>(["skill", "document"]);

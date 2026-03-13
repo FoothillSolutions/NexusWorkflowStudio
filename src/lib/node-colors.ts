@@ -1,4 +1,4 @@
-// ── Node accent colors ──────────────────────────────────────────────────────
+// Node accent colors
 // Single source of truth for every node type's accent hex.
 // Import from here instead of using literal color strings.
 
@@ -20,8 +20,7 @@ export const NODE_ACCENT = {
 
 export type NodeAccentKey = keyof typeof NODE_ACCENT;
 
-// ── Semantic branch colors (not node accents) ───────────────────────────────
+// Semantic branch colors (not node accents)
 export const BRANCH_TRUE  = "#22c55e";  // green — if-else true branch
 export const BRANCH_FALSE = "#ef4444";  // red   — if-else false branch
 export const BRANCH_DEFAULT = "#71717a"; // zinc  — switch default branch
-

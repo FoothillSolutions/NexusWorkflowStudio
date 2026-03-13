@@ -1,10 +1,10 @@
 import type { Node, Edge, Viewport } from "@xyflow/react";
 
-// ── Agent enums (canonical source: @/nodes/agent/enums) ────────────
+// ── Agent enums (canonical source: @/nodes/agent/enums)
 export { SubAgentModel, SubAgentMemory, MODEL_DISPLAY_NAMES } from "@/nodes/agent/enums";
 import { SubAgentMemory } from "@/nodes/agent/enums";
 
-// ── Node Types ──────────────────────────────────────────────────────────────
+// Node Types
 export const NODE_TYPES = [
   "start",
   "prompt",
@@ -22,7 +22,7 @@ export const NODE_TYPES = [
 
 export type NodeType = (typeof NODE_TYPES)[number];
 
-// ── Per-type data payloads ──────────────────────────────────────────────────
+// Per-type data payloads
 interface BaseNodeData extends Record<string, unknown> {
   type: NodeType;
   label: string;
@@ -157,7 +157,7 @@ export interface EndNodeData extends BaseNodeData {
   type: "end";
 }
 
-// ── Discriminated union ─────────────────────────────────────────────────────
+// Discriminated union
 export type WorkflowNodeData =
   | StartNodeData
   | PromptNodeData
@@ -172,11 +172,11 @@ export type WorkflowNodeData =
   | AskUserNodeData
   | EndNodeData;
 
-// ── React Flow typed aliases ────────────────────────────────────────────────
+// React Flow typed aliases
 export type WorkflowNode = Node<WorkflowNodeData, string>;
 export type WorkflowEdge = Edge;
 
-// ── Persisted JSON shape ────────────────────────────────────────────────────
+// Persisted JSON shape
 export interface WorkflowJSON {
   name: string;
   nodes: WorkflowNode[];
