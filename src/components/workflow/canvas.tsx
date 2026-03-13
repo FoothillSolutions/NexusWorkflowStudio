@@ -8,6 +8,11 @@ import { useAutoLayout } from "@/hooks/use-auto-layout";
 import { useCanvasInteractions } from "@/hooks/use-canvas-interactions";
 import { CanvasShell } from "@/components/workflow/canvas-shell";
 import { ContextMenu } from "@/components/workflow/context-menu";
+import {
+  copyNodesToWorkflowClipboard,
+  hasWorkflowClipboardData,
+  pasteNodesFromWorkflowClipboard,
+} from "@/lib/workflow-clipboard";
 
 const SUBWORKFLOW_HOVER_OPEN_DELAY_MS = 450;
 
@@ -104,6 +109,42 @@ export default function Canvas() {
     setNodes: setNodesForLayout,
   });
 
+  const copyNode = useCallback((nodeId: string) => {
+    const state = useWorkflowStore.getState();
+    return copyNodesToWorkflowClipboard({
+      nodes: state.nodes,
+      edges: state.edges,
+      nodeIds: [nodeId],
+    });
+  }, []);
+
+  const copySelectedNodes = useCallback(() => {
+    const state = useWorkflowStore.getState();
+    return copyNodesToWorkflowClipboard({
+      nodes: state.nodes,
+      edges: state.edges,
+    });
+  }, []);
+
+  const pasteNodes = useCallback((targetPosition?: { x: number; y: number }) => {
+    const state = useWorkflowStore.getState();
+    const pasted = pasteNodesFromWorkflowClipboard({
+      nodes: state.nodes,
+      edges: state.edges,
+      targetPosition,
+    });
+    if (!pasted) return 0;
+
+    useWorkflowStore.setState({
+      nodes: pasted.nodes,
+      edges: pasted.edges,
+      selectedNodeId: pasted.pastedNodeIds.length === 1 ? pasted.pastedNodeIds[0] : null,
+      propertiesPanelOpen: false,
+    });
+
+    return pasted.pastedNodeIds.length;
+  }, []);
+
   useEffect(() => {
     const handler = () => autoLayout();
     window.addEventListener("nexus:auto-layout", handler);
@@ -132,24 +173,33 @@ export default function Canvas() {
   }, [groupIntoSubWorkflow]);
 
   const {
+    canPaste,
     ctxMenu,
     closeMenu,
     selectedCount,
     onNodeContextMenu,
     onSelectionContextMenu,
     onPaneContextMenu,
+    onCanvasMouseMove,
     onDragOver,
     onDrop,
+    handleCopy,
     handleDelete,
+    handleCopySelected,
     handleDuplicate,
     handleDeleteSelected,
     handleDuplicateSelected,
+    handlePaste,
     handleSaveToLibrary,
   } = useCanvasInteractions({
     addNode,
+    copyNode,
+    copySelectedNodes,
     duplicateNode,
     duplicateSelectedNodes,
     deleteSelectedNodes,
+    pasteNodes,
+    hasClipboardData: hasWorkflowClipboardData,
     setDeleteTarget,
     selectAll,
     getNodes: () => useWorkflowStore.getState().nodes,
@@ -175,7 +225,10 @@ export default function Canvas() {
   );
 
   return (
-    <div className={`w-full h-full relative ${canvasMode === "hand" ? "canvas-hand" : "canvas-selection"}`}>
+    <div
+      className={`w-full h-full relative ${canvasMode === "hand" ? "canvas-hand" : "canvas-selection"}`}
+      onMouseMove={onCanvasMouseMove}
+    >
       <CanvasShell
         nodes={nodes}
         edges={edges}
@@ -209,10 +262,13 @@ export default function Canvas() {
           target={ctxMenu.target}
           selectedCount={selectedCount}
           onClose={closeMenu}
+          onCopy={ctxMenu.target.kind === "node" ? handleCopy : undefined}
           onDelete={ctxMenu.target.kind === "node" ? handleDelete : undefined}
+          onCopySelected={selectedCount > 1 ? handleCopySelected : undefined}
           onDuplicate={ctxMenu.target.kind === "node" ? handleDuplicate : undefined}
           onDeleteSelected={selectedCount > 1 ? handleDeleteSelected : undefined}
           onDuplicateSelected={selectedCount > 1 ? handleDuplicateSelected : undefined}
+          onPaste={ctxMenu.target.kind === "pane" && canPaste ? handlePaste : undefined}
           onSaveToLibrary={ctxMenu.target.kind === "node" ? handleSaveToLibrary : undefined}
           onGroupIntoSubWorkflow={selectedCount > 1 ? handleGroupIntoSubWorkflow : undefined}
         />

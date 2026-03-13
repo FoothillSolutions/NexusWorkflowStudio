@@ -33,6 +33,11 @@ import { useAutoLayout } from "@/hooks/use-auto-layout";
 import { useCanvasInteractions } from "@/hooks/use-canvas-interactions";
 import { toast } from "sonner";
 import { moveNodeIntoSubWorkflowContext } from "@/lib/subworkflow-transfer";
+import {
+  copyNodesToWorkflowClipboard,
+  hasWorkflowClipboardData,
+  pasteNodesFromWorkflowClipboard,
+} from "@/lib/workflow-clipboard";
 
 const SUBWORKFLOW_HOVER_OPEN_DELAY_MS = 450;
 
@@ -347,6 +352,43 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
     });
   }, [syncToParent]);
 
+  const copySubNode = useCallback((id: string) => {
+    return copyNodesToWorkflowClipboard({
+      nodes: subNodesRef.current,
+      edges: subEdgesRef.current,
+      nodeIds: [id],
+    });
+  }, []);
+
+  const copySelectedSubNodes = useCallback(() => {
+    return copyNodesToWorkflowClipboard({
+      nodes: subNodesRef.current,
+      edges: subEdgesRef.current,
+    });
+  }, []);
+
+  const pasteSubNodes = useCallback((targetPosition?: { x: number; y: number }) => {
+    const pasted = pasteNodesFromWorkflowClipboard({
+      nodes: subNodesRef.current,
+      edges: subEdgesRef.current,
+      targetPosition,
+    });
+    if (!pasted) return 0;
+
+    subNodesRef.current = pasted.nodes;
+    subEdgesRef.current = pasted.edges;
+    setSubNodes(pasted.nodes);
+    setSubEdges(pasted.edges);
+    setSubWorkflowNodes(pasted.nodes);
+    syncToParent(pasted.nodes, pasted.edges);
+    useWorkflowStore.setState({
+      selectedNodeId: pasted.pastedNodeIds.length === 1 ? pasted.pastedNodeIds[0] : null,
+      propertiesPanelOpen: false,
+    });
+
+    return pasted.pastedNodeIds.length;
+  }, [setSubWorkflowNodes, syncToParent]);
+
   const moveSubNodeIntoNestedSubWorkflow = useCallback(
     (sourceNodeId: string, targetSubWorkflowNodeId: string) => {
       const result = moveNodeIntoSubWorkflowContext({
@@ -478,25 +520,34 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
 
   // Canvas interactions via shared hook
   const {
+    canPaste,
     ctxMenu,
     closeMenu,
     selectedCount,
     onNodeContextMenu,
     onSelectionContextMenu,
     onPaneContextMenu,
+    onCanvasMouseMove,
     onDragOver,
     onDrop,
+    handleCopy,
     handleDelete,
+    handleCopySelected,
     handleDuplicate,
     handleDeleteSelected,
     handleDuplicateSelected,
+    handlePaste,
     handleSaveToLibrary,
   } = useCanvasInteractions({
     addNode: addSubNode,
     deleteNode: deleteSubNode,
+    copyNode: copySubNode,
+    copySelectedNodes: copySelectedSubNodes,
     duplicateNode: duplicateSubNode,
     duplicateSelectedNodes: duplicateSelectedSubNodes,
     deleteSelectedNodes: deleteSelectedSubNodes,
+    pasteNodes: pasteSubNodes,
+    hasClipboardData: hasWorkflowClipboardData,
     getNodes: () => subNodesRef.current,
     autoLayout,
     onEscape: handleCloseSubWorkflow,
@@ -584,7 +635,7 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
       </div>
 
       {/* Canvas area */}
-      <div className="flex-1 relative overflow-hidden">
+      <div className="flex-1 relative overflow-hidden" onMouseMove={onCanvasMouseMove}>
         <CanvasShell
           nodes={subNodes}
           edges={subEdges}
@@ -622,10 +673,13 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
             target={ctxMenu.target}
             selectedCount={selectedCount}
             onClose={closeMenu}
+            onCopy={ctxMenu.target.kind === "node" ? handleCopy : undefined}
             onDelete={ctxMenu.target.kind === "node" ? handleDelete : undefined}
+            onCopySelected={selectedCount > 1 ? handleCopySelected : undefined}
             onDuplicate={ctxMenu.target.kind === "node" ? handleDuplicate : undefined}
             onDeleteSelected={selectedCount > 1 ? handleDeleteSelected : undefined}
             onDuplicateSelected={selectedCount > 1 ? handleDuplicateSelected : undefined}
+            onPaste={ctxMenu.target.kind === "pane" && canPaste ? handlePaste : undefined}
             onSaveToLibrary={ctxMenu.target.kind === "node" ? handleSaveToLibrary : undefined}
           />
         )}

@@ -80,6 +80,8 @@ export default function ShortcutsDialog({ open, onOpenChange }: ShortcutsDialogP
           </Section>
 
           <Section title="Edit">
+            <Row keys={[MOD, "C"]} label="Copy selected" />
+            <Row keys={[MOD, "V"]} label="Paste copied nodes" />
             <Row keys={[MOD, "D"]} label="Duplicate selected" />
             <Row keys={[DEL]} label="Delete selected" />
             <Row keys={[MOD, "Z"]} label="Undo" />

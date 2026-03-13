@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useReactFlow } from "@xyflow/react";
 import { useWorkflowStore } from "@/store/workflow-store";
 import { useSavedWorkflowsStore } from "@/store/library-store";
@@ -16,9 +16,13 @@ export interface CtxMenu {
 interface CanvasInteractionCallbacks {
   addNode: (type: NodeType, position: { x: number; y: number }) => void;
   deleteNode?: (id: string) => void;
+  copyNode: (id: string) => number;
+  copySelectedNodes: () => number;
   duplicateNode: (id: string) => void;
   duplicateSelectedNodes: () => void;
   deleteSelectedNodes: () => void;
+  pasteNodes: (targetPosition?: { x: number; y: number }) => number;
+  hasClipboardData?: () => boolean;
   setDeleteTarget?: (target: { type: "node" | "edge" | "selection"; id: string }) => void;
   selectAll?: () => void;
   getNodes: () => WorkflowNode[];
@@ -35,9 +39,13 @@ export function useCanvasInteractions(callbacks: CanvasInteractionCallbacks) {
   const {
     addNode,
     deleteNode,
+    copyNode,
+    copySelectedNodes,
     duplicateNode,
     duplicateSelectedNodes,
     deleteSelectedNodes,
+    pasteNodes,
+    hasClipboardData,
     setDeleteTarget,
     selectAll,
     getNodes,
@@ -48,14 +56,30 @@ export function useCanvasInteractions(callbacks: CanvasInteractionCallbacks) {
 
   const { screenToFlowPosition } = useReactFlow();
   const setCanvasMode = useWorkflowStore((s) => s.setCanvasMode);
+  const lastPointerPositionRef = useRef<{ x: number; y: number } | null>(null);
+
+  const updatePointerPosition = useCallback(
+    (clientX: number, clientY: number) => {
+      lastPointerPositionRef.current = screenToFlowPosition({ x: clientX, y: clientY });
+    },
+    [screenToFlowPosition]
+  );
 
   // Context menu
   const [ctxMenu, setCtxMenu] = useState<CtxMenu | null>(null);
   const closeMenu = useCallback(() => setCtxMenu(null), []);
 
+  const onCanvasMouseMove = useCallback(
+    (event: React.MouseEvent) => {
+      updatePointerPosition(event.clientX, event.clientY);
+    },
+    [updatePointerPosition]
+  );
+
   const onNodeContextMenu = useCallback(
     (event: React.MouseEvent, node: { id: string; data?: { type?: string } }) => {
       event.preventDefault();
+      updatePointerPosition(event.clientX, event.clientY);
       setCtxMenu({
         x: event.clientX,
         y: event.clientY,
@@ -68,22 +92,24 @@ export function useCanvasInteractions(callbacks: CanvasInteractionCallbacks) {
         },
       });
     },
-    []
+    [updatePointerPosition]
   );
 
   const onSelectionContextMenu = useCallback((event: React.MouseEvent) => {
     event.preventDefault();
+    updatePointerPosition(event.clientX, event.clientY);
     setCtxMenu({ x: event.clientX, y: event.clientY, target: { kind: "selection" } });
-  }, []);
+  }, [updatePointerPosition]);
 
   const onPaneContextMenu = useCallback((event: React.MouseEvent | MouseEvent) => {
     event.preventDefault();
+    updatePointerPosition((event as React.MouseEvent).clientX, (event as React.MouseEvent).clientY);
     setCtxMenu({
       x: (event as React.MouseEvent).clientX,
       y: (event as React.MouseEvent).clientY,
       target: { kind: "pane" },
     });
-  }, []);
+  }, [updatePointerPosition]);
 
   // Drag & drop
   const onDragOver = useCallback((event: React.DragEvent) => {
@@ -131,6 +157,14 @@ export function useCanvasInteractions(callbacks: CanvasInteractionCallbacks) {
     }
   }, [ctxMenu, duplicateNode]);
 
+  const handleCopy = useCallback(() => {
+    if (ctxMenu?.target.kind !== "node") return;
+    const copiedCount = copyNode(ctxMenu.target.nodeId);
+    if (copiedCount > 0) {
+      toast.success(copiedCount === 1 ? "Node copied" : `${copiedCount} nodes copied`);
+    }
+  }, [copyNode, ctxMenu]);
+
   const handleDeleteSelected = useCallback(() => {
     if (setDeleteTarget) {
       setDeleteTarget({ type: "selection", id: "multi" });
@@ -142,6 +176,20 @@ export function useCanvasInteractions(callbacks: CanvasInteractionCallbacks) {
   const handleDuplicateSelected = useCallback(() => {
     duplicateSelectedNodes();
   }, [duplicateSelectedNodes]);
+
+  const handleCopySelected = useCallback(() => {
+    const copiedCount = copySelectedNodes();
+    if (copiedCount > 0) {
+      toast.success(copiedCount === 1 ? "Node copied" : `${copiedCount} nodes copied`);
+    }
+  }, [copySelectedNodes]);
+
+  const handlePaste = useCallback(() => {
+    const pastedCount = pasteNodes(lastPointerPositionRef.current ?? undefined);
+    if (pastedCount > 0) {
+      toast.success(pastedCount === 1 ? "Node pasted" : `${pastedCount} nodes pasted`);
+    }
+  }, [pasteNodes]);
 
   const handleSaveToLibrary = useCallback(() => {
     const target = ctxMenu?.target;
@@ -164,8 +212,10 @@ export function useCanvasInteractions(callbacks: CanvasInteractionCallbacks) {
       if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement).isContentEditable) return;
 
       const isMod = isModKey(e);
+      const lowerKey = e.key.toLowerCase();
       const currentNodes = getNodes();
       const selected = currentNodes.filter((n) => n.selected);
+      const copyableSelected = selected.filter((n) => n.data?.type !== "start");
       const multiSelected = selected.length > 1;
       const singleSelected = selected.length === 1 && selected[0].data?.type !== "start";
 
@@ -175,31 +225,51 @@ export function useCanvasInteractions(callbacks: CanvasInteractionCallbacks) {
         return;
       }
 
-      if (!isMod && !e.shiftKey && e.key.toLowerCase() === "h") {
+      if (!isMod && !e.shiftKey && lowerKey === "h") {
         e.preventDefault();
         setCanvasMode("hand");
         return;
       }
 
-      if (!isMod && !e.shiftKey && e.key.toLowerCase() === "v") {
+      if (!isMod && !e.shiftKey && lowerKey === "v") {
         e.preventDefault();
         setCanvasMode("selection");
         return;
       }
 
-      if (isMod && e.shiftKey && e.key.toLowerCase() === "l") {
+      if (isMod && !e.shiftKey && lowerKey === "c") {
+        if (copyableSelected.length === 0) return;
+        e.preventDefault();
+        const copiedCount = copySelectedNodes();
+        if (copiedCount > 0) {
+          toast.success(copiedCount === 1 ? "Node copied" : `${copiedCount} nodes copied`);
+        }
+        return;
+      }
+
+      if (isMod && !e.shiftKey && lowerKey === "v") {
+        if (!hasClipboardData?.()) return;
+        e.preventDefault();
+        const pastedCount = pasteNodes(lastPointerPositionRef.current ?? undefined);
+        if (pastedCount > 0) {
+          toast.success(pastedCount === 1 ? "Node pasted" : `${pastedCount} nodes pasted`);
+        }
+        return;
+      }
+
+      if (isMod && e.shiftKey && lowerKey === "l") {
         e.preventDefault();
         autoLayout();
         return;
       }
 
-      if (isMod && e.key === "a" && selectAll) {
+      if (isMod && lowerKey === "a" && selectAll) {
         e.preventDefault();
         selectAll();
         return;
       }
 
-      if (isMod && e.key === "d") {
+      if (isMod && lowerKey === "d") {
         e.preventDefault();
         if (multiSelected) duplicateSelectedNodes();
         else if (singleSelected) duplicateNode(selected[0].id);
@@ -231,31 +301,41 @@ export function useCanvasInteractions(callbacks: CanvasInteractionCallbacks) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [
     autoLayout,
+    copySelectedNodes,
     duplicateNode,
     duplicateSelectedNodes,
     deleteSelectedNodes,
     deleteNode,
+    hasClipboardData,
     setDeleteTarget,
     selectAll,
     onEscape,
     isSubWorkflow,
     getNodes,
+    pasteNodes,
     setCanvasMode,
   ]);
 
+  const canPaste = hasClipboardData?.() ?? false;
+
   return {
+    canPaste,
     ctxMenu,
     closeMenu,
     selectedCount,
     onNodeContextMenu,
     onSelectionContextMenu,
     onPaneContextMenu,
+    onCanvasMouseMove,
     onDragOver,
     onDrop,
+    handleCopy,
     handleDelete,
+    handleCopySelected,
     handleDuplicate,
     handleDeleteSelected,
     handleDuplicateSelected,
+    handlePaste,
     handleSaveToLibrary,
   };
 }

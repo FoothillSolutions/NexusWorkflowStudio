@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Copy, Trash2, BookmarkPlus, GitBranch } from "lucide-react";
+import { Clipboard, Copy, Trash2, BookmarkPlus, GitBranch } from "lucide-react";
 import type { NodeType } from "@/types/workflow";
 
 export type ContextMenuTarget =
@@ -18,10 +18,13 @@ interface ContextMenuProps {
   target: ContextMenuTarget;
   selectedCount: number;
   onClose: () => void;
+  onCopy?: () => void;
   onDelete?: () => void;
   onDuplicate?: () => void;
+  onCopySelected?: () => void;
   onDeleteSelected?: () => void;
   onDuplicateSelected?: () => void;
+  onPaste?: () => void;
   onSaveToLibrary?: () => void;
   onGroupIntoSubWorkflow?: () => void;
 }
@@ -32,10 +35,13 @@ export function ContextMenu({
   target,
   selectedCount,
   onClose,
+  onCopy,
   onDelete,
   onDuplicate,
+  onCopySelected,
   onDeleteSelected,
   onDuplicateSelected,
+  onPaste,
   onSaveToLibrary,
   onGroupIntoSubWorkflow,
 }: ContextMenuProps) {
@@ -66,20 +72,24 @@ export function ContextMenu({
 
   // Single node actions
   const nodeTarget = isNode ? (target as Extract<ContextMenuTarget, { kind: "node" }>) : null;
+  const canCopy = isNode && nodeTarget!.isDuplicatable && !!onCopy;
   const canDuplicate = isNode && nodeTarget!.isDuplicatable && !!onDuplicate;
   const canDelete    = isNode && nodeTarget!.isDeletable  && !!onDelete;
   const canSaveToLib = isNode && SAVEABLE_TYPES.has(nodeTarget!.nodeType) && !!onSaveToLibrary;
 
   // Multi-select / selection actions (shown when selection box right-clicked OR on a node that's part of a multi-select)
   const showSelectionActions = (isSelection || (isNode && multiSelected)) && selectedCount > 1;
+  const canCopySelected = showSelectionActions && !!onCopySelected;
   const canDuplicateSelected = showSelectionActions && !!onDuplicateSelected;
   const canDeleteSelected    = showSelectionActions && !!onDeleteSelected;
   const canGroupIntoSubWorkflow = showSelectionActions && !!onGroupIntoSubWorkflow;
+  const canPaste = target.kind === "pane" && !!onPaste;
 
-  const hasSingle    = canDuplicate || canDelete || canSaveToLib;
-  const hasMulti     = canDuplicateSelected || canDeleteSelected || canGroupIntoSubWorkflow;
+  const hasSingle    = canCopy || canDuplicate || canDelete || canSaveToLib;
+  const hasMulti     = canCopySelected || canDuplicateSelected || canDeleteSelected || canGroupIntoSubWorkflow;
+  const hasPane      = canPaste;
 
-  if (!hasSingle && !hasMulti) return null;
+  if (!hasSingle && !hasMulti && !hasPane) return null;
 
   return (
     <div
@@ -97,7 +107,16 @@ export function ContextMenu({
           Save to Library
         </button>
       )}
-      {canSaveToLib && (canDuplicate || canDelete) && <div className="border-t border-zinc-700/50 my-1 mx-1" />}
+      {canSaveToLib && (canCopy || canDuplicate || canDelete) && <div className="border-t border-zinc-700/50 my-1 mx-1" />}
+      {canCopy && (
+        <button
+          onClick={() => { onCopy!(); onClose(); }}
+          className="flex items-center gap-2.5 w-full px-2.5 py-1.5 rounded-md text-zinc-300 hover:bg-zinc-700/70 hover:text-white transition-colors duration-100"
+        >
+          <Copy size={13} className="text-zinc-500 shrink-0" />
+          Copy
+        </button>
+      )}
       {canDuplicate && (
         <button
           onClick={() => { onDuplicate!(); onClose(); }}
@@ -121,6 +140,15 @@ export function ContextMenu({
       {hasSingle && hasMulti && <div className="border-t border-zinc-700/50 my-1 mx-1" />}
 
       {/* ── Multi-select actions ── */}
+      {canCopySelected && (
+        <button
+          onClick={() => { onCopySelected!(); onClose(); }}
+          className="flex items-center gap-2.5 w-full px-2.5 py-1.5 rounded-md text-zinc-300 hover:bg-zinc-700/70 hover:text-white transition-colors duration-100"
+        >
+          <Copy size={13} className="text-zinc-500 shrink-0" />
+          Copy Selected ({selectedCount})
+        </button>
+      )}
       {canGroupIntoSubWorkflow && (
         <button
           onClick={() => { onGroupIntoSubWorkflow!(); onClose(); }}
@@ -146,6 +174,18 @@ export function ContextMenu({
         >
           <Trash2 size={13} className="shrink-0" />
           Delete Selected ({selectedCount})
+        </button>
+      )}
+
+      {/* ── Pane actions ── */}
+      {(hasSingle || hasMulti) && hasPane && <div className="border-t border-zinc-700/50 my-1 mx-1" />}
+      {canPaste && (
+        <button
+          onClick={() => { onPaste!(); onClose(); }}
+          className="flex items-center gap-2.5 w-full px-2.5 py-1.5 rounded-md text-green-400 hover:bg-green-500/10 hover:text-green-300 transition-colors duration-100"
+        >
+          <Clipboard size={13} className="shrink-0" />
+          Paste
         </button>
       )}
     </div>
