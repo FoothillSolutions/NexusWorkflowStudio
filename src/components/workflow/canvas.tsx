@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useReactFlow } from "@xyflow/react";
 import { useWorkflowStore } from "@/store/workflow-store";
 import { useDragTracking } from "@/hooks/use-drag-tracking";
@@ -8,6 +8,8 @@ import { useAutoLayout } from "@/hooks/use-auto-layout";
 import { useCanvasInteractions } from "@/hooks/use-canvas-interactions";
 import { CanvasShell } from "@/components/workflow/canvas-shell";
 import { ContextMenu } from "@/components/workflow/context-menu";
+
+const SUBWORKFLOW_HOVER_OPEN_DELAY_MS = 450;
 
 export default function Canvas() {
   const nodes = useWorkflowStore((s) => s.nodes);
@@ -29,9 +31,61 @@ export default function Canvas() {
   const canvasMode = useWorkflowStore((s) => s.canvasMode);
   const edgeStyle = useWorkflowStore((s) => s.edgeStyle);
   const groupIntoSubWorkflow = useWorkflowStore((s) => s.groupIntoSubWorkflow);
+  const openSubWorkflow = useWorkflowStore((s) => s.openSubWorkflow);
+  const moveNodeIntoSubWorkflow = useWorkflowStore((s) => s.moveNodeIntoSubWorkflow);
 
-  const { fitView } = useReactFlow();
+  const { fitView, getIntersectingNodes } = useReactFlow();
   const { onNodesChange, isDragging } = useDragTracking(storeOnNodesChange);
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hoverTargetRef = useRef<string | null>(null);
+
+  const clearSubWorkflowHoverTimer = useCallback(() => {
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+    hoverTargetRef.current = null;
+  }, []);
+
+  const getHoveredSubWorkflowId = useCallback(
+    (draggedNode: import("@/types/workflow").WorkflowNode) => {
+      if (draggedNode.data?.type === "start") return null;
+
+      const targetNode = (getIntersectingNodes(draggedNode, true) as import("@/types/workflow").WorkflowNode[])
+        .find((node) => node.id !== draggedNode.id && node.data?.type === "sub-workflow");
+
+      return targetNode?.id ?? null;
+    },
+    [getIntersectingNodes]
+  );
+
+  const onNodeDragStart = () => {
+    clearSubWorkflowHoverTimer();
+  };
+
+  const onNodeDrag = (_event: React.MouseEvent, draggedNode: import("@/types/workflow").WorkflowNode) => {
+    const hoveredSubWorkflowId = getHoveredSubWorkflowId(draggedNode);
+    if (!hoveredSubWorkflowId) {
+      clearSubWorkflowHoverTimer();
+      return;
+    }
+
+    if (hoverTargetRef.current === hoveredSubWorkflowId) return;
+
+    clearSubWorkflowHoverTimer();
+    hoverTargetRef.current = hoveredSubWorkflowId;
+    hoverTimerRef.current = setTimeout(() => {
+      hoverTimerRef.current = null;
+      const moved = moveNodeIntoSubWorkflow(draggedNode.id, hoveredSubWorkflowId);
+      hoverTargetRef.current = null;
+      if (!moved) return;
+      requestAnimationFrame(() => openSubWorkflow(hoveredSubWorkflowId));
+    }, SUBWORKFLOW_HOVER_OPEN_DELAY_MS);
+  };
+
+  const onNodeDragStop = () => {
+    clearSubWorkflowHoverTimer();
+  };
 
   const getNodes = useCallback(() => useWorkflowStore.getState().nodes, []);
   const getEdges = useCallback(() => useWorkflowStore.getState().edges, []);
@@ -55,6 +109,8 @@ export default function Canvas() {
     window.addEventListener("nexus:auto-layout", handler);
     return () => window.removeEventListener("nexus:auto-layout", handler);
   }, [autoLayout]);
+
+  useEffect(() => clearSubWorkflowHoverTimer, [clearSubWorkflowHoverTimer]);
 
   // Re-center the canvas when a new workflow is created or loaded
   useEffect(() => {
@@ -130,6 +186,9 @@ export default function Canvas() {
         onDragOver={onDragOver}
         onNodeDoubleClick={onNodeDoubleClick}
         onNodeClick={onNodeClick}
+        onNodeDragStart={onNodeDragStart}
+        onNodeDrag={onNodeDrag}
+        onNodeDragStop={onNodeDragStop}
         onEdgeClick={onEdgeClick}
         onPaneClick={onPaneClick}
         onMoveEnd={onMoveEnd}

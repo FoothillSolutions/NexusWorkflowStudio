@@ -87,6 +87,11 @@ export function useCanvasInteractions(callbacks: CanvasInteractionCallbacks) {
 
   // Drag & drop
   const onDragOver = useCallback((event: React.DragEvent) => {
+    const draggedNodeType =
+      event.dataTransfer.getData("application/reactflow") ||
+      useWorkflowStore.getState().currentDraggedNodeType;
+    if (!draggedNodeType) return;
+
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
   }, []);
@@ -94,10 +99,13 @@ export function useCanvasInteractions(callbacks: CanvasInteractionCallbacks) {
   const onDrop = useCallback(
     (event: React.DragEvent) => {
       event.preventDefault();
-      const type = event.dataTransfer.getData("application/reactflow");
+      const type =
+        event.dataTransfer.getData("application/reactflow") ||
+        useWorkflowStore.getState().currentDraggedNodeType;
       if (!type) return;
       const position = screenToFlowPosition({ x: event.clientX, y: event.clientY });
       addNode(type as NodeType, position);
+      useWorkflowStore.getState().setCurrentDraggedNodeType(null);
     },
     [screenToFlowPosition, addNode]
   );

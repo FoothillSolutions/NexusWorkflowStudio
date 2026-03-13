@@ -22,6 +22,7 @@ import { SubAgentModel, SubAgentMemory } from "@/nodes/agent/enums";
 import { createNodeFromType } from "@/lib/node-registry";
 import { stripTransientProperties } from "@/lib/persistence";
 import { usePromptGenStore } from "@/store/prompt-gen-store";
+import { moveNodeIntoSubWorkflowContext } from "@/lib/subworkflow-transfer";
 
 const nanoid = customAlphabet("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", 8);
 
@@ -44,6 +45,7 @@ interface WorkflowState {
   viewport: Viewport;
   canvasMode: CanvasMode;
   edgeStyle: EdgeStyle;
+  currentDraggedNodeType: NodeType | null;
 
   // Delete confirmation
   deleteTarget: { type: "node" | "edge" | "selection"; id: string } | null;
@@ -67,6 +69,7 @@ interface WorkflowState {
   setCanvasMode: (mode: CanvasMode) => void;
   toggleEdgeStyle: () => void;
   setViewport: (viewport: Viewport) => void;
+  setCurrentDraggedNodeType: (type: NodeType | null) => void;
   setDeleteTarget: (target: { type: "node" | "edge" | "selection"; id: string } | null) => void;
   confirmDelete: () => void;
 
@@ -94,6 +97,7 @@ interface WorkflowState {
   updateSubNodeData: (nodeId: string, data: Partial<WorkflowNodeData>) => void;
   updateSubWorkflowData: (nodeId: string, subNodes: WorkflowNode[], subEdges: WorkflowEdge[]) => void;
   groupIntoSubWorkflow: (nodeIds: string[]) => void;
+  moveNodeIntoSubWorkflow: (sourceNodeId: string, targetSubWorkflowNodeId: string) => boolean;
 
   // Persistence
   loadWorkflow: (json: WorkflowJSON) => void;
@@ -168,6 +172,7 @@ const initialState = {
   viewport: { x: 0, y: 0, zoom: 1 },
   canvasMode: "hand" as CanvasMode,
   edgeStyle: "bezier" as EdgeStyle,
+  currentDraggedNodeType: null as NodeType | null,
   deleteTarget: null as { type: "node" | "edge" | "selection"; id: string } | null,
   activeSubWorkflowNodeId: null as string | null,
   subWorkflowStack: [] as { nodeId: string; label: string }[],
@@ -328,6 +333,8 @@ export const useWorkflowStore = create<WorkflowState>()(
     set({ edgeStyle: get().edgeStyle === "bezier" ? "smoothstep" : "bezier" }),
 
   setViewport: (viewport) => set({ viewport }),
+
+  setCurrentDraggedNodeType: (type) => set({ currentDraggedNodeType: type }),
 
   setDeleteTarget: (target) => {
     if (target?.type === "node") {
@@ -765,6 +772,26 @@ export const useWorkflowStore = create<WorkflowState>()(
     });
   },
 
+  moveNodeIntoSubWorkflow: (sourceNodeId, targetSubWorkflowNodeId) => {
+    const result = moveNodeIntoSubWorkflowContext({
+      nodes: get().nodes,
+      edges: get().edges,
+      sourceNodeId,
+      targetSubWorkflowNodeId,
+    });
+
+    if (!result.moved) return false;
+
+    set({
+      nodes: result.nodes,
+      edges: result.edges,
+      selectedNodeId: null,
+      propertiesPanelOpen: false,
+    });
+
+    return true;
+  },
+
   // ── Persistence ─────────────────────────────────────────────────────────
   loadWorkflow: (json) => {
     // Dispose any active AI prompt-generation session from the previous workflow
@@ -784,6 +811,11 @@ export const useWorkflowStore = create<WorkflowState>()(
       viewport: json.ui.viewport,
       canvasMode: (json.ui.canvasMode as CanvasMode) ?? "hand",
       edgeStyle: (json.ui.edgeStyle as EdgeStyle) ?? "bezier",
+      currentDraggedNodeType: null,
+      activeSubWorkflowNodeId: null,
+      subWorkflowStack: [],
+      subWorkflowNodes: [],
+      subWorkflowParentNodes: [],
       selectedNodeId: null,
       propertiesPanelOpen: false,
     });

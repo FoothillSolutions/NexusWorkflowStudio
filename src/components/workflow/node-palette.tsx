@@ -27,10 +27,17 @@ const COMING_SOON_CONTROL = [
 export default function NodePalette() {
   const sidebarOpen = useWorkflowStore((s) => s.sidebarOpen);
   const toggleSidebar = useWorkflowStore((s) => s.toggleSidebar);
+  const setCurrentDraggedNodeType = useWorkflowStore((s) => s.setCurrentDraggedNodeType);
 
   const onDragStart = (event: React.DragEvent, nodeType: string) => {
     event.dataTransfer.setData("application/reactflow", nodeType);
+    event.dataTransfer.setData("text/plain", nodeType);
     event.dataTransfer.effectAllowed = "move";
+    setCurrentDraggedNodeType(nodeType as import("@/types/workflow").NodeType);
+  };
+
+  const onDragEnd = () => {
+    setCurrentDraggedNodeType(null);
   };
 
   const renderNodeItem = (node: NodeRegistryEntry) => {
@@ -42,6 +49,7 @@ export default function NodePalette() {
         key={node.type}
         draggable={!isComingSoon}
         onDragStart={isComingSoon ? undefined : (e) => onDragStart(e, node.type)}
+        onDragEnd={isComingSoon ? undefined : onDragEnd}
         className={
           isComingSoon
             ? `relative flex items-center gap-3 p-3 rounded-xl border border-zinc-700/30 bg-zinc-800/30 opacity-50 cursor-not-allowed select-none transition-all duration-200`

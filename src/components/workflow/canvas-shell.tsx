@@ -12,6 +12,7 @@ import {
   type OnNodesChange,
   type OnEdgesChange,
   type OnConnect,
+  type OnNodeDrag,
 } from "@xyflow/react";
 import type { NodeType, WorkflowNode, WorkflowEdge } from "@/types/workflow";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,9 @@ interface CanvasShellProps {
   onDragOver: (event: React.DragEvent) => void;
   onNodeClick: (event: React.MouseEvent, node: { id: string }) => void;
   onNodeDoubleClick: (event: React.MouseEvent, node: { id: string }) => void;
+  onNodeDragStart?: OnNodeDrag<WorkflowNode>;
+  onNodeDrag?: OnNodeDrag<WorkflowNode>;
+  onNodeDragStop?: OnNodeDrag<WorkflowNode>;
   onPaneClick: () => void;
   onMoveEnd?: (event: unknown, viewport: { x: number; y: number; zoom: number }) => void;
   onNodeContextMenu: (event: React.MouseEvent, node: { id: string; data?: { type?: string } }) => void;
@@ -67,6 +71,9 @@ export function CanvasShell({
   onDragOver,
   onNodeClick,
   onNodeDoubleClick,
+  onNodeDragStart,
+  onNodeDrag,
+  onNodeDragStop,
   onPaneClick,
   onMoveEnd,
   onNodeContextMenu,
@@ -130,6 +137,9 @@ export function CanvasShell({
         onDragOver={onDragOver}
         onNodeDoubleClick={onNodeDoubleClick}
         onNodeClick={onNodeClick}
+        onNodeDragStart={onNodeDragStart}
+        onNodeDrag={onNodeDrag}
+        onNodeDragStop={onNodeDragStop}
         onEdgeClick={onEdgeClick}
         onPaneClick={onPaneClick}
         onMoveEnd={onMoveEnd}

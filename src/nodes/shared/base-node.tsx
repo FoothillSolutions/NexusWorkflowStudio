@@ -35,6 +35,7 @@ interface BaseNodeProps {
   size?: NodeSize;
   /** The React Flow node ID — used to check entrance animation state */
   nodeId?: string;
+  containerProps?: React.HTMLAttributes<HTMLDivElement>;
 }
 
 export function BaseNode({
@@ -46,6 +47,7 @@ export function BaseNode({
   icon: Icon,
   size = NodeSize.Medium,
   nodeId,
+  containerProps,
 }: BaseNodeProps) {
   const isGlowing = useWorkflowGenStore(
     useCallback((s) => nodeId ? s._glowingNodeIds.includes(nodeId) : false, [nodeId])
@@ -53,13 +55,15 @@ export function BaseNode({
 
   return (
     <div
+      {...containerProps}
       className={cn(
         `flex flex-col ${SIZE_CLASSES[size]} rounded-lg ${BG_SURFACE} transition-shadow duration-200`,
         `border ${BORDER_NODE} shadow-md cursor-pointer`,
         selected && `${BORDER_SELECTED} ring-1 ${RING_SELECTED}`,
-        isGlowing && "ai-node-glow"
+        isGlowing && "ai-node-glow",
+        containerProps?.className
       )}
-      style={{ borderTopColor: accentHex, borderTopWidth: "3px" }}
+      style={{ ...containerProps?.style, borderTopColor: accentHex, borderTopWidth: "3px" }}
     >
       {/* Header */}
       <div className={`flex flex-col px-3 py-2.5 border-b border-zinc-800/50`}>

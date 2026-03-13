@@ -49,6 +49,7 @@ import {
   BORDER_DEFAULT,
   BG_ELEVATED,
 } from "@/lib/theme";
+import type { WorkflowJSON } from "@/types/workflow";
 
 // ── Category config ─────────────────────────────────────────────────────────
 /** Format an ISO timestamp as a human-readable relative time string. */
@@ -479,7 +480,12 @@ function EmptyState({ category }: { category: LibraryCategory | "all" }) {
 }
 
 // ── Main sidebar component ──────────────────────────────────────────────────
-export default function LibraryPanel() {
+interface LibraryPanelProps {
+  onLoadWorkflow?: (workflow: WorkflowJSON, entryId: string) => void;
+  onLoadItem?: (item: LibraryItemEntry) => void;
+}
+
+export default function LibraryPanel({ onLoadWorkflow, onLoadItem }: LibraryPanelProps) {
   const {
     entries,
     libraryItems,
@@ -502,32 +508,47 @@ export default function LibraryPanel() {
     (id: string) => {
       const data = load(id);
       if (data) {
-        loadWorkflow(data);
+        if (onLoadWorkflow) {
+          onLoadWorkflow(data, id);
+        } else {
+          loadWorkflow(data);
+        }
         window.dispatchEvent(new CustomEvent("nexus:fit-view"));
         toast.success("Workflow loaded");
       } else {
         toast.error("Failed to load workflow");
       }
     },
-    [load, loadWorkflow]
+    [load, loadWorkflow, onLoadWorkflow]
   );
 
   const handleLoadItem = useCallback(
     (item: LibraryItemEntry) => {
+      if (onLoadItem) {
+        onLoadItem(item);
+        return;
+      }
+
       // Place the node at center of the current viewport
       const viewport = useWorkflowStore.getState().viewport;
       const centerX = (-viewport.x + 500) / viewport.zoom;
       const centerY = (-viewport.y + 300) / viewport.zoom;
+      const existingNodeIds = new Set(useWorkflowStore.getState().nodes.map((node) => node.id));
       addNode(item.nodeType, { x: centerX, y: centerY });
-      // After adding, update the latest node with the saved data
       const state = useWorkflowStore.getState();
-      const latestNode = state.nodes[state.nodes.length - 1];
-      if (latestNode) {
-        state.updateNodeData(latestNode.id, { ...item.nodeData, name: latestNode.id });
+      const insertedNode = state.nodes.find((node) => !existingNodeIds.has(node.id));
+      if (!insertedNode) {
+        toast.error(`Unable to add \"${item.name}\" to the canvas`);
+        return;
       }
+
+      state.updateNodeData(insertedNode.id, {
+        ...item.nodeData,
+        name: insertedNode.id,
+      });
       toast.success(`"${item.name}" added to canvas`);
     },
-    [addNode]
+    [addNode, onLoadItem]
   );
 
   const handleDeleteWorkflow = useCallback((id: string) => {

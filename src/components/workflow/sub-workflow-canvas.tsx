@@ -6,6 +6,7 @@ import {
   applyNodeChanges,
   applyEdgeChanges,
   addEdge,
+  useReactFlow,
   type NodeChange,
   type EdgeChange,
   type Connection,
@@ -14,6 +15,7 @@ import "@xyflow/react/dist/style.css";
 import { customAlphabet } from "nanoid";
 import { useWorkflowStore } from "@/store/workflow-store";
 import type { NodeType, WorkflowNode, WorkflowEdge, WorkflowNodeData } from "@/types/workflow";
+import type { LibraryItemEntry } from "@/lib/library";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, LayoutDashboard, ChevronRight } from "lucide-react";
 import { createNodeFromType } from "@/lib/node-registry";
@@ -29,6 +31,10 @@ import { ContextMenu } from "./context-menu";
 import { useDragTracking } from "@/hooks/use-drag-tracking";
 import { useAutoLayout } from "@/hooks/use-auto-layout";
 import { useCanvasInteractions } from "@/hooks/use-canvas-interactions";
+import { toast } from "sonner";
+import { moveNodeIntoSubWorkflowContext } from "@/lib/subworkflow-transfer";
+
+const SUBWORKFLOW_HOVER_OPEN_DELAY_MS = 450;
 
 const nanoid = customAlphabet("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", 8);
 
@@ -55,7 +61,9 @@ function createSubEndNode(): WorkflowNode {
 interface SubWorkflowCanvasInnerProps { nodeId: string; }
 
 function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
+  const { screenToFlowPosition, getIntersectingNodes } = useReactFlow();
   const closeSubWorkflow = useWorkflowStore((s) => s.closeSubWorkflow);
+  const openSubWorkflow = useWorkflowStore((s) => s.openSubWorkflow);
   const updateSubWorkflowData = useWorkflowStore((s) => s.updateSubWorkflowData);
   const setSubWorkflowNodes = useWorkflowStore((s) => s.setSubWorkflowNodes);
   const subWorkflowStack = useWorkflowStore((s) => s.subWorkflowStack);
@@ -85,8 +93,18 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
 
   const subNodesRef = useRef(subNodes);
   const subEdgesRef = useRef(subEdges);
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hoverTargetRef = useRef<string | null>(null);
   useEffect(() => { subNodesRef.current = subNodes; }, [subNodes]);
   useEffect(() => { subEdgesRef.current = subEdges; }, [subEdges]);
+
+  const clearSubWorkflowHoverTimer = useCallback(() => {
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+    hoverTargetRef.current = null;
+  }, []);
 
   // Sync back to parent (debounced)
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -117,6 +135,8 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
     flushSync();
     navigateToBreadcrumb(index);
   }, [flushSync, navigateToBreadcrumb]);
+
+  useEffect(() => clearSubWorkflowHoverTimer, [clearSubWorkflowHoverTimer]);
 
   useEffect(() => {
     setSubWorkflowNodes(subNodes);
@@ -327,6 +347,106 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
     });
   }, [syncToParent]);
 
+  const moveSubNodeIntoNestedSubWorkflow = useCallback(
+    (sourceNodeId: string, targetSubWorkflowNodeId: string) => {
+      const result = moveNodeIntoSubWorkflowContext({
+        nodes: subNodesRef.current,
+        edges: subEdgesRef.current,
+        sourceNodeId,
+        targetSubWorkflowNodeId,
+      });
+
+      if (!result.moved) return false;
+
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+        syncTimeoutRef.current = null;
+      }
+
+      subNodesRef.current = result.nodes;
+      subEdgesRef.current = result.edges;
+      setSubNodes(result.nodes);
+      setSubEdges(result.edges);
+      setSubWorkflowNodes(result.nodes);
+      updateSubWorkflowData(nodeId, result.nodes, result.edges);
+
+      return true;
+    },
+    [nodeId, setSubWorkflowNodes, updateSubWorkflowData]
+  );
+
+  const getHoveredSubWorkflowId = useCallback(
+    (draggedNode: WorkflowNode) => {
+      if (draggedNode.data?.type === "start") return null;
+
+      const targetNode = (getIntersectingNodes(draggedNode, true) as WorkflowNode[])
+        .find((node) => node.id !== draggedNode.id && node.data?.type === "sub-workflow");
+
+      return targetNode?.id ?? null;
+    },
+    [getIntersectingNodes]
+  );
+
+  const onNodeDragStart = () => {
+    clearSubWorkflowHoverTimer();
+  };
+
+  const onNodeDrag = (_event: React.MouseEvent, draggedNode: WorkflowNode) => {
+    const hoveredSubWorkflowId = getHoveredSubWorkflowId(draggedNode);
+    if (!hoveredSubWorkflowId) {
+      clearSubWorkflowHoverTimer();
+      return;
+    }
+
+    if (hoverTargetRef.current === hoveredSubWorkflowId) return;
+
+    clearSubWorkflowHoverTimer();
+    hoverTargetRef.current = hoveredSubWorkflowId;
+    hoverTimerRef.current = setTimeout(() => {
+      hoverTimerRef.current = null;
+      const moved = moveSubNodeIntoNestedSubWorkflow(draggedNode.id, hoveredSubWorkflowId);
+      hoverTargetRef.current = null;
+      if (!moved) return;
+      requestAnimationFrame(() => openSubWorkflow(hoveredSubWorkflowId));
+    }, SUBWORKFLOW_HOVER_OPEN_DELAY_MS);
+  };
+
+  const onNodeDragStop = () => {
+    clearSubWorkflowHoverTimer();
+  };
+
+
+  const handleLoadLibraryItem = useCallback(
+    (item: LibraryItemEntry) => {
+      if (item.nodeType === "start") {
+        toast.error("Start nodes can’t be added inside a subworkflow");
+        return;
+      }
+
+      const position = screenToFlowPosition({
+        x: window.innerWidth / 2,
+        y: window.innerHeight / 2,
+      });
+      const newNode = createNodeFromType(item.nodeType, position) as WorkflowNode;
+      const hydratedNode: WorkflowNode = {
+        ...newNode,
+        data: {
+          ...newNode.data,
+          ...item.nodeData,
+          name: newNode.id,
+        } as WorkflowNodeData,
+      };
+
+      setSubNodes((prev) => {
+        const next = [...prev, hydratedNode];
+        syncToParent(next, subEdgesRef.current);
+        return next;
+      });
+      toast.success(`"${item.name}" added to subworkflow`);
+    },
+    [screenToFlowPosition, syncToParent]
+  );
+
   // Auto-layout via shared hook
   const autoLayout = useAutoLayout({
     getNodes: () => subNodesRef.current,
@@ -342,7 +462,7 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
     didInitialLayout.current = true;
     // Defer so React Flow has measured node dimensions
     const timer = setTimeout(() => {
-      if (subNodesRef.current.length > 2) {
+      if (subNodesRef.current.length > 0) {
         autoLayout();
       }
     }, 150);
@@ -475,6 +595,9 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
           onDragOver={onDragOver}
           onNodeClick={onNodeClick}
           onNodeDoubleClick={onNodeDoubleClick}
+          onNodeDragStart={onNodeDragStart}
+          onNodeDrag={onNodeDrag}
+          onNodeDragStop={onNodeDragStop}
           onPaneClick={onPaneClick}
           onNodeContextMenu={onNodeContextMenu}
           onSelectionContextMenu={onSelectionContextMenu}
@@ -490,7 +613,7 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
         <CanvasToolbar />
         <DeleteDialog />
         <PropertiesPanel />
-        <LibraryPanel />
+        <LibraryPanel onLoadItem={handleLoadLibraryItem} />
 
         {ctxMenu && (
           <ContextMenu

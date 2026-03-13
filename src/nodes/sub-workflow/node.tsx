@@ -1,32 +1,86 @@
 "use client";
-import { memo, useCallback } from "react";
-import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { Handle, Position, type NodeProps, type Node as FlowNode } from "@xyflow/react";
 import { BaseNode, NodeSize } from "@/nodes/shared/base-node";
 import { HANDLE_CLASS } from "@/lib/theme";
 import { Layers, Cpu, Thermometer, Wrench, Bot, Workflow, ArrowUpRight } from "lucide-react";
 import { SubAgentModel, MODEL_DISPLAY_NAMES } from "@/nodes/agent/enums";
 import { subWorkflowRegistryEntry } from "./constants";
 import type { SubWorkflowNodeData } from "./types";
+import { useWorkflowStore } from "@/store/workflow-store";
 
 const truncate = (str: string, n: number) => str?.length > n ? str.slice(0, n) + "..." : str;
+const HOVER_OPEN_DELAY_MS = 450;
 
-export const SubWorkflowNode = memo(function SubWorkflowNode({ id, data, selected }: NodeProps<Node<SubWorkflowNodeData>>) {
+export const SubWorkflowNode = memo(function SubWorkflowNode({ id, data, selected }: NodeProps<FlowNode<SubWorkflowNodeData>>) {
   const { icon, accentHex: defaultAccent, displayName } = subWorkflowRegistryEntry;
   const accentHex = (data.mode === "agent" && data.color?.trim()) ? data.color : defaultAccent;
   const isAgentMode = data.mode === "agent";
   const temperature = Number(data.temperature ?? 0);
+  const currentDraggedNodeType = useWorkflowStore((state) => state.currentDraggedNodeType);
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hoverOpenedRef = useRef(false);
+  const [isDragHovering, setIsDragHovering] = useState(false);
 
   const hasModel    = isAgentMode && data.model && data.model !== SubAgentModel.Inherit;
   const hasTemp     = isAgentMode && temperature > 0;
   const hasDisabled = isAgentMode && Array.isArray(data.disabledTools) && data.disabledTools.length > 0;
+
+  const clearHoverOpen = useCallback(() => {
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+    hoverOpenedRef.current = false;
+    setIsDragHovering(false);
+  }, []);
+
+  useEffect(() => clearHoverOpen, [clearHoverOpen]);
 
   const handleOpen = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     window.dispatchEvent(new CustomEvent("nexus:open-sub-workflow", { detail: { nodeId: id } }));
   }, [id]);
 
+  const scheduleHoverOpen = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    const draggedNodeType = currentDraggedNodeType || event.dataTransfer.getData("application/reactflow");
+    if (!draggedNodeType || draggedNodeType === "start") return;
+
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+
+    if (hoverTimerRef.current || hoverOpenedRef.current) return;
+
+    setIsDragHovering(true);
+    hoverTimerRef.current = setTimeout(() => {
+      hoverTimerRef.current = null;
+      hoverOpenedRef.current = true;
+      setIsDragHovering(false);
+      window.dispatchEvent(new CustomEvent("nexus:open-sub-workflow", { detail: { nodeId: id } }));
+    }, HOVER_OPEN_DELAY_MS);
+  }, [currentDraggedNodeType, id]);
+
+  const handleDragLeave = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+    clearHoverOpen();
+  }, [clearHoverOpen]);
+
   return (
-    <BaseNode accentHex={accentHex} selected={selected} label={data.label || displayName} type={data.type} icon={icon} size={NodeSize.Large} nodeId={id}>
+    <BaseNode
+      accentHex={accentHex}
+      selected={selected}
+      label={data.label || displayName}
+      type={data.type}
+      icon={icon}
+      size={NodeSize.Large}
+      nodeId={id}
+      containerProps={{
+        onDragEnter: scheduleHoverOpen,
+        onDragOver: scheduleHoverOpen,
+        onDragLeave: handleDragLeave,
+        onDrop: clearHoverOpen,
+      }}
+    >
       <div className="flex flex-col gap-2.5">
         {/* Mode badge */}
         <div className="flex items-center gap-2">
@@ -45,7 +99,9 @@ export const SubWorkflowNode = memo(function SubWorkflowNode({ id, data, selecte
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-800/50 border border-zinc-700/30">
           <Layers size={14} className="text-purple-400 shrink-0" />
           <span className="text-sm font-semibold text-zinc-200">{data.nodeCount}</span>
-          <span className="text-xs text-zinc-500">nodes inside</span>
+          <span className="text-xs text-zinc-500">
+            {isDragHovering ? "Opening…" : "nodes inside"}
+          </span>
           <button
             onClick={handleOpen}
             className="ml-auto flex items-center gap-1 text-[10px] font-medium text-purple-400 hover:text-purple-200 bg-purple-500/10 hover:bg-purple-500/25 border border-purple-500/20 hover:border-purple-500/40 rounded-md px-2 py-0.5 transition-all duration-150 cursor-pointer"
