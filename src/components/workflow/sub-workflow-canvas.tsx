@@ -193,7 +193,7 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
       const targetNode = currentNodes.find((n) => n.id === connection.target);
 
       if (sourceNode?.data?.type === "skill") {
-        if (targetNode?.data?.type !== "agent") return;
+        if (targetNode?.data?.type !== "agent" && targetNode?.data?.type !== "parallel-agent") return;
         setSubEdges((prev) => {
           const next = addEdge({ ...connection, targetHandle: "skills", type: "deletable" }, prev);
           syncToParent(subNodesRef.current, next);
@@ -205,7 +205,7 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
       if (connection.targetHandle === "skills") return;
 
       if (sourceNode?.data?.type === "document") {
-        if (targetNode?.data?.type !== "agent") return;
+        if (targetNode?.data?.type !== "agent" && targetNode?.data?.type !== "parallel-agent") return;
         setSubEdges((prev) => {
           const next = addEdge({ ...connection, targetHandle: "docs", type: "deletable" }, prev);
           syncToParent(subNodesRef.current, next);
@@ -215,6 +215,10 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
       }
       if (targetNode?.data?.type === "document") return;
       if (connection.targetHandle === "docs") return;
+
+      if (sourceNode?.data?.type === "parallel-agent" && connection.sourceHandle?.startsWith("branch-")) {
+        if (targetNode?.data?.type !== "agent") return;
+      }
 
       setSubEdges((prev) => {
         const filtered = prev.filter(

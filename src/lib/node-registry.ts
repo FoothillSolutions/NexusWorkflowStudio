@@ -17,6 +17,7 @@ import { startRegistryEntry, startSchema, StartNode } from "@/nodes/start";
 import { endRegistryEntry, endSchema, EndNode } from "@/nodes/end";
 import { promptRegistryEntry, promptSchema, PromptNode } from "@/nodes/prompt";
 import { subAgentRegistryEntry, subAgentSchema, SubAgentNode } from "@/nodes/agent";
+import { parallelAgentRegistryEntry, parallelAgentSchema, ParallelAgentNode } from "@/nodes/parallel-agent";
 import { subWorkflowRegistryEntry, subWorkflowSchema, SubWorkflowNode } from "@/nodes/sub-workflow";
 import { skillRegistryEntry, skillSchema, SkillNode } from "@/nodes/skill";
 import { documentRegistryEntry, documentSchema, DocumentNode } from "@/nodes/document";
@@ -31,6 +32,7 @@ export const NODE_REGISTRY: Record<NodeType, NodeRegistryEntry> = {
   end:             endRegistryEntry,
   prompt:          promptRegistryEntry,
   "agent":         subAgentRegistryEntry,
+  "parallel-agent": parallelAgentRegistryEntry,
   skill:           skillRegistryEntry,
   document:        documentRegistryEntry,
   "sub-workflow":  subWorkflowRegistryEntry,
@@ -46,6 +48,7 @@ export const NODE_TYPE_COMPONENTS: NodeTypes = {
   end:             EndNode,
   prompt:          PromptNode,
   "agent":         SubAgentNode,
+  "parallel-agent": ParallelAgentNode,
   "sub-workflow":  SubWorkflowNode,
   skill:           SkillNode,
   document:        DocumentNode,
@@ -61,6 +64,7 @@ export const nodeSchemaMap = {
   end:             endSchema,
   prompt:          promptSchema,
   "agent":         subAgentSchema,
+  "parallel-agent": parallelAgentSchema,
   "sub-workflow":  subWorkflowSchema,
   skill:           skillSchema,
   document:        documentSchema,

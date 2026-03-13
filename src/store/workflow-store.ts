@@ -224,9 +224,9 @@ export const useWorkflowStore = create<WorkflowState>()(
     const sourceNode = currentNodes.find((n) => n.id === connection.source);
     const targetNode = currentNodes.find((n) => n.id === connection.target);
 
-    // Skill nodes can ONLY connect to agent nodes (as source)
+    // Skill nodes can ONLY connect to agent-like nodes (as source)
     if (sourceNode?.data?.type === "skill") {
-      if (targetNode?.data?.type !== "agent") return;
+      if (targetNode?.data?.type !== "agent" && targetNode?.data?.type !== "parallel-agent") return;
       // Force the target handle to be the dedicated "skills" handle
       const skillConnection = { ...connection, targetHandle: "skills", type: "deletable" };
       // Multiple skills allowed — no dedup on this handle
@@ -234,9 +234,9 @@ export const useWorkflowStore = create<WorkflowState>()(
       return;
     }
 
-    // Document nodes can ONLY connect to agent nodes (as source)
+    // Document nodes can ONLY connect to agent-like nodes (as source)
     if (sourceNode?.data?.type === "document") {
-      if (targetNode?.data?.type !== "agent") return;
+      if (targetNode?.data?.type !== "agent" && targetNode?.data?.type !== "parallel-agent") return;
       // Force the target handle to be the dedicated "docs" handle
       const docConnection = { ...connection, targetHandle: "docs", type: "deletable" };
       // Multiple docs allowed — no dedup on this handle
@@ -255,6 +255,11 @@ export const useWorkflowStore = create<WorkflowState>()(
 
     // The "docs" target handle only accepts document nodes — block everything else
     if (connection.targetHandle === "docs") return;
+
+    // Parallel-agent branch outputs can only target external agent nodes
+    if (sourceNode?.data?.type === "parallel-agent" && connection.sourceHandle?.startsWith("branch-")) {
+      if (targetNode?.data?.type !== "agent") return;
+    }
 
     // Each source handle may only connect to one target at a time.
     // Remove any existing edge from the same source handle before adding the new one.

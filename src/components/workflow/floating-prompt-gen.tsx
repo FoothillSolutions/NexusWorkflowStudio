@@ -49,7 +49,7 @@ export default function FloatingPromptGen() {
         "animate-in slide-in-from-bottom-4 fade-in-0 duration-200",
         isEditMode ? "border-amber-700/30" : "border-violet-700/30",
       )}
-      style={{ bottom: 16, left: 16, width: 380, maxHeight: collapsed ? undefined : "calc(100vh - 140px)" }}
+      style={{ bottom: 16, left: 16, width: "min(380px, calc(100vw - 32px))", maxHeight: collapsed ? undefined : "calc(100vh - 140px)" }}
     >
       {/* ── Header ──────────────────────────────────────────────── */}
       <div className={cn(

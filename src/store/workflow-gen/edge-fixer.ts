@@ -1,5 +1,6 @@
 // ─── Edge Handle Fixer ───────────────────────────────────────────────────────
-// Normalises sourceHandles on edges coming from if-else, switch, and ask-user
+// Normalises sourceHandles on edges coming from if-else, switch, ask-user,
+// and parallel-agent nodes.
 // nodes. The LLM sometimes uses "branch-N" instead of the expected handle IDs.
 
 import type { WorkflowEdge } from "@/types/workflow";
@@ -13,7 +14,7 @@ export interface NodeBranchInfo {
   aiSuggestOptions?: boolean;
 }
 
-/** Fix if-else / switch / ask-user sourceHandles on a set of edges using node type info. */
+/** Fix if-else / switch / ask-user / parallel-agent sourceHandles on a set of edges using node type info. */
 export function fixEdgeHandles(
   edges: Array<Record<string, unknown>>,
   nodeTypeMap: Map<string, NodeBranchInfo>,
@@ -39,6 +40,16 @@ export function fixEdgeHandles(
         const idx = parseInt(branchMatch[1], 10);
         if (idx < sourceInfo.branches.length) {
           return { ...edge, sourceHandle: sourceInfo.branches[idx].label, type: "deletable" } as unknown as WorkflowEdge;
+        }
+      }
+    }
+
+    if (sourceInfo.type === "parallel-agent" && sourceInfo.branches) {
+      const branchMatch = handle?.match(/^branch-(\d+)$/);
+      if (branchMatch) {
+        const idx = parseInt(branchMatch[1], 10);
+        if (idx < sourceInfo.branches.length) {
+          return { ...edge, sourceHandle: `branch-${idx}`, type: "deletable" } as unknown as WorkflowEdge;
         }
       }
     }

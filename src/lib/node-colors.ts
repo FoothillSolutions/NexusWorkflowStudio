@@ -8,6 +8,7 @@ export const NODE_ACCENT = {
   end:            "#ef4444",  // red
   prompt:         "#3b82f6",  // blue
   agent:          "#5f27cd",  // violet
+  "parallel-agent": "#6366f1",  // indigo
   "sub-workflow":  "#a855f7",  // purple
   skill:          "#06b6d4",  // cyan
   document:       "#eab308",  // yellow

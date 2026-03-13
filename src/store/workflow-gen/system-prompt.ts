@@ -66,7 +66,7 @@ You generate workflow JSON for Nexus Workflow Studio.
   - Node widths by type (use these to calculate horizontal spacing):
     - small nodes (180px wide): start, end, skill, document, mcp-tool
     - medium nodes (250px wide): if-else, switch, ask-user
-    - large nodes (350px wide): agent, prompt, sub-workflow
+    - large nodes (350px wide): agent, parallel-agent, prompt, sub-workflow
   - Horizontal spacing: place each subsequent column so there is at least 150px of empty gap between the right edge of the previous node and the left edge of the next one. 
     Formula: next_x = prev_x + prev_node_width + 150.
     Examples: start (180px) at x:80 → next node at x:80+180+150 = x:410. agent (350px) at x:410 → next at x:410+350+150 = x:910. if-else (250px) at x:910 → next at x:910+250+150 = x:1310.
@@ -74,7 +74,7 @@ You generate workflow JSON for Nexus Workflow Studio.
   - Start node at x:80, y:300.
   - Flow left-to-right. Calculate each column's x using the formula above.
   - Nodes in a straight sequential chain share the same y value.
-  - BRANCHING: when an if-else or switch fans out, the branching node stays on the main y line.
+  - BRANCHING: when an if-else, switch, or parallel-agent node fans out, the branching node stays on the main y line.
     The TRUE / first-branch target MUST have a SMALLER y (higher on screen) than the FALSE / later-branch targets.
     Space branch targets ~200px apart vertically, centered around the branching node's y.
     Example: if-else at y:300 → true-target at y:200, false-target at y:400.
@@ -85,8 +85,8 @@ You generate workflow JSON for Nexus Workflow Studio.
 ## Edge Rules  
 - Edge IDs: "e-<sourceId>-<targetId>"
 - Normal flow: sourceHandle: "output", targetHandle: "input"
-- Skill→Agent: sourceHandle: "skill-out", targetHandle: "skills" (skill nodes can ONLY connect to agent nodes)
-- Document→Agent: sourceHandle: "doc-out", targetHandle: "docs" (document nodes can ONLY connect to agent nodes)
+- Skill→Agent/ParallelAgent: sourceHandle: "skill-out", targetHandle: "skills" (skill nodes can ONLY connect to agent or parallel-agent nodes)
+- Document→Agent/ParallelAgent: sourceHandle: "doc-out", targetHandle: "docs" (document nodes can ONLY connect to agent or parallel-agent nodes)
 
 CRITICAL — If-else node edges:
 - If-else nodes have exactly 2 branches. The sourceHandle IDs are ALWAYS "true" for the first branch and "false" for the second branch.
@@ -105,13 +105,26 @@ CRITICAL — Switch node edges:
   {"id":"e-switch-abc-agent-b","source":"switch-abc","target":"agent-b","sourceHandle":"Case 2","targetHandle":"input"}  (agent-b at y:300)
   {"id":"e-switch-abc-end-xyz","source":"switch-abc","target":"end-xyz","sourceHandle":"default","targetHandle":"input"}  (end-xyz at y:480)
 
+CRITICAL — Parallel-agent node edges:
+- Parallel-agent nodes spawn MULTIPLE runs of downstream external agent nodes at once.
+- Their sourceHandle IDs are ALWAYS index-based: "branch-0", "branch-1", "branch-2", etc., matching the order of the \`branches\` array.
+- You MUST create one outgoing edge per branch using those exact sourceHandle IDs.
+- Each branch target should be an external \`agent\` node on the canvas.
+- Branch targets must be stacked top-to-bottom matching branch order (branch-0 highest, last branch lowest).
+- Parallel-agent nodes may also accept shared skill/document attachments exactly like normal agent nodes.
+- Example: parallel-agent node "parallel-agent-abc" with 3 branches:
+  {"id":"e-parallel-agent-abc-agent-a","source":"parallel-agent-abc","target":"agent-a","sourceHandle":"branch-0","targetHandle":"input"}
+  {"id":"e-parallel-agent-abc-agent-b","source":"parallel-agent-abc","target":"agent-b","sourceHandle":"branch-1","targetHandle":"input"}
+  {"id":"e-parallel-agent-abc-end-xyz","source":"parallel-agent-abc","target":"end-xyz","sourceHandle":"branch-2","targetHandle":"input"}
+
 CRITICAL — Ask-user node edges:
 - Ask-user nodes have TWO different modes that affect their output handles:
 
   MODE 1 — Single-select with manual options (multipleSelection: false AND aiSuggestOptions: false):
   - Each option gets its OWN output handle: "option-0", "option-1", "option-2", etc.
   - You MUST create one edge per option using "option-N" as the sourceHandle.
-  - This means the ask-user node acts like a switch — each option branches to a different target. There is NO need for a separate switch or if-else node after it.
+  - This means the ask-user node IS the branching node — each option branches directly to a different target.
+  - Do NOT place a \`switch\` or \`if-else\` node immediately after a manual single-select ask-user node just to branch on the selected option. Connect the option edges directly to their downstream targets instead.
   - Option targets should be stacked top-to-bottom matching option order (option-0 target = smallest y, last option target = largest y).
   - Example: ask-user "ask-user-abc" at y:300 with 3 options:
     {"id":"e-ask-user-abc-agent-a","source":"ask-user-abc","target":"agent-a","sourceHandle":"option-0","targetHandle":"input"}  (agent-a at y:100)
@@ -128,6 +141,7 @@ CRITICAL — Ask-user node edges:
 CRITICAL — EVERY branch output handle MUST be connected:
 - Every if-else node MUST have BOTH "true" and "false" output handles connected to a target node. Never leave one dangling.
 - Every switch node MUST have ALL branch labels connected to target nodes. If you define 3 branches, you need 3 outgoing edges.
+- Every parallel-agent node MUST have ALL branch handles ("branch-0", "branch-1", ...) connected. If you define 3 branches, you need 3 outgoing edges.
 - Every ask-user node (in single-select mode) MUST have ALL option handles ("option-0", "option-1", ...) connected. If you define 3 options, you need 3 outgoing edges.
 - No branching node output handle may be left unconnected. This is a hard requirement.
 
@@ -144,8 +158,8 @@ Skills are reusable knowledge/instruction units that get attached to agents. The
 - **description**: Explains what the skill does.
 - **promptText**: The actual instructions/knowledge content for the skill. This should be detailed and production-ready.
 - **metadata**: Optional key-value pairs (e.g. [{"key":"workflow","value":"github"}]).
-- Skills connect ONLY to agent nodes via: sourceHandle: "skill-out", targetHandle: "skills".
-- An agent can have MULTIPLE skills connected to it — each skill adds a different capability. Create a separate skill node for each distinct capability and connect them all to the agent.
+- Skills connect ONLY to agent or parallel-agent nodes via: sourceHandle: "skill-out", targetHandle: "skills".
+- An agent or parallel-agent node can have MULTIPLE skills connected to it — each skill adds a different capability. Create a separate skill node for each distinct capability and connect them all to the node.
 - A skill node can be connected to MULTIPLE agents simultaneously — the same skill feeds capabilities to all connected agents. Create one edge per agent it connects to.
 - A skill is NOT part of the main workflow flow — it sits beside its parent agent and provides it with extra capabilities.
 - Position skill nodes BEHIND (to the LEFT of) their connected agent AND BELOW the agent's bottom edge.
@@ -173,8 +187,8 @@ Documents are reference materials attached to agents. They provide context, data
 - **fileExtension**: "md", "txt", "json", or "yaml".
 - **contentText**: The actual document content when contentMode is "inline". Write meaningful reference content.
 - **description**: Explains what the document contains.
-- Documents connect ONLY to agent nodes via: sourceHandle: "doc-out", targetHandle: "docs".
-- An agent can have MULTIPLE documents connected to it — each document provides different reference material. Create a separate document node for each distinct piece of context and connect them all to the agent.
+- Documents connect ONLY to agent or parallel-agent nodes via: sourceHandle: "doc-out", targetHandle: "docs".
+- An agent or parallel-agent node can have MULTIPLE documents connected to it — each document provides different reference material. Create a separate document node for each distinct piece of context and connect them all to the node.
 - A document node can be connected to MULTIPLE agents simultaneously — the same document provides context to all connected agents. Create one edge per agent it connects to.
 - A document is NOT part of the main workflow flow — it sits beside its parent agent and feeds it context.
 - Position document nodes BEHIND (to the LEFT of) their connected agent AND BELOW the agent's bottom edge.
@@ -187,7 +201,7 @@ Generated document file template (\`.opencode/docs/<docName>.<ext>\`):
 \`\`\`
 
 ### How Skills and Documents Attach to Agents
-The relationship is MANY-TO-MANY: one agent can have many skills and many documents, and one skill or document can be shared by many agents. When skills/documents are connected to an agent, they appear in the generated agent file's frontmatter:
+The relationship is MANY-TO-MANY: one agent or parallel-agent node can have many skills and many documents, and one skill or document can be shared by many agents. When skills/documents are connected to an agent-like node, they appear in the generated agent file's frontmatter:
 \`\`\`
 ---
 description: <agent description>
@@ -257,6 +271,16 @@ The promptText for agents should be a comprehensive, multi-paragraph system prom
 start: {"type":"start","label":"Start","name":"<id>"}
 end: {"type":"end","label":"End","name":"<id>"}
 agent: {"type":"agent","label":"<label>","name":"<id>","description":"<desc>","promptText":"<detailed multi-line agent instructions>","detectedVariables":[],"model":"inherit","memory":"default","temperature":0,"color":"#5f27cd","disabledTools":[],"parameterMappings":[],"variableMappings":{}}
+parallel-agent: {"type":"parallel-agent","label":"<label>","name":"<id>","sharedInstructions":"<instructions shared by all spawned agents>","branches":[{"label":"<branch label>","instructions":"<how this lane should use the connected external agent>","spawnCount":2},{"label":"<second branch label>","instructions":"<how this lane should use the connected external agent>","spawnCount":1}]}
+  NOTE on parallel-agent:
+  - This is a rectangular workflow node that spawns connected external agent nodes in parallel.
+  - Prefer this node when multiple independent subtasks can run at the same time, or when a big task should be split across simultaneous agents.
+  - \`branches\` MUST contain at least 2 entries.
+  - Each branch creates its own output handle using \`branch-<index>\`.
+  - Each branch should connect to an external \`agent\` node, and \`spawnCount\` defines how many parallel runs of that target agent to launch.
+  - Branch \`instructions\` describe what that branch should ask the connected external agent to focus on.
+  - \`sharedInstructions\` applies to every spawned branch run.
+  - Shared skills/documents can connect to the parallel-agent node and are available to every branch.
 prompt: {"type":"prompt","label":"<label>","name":"<id>","promptText":"<text>","detectedVariables":[]}
 skill: {"type":"skill","label":"<label>","name":"<id>","skillName":"<kebab-case-name>","projectName":"","description":"<what this skill does>","promptText":"<detailed skill instructions and knowledge content>","detectedVariables":[],"metadata":[{"key":"workflow","value":"github"}]}
 document: {"type":"document","label":"<label>","name":"<id>","docName":"<kebab-case-name>","contentMode":"inline","fileExtension":"md","contentText":"<actual document content - reference material, guides, data>","linkedFileName":"","linkedFileContent":"","description":"<what this document contains>"}
@@ -264,7 +288,7 @@ mcp-tool: {"type":"mcp-tool","label":"<label>","name":"<id>","toolName":"<name>"
 if-else: {"type":"if-else","label":"<label>","name":"<id>","evaluationTarget":"<target>","branches":[{"label":"If <cond>","condition":"<cond>"},{"label":"Else","condition":"else"}]}
 switch: {"type":"switch","label":"<label>","name":"<id>","evaluationTarget":"<target>","branches":[{"label":"<case>","condition":"<cond>"}]}
 ask-user: {"type":"ask-user","label":"<label>","name":"<id>","questionText":"<question>","multipleSelection":false,"aiSuggestOptions":false,"options":[{"label":"<option1>","description":"<desc1>"},{"label":"<option2>","description":"<desc2>"}]}
-  NOTE: With multipleSelection:false and aiSuggestOptions:false (the default), each option becomes its own output handle (option-0, option-1, ...). Create one edge per option to branch the flow. At least 2 options are required.
+  NOTE: With multipleSelection:false and aiSuggestOptions:false (the default), each option becomes its own output handle (option-0, option-1, ...). Create one edge per option to branch the flow directly. Do not add a redundant switch or if-else right after this node. At least 2 options are required.
 sub-workflow: {"type":"sub-workflow","label":"<label>","name":"<id>","mode":"same-context","subNodes":[],"subEdges":[],"nodeCount":0,"description":"","model":"inherit","memory":"default","temperature":0,"color":"#a855f7","disabledTools":[]}
   NOTE on sub-workflow:
   - mode can be "same-context" (runs inline, shares parent context) or "agent" (spawns a dedicated sub-agent). When mode is "agent", fill in description, model, memory, temperature, and color.
@@ -276,6 +300,10 @@ sub-workflow: {"type":"sub-workflow","label":"<label>","name":"<id>","mode":"sam
 
 ## Important Guidelines
 - Generate meaningful labels, descriptions, and promptText content. Make it production-ready.
+- Choose node types intentionally:
+  - Use a single \`agent\` node when one delegated agent can handle the task alone.
+  - Use a \`parallel-agent\` node when work can be done by multiple independent agents simultaneously, or when a large task should be split into parallel lanes handled at the same time.
+  - Use a \`sub-workflow\` node when you need to group or reuse a multi-step flow, especially when the inner work is primarily sequential rather than parallel.
 - When an agent needs specific capabilities, create skill nodes with detailed instructions and connect them.
 - When an agent needs reference data, context, or guides, create document nodes with real content and connect them.
 - Agent promptText should be comprehensive — write it as a real system prompt for an AI agent.
@@ -287,8 +315,9 @@ sub-workflow: {"type":"sub-workflow","label":"<label>","name":"<id>","mode":"sam
 - When connecting documents or skills to an agent, ALWAYS reference them in the agent's promptText using \`{{docName}}\` or \`{{skillName}}\` syntax, add those names to detectedVariables, and populate variableMappings with the correct \`"doc:<docName>.<ext>"\` or \`"skill:<skillName>"\` values.
 - When a workflow section is complex or reusable, wrap it in a sub-workflow node with fully populated subNodes and subEdges. Use mode "same-context" for simple inline grouping, and mode "agent" when the sub-workflow should run as an independent agent with its own model and description.
 - Sub-workflows must always contain at least a start and end node inside subNodes, with subEdges connecting the inner flow.
-- Skills and documents have a MANY-TO-MANY relationship with agents: one agent can have multiple skills and documents, and one skill/document can be shared across multiple agents. Be generous — give each agent the skills and documents it needs.
-- NEVER leave a branch output handle unconnected. Every if-else must have both true/false edges, every switch must have an edge per branch, and every ask-user (single-select) must have an edge per option.
+- Skills and documents have a MANY-TO-MANY relationship with agent-like nodes: one agent or parallel-agent node can have multiple skills and documents, and one skill/document can be shared across multiple agents. Be generous — give each node the skills and documents it needs.
+- NEVER leave a branch output handle unconnected. Every if-else must have both true/false edges, every switch must have an edge per branch, every parallel-agent must have an edge per branch handle, and every ask-user (single-select) must have an edge per option.
+- A manual single-select \`ask-user\` node already branches by option. Do not add a \`switch\` or \`if-else\` immediately after it unless you are branching later on a different piece of logic.
 ${modelsSection}${toolsSection}${contextSection}
 NOW OUTPUT ONLY JSON.`;
 }

@@ -149,7 +149,7 @@ export default function Header() {
 
   return (
     <header
-      className={`h-13 ${BG_SURFACE} border-b ${BORDER_DEFAULT} flex items-center px-4 gap-3 shrink-0 z-10`}
+      className={`min-h-13 ${BG_SURFACE} border-b ${BORDER_DEFAULT} flex flex-wrap items-center px-4 py-2 gap-2 shrink-0 z-10`}
     >
       {/* ── Brand ─────────────────────────────────────────────── */}
       <div className="flex items-center gap-2 mr-1 shrink-0">
@@ -162,7 +162,7 @@ export default function Header() {
 
 
       {/* ── Workflow name (editable) ──────────────────────────── */}
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-[180px]">
         {isEditingName ? (
           <input
             ref={inputRef}
@@ -184,7 +184,7 @@ export default function Header() {
       </div>
 
       {/* ── Actions ───────────────────────────────────────────── */}
-      <div className="flex items-center gap-1 shrink-0">
+      <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-1">
         {/* Connect to OpenCode */}
         <ConnectButton />
 
@@ -200,7 +200,7 @@ export default function Header() {
             <Button
               variant="ghost"
               size="sm"
-              className={`${TEXT_MUTED} hover:text-zinc-100 h-8 px-3 text-sm gap-1.5`}
+              className={`${TEXT_MUTED} hover:text-zinc-100 h-8 px-3 text-sm gap-1.5 whitespace-normal shrink min-w-0`}
             >
               File
               <ChevronDown className="h-3.5 w-3.5 opacity-50" />
@@ -238,7 +238,7 @@ export default function Header() {
                 variant="ghost"
                 size="sm"
                 onClick={handleView}
-                className={`${TEXT_MUTED} hover:text-zinc-100 h-8 px-3 text-sm`}
+                className={`${TEXT_MUTED} hover:text-zinc-100 h-8 px-3 text-sm whitespace-normal shrink min-w-0`}
               >
                 <Eye className="h-4 w-4 mr-1.5" />
                 Preview
@@ -261,7 +261,7 @@ export default function Header() {
                 store.setFloating(!store.floating);
               }}
               disabled={!isOpenCodeConnected}
-              className={`h-8 px-3 text-sm gap-1.5 disabled:opacity-40 ${
+              className={`h-8 px-3 text-sm gap-1.5 whitespace-normal shrink min-w-0 disabled:opacity-40 ${
                 isWorkflowGenOpen
                   ? "text-violet-300 bg-violet-500/15 hover:bg-violet-500/20"
                   : `${TEXT_MUTED} hover:text-violet-300`
@@ -284,7 +284,7 @@ export default function Header() {
           <DropdownMenuTrigger asChild>
             <Button
               size="sm"
-              className="h-8 px-4 text-sm bg-emerald-600 hover:bg-emerald-500 text-white gap-1.5 shadow-sm"
+              className="h-8 px-4 text-sm bg-emerald-600 hover:bg-emerald-500 text-white gap-1.5 shadow-sm whitespace-normal shrink min-w-0"
               title="Choose a target and export generated workflow artifacts"
             >
               <Cpu className="h-4 w-4" />

@@ -178,10 +178,10 @@ export default function WorkflowEditor() {
 
   return (
     <ReactFlowProvider>
-      <div className={`flex h-screen flex-col ${BG_APP} ${TEXT_PRIMARY} font-sans`}>
+      <div className={`flex h-screen min-w-0 flex-col ${BG_APP} ${TEXT_PRIMARY} font-sans`}>
         <Header />
-        <div className="flex flex-1 overflow-hidden">
-          <div className="flex-1 relative">
+        <div className="flex min-w-0 flex-1 overflow-hidden">
+          <div className="relative min-w-0 flex-1">
             <Canvas />
             <NodePalette />
             <CanvasToolbar />

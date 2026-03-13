@@ -15,8 +15,48 @@ export interface AvailableResource {
   kind: "doc" | "skill";
 }
 
+type StoreSnapshot = ReturnType<typeof useWorkflowStore.getState>;
+
+function resolveNodesAndEdges(state: StoreSnapshot, nodeId: string) {
+  const inMain = state.nodes.some((n) => n.id === nodeId);
+  const nodes = inMain ? state.nodes : state.subWorkflowNodes ?? [];
+  const edges = inMain
+    ? state.edges
+    : (() => {
+        for (const n of state.nodes) {
+          if (n.data?.type !== "sub-workflow") continue;
+          const data = n.data as { subEdges?: typeof state.edges };
+          if (data.subEdges?.some((e) => e.source === nodeId || e.target === nodeId)) {
+            return data.subEdges;
+          }
+        }
+        return state.edges;
+      })();
+
+  return { nodes, edges };
+}
+
+function getUpstreamParallelAgentIds(state: StoreSnapshot, nodeId: string): string[] {
+  const { nodes, edges } = resolveNodesAndEdges(state, nodeId);
+  return edges
+    .filter((e) => e.target === nodeId && e.targetHandle !== "skills" && e.targetHandle !== "docs")
+    .map((e) => nodes.find((n) => n.id === e.source))
+    .filter((n): n is NonNullable<typeof n> => !!n && n.data?.type === "parallel-agent")
+    .map((n) => n.id);
+}
+
 export function useConnectedResources(nodeId?: string) {
   const deleteEdge = useWorkflowStore((s) => s.deleteEdge);
+
+  const hasImmediateUpstreamParallelAgent = useWorkflowStore(
+    useCallback(
+      (s) => {
+        if (!nodeId) return false;
+        return getUpstreamParallelAgentIds(s, nodeId).length > 0;
+      },
+      [nodeId],
+    ),
+  );
 
   const skillEdgeKey = useWorkflowStore(
     useCallback(
@@ -34,9 +74,10 @@ export function useConnectedResources(nodeId?: string) {
   const connectedSkills = useMemo(() => {
     if (!skillEdgeKey) return [] as ConnectedNode[];
     const state = useWorkflowStore.getState();
-    return state.edges
+    const { nodes, edges } = resolveNodesAndEdges(state, nodeId ?? "");
+    return edges
       .filter((e) => e.target === nodeId && e.targetHandle === "skills")
-      .map((e) => ({ edge: e, node: state.nodes.find((n) => n.id === e.source) }))
+      .map((e) => ({ edge: e, node: nodes.find((n) => n.id === e.source) }))
       .filter((item): item is { edge: typeof item.edge; node: NonNullable<typeof item.node> } => !!item.node) as ConnectedNode[];
   }, [skillEdgeKey, nodeId]);
 
@@ -56,9 +97,10 @@ export function useConnectedResources(nodeId?: string) {
   const connectedDocs = useMemo(() => {
     if (!docEdgeKey) return [] as ConnectedNode[];
     const state = useWorkflowStore.getState();
-    return state.edges
+    const { nodes, edges } = resolveNodesAndEdges(state, nodeId ?? "");
+    return edges
       .filter((e) => e.target === nodeId && e.targetHandle === "docs")
-      .map((e) => ({ edge: e, node: state.nodes.find((n) => n.id === e.source) }))
+      .map((e) => ({ edge: e, node: nodes.find((n) => n.id === e.source) }))
       .filter((item): item is { edge: typeof item.edge; node: NonNullable<typeof item.node> } => !!item.node) as ConnectedNode[];
   }, [docEdgeKey, nodeId]);
 
@@ -66,10 +108,12 @@ export function useConnectedResources(nodeId?: string) {
     useCallback(
       (s) => {
         if (!nodeId) return "";
+        const { nodes, edges } = resolveNodesAndEdges(s, nodeId);
+        const upstreamParallelIds = new Set(getUpstreamParallelAgentIds(s, nodeId));
         const parts: string[] = [];
-        for (const e of s.edges) {
-          if (e.target !== nodeId) continue;
-          const n = s.nodes.find((nd) => nd.id === e.source);
+        for (const e of edges) {
+          if (e.target !== nodeId && !upstreamParallelIds.has(e.target)) continue;
+          const n = nodes.find((nd) => nd.id === e.source);
           if (!n) continue;
           if (n.data?.type === "document") {
             const d = n.data as Record<string, unknown>;
@@ -88,11 +132,14 @@ export function useConnectedResources(nodeId?: string) {
   const availableResources = useMemo((): AvailableResource[] => {
     if (!resourceKey) return [];
     const state = useWorkflowStore.getState();
+    const { nodes, edges } = resolveNodesAndEdges(state, nodeId ?? "");
+    const upstreamParallelIds = new Set(getUpstreamParallelAgentIds(state, nodeId ?? ""));
 
     const resources: AvailableResource[] = [];
-    for (const edge of state.edges) {
-      if (edge.target !== nodeId) continue;
-      const src = state.nodes.find((n) => n.id === edge.source);
+    const seenValues = new Set<string>();
+    for (const edge of edges) {
+      if (edge.target !== nodeId && !upstreamParallelIds.has(edge.target)) continue;
+      const src = nodes.find((n) => n.id === edge.source);
       if (!src) continue;
 
       if (src.data?.type === "document") {
@@ -100,8 +147,11 @@ export function useConnectedResources(nodeId?: string) {
         const docName = d.docName?.trim();
         const ext = d.fileExtension || "md";
         const displayName = docName ? `${docName}.${ext}` : (d.label || d.name || edge.source);
+        const value = docName ? `doc:${docName}.${ext}` : `doc-id:${edge.source}`;
+        if (seenValues.has(value)) continue;
+        seenValues.add(value);
         resources.push({
-          value: docName ? `doc:${docName}.${ext}` : `doc-id:${edge.source}`,
+          value,
           label: `📄 ${displayName}`,
           kind: "doc",
         });
@@ -109,8 +159,11 @@ export function useConnectedResources(nodeId?: string) {
         const d = src.data as { skillName?: string; label?: string; name?: string };
         const skillName = d.skillName?.trim() || d.label?.trim();
         const displayName = skillName || d.name || edge.source;
+        const value = skillName ? `skill:${skillName}` : `skill-id:${edge.source}`;
+        if (seenValues.has(value)) continue;
+        seenValues.add(value);
         resources.push({
-          value: skillName ? `skill:${skillName}` : `skill-id:${edge.source}`,
+          value,
           label: `⚡ ${displayName}`,
           kind: "skill",
         });
@@ -119,7 +172,13 @@ export function useConnectedResources(nodeId?: string) {
     return resources;
   }, [resourceKey, nodeId]);
 
-  return { connectedSkills, connectedDocs, availableResources, deleteEdge };
+  return {
+    connectedSkills,
+    connectedDocs,
+    availableResources,
+    deleteEdge,
+    hasImmediateUpstreamParallelAgent,
+  };
 }
 
 // ── Connected-node context (upstream / downstream flow neighbours) ────────
@@ -174,9 +233,14 @@ function summariseNode(node: { id: string; data: Record<string, unknown> }): Nod
 
   // Branch conditions for if-else / switch
   if (Array.isArray(d.branches)) {
-    summary.branches = (d.branches as Array<{ label?: string; condition?: string }>).map(
-      (b) => `${b.label ?? ""}: ${b.condition ?? ""}`.trim(),
-    );
+    summary.branches = (d.branches as Array<{ label?: string; condition?: string; instructions?: string; spawnCount?: number }>).map((b) => {
+      if (typeof b.condition === "string") {
+        return `${b.label ?? ""}: ${b.condition ?? ""}`.trim();
+      }
+      const count = Math.max(1, Number(b.spawnCount ?? 1));
+      const base = `${b.label ?? "Branch"} x${count}`;
+      return b.instructions?.trim() ? `${base}: ${b.instructions.trim()}` : base;
+    });
   }
 
   return summary;

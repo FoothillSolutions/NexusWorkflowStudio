@@ -115,12 +115,12 @@ export default function NodePalette() {
 
       {/* Floating panel */}
       <div
-        className={`absolute top-16 left-4 z-20 flex flex-col w-[272px] rounded-2xl border border-zinc-700/50 bg-zinc-900/85 backdrop-blur-md shadow-2xl transition-all duration-300 ease-out ${
+        className={`absolute top-16 left-4 z-20 flex flex-col rounded-2xl border border-zinc-700/50 bg-zinc-900/85 backdrop-blur-md shadow-2xl transition-all duration-300 ease-out ${
           sidebarOpen
             ? "opacity-100 translate-x-0 pointer-events-auto"
             : "opacity-0 -translate-x-4 pointer-events-none"
         }`}
-        style={{ maxHeight: "calc(100vh - 112px)" }}
+        style={{ width: "min(272px, calc(100vw - 32px))", maxHeight: "calc(100vh - 112px)" }}
       >
         {/* Header */}
         <div className={`flex items-center px-4 py-3 border-b border-zinc-700/50 shrink-0`}>

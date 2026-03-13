@@ -30,6 +30,8 @@ import { toast } from "sonner";
 
 /** Number of AI examples shown at a time */
 const VISIBLE_EXAMPLE_COUNT = 3;
+const PANEL_TOP_OFFSET = 12;
+const VIEWPORT_PADDING = 16;
 
 /**
  * Fixed height for each example row (in px).
@@ -92,14 +94,49 @@ export default function FloatingWorkflowGen() {
   const dragStart = useRef({ mx: 0, my: 0, ox: 0, oy: 0 });
   const rafId = useRef(0);
 
+  const getViewportSize = useCallback(() => {
+    if (typeof window === "undefined") {
+      return { width: 0, height: 0 };
+    }
+
+    const vv = window.visualViewport;
+    return {
+      width: vv?.width ?? window.innerWidth,
+      height: vv?.height ?? window.innerHeight,
+    };
+  }, []);
+
+  const clampPosition = useCallback((pos: { x: number; y: number }) => {
+    const el = panelRef.current;
+    if (!el) return pos;
+
+    const { width: viewportWidth, height: viewportHeight } = getViewportSize();
+    const panelWidth = el.offsetWidth;
+    const panelHeight = el.offsetHeight;
+
+    const halfHorizontalTravel = Math.max((viewportWidth - panelWidth) / 2 - VIEWPORT_PADDING, 0);
+    const minX = -halfHorizontalTravel;
+    const maxX = halfHorizontalTravel;
+
+    const minY = VIEWPORT_PADDING - PANEL_TOP_OFFSET;
+    const maxY = Math.max(minY, viewportHeight - panelHeight - VIEWPORT_PADDING - PANEL_TOP_OFFSET);
+
+    return {
+      x: Math.min(Math.max(pos.x, minX), maxX),
+      y: Math.min(Math.max(pos.y, minY), maxY),
+    };
+  }, [getViewportSize]);
+
   /** Write the current posRef to the DOM in a single translate3d (GPU-composited). */
   const flush = useCallback(() => {
     const el = panelRef.current;
     if (!el) return;
-    const { x, y } = posRef.current;
+    const next = clampPosition(posRef.current);
+    posRef.current = next;
+    const { x, y } = next;
     // translate3d promotes to its own compositor layer → zero layout cost
     el.style.transform = `translate3d(calc(-50% + ${x}px), ${y}px, 0)`;
-  }, []);
+  }, [clampPosition]);
 
   /** Snap back to center with a short CSS transition. */
   const resetPosition = useCallback(() => {
@@ -107,14 +144,15 @@ export default function FloatingWorkflowGen() {
     if (!el) return;
     // If already at origin, nothing to animate
     if (posRef.current.x === 0 && posRef.current.y === 0) return;
-    posRef.current = { x: 0, y: 0 };
+    posRef.current = clampPosition({ x: 0, y: 0 });
     el.style.transition = "transform 0.2s cubic-bezier(.4,0,.2,1)";
-    el.style.transform = "translate3d(-50%, 0px, 0)";
+    const { x, y } = posRef.current;
+    el.style.transform = `translate3d(calc(-50% + ${x}px), ${y}px, 0)`;
     const cleanup = () => { el.style.transition = ""; el.removeEventListener("transitionend", cleanup); };
     el.addEventListener("transitionend", cleanup);
     // Fallback: if transitionend never fires (e.g. already at target), clean up after 250ms
     setTimeout(cleanup, 250);
-  }, []);
+  }, [clampPosition]);
 
   const handleDragStart = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) return;
@@ -130,10 +168,10 @@ export default function FloatingWorkflowGen() {
     document.body.style.userSelect = "none";
 
     const onMove = (ev: MouseEvent) => {
-      posRef.current = {
+      posRef.current = clampPosition({
         x: dragStart.current.ox + (ev.clientX - dragStart.current.mx),
         y: dragStart.current.oy + (ev.clientY - dragStart.current.my),
-      };
+      });
       // Coalesce to the next frame — at most one DOM write per paint
       cancelAnimationFrame(rafId.current);
       rafId.current = requestAnimationFrame(flush);
@@ -149,14 +187,44 @@ export default function FloatingWorkflowGen() {
 
     document.addEventListener("mousemove", onMove, true);
     document.addEventListener("mouseup", onUp, true);
-  }, [flush]);
+  }, [clampPosition, flush]);
 
   // Reset position whenever the panel opens or closes so it always starts centered
   useEffect(() => {
     posRef.current = { x: 0, y: 0 };
     const el = panelRef.current;
-    if (el) { el.style.transition = ""; el.style.transform = "translateX(-50%)"; }
-  }, [floating]);
+    if (el) {
+      el.style.transition = "";
+      requestAnimationFrame(() => {
+        posRef.current = clampPosition({ x: 0, y: 0 });
+        flush();
+      });
+    }
+  }, [clampPosition, flush, floating]);
+
+  useEffect(() => {
+    if (!floating) return;
+
+    requestAnimationFrame(flush);
+  }, [collapsed, flush, floating]);
+
+  useEffect(() => {
+    if (!floating) return;
+
+    const handleResize = () => {
+      cancelAnimationFrame(rafId.current);
+      rafId.current = requestAnimationFrame(flush);
+    };
+
+    window.addEventListener("resize", handleResize);
+    window.visualViewport?.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      window.visualViewport?.removeEventListener("resize", handleResize);
+      cancelAnimationFrame(rafId.current);
+    };
+  }, [flush, floating]);
 
   // Fetch AI examples when panel opens with a model selected
   useEffect(() => {
@@ -269,11 +337,11 @@ export default function FloatingWorkflowGen() {
         "border-violet-700/30",
       )}
       style={{
-        top: 12,
+        top: PANEL_TOP_OFFSET,
         left: "50%",
         transform: "translateX(-50%)",
-        width: 520,
-        maxHeight: collapsed ? undefined : "calc(100vh - 140px)",
+        width: "min(520px, calc(100dvw - 32px))",
+        maxHeight: collapsed ? undefined : "calc(100dvh - 140px)",
         willChange: "transform",
       }}
       onPointerDown={(e) => e.stopPropagation()}

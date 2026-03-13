@@ -48,7 +48,13 @@ export function Fields({ control, setValue, nodeId }: SubAgentFieldsProps) {
   const modelValue: string = useWatch({ control, name: "model" }) ?? "inherit";
 
   const { tools: availableTools, isLoading: toolsLoading, isStatic: toolsStatic } = useTools(modelValue);
-  const { connectedSkills, connectedDocs, availableResources, deleteEdge } = useConnectedResources(nodeId);
+  const {
+    connectedSkills,
+    connectedDocs,
+    availableResources,
+    deleteEdge,
+    hasImmediateUpstreamParallelAgent,
+  } = useConnectedResources(nodeId);
   const { dynamic, static: staticVars } = detectVariables(promptText);
 
   useEffect(() => {
@@ -172,6 +178,12 @@ export function Fields({ control, setValue, nodeId }: SubAgentFieldsProps) {
 
       <ConnectedNodesList variant="skill" items={connectedSkills} onDeleteEdge={deleteEdge} />
       <ConnectedNodesList variant="doc" items={connectedDocs} onDeleteEdge={deleteEdge} />
+
+      {hasImmediateUpstreamParallelAgent && (
+        <div className="rounded-xl border border-zinc-700/40 bg-zinc-800/20 px-3 py-2 text-[11px] leading-relaxed text-zinc-400">
+          Static variable mapping also includes shared skills and documents attached to an immediately upstream <span className="font-mono text-zinc-200">parallel-agent</span> node.
+        </div>
+      )}
 
       {/* Model */}
       <div className="space-y-2">

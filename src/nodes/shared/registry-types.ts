@@ -51,6 +51,18 @@ export interface NodeGeneratorModule {
   ): { path: string; content: string } | null;
 
   /**
+   * Optionally returns multiple generated agent files for a single node.
+   * Useful for fan-out nodes that materialise one subagent per branch.
+   */
+  getAgentFiles?(
+    nodeId: string,
+    data: WorkflowNodeData,
+    connectedSkillNames?: string[],
+    connectedDocNames?: string[],
+    target?: GenerationTargetId,
+  ): Array<{ path: string; content: string }>;
+
+  /**
    * Optionally returns a document file to generate alongside the workflow file.
    * e.g. `.opencode/docs/<name>.md` for document nodes.
    */

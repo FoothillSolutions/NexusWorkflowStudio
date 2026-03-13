@@ -149,7 +149,7 @@ export default function PropertiesPanel() {
   return (
     <div
       className="absolute top-4 right-4 z-20 flex flex-col rounded-2xl border border-zinc-700/50 bg-zinc-900/85 backdrop-blur-md shadow-2xl overflow-hidden animate-in slide-in-from-top-4 fade-in-0 duration-200"
-      style={{ width: 380, height: activeSubWorkflowNodeId ? "calc(100% - 32px)" : "calc(100vh - 112px)" }}
+      style={{ width: "min(380px, calc(100vw - 32px))", height: activeSubWorkflowNodeId ? "calc(100% - 32px)" : "calc(100vh - 112px)" }}
     >
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-700/50 shrink-0">

@@ -25,6 +25,7 @@ const MIN_BRANCH_GAP = 300;
  * After Dagre computes positions, reorder branch targets so that:
  *   - if-else:  "true" target is ABOVE (smaller y) "false" target
  *   - switch:   branch targets are stacked top-to-bottom in branch order
+ *   - parallel-agent: branch targets are stacked top-to-bottom in branch order
  *   - ask-user: option targets are stacked top-to-bottom in option order
  *
  * Also enforces a minimum vertical gap between branch targets and centres
@@ -81,6 +82,16 @@ function fixBranchOrdering(
         const ordered: string[] = [];
         for (const branch of branches) {
           const target = labelToTarget.get(branch.label);
+          if (target) ordered.push(target);
+        }
+        if (ordered.length >= 2) orderedTargetIds = ordered;
+      }
+    } else if (nodeType === "parallel-agent") {
+      const branches = d.branches as Array<{ label: string }> | undefined;
+      if (branches && branches.length >= 2) {
+        const ordered: string[] = [];
+        for (let index = 0; index < branches.length; index++) {
+          const target = branchEdges.find((e) => e.sourceHandle === `branch-${index}`)?.target;
           if (target) ordered.push(target);
         }
         if (ordered.length >= 2) orderedTargetIds = ordered;
@@ -165,7 +176,7 @@ function collectSubtree(
 
 // ── Attachment layout constants ─────────────────────────────────────────────
 
-/** Types that are positioned relative to their parent agent, not by Dagre. */
+/** Types that are positioned relative to their parent agent-like node, not by Dagre. */
 const ATTACHMENT_TYPES = new Set<string>(["skill", "document"]);
 
 /** Horizontal gap (px) between the attachment column and the agent's left edge. */
@@ -208,7 +219,7 @@ export function useAutoLayout({ getNodes, getEdges, setNodes, onComplete }: Auto
       }
     }
 
-    // Build map: agent id → list of attachment nodes connected to it
+    // Build map: agent-like node id → list of attachment nodes connected to it
     // Track which attachment nodes have already been claimed by an agent
     // so that if a skill/document is wired to multiple agents only the
     // first one "owns" it for layout purposes.
@@ -223,7 +234,7 @@ export function useAutoLayout({ getNodes, getEdges, setNodes, onComplete }: Auto
       const srcType = sourceData.type as string;
       const tgtType = targetData.type as string;
 
-      if (ATTACHMENT_TYPES.has(srcType) && tgtType === "agent") {
+      if (ATTACHMENT_TYPES.has(srcType) && (tgtType === "agent" || tgtType === "parallel-agent")) {
         // Skip if this attachment was already claimed by another agent
         if (claimedAttachments.has(edge.source)) continue;
         claimedAttachments.add(edge.source);
@@ -276,11 +287,11 @@ export function useAutoLayout({ getNodes, getEdges, setNodes, onComplete }: Auto
     });
 
     // Fix branch ordering: ensure if-else "true" is above "false",
-    // and switch branches are ordered top-to-bottom by definition order.
+    // and switch / parallel-agent branches are ordered top-to-bottom by definition order.
     fixBranchOrdering(targetPositions, currentNodes, currentEdges);
 
-    // ── Shift agents with attachments to make room behind them ───────
-    // Push the agent (and everything at the same rank or later) right so
+    // ── Shift agent-like nodes with attachments to make room behind them ───────
+    // Push the node (and everything at the same rank or later) right so
     // the single attachment column doesn't overlap with the previous rank.
     const attachNodeWidth = (NODE_SIZE_DIMENSIONS[NodeSize.Small]?.width ?? 180);
 
@@ -321,15 +332,16 @@ export function useAutoLayout({ getNodes, getEdges, setNodes, onComplete }: Auto
       }
     }
 
-    // ── Position attachment nodes behind their parent agent ──────────
-    // Attachments sit to the LEFT of the agent and BELOW the agent's
+    // ── Position attachment nodes behind their parent agent-like node ──────────
+    // Attachments sit to the LEFT of the node and BELOW the node's
     // bottom edge (baseline). All stack vertically in a single column:
     // skills first, then documents, each underneath the previous one.
     for (const [agentId, attachments] of agentAttachments) {
       const agentPos = targetPositions[agentId];
       if (!agentPos) continue;
 
-      const agentEntry = NODE_REGISTRY["agent" as NodeType];
+      const agentType = (nodeDataMap.get(agentId)?.type as NodeType | undefined) ?? ("agent" as NodeType);
+      const agentEntry = NODE_REGISTRY[agentType];
       const agentDim = NODE_SIZE_DIMENSIONS[agentEntry?.size ?? NodeSize.Large] ?? defaultDim;
       const attachDim = NODE_SIZE_DIMENSIONS[NodeSize.Small] ?? defaultDim;
 

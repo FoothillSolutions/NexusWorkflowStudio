@@ -597,12 +597,12 @@ export default function LibraryPanel() {
   return (
     <>
       <div
-        className={`absolute top-4 right-4 z-20 flex flex-col w-[420px] rounded-2xl border border-zinc-700/50 bg-zinc-900/90 backdrop-blur-xl shadow-2xl overflow-hidden transition-all duration-300 ease-out ${
+        className={`absolute top-4 right-4 z-20 flex flex-col rounded-2xl border border-zinc-700/50 bg-zinc-900/90 backdrop-blur-xl shadow-2xl overflow-hidden transition-all duration-300 ease-out ${
           sidebarOpen
             ? "opacity-100 translate-y-0 pointer-events-auto"
             : "opacity-0 -translate-y-4 pointer-events-none"
         }`}
-        style={{ maxHeight: "calc(100vh - 112px)" }}
+        style={{ width: "min(420px, calc(100vw - 32px))", maxHeight: "calc(100vh - 112px)" }}
       >
         {/* ── Header ── */}
         <div className="flex items-center gap-2.5 px-4 py-3 border-b border-zinc-700/50 shrink-0">

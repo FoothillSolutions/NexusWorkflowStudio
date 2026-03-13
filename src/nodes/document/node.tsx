@@ -18,8 +18,10 @@ export const DocumentNode = memo(function DocumentNode({ id, data, selected }: N
 
   const isValidAgentConnection = useCallback(
     (connection: { target: string }) => {
-      const targetNode = useWorkflowStore.getState().nodes.find((n) => n.id === connection.target);
-      return targetNode?.data?.type === "agent";
+      const state = useWorkflowStore.getState();
+      const targetNode = state.nodes.find((n) => n.id === connection.target)
+        ?? state.subWorkflowNodes.find((n) => n.id === connection.target);
+      return targetNode?.data?.type === "agent" || targetNode?.data?.type === "parallel-agent";
     },
     []
   );

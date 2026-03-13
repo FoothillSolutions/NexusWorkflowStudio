@@ -9,6 +9,7 @@ export const NODE_TYPES = [
   "start",
   "prompt",
   "agent",
+  "parallel-agent",
   "sub-workflow",
   "skill",
   "document",
@@ -53,6 +54,18 @@ export interface SubAgentNodeData extends BaseNodeData {
   parameterMappings: string[];
   /** Static variable mappings: {{varName}} → resource ref (e.g. "doc:api-guide.md", "skill:my-skill") */
   variableMappings: Record<string, string>;
+}
+
+export interface ParallelAgentBranch {
+  label: string;
+  instructions: string;
+  spawnCount: number;
+}
+
+export interface ParallelAgentNodeData extends BaseNodeData {
+  type: "parallel-agent";
+  sharedInstructions: string;
+  branches: ParallelAgentBranch[];
 }
 
 export type SubWorkflowMode = "same-context" | "agent";
@@ -149,6 +162,7 @@ export type WorkflowNodeData =
   | StartNodeData
   | PromptNodeData
   | SubAgentNodeData
+  | ParallelAgentNodeData
   | SubWorkflowNodeData
   | SkillNodeData
   | DocumentNodeData

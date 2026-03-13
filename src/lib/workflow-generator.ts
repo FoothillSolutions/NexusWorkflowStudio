@@ -10,6 +10,7 @@ import { generator as startGen }        from "@/nodes/start/generator";
 import { generator as endGen }          from "@/nodes/end/generator";
 import { generator as promptGen }       from "@/nodes/prompt/generator";
 import { generator as subAgentGen }     from "@/nodes/agent/generator";
+import { generator as parallelAgentGen } from "@/nodes/parallel-agent/generator";
 import { generator as subWorkflowGen } from "@/nodes/sub-workflow/generator";
 import { generator as skillGen }        from "@/nodes/skill/generator";
 import { generator as documentGen }     from "@/nodes/document/generator";
@@ -34,6 +35,7 @@ const NODE_GENERATORS: Record<string, NodeGeneratorModule> = {
   end:              endGen,
   prompt:           promptGen,
   "agent":          subAgentGen,
+  "parallel-agent": parallelAgentGen,
   "sub-workflow":   subWorkflowGen,
   skill:            skillGen,
   document:         documentGen,
@@ -68,6 +70,18 @@ function mermaidEdge(edge: WorkflowEdge, nodeById?: Map<string, WorkflowNode>): 
         const opt = d.options?.[idx];
         if (opt && typeof opt === "object" && opt.label) {
           raw = opt.label;
+        }
+      }
+    }
+    const parallelMatch = raw.match(/^branch-(\d+)$/);
+    if (parallelMatch && nodeById) {
+      const srcNode = nodeById.get(edge.source);
+      if (srcNode?.data?.type === "parallel-agent") {
+        const d = srcNode.data as import("@/types/workflow").ParallelAgentNodeData;
+        const idx = parseInt(parallelMatch[1], 10);
+        const branch = d.branches?.[idx];
+        if (branch?.label) {
+          raw = branch.label;
         }
       }
     }
@@ -222,6 +236,41 @@ function buildSwitchDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[])
   if (sections.length === 0) return "";
   return "### Switch Node Details\n\n" + sections.join("\n\n");
 }
+function buildParallelAgentDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[]): string {
+  const order = topologicalOrder(nodes, edges);
+  const nodeById = new Map<string, WorkflowNode>(nodes.map((n) => [n.id, n]));
+  const sections: string[] = [];
+  for (const id of order) {
+    const node = nodeById.get(id);
+    if (!node || node.data.type !== "parallel-agent") continue;
+    const d = node.data as import("@/types/workflow").ParallelAgentNodeData;
+    const lines: string[] = [`#### ${mermaidId(node.id)}(Parallel Agent)`, ""];
+
+    if (d.sharedInstructions?.trim()) {
+      lines.push(`**Shared instructions**: ${d.sharedInstructions.trim()}`);
+      lines.push("");
+    }
+
+    lines.push("**Parallel branches:**");
+    for (let index = 0; index < (d.branches ?? []).length; index++) {
+      const branch = d.branches[index];
+      const edge = edges.find((e) => e.source === node.id && e.sourceHandle === `branch-${index}`);
+      const targetNode = edge ? nodeById.get(edge.target) : null;
+      const targetLabel = targetNode?.id || "Unconnected";
+      const spawnCount = Math.max(1, Number(branch.spawnCount ?? 1));
+      lines.push(`- **branch-${index}** (${branch.label || `Branch ${index + 1}`}) → spawn **${targetLabel}** x${spawnCount}`);
+      if (branch.instructions?.trim()) {
+        lines.push(`  - Notes: ${branch.instructions.trim()}`);
+      }
+    }
+
+    lines.push("");
+    lines.push("**Execution method**: Spawn the connected downstream agent for each branch handle in parallel using the configured branch counts.");
+    sections.push(lines.join("\n"));
+  }
+  if (sections.length === 0) return "";
+  return "### Parallel Agent Node Details\n\n" + sections.join("\n\n");
+}
 function buildAskUserDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[]): string {
   const order = topologicalOrder(nodes, edges);
   const nodeById = new Map<string, WorkflowNode>(nodes.map((n) => [n.id, n]));
@@ -259,7 +308,7 @@ function buildDetailsSection(nodes: WorkflowNode[], edges: WorkflowEdge[]): stri
   const order = topologicalOrder(nodes, edges);
   const nodeById = new Map<string, WorkflowNode>(nodes.map((n) => [n.id, n]));
   const sections: string[] = [];
-  const SKIP = new Set(["start", "end", "prompt", "agent", "skill", "document", "if-else", "switch", "ask-user", "sub-workflow"]);
+  const SKIP = new Set(["start", "end", "prompt", "agent", "parallel-agent", "skill", "document", "if-else", "switch", "ask-user", "sub-workflow"]);
   for (const id of order) {
     const node = nodeById.get(id);
     if (!node || SKIP.has(node.data.type)) continue;
@@ -281,43 +330,40 @@ function collectAgentFiles(
   const reachableIds = new Set(reachable.map((n) => n.id));
   const allNodeById = new Map<string, WorkflowNode>(nodes.map((n) => [n.id, n]));
 
-  // Build a map: reachable agent id → skill node ids connected via skill-out
-  // edges. We scan ALL edges (not just reachable ones) because skill nodes sit
-  // outside the main flow and are never forward-reachable from the start node.
-  const skillsBySubAgent = new Map<string, string[]>();
+  // Build maps from reachable agent-like nodes to connected skill/document IDs.
+  const skillsByTarget = new Map<string, string[]>();
   for (const edge of edges) {
     if (edge.sourceHandle === "skill-out" && reachableIds.has(edge.target)) {
       const targetNode = allNodeById.get(edge.target);
       const sourceNode = allNodeById.get(edge.source);
-      if (targetNode?.data?.type === "agent" && sourceNode?.data?.type === "skill") {
-        if (!skillsBySubAgent.has(edge.target)) skillsBySubAgent.set(edge.target, []);
-        skillsBySubAgent.get(edge.target)!.push(edge.source);
+      if ((targetNode?.data?.type === "agent" || targetNode?.data?.type === "parallel-agent") && sourceNode?.data?.type === "skill") {
+        if (!skillsByTarget.has(edge.target)) skillsByTarget.set(edge.target, []);
+        skillsByTarget.get(edge.target)!.push(edge.source);
       }
     }
   }
 
-  // Build a map: reachable agent id → document node ids connected via doc-out
-  const docsBySubAgent = new Map<string, string[]>();
+  const docsByTarget = new Map<string, string[]>();
   for (const edge of edges) {
     if (edge.sourceHandle === "doc-out" && reachableIds.has(edge.target)) {
       const targetNode = allNodeById.get(edge.target);
       const sourceNode = allNodeById.get(edge.source);
-      if (targetNode?.data?.type === "agent" && sourceNode?.data?.type === "document") {
-        if (!docsBySubAgent.has(edge.target)) docsBySubAgent.set(edge.target, []);
-        docsBySubAgent.get(edge.target)!.push(edge.source);
+      if ((targetNode?.data?.type === "agent" || targetNode?.data?.type === "parallel-agent") && sourceNode?.data?.type === "document") {
+        if (!docsByTarget.has(edge.target)) docsByTarget.set(edge.target, []);
+        docsByTarget.get(edge.target)!.push(edge.source);
       }
     }
   }
 
   // Track which skill nodes are actually connected to a reachable agent
   const connectedSkillIds = new Set<string>();
-  for (const skillIds of skillsBySubAgent.values()) {
+  for (const skillIds of skillsByTarget.values()) {
     for (const id of skillIds) connectedSkillIds.add(id);
   }
 
   // Track which document nodes are actually connected to a reachable agent
   const connectedDocIds = new Set<string>();
-  for (const docIds of docsBySubAgent.values()) {
+  for (const docIds of docsByTarget.values()) {
     for (const id of docIds) connectedDocIds.add(id);
   }
 
@@ -326,7 +372,7 @@ function collectAgentFiles(
   // Generate agent files with their connected skill names
   for (const node of reachable) {
     if (node.data.type === "agent") {
-      const skillIds = skillsBySubAgent.get(node.id) ?? [];
+      const skillIds = skillsByTarget.get(node.id) ?? [];
       const connectedSkillNames: string[] = [];
       for (const skillId of skillIds) {
         const skillNode = allNodeById.get(skillId);
@@ -337,7 +383,7 @@ function collectAgentFiles(
         }
       }
 
-      const docIds = docsBySubAgent.get(node.id) ?? [];
+      const docIds = docsByTarget.get(node.id) ?? [];
       const connectedDocNames: string[] = [];
       for (const docId of docIds) {
         const docNode = allNodeById.get(docId);
@@ -349,7 +395,7 @@ function collectAgentFiles(
         }
       }
 
-      const gen = NODE_GENERATORS["agent"];
+      const gen = NODE_GENERATORS[node.data.type];
       if (gen?.getAgentFile) {
         const f = gen.getAgentFile(node.id, node.data, connectedSkillNames, connectedDocNames, target);
         if (f) files.push(f);
@@ -490,11 +536,13 @@ Workflow arguments are **comma-separated and trimmed**. For example \`/workflow 
 ### Execution Methods by Node Type
 - **Stadium nodes (Start / End)**: Entry and exit points of the workflow
 - **Rectangle nodes (Agent: ...)**: Execute Agents via the spawn agent delegation system. If a \`params:\` line is present, pass those values as the agent's positional arguments (\`$1\`, \`$2\`, …). Values can be workflow-level positional args (e.g. \`$1\`), static references (e.g. \`{{name}}\`), or literal strings
+- **Rectangle nodes (Parallel Agent: ...)**: For each branch handle, spawn the connected downstream agent the configured number of times and follow each branch independently
 - **Diamond nodes (AskUserQuestion:...)**: Use the AskUserQuestion tool to prompt the user and branch based on their response
 - **Diamond nodes (Branch/Switch:...)**: Automatically branch based on the results of previous processing (see details section)
 - **Rectangle nodes (Prompt nodes)**: Execute the prompts described in the details section below`;
   const promptDetails    = buildPromptDetailsSection(nodes, edges);
   const subAgentDetails  = buildSubAgentDetailsSection(nodes, edges, workflow.nodes, workflow.edges);
+  const parallelAgentDetails = buildParallelAgentDetailsSection(nodes, edges);
   const ifElseDetails    = buildIfElseDetailsSection(nodes, edges);
   const switchDetails    = buildSwitchDetailsSection(nodes, edges);
   const askUserDetails   = buildAskUserDetailsSection(nodes, edges);
@@ -507,6 +555,7 @@ Workflow arguments are **comma-separated and trimmed**. For example \`/workflow 
   const parts = [frontmatter, mermaidBlock, "", executionGuide];
   if (promptDetails)   parts.push("", promptDetails);
   if (subAgentDetails) parts.push("", subAgentDetails);
+  if (parallelAgentDetails) parts.push("", parallelAgentDetails);
   if (subWorkflowDetails) parts.push("", subWorkflowDetails);
   if (ifElseDetails)   parts.push("", ifElseDetails);
   if (switchDetails)   parts.push("", switchDetails);

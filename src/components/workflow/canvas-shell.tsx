@@ -4,6 +4,7 @@ import {
   Background,
   BackgroundVariant,
   MiniMap,
+  useReactFlow,
   type EdgeTypes,
   type NodeTypes,
   ConnectionLineType,
@@ -26,6 +27,7 @@ import { DeletableEdge } from "@/components/edges/deletable-edge";
 import type { CanvasMode, EdgeStyle } from "@/store/workflow-store";
 
 const EDGE_TYPE_COMPONENTS: EdgeTypes = { deletable: DeletableEdge };
+const MIN_CANVAS_ZOOM = 0.1;
 
 interface CanvasShellProps {
   nodes: WorkflowNode[];
@@ -78,6 +80,7 @@ export function CanvasShell({
   isDragging,
   children,
 }: CanvasShellProps) {
+  const { getViewport, setCenter } = useReactFlow<WorkflowNode, WorkflowEdge>();
   const nodeTypes: NodeTypes = useMemo(() => NODE_TYPE_COMPONENTS, []);
   const edgeTypes: EdgeTypes = useMemo(() => EDGE_TYPE_COMPONENTS, []);
 
@@ -103,6 +106,15 @@ export function CanvasShell({
     (node: { type?: string }) => NODE_REGISTRY[node.type as NodeType]?.accentHex ?? "#52525b",
     []
   );
+  const handleMinimapClick = useCallback(
+    (_event: React.MouseEvent<Element>, position: { x: number; y: number }) => {
+      void setCenter(position.x, position.y, {
+        zoom: getViewport().zoom,
+        duration: 150,
+      });
+    },
+    [getViewport, setCenter]
+  );
 
   return (
     <>
@@ -127,6 +139,7 @@ export function CanvasShell({
         deleteKeyCode={null}
         connectionLineType={connectionLineType}
         connectionLineStyle={connectionLineStyle}
+        minZoom={MIN_CANVAS_ZOOM}
         fitView
         fitViewOptions={fitViewOptions}
         defaultEdgeOptions={defaultEdgeOptions}
@@ -141,9 +154,11 @@ export function CanvasShell({
         <Background variant={BackgroundVariant.Dots} color={CANVAS_DOT_COLOR} gap={20} size={1} />
         {minimapVisible && !isDragging && (
           <MiniMap
-            className="!bg-zinc-900 !border-zinc-700"
+            className="bg-zinc-900! border-zinc-700!"
             nodeColor={minimapNodeColor}
             maskColor={MINIMAP_MASK_COLOR}
+            pannable
+            onClick={handleMinimapClick}
           />
         )}
       </ReactFlow>

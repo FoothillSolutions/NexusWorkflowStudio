@@ -19,8 +19,10 @@ export const SkillNode = memo(function SkillNode({ id, data, selected }: NodePro
   // the component to every node position change during drag.
   const isValidAgentConnection = useCallback(
     (connection: { target: string }) => {
-      const targetNode = useWorkflowStore.getState().nodes.find((n) => n.id === connection.target);
-      return targetNode?.data?.type === "agent";
+      const state = useWorkflowStore.getState();
+      const targetNode = state.nodes.find((n) => n.id === connection.target)
+        ?? state.subWorkflowNodes.find((n) => n.id === connection.target);
+      return targetNode?.data?.type === "agent" || targetNode?.data?.type === "parallel-agent";
     },
     []
   );
