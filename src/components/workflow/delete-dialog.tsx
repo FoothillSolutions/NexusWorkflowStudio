@@ -30,7 +30,11 @@ export default function DeleteDialog() {
   // Only compute selectedCount when dialog is actually open for a selection delete
   const selectedCount = useWorkflowStore((s) =>
     s.deleteTarget?.type === "selection"
-      ? s.nodes.filter((n) => n.selected && n.data?.type !== "start").length
+      ? s.deleteTarget.count ?? (
+        s.deleteTarget.scope === "subworkflow"
+          ? s.subWorkflowNodes.filter((n) => n.selected && n.data?.type !== "start").length
+          : s.nodes.filter((n) => n.selected && n.data?.type !== "start").length
+      )
       : 0
   );
   const deleteRef = useRef<HTMLButtonElement>(null);

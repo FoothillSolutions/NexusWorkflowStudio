@@ -113,9 +113,13 @@ export default function PropertiesPanel() {
 
   const handleDelete = useCallback(() => {
     if (selectedNodeId) {
-      setDeleteTarget({ type: "node", id: selectedNodeId });
+      setDeleteTarget({
+        type: "node",
+        id: selectedNodeId,
+        scope: isSubNode ? "subworkflow" : "root",
+      });
     }
-  }, [selectedNodeId, setDeleteTarget]);
+  }, [isSubNode, selectedNodeId, setDeleteTarget]);
 
   // Close library sidebar when properties panel opens (mutual exclusion)
   useEffect(() => {

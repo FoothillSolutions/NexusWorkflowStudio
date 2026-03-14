@@ -29,6 +29,12 @@ const nanoid = customAlphabet("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVW
 // Canvas interaction modes
 export type CanvasMode = "hand" | "selection";
 export type EdgeStyle = "bezier" | "smoothstep";
+export type DeleteTarget = {
+  type: "node" | "edge" | "selection";
+  id: string;
+  scope?: "root" | "subworkflow";
+  count?: number;
+};
 
 // State shape
 interface WorkflowState {
@@ -48,7 +54,7 @@ interface WorkflowState {
   currentDraggedNodeType: NodeType | null;
 
   // Delete confirmation
-  deleteTarget: { type: "node" | "edge" | "selection"; id: string } | null;
+  deleteTarget: DeleteTarget | null;
 
   // React Flow callbacks
   onNodesChange: OnNodesChange<WorkflowNode>;
@@ -70,7 +76,7 @@ interface WorkflowState {
   toggleEdgeStyle: () => void;
   setViewport: (viewport: Viewport) => void;
   setCurrentDraggedNodeType: (type: NodeType | null) => void;
-  setDeleteTarget: (target: { type: "node" | "edge" | "selection"; id: string } | null) => void;
+  setDeleteTarget: (target: DeleteTarget | null) => void;
   confirmDelete: () => void;
 
   // Multi-select / bulk actions
@@ -85,6 +91,8 @@ interface WorkflowState {
   subWorkflowStack: { nodeId: string; label: string }[];
   /** Nodes currently displayed on the active sub-workflow canvas (set by the canvas component) */
   subWorkflowNodes: WorkflowNode[];
+  /** Edges currently displayed on the active sub-workflow canvas */
+  subWorkflowEdges: WorkflowEdge[];
   /** Nodes from the parent context — used to resolve the parent node when opening a nested sub-workflow */
   subWorkflowParentNodes: WorkflowNode[];
   openSubWorkflow: (nodeId: string) => void;
@@ -93,8 +101,11 @@ interface WorkflowState {
   navigateToBreadcrumb: (index: number) => void;
   /** Called by the sub-workflow canvas to register its local nodes so the properties panel can find them */
   setSubWorkflowNodes: (nodes: WorkflowNode[]) => void;
+  setSubWorkflowEdges: (edges: WorkflowEdge[]) => void;
   /** Update node data for a node that lives in the sub-workflow overlay */
   updateSubNodeData: (nodeId: string, data: Partial<WorkflowNodeData>) => void;
+  deleteSubWorkflowNode: (nodeId: string) => void;
+  deleteSelectedSubWorkflowNodes: () => void;
   updateSubWorkflowData: (nodeId: string, subNodes: WorkflowNode[], subEdges: WorkflowEdge[]) => void;
   groupIntoSubWorkflow: (nodeIds: string[]) => void;
   moveNodeIntoSubWorkflow: (sourceNodeId: string, targetSubWorkflowNodeId: string) => boolean;
@@ -205,10 +216,11 @@ const initialState = {
   canvasMode: "hand" as CanvasMode,
   edgeStyle: "bezier" as EdgeStyle,
   currentDraggedNodeType: null as NodeType | null,
-  deleteTarget: null as { type: "node" | "edge" | "selection"; id: string } | null,
+  deleteTarget: null as DeleteTarget | null,
   activeSubWorkflowNodeId: null as string | null,
   subWorkflowStack: [] as { nodeId: string; label: string }[],
   subWorkflowNodes: [] as WorkflowNode[],
+  subWorkflowEdges: [] as WorkflowEdge[],
   subWorkflowParentNodes: [] as WorkflowNode[],
 };
 
@@ -370,7 +382,8 @@ export const useWorkflowStore = create<WorkflowState>()(
 
   setDeleteTarget: (target) => {
     if (target?.type === "node") {
-      const node = get().nodes.find((n) => n.id === target.id);
+      const nodePool = target.scope === "subworkflow" ? get().subWorkflowNodes : get().nodes;
+      const node = nodePool.find((n) => n.id === target.id);
       if (node?.data?.type === "start") return; // Start node is undeletable
     }
     set({ deleteTarget: target });
@@ -379,7 +392,15 @@ export const useWorkflowStore = create<WorkflowState>()(
   confirmDelete: () => {
     const target = get().deleteTarget;
     if (!target) return;
-    if (target.type === "node") {
+    if (target.scope === "subworkflow") {
+      if (target.type === "node") {
+        get().deleteSubWorkflowNode(target.id);
+      } else if (target.type === "selection") {
+        get().deleteSelectedSubWorkflowNodes();
+      } else {
+        get().deleteEdge(target.id);
+      }
+    } else if (target.type === "node") {
       get().deleteNode(target.id);
     } else if (target.type === "selection") {
       get().deleteSelectedNodes();
@@ -485,6 +506,7 @@ export const useWorkflowStore = create<WorkflowState>()(
   activeSubWorkflowNodeId: null,
   subWorkflowStack: [],
   subWorkflowNodes: [],
+  subWorkflowEdges: [],
   subWorkflowParentNodes: [],
 
   openSubWorkflow: (nodeId) => {
@@ -505,6 +527,7 @@ export const useWorkflowStore = create<WorkflowState>()(
       // Snapshot the current context so the new canvas can find its parent node
       subWorkflowParentNodes: currentContextNodes,
       subWorkflowNodes: [],
+      subWorkflowEdges: [],
     });
   },
 
@@ -516,6 +539,7 @@ export const useWorkflowStore = create<WorkflowState>()(
         activeSubWorkflowNodeId: null,
         subWorkflowStack: [],
         subWorkflowNodes: [],
+        subWorkflowEdges: [],
         subWorkflowParentNodes: [],
         selectedNodeId: null,
         propertiesPanelOpen: false,
@@ -530,6 +554,7 @@ export const useWorkflowStore = create<WorkflowState>()(
         activeSubWorkflowNodeId: newStack[newStack.length - 1].nodeId,
         subWorkflowStack: newStack,
         subWorkflowNodes: [],
+        subWorkflowEdges: [],
         subWorkflowParentNodes: parentContextNodes,
         selectedNodeId: null,
         propertiesPanelOpen: false,
@@ -544,6 +569,7 @@ export const useWorkflowStore = create<WorkflowState>()(
         activeSubWorkflowNodeId: null,
         subWorkflowStack: [],
         subWorkflowNodes: [],
+        subWorkflowEdges: [],
         subWorkflowParentNodes: [],
         selectedNodeId: null,
         propertiesPanelOpen: false,
@@ -555,6 +581,7 @@ export const useWorkflowStore = create<WorkflowState>()(
         activeSubWorkflowNodeId: newStack[newStack.length - 1].nodeId,
         subWorkflowStack: newStack,
         subWorkflowNodes: [],
+        subWorkflowEdges: [],
         subWorkflowParentNodes: parentContextNodes,
         selectedNodeId: null,
         propertiesPanelOpen: false,
@@ -564,6 +591,8 @@ export const useWorkflowStore = create<WorkflowState>()(
 
   setSubWorkflowNodes: (nodes) => set({ subWorkflowNodes: nodes }),
 
+  setSubWorkflowEdges: (edges) => set({ subWorkflowEdges: edges }),
+
   updateSubNodeData: (nodeId, data) => {
     set({
       subWorkflowNodes: get().subWorkflowNodes.map((node) =>
@@ -572,6 +601,55 @@ export const useWorkflowStore = create<WorkflowState>()(
           : node
       ),
     });
+  },
+
+  deleteSubWorkflowNode: (nodeId) => {
+    const state = get();
+    const target = state.subWorkflowNodes.find((node) => node.id === nodeId);
+    if (!target || target.data?.type === "start") return;
+
+    const nextNodes = state.subWorkflowNodes.filter((node) => node.id !== nodeId);
+    const nextEdges = state.subWorkflowEdges.filter(
+      (edge) => edge.source !== nodeId && edge.target !== nodeId
+    );
+
+    set({
+      subWorkflowNodes: nextNodes,
+      subWorkflowEdges: nextEdges,
+      selectedNodeId: state.selectedNodeId === nodeId ? null : state.selectedNodeId,
+      propertiesPanelOpen: state.selectedNodeId === nodeId ? false : state.propertiesPanelOpen,
+    });
+
+    if (state.activeSubWorkflowNodeId) {
+      get().updateSubWorkflowData(state.activeSubWorkflowNodeId, nextNodes, nextEdges);
+    }
+  },
+
+  deleteSelectedSubWorkflowNodes: () => {
+    const state = get();
+    const selectedIds = state.subWorkflowNodes
+      .filter((node) => node.selected && node.data?.type !== "start")
+      .map((node) => node.id);
+    if (selectedIds.length === 0) return;
+
+    const selectedIdSet = new Set(selectedIds);
+    const nextNodes = state.subWorkflowNodes
+      .filter((node) => !selectedIdSet.has(node.id))
+      .map((node) => ({ ...node, selected: false }));
+    const nextEdges = state.subWorkflowEdges.filter(
+      (edge) => !selectedIdSet.has(edge.source) && !selectedIdSet.has(edge.target)
+    );
+
+    set({
+      subWorkflowNodes: nextNodes,
+      subWorkflowEdges: nextEdges,
+      selectedNodeId: selectedIdSet.has(state.selectedNodeId ?? "") ? null : state.selectedNodeId,
+      propertiesPanelOpen: selectedIdSet.has(state.selectedNodeId ?? "") ? false : state.propertiesPanelOpen,
+    });
+
+    if (state.activeSubWorkflowNodeId) {
+      get().updateSubWorkflowData(state.activeSubWorkflowNodeId, nextNodes, nextEdges);
+    }
   },
 
   updateSubWorkflowData: (nodeId, subNodes, subEdges) => {
@@ -813,6 +891,7 @@ export const useWorkflowStore = create<WorkflowState>()(
       activeSubWorkflowNodeId: null,
       subWorkflowStack: [],
       subWorkflowNodes: [],
+      subWorkflowEdges: [],
       subWorkflowParentNodes: [],
       selectedNodeId: null,
       propertiesPanelOpen: false,

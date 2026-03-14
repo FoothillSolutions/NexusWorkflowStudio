@@ -23,7 +23,6 @@ import type { SubWorkflowNodeData } from "@/nodes/sub-workflow/types";
 import { LibraryToggleButton, HelpMenu, ConnectButton } from "./shared-header-actions";
 import NodePalette from "./node-palette";
 import CanvasToolbar from "./canvas-toolbar";
-import DeleteDialog from "./delete-dialog";
 import PropertiesPanel from "./properties-panel";
 import LibraryPanel from "./library-panel";
 import { CanvasShell } from "./canvas-shell";
@@ -70,7 +69,11 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
   const closeSubWorkflow = useWorkflowStore((s) => s.closeSubWorkflow);
   const openSubWorkflow = useWorkflowStore((s) => s.openSubWorkflow);
   const updateSubWorkflowData = useWorkflowStore((s) => s.updateSubWorkflowData);
+  const deleteSubWorkflowNode = useWorkflowStore((s) => s.deleteSubWorkflowNode);
+  const deleteSelectedSubWorkflowNodes = useWorkflowStore((s) => s.deleteSelectedSubWorkflowNodes);
   const setSubWorkflowNodes = useWorkflowStore((s) => s.setSubWorkflowNodes);
+  const setSubWorkflowEdges = useWorkflowStore((s) => s.setSubWorkflowEdges);
+  const setDeleteTarget = useWorkflowStore((s) => s.setDeleteTarget);
   const subWorkflowStack = useWorkflowStore((s) => s.subWorkflowStack);
   const navigateToBreadcrumb = useWorkflowStore((s) => s.navigateToBreadcrumb);
   const workflowName = useWorkflowStore((s) => s.name);
@@ -147,10 +150,14 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
     setSubWorkflowNodes(subNodes);
   }, [subNodes, setSubWorkflowNodes]);
 
+  useEffect(() => {
+    setSubWorkflowEdges(subEdges);
+  }, [setSubWorkflowEdges, subEdges]);
+
   // Listen for property-panel writes (store → local)
   useEffect(() => {
     let prevSubNodes = useWorkflowStore.getState().subWorkflowNodes;
-    const unsub = useWorkflowStore.subscribe((state) => {
+    return useWorkflowStore.subscribe((state) => {
       const storeNodes = state.subWorkflowNodes;
       if (storeNodes === prevSubNodes || storeNodes.length === 0) {
         prevSubNodes = storeNodes;
@@ -158,27 +165,41 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
       }
       prevSubNodes = storeNodes;
       setSubNodes((prev) => {
+        const hasStructuralChange =
+          prev.length !== storeNodes.length ||
+          prev.some((node) => !storeNodes.some((storeNode) => storeNode.id === node.id));
+        if (hasStructuralChange) {
+          return storeNodes;
+        }
+
         let changed = false;
-        const next = prev.map((n) => {
+        const mappedNodes = prev.map((n) => {
           const updated = storeNodes.find((sn) => sn.id === n.id);
           if (updated && updated.data !== n.data) { changed = true; return updated; }
           return n;
         });
         if (!changed) return prev;
-        syncToParent(next, subEdgesRef.current);
-        return next;
+        syncToParent(mappedNodes, subEdgesRef.current);
+        return mappedNodes;
       });
     });
-    return unsub;
   }, [syncToParent]);
+
+  useEffect(() => {
+    let prevSubEdges = useWorkflowStore.getState().subWorkflowEdges;
+    return useWorkflowStore.subscribe((state) => {
+      const storeEdges = state.subWorkflowEdges;
+      if (storeEdges === prevSubEdges) return;
+      prevSubEdges = storeEdges;
+      subEdgesRef.current = storeEdges;
+      setSubEdges((prev) => (prev === storeEdges ? prev : storeEdges));
+    });
+  }, []);
 
   // Drag tracking via shared hook
   const applySubNodesChange = useCallback(
     (changes: NodeChange<WorkflowNode>[]) => {
-      setSubNodes((prev) => {
-        const next = applyNodeChanges(changes, prev) as WorkflowNode[];
-        return next;
-      });
+      setSubNodes((prev) => applyNodeChanges(changes, prev) as WorkflowNode[]);
     },
     []
   );
@@ -271,23 +292,6 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
     [syncToParent]
   );
 
-  const deleteSubNode = useCallback(
-    (id: string) => {
-      setSubNodes((prev) => {
-        const target = prev.find((n) => n.id === id);
-        if (!target || target.data?.type === "start") return prev;
-        const next = prev.filter((n) => n.id !== id);
-        setSubEdges((prevE) => {
-          const nextE = prevE.filter((e) => e.source !== id && e.target !== id);
-          syncToParent(next, nextE);
-          return nextE;
-        });
-        return next;
-      });
-    },
-    [syncToParent]
-  );
-
   const duplicateSubNode = useCallback(
     (id: string) => {
       setSubNodes((prev) => {
@@ -308,20 +312,6 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
     },
     [syncToParent]
   );
-
-  const deleteSelectedSubNodes = useCallback(() => {
-    setSubNodes((prev) => {
-      const toDelete = new Set(prev.filter((n) => n.selected && n.data?.type !== "start").map((n) => n.id));
-      if (toDelete.size === 0) return prev;
-      const next = prev.filter((n) => !toDelete.has(n.id)).map((n) => ({ ...n, selected: false }));
-      setSubEdges((prevE) => {
-        const nextE = prevE.filter((e) => !toDelete.has(e.source) && !toDelete.has(e.target));
-        syncToParent(next, nextE);
-        return nextE;
-      });
-      return next;
-    });
-  }, [syncToParent]);
 
   const duplicateSelectedSubNodes = useCallback(() => {
     setSubNodes((prev) => {
@@ -518,6 +508,20 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
     return () => window.removeEventListener("nexus:auto-layout", handler);
   }, [autoLayout]);
 
+  const setSubWorkflowDeleteTarget = useCallback(
+    (target: { type: "node" | "edge" | "selection"; id: string }) => {
+      setDeleteTarget({
+        ...target,
+        scope: "subworkflow",
+        count:
+          target.type === "selection"
+            ? subNodesRef.current.filter((node) => node.selected && node.data?.type !== "start").length
+            : undefined,
+      });
+    },
+    [setDeleteTarget]
+  );
+
   // Canvas interactions via shared hook
   const {
     canPaste,
@@ -540,14 +544,15 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
     handleSaveToLibrary,
   } = useCanvasInteractions({
     addNode: addSubNode,
-    deleteNode: deleteSubNode,
+    deleteNode: deleteSubWorkflowNode,
     copyNode: copySubNode,
     copySelectedNodes: copySelectedSubNodes,
     duplicateNode: duplicateSubNode,
     duplicateSelectedNodes: duplicateSelectedSubNodes,
-    deleteSelectedNodes: deleteSelectedSubNodes,
+    deleteSelectedNodes: deleteSelectedSubWorkflowNodes,
     pasteNodes: pasteSubNodes,
     hasClipboardData: hasWorkflowClipboardData,
+    setDeleteTarget: setSubWorkflowDeleteTarget,
     getNodes: () => subNodesRef.current,
     autoLayout,
     onEscape: handleCloseSubWorkflow,
@@ -595,7 +600,7 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
         <div className="flex items-center gap-1 min-w-0 overflow-hidden">
           <button
             onClick={() => handleNavigateToBreadcrumb(-1)}
-            className="text-sm text-zinc-400 hover:text-zinc-100 truncate max-w-[140px] transition-colors shrink-0"
+            className="text-sm text-zinc-400 hover:text-zinc-100 truncate max-w-35 transition-colors shrink-0"
           >
             {workflowName}
           </button>
@@ -613,7 +618,7 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
                 ) : (
                   <button
                     onClick={() => handleNavigateToBreadcrumb(idx)}
-                    className="text-sm text-zinc-400 hover:text-zinc-100 truncate max-w-[120px] transition-colors"
+                    className="text-sm text-zinc-400 hover:text-zinc-100 truncate max-w-30 transition-colors"
                   >
                     {entry.label}
                   </button>
@@ -662,7 +667,6 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
 
         <NodePalette />
         <CanvasToolbar />
-        <DeleteDialog />
         <PropertiesPanel />
         <LibraryPanel onLoadItem={handleLoadLibraryItem} />
 
