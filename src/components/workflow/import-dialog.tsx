@@ -40,7 +40,7 @@ export default function ImportDialog({ open, onOpenChange }: ImportDialogProps) 
       try {
         const file = acceptedFiles[0];
         const data = await importWorkflow(file);
-        loadWorkflow(data);
+        loadWorkflow(data, { savedToLibrary: false });
         useSavedWorkflowsStore.getState().clearActiveId();
         window.dispatchEvent(new CustomEvent("nexus:fit-view"));
         toast.success("Workflow imported successfully");

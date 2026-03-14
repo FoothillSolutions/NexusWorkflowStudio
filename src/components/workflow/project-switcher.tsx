@@ -195,7 +195,8 @@ export function ProjectSwitcher({
       ? folderName(activeDir)
       : "Projects";
 
-  const px = variant === "compact" ? "px-2" : "px-2.5";
+  const isCompact = variant === "compact";
+  const px = isCompact ? "px-2" : "px-2.5";
 
   const filteredProjects = projects.filter(
     (p) => p.worktree !== "/" && p.id !== "global",
@@ -221,7 +222,7 @@ export function ProjectSwitcher({
             size="sm"
             disabled={!isConnected}
             onClick={() => setPanelOpen((v) => !v)}
-            className={`h-8 ${px} text-sm gap-1.5 max-w-[200px] ${
+            className={`h-8 ${px} ${isCompact ? "text-xs gap-1 max-w-36" : "text-sm gap-1.5 max-w-50"} ${
               isConnected
                 ? panelOpen
                   ? "text-zinc-100 bg-zinc-800"

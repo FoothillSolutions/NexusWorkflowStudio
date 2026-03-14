@@ -1,6 +1,6 @@
 "use client";
 
-import { useFieldArray, useWatch } from "react-hook-form";
+import { useFieldArray } from "react-hook-form";
 import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,25 +9,22 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { ConnectedNodesList } from "@/nodes/agent/properties/connected-nodes-list";
 import { useConnectedResources } from "@/nodes/agent/properties/use-connected-resources";
-import type { FormControl, FormRegister, FormSetValue } from "@/nodes/shared/form-types";
+import type { FormControl, FormRegister } from "@/nodes/shared/form-types";
 import { RequiredIndicator } from "@/nodes/shared/required-indicator";
 import { createParallelAgentBranch } from "./constants";
-import type { ParallelAgentBranch } from "./types";
 
 interface ParallelAgentFieldsProps {
   register: FormRegister;
   control: FormControl;
-  setValue: FormSetValue;
   nodeId?: string;
 }
 
-export function Fields({ register, control, setValue, nodeId }: ParallelAgentFieldsProps) {
+export function Fields({ register, control, nodeId }: ParallelAgentFieldsProps) {
   const { fields, append, remove } = useFieldArray({
     control,
     name: "branches" as never,
   });
 
-  const branches = (useWatch({ control, name: "branches" }) as ParallelAgentBranch[] | undefined) ?? [];
   const { connectedSkills, connectedDocs, deleteEdge } = useConnectedResources(nodeId);
 
   const handleAddBranch = () => append(createParallelAgentBranch(fields.length) as never);
@@ -43,7 +40,7 @@ export function Fields({ register, control, setValue, nodeId }: ParallelAgentFie
           id="sharedInstructions"
           rows={4}
           placeholder="Explain the shared goal, how the agents should coordinate, and what they all have in common."
-          className="bg-zinc-800/60 border-zinc-700/60 rounded-xl focus-visible:ring-zinc-600 min-h-[96px] resize-y text-sm"
+          className="bg-zinc-800/60 border-zinc-700/60 rounded-xl focus-visible:ring-zinc-600 min-h-24 resize-y text-sm"
           {...register("sharedInstructions")}
         />
       </div>
@@ -71,7 +68,6 @@ export function Fields({ register, control, setValue, nodeId }: ParallelAgentFie
 
         <div className="space-y-4">
           {fields.map((field, index) => {
-            const branch = branches[index] ?? createParallelAgentBranch(index);
 
             return (
               <div key={field.id} className="rounded-xl border border-zinc-700/50 bg-zinc-800/25 p-3 space-y-3">

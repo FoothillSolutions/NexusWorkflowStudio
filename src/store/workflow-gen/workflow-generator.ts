@@ -5,6 +5,7 @@
 
 import { useOpenCodeStore } from "../opencode-store";
 import { useWorkflowStore } from "../workflow-store";
+import { useSavedWorkflowsStore } from "../library-store";
 import { AGENT_TOOLS } from "@/nodes/agent/constants";
 import { workflowJsonSchema } from "@/lib/workflow-schema";
 import type { WorkflowNode } from "@/types/workflow";
@@ -28,8 +29,7 @@ function isNodeReady(raw: Record<string, unknown>, isLast: boolean): boolean {
   if (!pos || typeof pos.x !== "number" || typeof pos.y !== "number") return false;
   const d = raw.data as Record<string, unknown> | undefined;
   if (!d || !d.type || !d.label) return false;
-  if (isLast && !d.name) return false;
-  return true;
+  return !isLast || !!d.name;
 }
 
 /** Check if an edge has all required fields. */
@@ -117,12 +117,11 @@ function pushIncremental(
     // Apply brand-new nodes
     if (brandNewNodes.length > 0) {
       const existingNodes = useWorkflowStore.getState().nodes;
-      const filtered = existingNodes.filter(n => {
-        if (n.data?.type === "start" && brandNewNodes.some(nn => (nn.data as Record<string, unknown>)?.type === "start")) return false;
-        if (n.data?.type === "end" && brandNewNodes.some(nn => (nn.data as Record<string, unknown>)?.type === "end")) return false;
-        if (brandNewNodes.some(nn => nn.id === n.id)) return false;
-        return true;
-      });
+      const filtered = existingNodes.filter((n) => (
+        !(n.data?.type === "start" && brandNewNodes.some((nn) => (nn.data as Record<string, unknown>)?.type === "start")) &&
+        !(n.data?.type === "end" && brandNewNodes.some((nn) => (nn.data as Record<string, unknown>)?.type === "end")) &&
+        !brandNewNodes.some((nn) => nn.id === n.id)
+      ));
       useWorkflowStore.setState({ nodes: [...filtered, ...brandNewNodes] });
       for (const n of filtered) addedNodeIds.add(n.id);
 
@@ -226,6 +225,7 @@ export async function generate(set: StoreSet, get: StoreGet): Promise<void> {
   get()._abortController?.abort();
 
   // Clear the canvas completely before starting a new generation
+  useSavedWorkflowsStore.getState().clearActiveId();
   useWorkflowStore.getState().reset();
   useWorkflowStore.setState({ nodes: [], edges: [], name: "Untitled Workflow", sidebarOpen: false });
 

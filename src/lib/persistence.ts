@@ -27,6 +27,25 @@ function cleanNode(node: WorkflowNode): WorkflowNode {
   return rest as WorkflowNode;
 }
 
+function cleanNodeForFingerprint(node: WorkflowNode): WorkflowNode {
+  const cleaned = cleanNode(node);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { position, ...rest } = cleaned;
+
+  if (rest.data?.type === "sub-workflow" && rest.data.subNodes) {
+    return {
+      ...rest,
+      data: {
+        ...rest.data,
+        subNodes: (rest.data.subNodes as WorkflowNode[]).map(cleanNodeForFingerprint),
+        subEdges: (rest.data.subEdges as WorkflowEdge[]).map(cleanEdge),
+      },
+    } as WorkflowNode;
+  }
+
+  return rest as WorkflowNode;
+}
+
 function cleanEdge(edge: WorkflowEdge): WorkflowEdge {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { type, style, animated, selected, ...rest } = edge;
@@ -38,6 +57,19 @@ export function stripTransientProperties(data: WorkflowJSON): WorkflowJSON {
   return {
     ...data,
     nodes: data.nodes.map(cleanNode),
+    edges: data.edges.map(cleanEdge),
+  };
+}
+
+/**
+ * Normalize workflow data for save-status checks.
+ * Unlike persisted JSON, this intentionally ignores node positions so moving
+ * nodes around does not mark the workflow as unsaved.
+ */
+export function stripFingerprintProperties(data: WorkflowJSON): WorkflowJSON {
+  return {
+    ...data,
+    nodes: data.nodes.map(cleanNodeForFingerprint),
     edges: data.edges.map(cleanEdge),
   };
 }

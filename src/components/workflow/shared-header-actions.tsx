@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { useWorkflowStore } from "@/store/workflow-store";
 import { useSavedWorkflowsStore } from "@/store/library-store";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,7 +17,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  Save,
   Library,
   HelpCircle,
   BookOpen,
@@ -36,42 +34,6 @@ import ShortcutsDialog from "./shortcuts-dialog";
 import AboutDialog from "./about-dialog";
 import ConnectDialog from "./connect-dialog";
 
-/* ── Save Button ─────────────────────────────────────────────────────────── */
-
-interface SaveButtonProps {
-  /** Extra classes for the button */
-  className?: string;
-  /** Padding variant: 'compact' for sub-header, 'default' for main header */
-  variant?: "compact" | "default";
-}
-
-export function SaveButton({ className, variant = "default" }: SaveButtonProps) {
-  const handleSave = useCallback(() => {
-    const json = useWorkflowStore.getState().getWorkflowJSON();
-    useSavedWorkflowsStore.getState().save(json);
-    toast.success("Workflow saved to library");
-  }, []);
-
-  const px = variant === "compact" ? "px-2" : "px-3";
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleSave}
-          className={`${TEXT_MUTED} hover:text-zinc-100 h-8 ${px} text-sm ${className ?? ""}`}
-        >
-          <Save className="h-4 w-4 mr-1.5" />
-          Save
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent side="bottom">Save workflow to library</TooltipContent>
-    </Tooltip>
-  );
-}
-
 /* ── Library Toggle Button ───────────────────────────────────────────────── */
 
 interface LibraryToggleButtonProps {
@@ -81,24 +43,26 @@ interface LibraryToggleButtonProps {
 
 export function LibraryToggleButton({ className, variant = "default" }: LibraryToggleButtonProps) {
   const librarySidebarOpen = useSavedWorkflowsStore((s) => s.sidebarOpen);
+  const isCompact = variant === "compact";
 
-  const px = variant === "compact" ? "px-2" : "px-3";
+  const px = isCompact ? "px-0" : "px-3";
 
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <Button
           variant="ghost"
-          size="sm"
+          size={isCompact ? "icon-sm" : "sm"}
           onClick={() => useSavedWorkflowsStore.getState().toggleSidebar()}
-          className={`h-8 ${px} text-sm ${
+          aria-label="Toggle library"
+          className={`${isCompact ? "size-8" : `h-8 ${px} text-sm`} ${
             librarySidebarOpen
               ? "text-blue-400 bg-zinc-800/80"
               : TEXT_MUTED
           } hover:text-zinc-100 ${className ?? ""}`}
         >
-          <Library className="h-4 w-4 mr-1.5" />
-          Library
+          <Library className={`h-4 w-4 ${isCompact ? "" : "mr-1.5"}`} />
+          {!isCompact && "Library"}
         </Button>
       </TooltipTrigger>
       <TooltipContent side="bottom">Toggle saved workflows</TooltipContent>
@@ -134,7 +98,7 @@ export function HelpMenu({ className }: HelpMenuProps) {
             size="icon-sm"
             className={`${TEXT_MUTED} hover:text-zinc-100 size-8 ${className ?? ""}`}
           >
-            <HelpCircle className="h-[18px] w-[18px]" />
+            <HelpCircle className="h-4.5 w-4.5" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-52">
@@ -192,8 +156,9 @@ interface ConnectButtonProps {
 export function ConnectButton({ className, variant = "default" }: ConnectButtonProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const status = useOpenCodeStore((s) => s.status);
+  const isCompact = variant === "compact";
 
-  const px = variant === "compact" ? "px-2" : "px-3";
+  const px = isCompact ? "px-0" : "px-3";
 
   const isConnected = status === "connected";
   const isConnecting = status === "connecting";
@@ -219,9 +184,10 @@ export function ConnectButton({ className, variant = "default" }: ConnectButtonP
         <TooltipTrigger asChild>
           <Button
             variant="ghost"
-            size="sm"
+            size={isCompact ? "icon-sm" : "sm"}
             onClick={() => setDialogOpen(true)}
-            className={`h-8 ${px} text-sm ${labelColor} hover:text-zinc-100 gap-1.5 ${className ?? ""}`}
+            aria-label={isConnected ? "Connection status" : "Connect to OpenCode"}
+            className={`${isCompact ? "size-8" : `h-8 ${px} text-sm gap-1.5`} ${labelColor} hover:text-zinc-100 ${className ?? ""}`}
           >
             <span className="relative flex items-center">
               <Radio className="h-4 w-4" />
@@ -231,7 +197,7 @@ export function ConnectButton({ className, variant = "default" }: ConnectButtonP
                 } ${isConnecting ? "animate-pulse" : ""} ring-2 ring-zinc-900`}
               />
             </span>
-            {isConnected ? "Connected" : "Connect"}
+            {!isCompact && (isConnected ? "Connected" : "Connect")}
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom">

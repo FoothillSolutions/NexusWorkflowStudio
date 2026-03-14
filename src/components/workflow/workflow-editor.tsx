@@ -25,7 +25,7 @@ import { useWhatsNew } from "@/hooks/use-whats-new";
 export default function WorkflowEditor() {
   const closePropertiesPanel = useWorkflowStore((s) => s.closePropertiesPanel);
   const getWorkflowJSON = useWorkflowStore((s) => s.getWorkflowJSON);
-  const reset = useWorkflowStore((s) => s.reset);
+  const refreshSaveState = useWorkflowStore((s) => s.refreshSaveState);
   const activeSubWorkflowNodeId = useWorkflowStore((s) => s.activeSubWorkflowNodeId);
   const openSubWorkflow = useWorkflowStore((s) => s.openSubWorkflow);
   const whatsNew = useWhatsNew();
@@ -81,10 +81,7 @@ export default function WorkflowEditor() {
       // ── Mod+Alt+N → New workflow ──────────────────────────────────
       if (mod && e.altKey && e.code === "KeyN") {
         e.preventDefault();
-        reset();
-        useSavedWorkflowsStore.getState().clearActiveId();
-        window.dispatchEvent(new CustomEvent("nexus:fit-view"));
-        toast.success("New workflow created");
+        window.dispatchEvent(new CustomEvent("nexus:new-workflow-request"));
         return;
       }
 
@@ -135,7 +132,7 @@ export default function WorkflowEditor() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [closePropertiesPanel, getWorkflowJSON, reset]);
+  }, [closePropertiesPanel, getWorkflowJSON]);
 
   // Auto-save subscription — only reacts to data changes, not high-frequency
   // position updates. We compare references so that dragging (which creates a
@@ -159,22 +156,25 @@ export default function WorkflowEditor() {
         prevEdges = state.edges;
         prevName = state.name;
 
+        const snapshot = stripTransientProperties({
+          name: state.name,
+          nodes: state.nodes,
+          edges: state.edges,
+          ui: {
+            sidebarOpen: state.sidebarOpen,
+            minimapVisible: state.minimapVisible,
+            viewport: state.viewport,
+            canvasMode: state.canvasMode,
+            edgeStyle: state.edgeStyle,
+          },
+        });
+
+        refreshSaveState(snapshot);
         // Throttle will coalesce rapid position updates into one trailing save
-        throttledSave(stripTransientProperties({
-            name: state.name,
-            nodes: state.nodes,
-            edges: state.edges,
-            ui: {
-                sidebarOpen: state.sidebarOpen,
-                minimapVisible: state.minimapVisible,
-                viewport: state.viewport,
-                canvasMode: state.canvasMode,
-                edgeStyle: state.edgeStyle,
-            }
-        }));
+        throttledSave(snapshot);
     });
     return () => unsub();
-  }, []);
+  }, [refreshSaveState]);
 
   return (
     <ReactFlowProvider>

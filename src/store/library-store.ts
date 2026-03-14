@@ -59,6 +59,7 @@ export const useSavedWorkflowsStore = create<SavedWorkflowsState>((set, get) => 
     // Reuse activeId when no explicit id is given (so "Save" updates the same entry)
     const id = existingId ?? get().activeId ?? nanoid();
     saveWorkflowToCollection(id, workflow);
+    useWorkflowStore.getState().markWorkflowSaved(workflow);
     set({ activeId: id });
     get().refresh();
     return id;

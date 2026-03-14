@@ -104,7 +104,7 @@ export async function fetchAiExamples(
     } catch {
       set({ aiExamplesStatus: "error", _examplesAbortController: null });
     }
-  } catch (_err) {
+  } catch {
     if (abortController.signal.aborted) {
       set({ aiExamplesStatus: "idle", _examplesAbortController: null });
       return;

@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import { useWorkflowStore } from "@/store/workflow-store";
+import { useSavedWorkflowsStore } from "@/store/library-store";
 import {
   importWorkflow,
   loadFromLocalStorage,
@@ -53,7 +54,8 @@ export default function LoadDialog({ open, onOpenChange }: LoadDialogProps) {
       try {
         const file = acceptedFiles[0];
         const data = await importWorkflow(file);
-        loadWorkflow(data);
+        loadWorkflow(data, { savedToLibrary: false });
+        useSavedWorkflowsStore.getState().clearActiveId();
         window.dispatchEvent(new CustomEvent("nexus:fit-view"));
         toast.success("Workflow imported successfully");
         onOpenChange(false);
@@ -77,7 +79,8 @@ export default function LoadDialog({ open, onOpenChange }: LoadDialogProps) {
   const handleLoadLastSaved = () => {
     const data = loadFromLocalStorage();
     if (data) {
-      loadWorkflow(data);
+      loadWorkflow(data, { savedToLibrary: false });
+      useSavedWorkflowsStore.getState().clearActiveId();
       window.dispatchEvent(new CustomEvent("nexus:fit-view"));
       toast.success("Last saved workflow loaded");
       onOpenChange(false);

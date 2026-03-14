@@ -20,7 +20,7 @@ import type {
 import type { SubWorkflowNodeData } from "@/nodes/sub-workflow/types";
 import { SubAgentModel, SubAgentMemory } from "@/nodes/agent/enums";
 import { createNodeFromType } from "@/lib/node-registry";
-import { stripTransientProperties } from "@/lib/persistence";
+import { stripTransientProperties, stripFingerprintProperties } from "@/lib/persistence";
 import { usePromptGenStore } from "@/store/prompt-gen-store";
 import { moveNodeIntoSubWorkflowContext } from "@/lib/subworkflow-transfer";
 
@@ -42,6 +42,10 @@ interface WorkflowState {
   name: string;
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
+  saveBaselineFingerprint: string;
+  librarySavedFingerprint: string | null;
+  isDirty: boolean;
+  needsSave: boolean;
 
   // UI
   sidebarOpen: boolean;
@@ -111,9 +115,11 @@ interface WorkflowState {
   moveNodeIntoSubWorkflow: (sourceNodeId: string, targetSubWorkflowNodeId: string) => boolean;
 
   // Persistence
-  loadWorkflow: (json: WorkflowJSON) => void;
+  loadWorkflow: (json: WorkflowJSON, options?: { savedToLibrary?: boolean }) => void;
   getWorkflowJSON: () => WorkflowJSON;
   reset: () => void;
+  refreshSaveState: (snapshot?: Pick<WorkflowJSON, "name" | "nodes" | "edges">) => void;
+  markWorkflowSaved: (snapshot?: Pick<WorkflowJSON, "name" | "nodes" | "edges">) => void;
 }
 
 // Helpers
@@ -122,6 +128,14 @@ interface WorkflowState {
 export const START_NODE_ID = "start-default";
 /** The fixed ID used for the default End node. */
 export const END_NODE_ID = "end-default";
+
+const SAVE_STATUS_UI = {
+  sidebarOpen: false,
+  minimapVisible: true,
+  viewport: { x: 0, y: 0, zoom: 1 } as Viewport,
+  canvasMode: "hand" as CanvasMode,
+  edgeStyle: "bezier" as EdgeStyle,
+};
 
 function createDefaultStartNode(): WorkflowNode {
   return {
@@ -136,6 +150,33 @@ function createDefaultEndNode(): WorkflowNode {
     ...createNodeFromType("end", { x: 600, y: 200 }),
     id: END_NODE_ID,
   } as WorkflowNode;
+}
+
+function getWorkflowFingerprint(snapshot: Pick<WorkflowJSON, "name" | "nodes" | "edges">): string {
+  const cleaned = stripFingerprintProperties({
+    ...snapshot,
+    ui: SAVE_STATUS_UI,
+  });
+
+  return JSON.stringify({
+    name: cleaned.name,
+    nodes: cleaned.nodes,
+    edges: cleaned.edges,
+  });
+}
+
+function deriveSaveStatus(
+  currentFingerprint: string,
+  baselineFingerprint: string,
+  librarySavedFingerprint: string | null,
+) {
+  const isDirty = currentFingerprint !== baselineFingerprint;
+  const needsSave = isDirty || (
+    librarySavedFingerprint === null &&
+    currentFingerprint !== PRISTINE_WORKFLOW_FINGERPRINT
+  );
+
+  return { isDirty, needsSave };
 }
 
 /** Ensure a workflow's node list always contains the Start node. */
@@ -204,10 +245,16 @@ function updateNestedSubWorkflowNodes(
   });
 }
 
-const initialState = {
+const initialWorkflowData = {
   name: "Untitled Workflow",
   nodes: [createDefaultStartNode(), createDefaultEndNode()] as WorkflowNode[],
   edges: [] as WorkflowEdge[],
+};
+
+const PRISTINE_WORKFLOW_FINGERPRINT = getWorkflowFingerprint(initialWorkflowData);
+
+const initialState = {
+  ...initialWorkflowData,
   sidebarOpen: true,
   minimapVisible: true,
   selectedNodeId: null as string | null,
@@ -222,6 +269,10 @@ const initialState = {
   subWorkflowNodes: [] as WorkflowNode[],
   subWorkflowEdges: [] as WorkflowEdge[],
   subWorkflowParentNodes: [] as WorkflowNode[],
+  saveBaselineFingerprint: PRISTINE_WORKFLOW_FINGERPRINT,
+  librarySavedFingerprint: null as string | null,
+  isDirty: false,
+  needsSave: false,
 };
 
 // Store
@@ -869,19 +920,28 @@ export const useWorkflowStore = create<WorkflowState>()(
   },
 
   // Persistence
-  loadWorkflow: (json) => {
+  loadWorkflow: (json, options) => {
     // Dispose any active AI prompt-generation session from the previous workflow
     usePromptGenStore.getState().disposeSession();
 
+    const savedToLibrary = options?.savedToLibrary ?? false;
     const nodes = ensureEndNode(
       ensureStartNode(json.nodes).map((n) =>
         n.data?.type === "start" ? { ...n, deletable: false } : n
       ) as WorkflowNode[]
     );
+    const edges = json.edges.map((e) => ({ ...e, type: "deletable" }));
+    const fingerprint = getWorkflowFingerprint({
+      name: json.name,
+      nodes,
+      edges,
+    });
+    const librarySavedFingerprint = savedToLibrary ? fingerprint : null;
+
     set({
       name: json.name,
       nodes,
-      edges: json.edges.map((e) => ({ ...e, type: "deletable" })),
+      edges,
       sidebarOpen: json.ui.sidebarOpen,
       minimapVisible: json.ui.minimapVisible,
       viewport: json.ui.viewport,
@@ -895,6 +955,9 @@ export const useWorkflowStore = create<WorkflowState>()(
       subWorkflowParentNodes: [],
       selectedNodeId: null,
       propertiesPanelOpen: false,
+      saveBaselineFingerprint: fingerprint,
+      librarySavedFingerprint,
+      ...deriveSaveStatus(fingerprint, fingerprint, librarySavedFingerprint),
     });
   },
 
@@ -911,6 +974,43 @@ export const useWorkflowStore = create<WorkflowState>()(
         canvasMode: state.canvasMode,
         edgeStyle: state.edgeStyle,
       },
+    });
+  },
+
+  refreshSaveState: (snapshot) => {
+    const state = get();
+    const currentFingerprint = snapshot
+      ? getWorkflowFingerprint(snapshot)
+      : getWorkflowFingerprint({
+          name: state.name,
+          nodes: state.nodes,
+          edges: state.edges,
+        });
+    const next = deriveSaveStatus(
+      currentFingerprint,
+      state.saveBaselineFingerprint,
+      state.librarySavedFingerprint,
+    );
+
+    if (state.isDirty !== next.isDirty || state.needsSave !== next.needsSave) {
+      set(next);
+    }
+  },
+
+  markWorkflowSaved: (snapshot) => {
+    const state = get();
+    const fingerprint = snapshot
+      ? getWorkflowFingerprint(snapshot)
+      : getWorkflowFingerprint({
+          name: state.name,
+          nodes: state.nodes,
+          edges: state.edges,
+        });
+
+    set({
+      saveBaselineFingerprint: fingerprint,
+      librarySavedFingerprint: fingerprint,
+      ...deriveSaveStatus(fingerprint, fingerprint, fingerprint),
     });
   },
 

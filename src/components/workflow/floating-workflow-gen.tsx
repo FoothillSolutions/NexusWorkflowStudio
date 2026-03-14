@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useCallback, useMemo } from "react";
+import { useEffect, useRef, useCallback, useMemo, useState } from "react";
 import {
   Sparkles,
   X,
@@ -22,8 +22,10 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import UnsavedChangesDialog from "./unsaved-changes-dialog";
 import { useWorkflowGenStore } from "@/store/workflow-gen-store";
 import { useOpenCodeStore } from "@/store/opencode-store";
+import { useWorkflowStore } from "@/store/workflow-store";
 import { useModels } from "@/hooks/use-models";
 import { ModelSelect } from "@/nodes/shared/model-select";
 import { toast } from "sonner";
@@ -77,11 +79,13 @@ export default function FloatingWorkflowGen() {
   const connectionStatus = useOpenCodeStore((s) => s.status);
   const isConnected = connectionStatus === "connected";
   const currentProject = useOpenCodeStore((s) => s.currentProject);
+  const needsSave = useWorkflowStore((s) => s.needsSave);
 
   const { groups } = useModels();
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const [confirmGenerateOpen, setConfirmGenerateOpen] = useState(false);
 
   const isStreaming = status === "streaming" || status === "creating-session";
   const isDone = status === "done";
@@ -289,7 +293,7 @@ export default function FloatingWorkflowGen() {
     }
   }, [floating, collapsed]);
 
-  const handleGenerate = useCallback(async () => {
+  const runGenerate = useCallback(async () => {
     // Auto-collapse when generation starts so the user sees the canvas
     useWorkflowGenStore.setState({ collapsed: true });
     await generate();
@@ -298,6 +302,15 @@ export default function FloatingWorkflowGen() {
       toast.success("Workflow generated successfully!");
     }
   }, [generate]);
+
+  const handleGenerate = useCallback(async () => {
+    if (needsSave) {
+      setConfirmGenerateOpen(true);
+      return;
+    }
+
+    await runGenerate();
+  }, [needsSave, runGenerate]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -398,6 +411,17 @@ export default function FloatingWorkflowGen() {
           </button>
         </div>
       </div>
+
+      <UnsavedChangesDialog
+        open={confirmGenerateOpen}
+        onOpenChange={setConfirmGenerateOpen}
+        title="Generate a new workflow with AI?"
+        description="Your current workflow has unsaved work. Generating with AI will replace the current canvas."
+        confirmLabel="Generate Anyway"
+        onConfirm={() => {
+          void runGenerate();
+        }}
+      />
 
       {/* ── Collapsed status bar ──────────────────────────────────── */}
       {collapsed && (
@@ -532,7 +556,7 @@ export default function FloatingWorkflowGen() {
               onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="e.g. A multi-agent code review workflow…"
-              className="min-h-[80px] bg-zinc-800/50 border-zinc-700/50 text-zinc-100 placeholder:text-zinc-600 resize-none text-xs focus:border-violet-500/50 focus:ring-violet-500/20"
+              className="min-h-20 bg-zinc-800/50 border-zinc-700/50 text-zinc-100 placeholder:text-zinc-600 resize-none text-xs focus:border-violet-500/50 focus:ring-violet-500/20"
               disabled={isStreaming}
             />
             <p className="text-[10px] text-zinc-600">
@@ -576,15 +600,15 @@ export default function FloatingWorkflowGen() {
                     >
                       <div className="flex flex-col justify-center gap-1.5 h-full">
                         <div
-                          className="h-2.5 rounded-md bg-gradient-to-r from-zinc-800/60 via-zinc-700/30 to-zinc-800/60 animate-shimmer"
+                          className="h-2.5 rounded-md bg-linear-to-r from-zinc-800/60 via-zinc-700/30 to-zinc-800/60 animate-shimmer"
                           style={{ width: `${85 - i * 10}%`, backgroundSize: "200% 100%" }}
                         />
                         <div
-                          className="h-2.5 rounded-md bg-gradient-to-r from-zinc-800/60 via-zinc-700/30 to-zinc-800/60 animate-shimmer"
+                          className="h-2.5 rounded-md bg-linear-to-r from-zinc-800/60 via-zinc-700/30 to-zinc-800/60 animate-shimmer"
                           style={{ width: `${70 - i * 8}%`, backgroundSize: "200% 100%", animationDelay: `${0.15 * (i + 1)}s` }}
                         />
                         <div
-                          className="h-2.5 rounded-md bg-gradient-to-r from-zinc-800/60 via-zinc-700/30 to-zinc-800/60 animate-shimmer"
+                          className="h-2.5 rounded-md bg-linear-to-r from-zinc-800/60 via-zinc-700/30 to-zinc-800/60 animate-shimmer"
                           style={{ width: `${55 - i * 5}%`, backgroundSize: "200% 100%", animationDelay: `${0.3 * (i + 1)}s` }}
                         />
                       </div>
@@ -598,10 +622,10 @@ export default function FloatingWorkflowGen() {
                     key={`ai-example-${i}`}
                     type="button"
                     onClick={() => handleExampleClick(example)}
-                    className="text-left text-[11px] leading-[16px] text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 rounded-lg px-2.5 transition-colors border border-transparent hover:border-zinc-700/50 animate-in fade-in-50 duration-300 overflow-hidden"
+                    className="text-left text-[11px] leading-4 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 rounded-lg px-2.5 transition-colors border border-transparent hover:border-zinc-700/50 animate-in fade-in-50 duration-300 overflow-hidden"
                     style={{ height: EXAMPLE_ROW_HEIGHT, display: "flex", alignItems: "flex-start", paddingTop: 6, paddingBottom: 0 }}
                   >
-                    <BotMessageSquare size={9} className="text-violet-400/70 shrink-0 mt-[3px] mr-1.5" />
+                    <BotMessageSquare size={9} className="text-violet-400/70 shrink-0 mt-0.75 mr-1.5" />
                     <span className="overflow-hidden" style={{ display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }}>{example}</span>
                   </button>
                 ))}

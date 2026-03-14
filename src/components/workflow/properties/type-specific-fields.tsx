@@ -25,7 +25,7 @@ export function TypeSpecificFields({ nodeType, register, control, setValue, sele
   switch (nodeType) {
     case "prompt":         return <PromptFields control={control} setValue={setValue} nodeId={selectedNodeId} />;
     case "agent":          return <SubAgentFields control={control} setValue={setValue} nodeId={selectedNodeId} />;
-    case "parallel-agent": return <ParallelAgentFields register={register} control={control} setValue={setValue} nodeId={selectedNodeId} />;
+    case "parallel-agent": return <ParallelAgentFields register={register} control={control} nodeId={selectedNodeId} />;
     case "sub-workflow":   return <SubWorkflowFields control={control} setValue={setValue} nodeId={selectedNodeId} />;
     case "skill":          return <SkillFields register={register} control={control} setValue={setValue} nodeId={selectedNodeId} />;
     case "document":       return <DocumentFields register={register} control={control} setValue={setValue} />;

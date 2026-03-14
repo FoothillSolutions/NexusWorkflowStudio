@@ -200,7 +200,7 @@ function NodePreview({ item }: { item: LibraryItemEntry }) {
         }}
       >
         {Icon && <Icon size={16} style={{ color: accentHex }} />}
-        <span className="text-sm font-medium text-zinc-300 max-w-[160px] truncate">
+        <span className="text-sm font-medium text-zinc-300 max-w-40 truncate">
           {item.name}
         </span>
       </div>
@@ -470,7 +470,7 @@ function EmptyState({ category }: { category: LibraryCategory | "all" }) {
       <p className={`text-sm font-medium ${TEXT_MUTED}`}>
         No {category === "all" ? "items" : label.toLowerCase()} saved
       </p>
-      <p className={`text-xs ${TEXT_SUBTLE} mt-1 max-w-[240px]`}>
+      <p className={`text-xs ${TEXT_SUBTLE} mt-1 max-w-60`}>
         {category === "workflow" || category === "all"
           ? "Save workflows via the header, or right-click nodes to save them to the library"
           : "Right-click a node on the canvas and select \"Save to Library\""}
@@ -511,7 +511,7 @@ export default function LibraryPanel({ onLoadWorkflow, onLoadItem }: LibraryPane
         if (onLoadWorkflow) {
           onLoadWorkflow(data, id);
         } else {
-          loadWorkflow(data);
+          loadWorkflow(data, { savedToLibrary: true });
         }
         window.dispatchEvent(new CustomEvent("nexus:fit-view"));
         toast.success("Workflow loaded");
@@ -627,7 +627,7 @@ export default function LibraryPanel({ onLoadWorkflow, onLoadItem }: LibraryPane
       >
         {/* ── Header ── */}
         <div className="flex items-center gap-2.5 px-4 py-3 border-b border-zinc-700/50 shrink-0">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg shrink-0 bg-gradient-to-br from-blue-500/20 to-purple-500/20">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg shrink-0 bg-linear-to-br from-blue-500/20 to-purple-500/20">
             <Library className="h-3.5 w-3.5 text-blue-400" />
           </div>
           <div className="flex flex-col flex-1 min-w-0 gap-0">
@@ -693,7 +693,7 @@ export default function LibraryPanel({ onLoadWorkflow, onLoadItem }: LibraryPane
                     {label}
                   </span>
                   {count > 0 && (
-                    <span className={`text-[10px] min-w-[14px] text-center transition-opacity duration-200 ${isActive ? "opacity-50" : "opacity-40"}`}>
+                    <span className={`text-[10px] min-w-3.5 text-center transition-opacity duration-200 ${isActive ? "opacity-50" : "opacity-40"}`}>
                       {count}
                     </span>
                   )}
