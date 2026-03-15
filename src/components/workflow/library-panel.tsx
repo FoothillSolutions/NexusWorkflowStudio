@@ -9,16 +9,8 @@ import type { NodeType } from "@/types/workflow";
 import { NODE_REGISTRY } from "@/lib/node-registry";
 import { NODE_ACCENT } from "@/lib/node-colors";
 import { Button } from "@/components/ui/button";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
 import {
   X,
@@ -45,9 +37,6 @@ import {
   TEXT_MUTED,
   TEXT_SUBTLE,
   BG_CANVAS_HEX,
-  BG_SURFACE,
-  BORDER_DEFAULT,
-  BG_ELEVATED,
 } from "@/lib/theme";
 import type { WorkflowJSON } from "@/types/workflow";
 
@@ -706,7 +695,7 @@ export default function LibraryPanel({ onLoadWorkflow, onLoadItem }: LibraryPane
         <div className="border-t border-zinc-700/30 mx-3" />
 
         {/* ── Content ── */}
-        <div className="flex-1 min-h-0 overflow-y-auto custom-scroll">
+        <ScrollArea className="flex-1 min-h-0" viewportClassName="overscroll-contain">
           <div className="p-3.5 space-y-2.5">
             {!hasItems && <EmptyState category={activeCategory} />}
 
@@ -760,43 +749,28 @@ export default function LibraryPanel({ onLoadWorkflow, onLoadItem }: LibraryPane
               </>
             )}
           </div>
-        </div>
+        </ScrollArea>
       </div>
 
       {/* ── Delete confirmation ── */}
-      <AlertDialog
+      <ConfirmDialog
         open={confirmDelete !== null}
         onOpenChange={(open) => {
           if (!open) setConfirmDelete(null);
         }}
-      >
-        <AlertDialogContent className={`${BG_SURFACE} ${BORDER_DEFAULT} ${TEXT_PRIMARY}`}>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete this {confirmDelete?.type === "workflow" ? "workflow" : "item"}?</AlertDialogTitle>
-            <AlertDialogDescription className={TEXT_MUTED}>
-              {confirmDelete && (
-                <>
-                  <span className="font-medium text-zinc-200">
-                    &ldquo;{confirmDelete.name}&rdquo;
-                  </span>{" "}
-                  will be permanently removed. This action cannot be undone.
-                </>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel
-              className={`${BG_ELEVATED} ${TEXT_SECONDARY} ${BORDER_MUTED} hover:bg-zinc-700 hover:text-zinc-100`}
-              onClick={() => setConfirmDelete(null)}
-            >
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={executeDelete}>
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        tone="danger"
+        title={`Delete this ${confirmDelete?.type === "workflow" ? "workflow" : "item"}?`}
+        description={confirmDelete ? (
+          <>
+            <span className="font-medium text-zinc-200">
+              &ldquo;{confirmDelete.name}&rdquo;
+            </span>{" "}
+            will be permanently removed. This action cannot be undone.
+          </>
+        ) : undefined}
+        confirmLabel="Delete"
+        onConfirm={executeDelete}
+      />
     </>
   );
 }

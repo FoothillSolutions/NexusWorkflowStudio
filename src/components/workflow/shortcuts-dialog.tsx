@@ -6,6 +6,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { MOD, SHIFT, ALT, DEL, PLATFORM } from "@/lib/platform";
 
 interface ShortcutsDialogProps {
@@ -58,7 +59,8 @@ export default function ShortcutsDialog({ open, onOpenChange }: ShortcutsDialogP
           </DialogTitle>
         </DialogHeader>
 
-        <div className="mt-1 max-h-[60vh] overflow-y-auto pr-1">
+        <ScrollArea className="mt-1 max-h-[60vh]" viewportClassName="pr-3">
+          <div>
           <Section title="File">
             <Row keys={[MOD, ALT, "N"]} label="New workflow" />
             <Row keys={[MOD, "S"]} label="Save to library" />
@@ -99,7 +101,8 @@ export default function ShortcutsDialog({ open, onOpenChange }: ShortcutsDialogP
             <Row keys={["Esc"]} label="Close panel / dialog" />
             <Row keys={["?"]} label="Show this dialog" />
           </Section>
-        </div>
+          </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );

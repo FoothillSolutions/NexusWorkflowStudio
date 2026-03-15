@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   ArrowRight,
   Bot,
@@ -184,7 +185,8 @@ export default function GeneratedExportDialog({
           </div>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
+        <ScrollArea className="min-h-0 flex-1">
+          <div className="space-y-6 px-4 py-5 sm:px-6 sm:py-6">
           <section className="space-y-3">
             <div>
               <div className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
@@ -321,7 +323,8 @@ export default function GeneratedExportDialog({
               </div>
             ) : null}
           </section>
-        </div>
+          </div>
+        </ScrollArea>
 
         <DialogFooter className="shrink-0 flex-col gap-3 border-t border-zinc-800 px-4 py-4 sm:px-6 sm:flex-row sm:items-center sm:justify-between">
           <p className={`text-xs leading-relaxed ${TEXT_SUBTLE}`}>

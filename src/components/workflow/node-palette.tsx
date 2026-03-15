@@ -4,6 +4,7 @@ import { useWorkflowStore } from "@/store/workflow-store";
 import { BASIC_NODES, CONTROL_FLOW_NODES, type NodeRegistryEntry } from "@/lib/node-registry";
 import { Menu, X, ScrollText, Scale, ShieldCheck } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import {
   BORDER_MUTED,
@@ -155,14 +156,22 @@ export default function NodePalette() {
               </TabsList>
             </div>
 
-            <TabsContent value="basic" className="flex-1 overflow-y-auto p-3 space-y-2 mt-0">
-              {BASIC_NODES.filter((n) => n.type !== "start").map(renderNodeItem)}
-              {COMING_SOON_BASIC.map(renderComingSoonPlaceholder)}
+            <TabsContent value="basic" className="mt-0 flex-1 overflow-hidden">
+              <ScrollArea className="h-full">
+                <div className="space-y-2 p-3">
+                  {BASIC_NODES.filter((n) => n.type !== "start").map(renderNodeItem)}
+                  {COMING_SOON_BASIC.map(renderComingSoonPlaceholder)}
+                </div>
+              </ScrollArea>
             </TabsContent>
 
-            <TabsContent value="control" className="flex-1 overflow-y-auto p-3 space-y-2 mt-0">
-              {CONTROL_FLOW_NODES.map(renderNodeItem)}
-              {COMING_SOON_CONTROL.map(renderComingSoonPlaceholder)}
+            <TabsContent value="control" className="mt-0 flex-1 overflow-hidden">
+              <ScrollArea className="h-full">
+                <div className="space-y-2 p-3">
+                  {CONTROL_FLOW_NODES.map(renderNodeItem)}
+                  {COMING_SOON_CONTROL.map(renderComingSoonPlaceholder)}
+                </div>
+              </ScrollArea>
             </TabsContent>
           </Tabs>
         </div>

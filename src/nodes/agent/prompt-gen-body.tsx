@@ -243,7 +243,7 @@ export function PromptGenBody() {
                   : isPromptNode
                     ? "e.g. Write a prompt that takes a topic and generates a structured blog post with an intro, 3 key points, and a conclusion…"
                     : "e.g. Create an agent that triages support tickets, categorizes by priority, and generates a daily report…"}
-                className="bg-zinc-800/40 border-zinc-700/40 rounded-lg text-sm min-h-[80px] resize-none focus-visible:ring-violet-600/40 placeholder:text-zinc-600"
+                className="bg-zinc-800/40 border-zinc-700/40 rounded-lg text-sm min-h-20 resize-none focus-visible:ring-violet-600/40 placeholder:text-zinc-600"
                 rows={3}
                 disabled={isGenerating}
               />
@@ -322,7 +322,7 @@ export function PromptGenBody() {
             value={editInstruction}
             onChange={(e) => setEditInstruction(e.target.value)}
             placeholder="e.g. Add error handling for missing API keys, make the tone more formal…"
-            className="bg-zinc-800/40 border-zinc-700/40 rounded-lg text-sm min-h-[80px] resize-none focus-visible:ring-amber-600/40 placeholder:text-zinc-600"
+            className="bg-zinc-800/40 border-zinc-700/40 rounded-lg text-sm min-h-20 resize-none focus-visible:ring-amber-600/40 placeholder:text-zinc-600"
             rows={3}
             disabled={isGenerating}
           />
@@ -363,7 +363,7 @@ export function PromptGenBody() {
             </div>
           </div>
           <div ref={resultRef} className={cn(
-            "rounded-lg border bg-zinc-900/60 p-3 text-xs font-mono text-zinc-300 leading-relaxed max-h-[200px] overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-all min-w-0",
+            "custom-scroll rounded-lg border bg-zinc-900/60 p-3 text-xs font-mono text-zinc-300 leading-relaxed max-h-50 overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-all min-w-0",
             isGenerating ? "border-violet-700/30 shadow-inner shadow-violet-950/20" : "border-emerald-700/30",
           )}>
             {generatedText || <span className="text-zinc-600 italic">Waiting for response…</span>}

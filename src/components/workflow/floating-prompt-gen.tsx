@@ -5,6 +5,7 @@ import {
   Sparkles, PenLine, X, ChevronDown, ChevronUp, PanelBottomClose,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useWorkflowStore } from "@/store/workflow-store";
 import { usePromptGenStore } from "@/store/prompt-gen-store";
 import { PromptGenBody } from "@/nodes/agent/prompt-gen-body";
@@ -125,9 +126,11 @@ export default function FloatingPromptGen() {
 
       {/* ── Scrollable body (hidden when collapsed) ──────────────── */}
       {!collapsed && (
-        <div className="flex-1 overflow-y-auto min-h-0 p-3.5 space-y-3.5">
-          <PromptGenBody />
-        </div>
+        <ScrollArea className="flex-1 min-h-0">
+          <div className="p-3.5 space-y-3.5">
+            <PromptGenBody />
+          </div>
+        </ScrollArea>
       )}
     </div>
   );

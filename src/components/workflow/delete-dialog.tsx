@@ -2,25 +2,7 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { useWorkflowStore } from "@/store/workflow-store";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import {
-  BG_SURFACE,
-  BORDER_DEFAULT,
-  TEXT_PRIMARY,
-  TEXT_MUTED,
-  BG_ELEVATED,
-  BORDER_MUTED,
-  TEXT_SECONDARY,
-} from "@/lib/theme";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 export default function DeleteDialog() {
   const deleteTarget = useWorkflowStore((s) => s.deleteTarget);
@@ -75,44 +57,22 @@ export default function DeleteDialog() {
   }, [deleteTarget, handleConfirm]);
 
   return (
-    <AlertDialog
+    <ConfirmDialog
       open={deleteTarget !== null}
       onOpenChange={(open) => {
         if (!open) setDeleteTarget(null);
       }}
-    >
-      <AlertDialogContent
-        className={`${BG_SURFACE} ${BORDER_DEFAULT} ${TEXT_PRIMARY}`}
-        onOpenAutoFocus={(e) => {
-          // Prevent Radix from focusing Cancel; we focus Delete instead
-          e.preventDefault();
-          deleteRef.current?.focus();
-        }}
-      >
-        <AlertDialogHeader>
-          <AlertDialogTitle>
-            Delete {deleteTarget?.type === "selection" ? targetLabel : `this ${targetLabel}`}?
-          </AlertDialogTitle>
-          <AlertDialogDescription className={TEXT_MUTED}>
-            This action cannot be undone.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel
-            className={`${BG_ELEVATED} ${TEXT_SECONDARY} ${BORDER_MUTED} hover:bg-zinc-700 hover:text-zinc-100`}
-            onClick={() => setDeleteTarget(null)}
-          >
-            Cancel
-          </AlertDialogCancel>
-          <AlertDialogAction
-            ref={deleteRef}
-            variant="destructive"
-            onClick={handleConfirm}
-          >
-            Delete
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+      tone="danger"
+      title={`Delete ${deleteTarget?.type === "selection" ? targetLabel : `this ${targetLabel}`}?`}
+      description="This action cannot be undone."
+      confirmLabel="Delete"
+      onConfirm={handleConfirm}
+      confirmRef={deleteRef}
+      onOpenAutoFocus={(e) => {
+        // Prevent Radix from focusing Cancel; we focus Delete instead
+        e.preventDefault();
+        deleteRef.current?.focus();
+      }}
+    />
   );
 }

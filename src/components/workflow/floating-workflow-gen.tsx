@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import UnsavedChangesDialog from "./unsaved-changes-dialog";
 import { useWorkflowGenStore } from "@/store/workflow-gen-store";
 import { useOpenCodeStore } from "@/store/opencode-store";
@@ -463,7 +464,8 @@ export default function FloatingWorkflowGen() {
             />
           </div>
 
-          <div className="flex-1 overflow-y-auto min-h-0 px-3.5 pb-3.5 pt-3.5 space-y-3.5">
+          <ScrollArea className="flex-1 min-h-0">
+          <div className="px-3.5 pb-3.5 pt-3.5 space-y-3.5">
           {/* ── Connection warning ──────────────────────────────── */}
           {!isConnected && (
             <div className="flex items-center gap-2 text-amber-400 bg-amber-950/20 border border-amber-800/30 rounded-lg px-3 py-2 text-xs">
@@ -697,7 +699,7 @@ export default function FloatingWorkflowGen() {
                     <summary className="text-[10px] text-zinc-600 cursor-pointer hover:text-zinc-400 select-none">
                       Show raw output…
                     </summary>
-                    <pre className="mt-1.5 text-[9px] text-zinc-600 bg-zinc-950/50 rounded p-1.5 max-h-24 overflow-auto font-mono whitespace-pre-wrap break-all">
+                    <pre className="custom-scroll mt-1.5 text-[9px] text-zinc-600 bg-zinc-950/50 rounded p-1.5 max-h-24 overflow-auto font-mono whitespace-pre-wrap break-all">
                       {streamedText.slice(-1500)}
                     </pre>
                   </details>
@@ -747,6 +749,7 @@ export default function FloatingWorkflowGen() {
             </div>
           </div>
         </div>
+        </ScrollArea>
         </>
       )}
     </div>

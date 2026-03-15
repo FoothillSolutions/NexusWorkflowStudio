@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect } from "react";
 import { ChevronDown, Check, Sparkles, Lock, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { SubAgentModel, MODEL_DISPLAY_NAMES, MODEL_COST_MULTIPLIER } from "@/nodes/agent/enums";
 import { useModels } from "@/hooks/use-models";
 
@@ -141,7 +142,7 @@ export function ModelSelect({ value, onChange, hideInherit }: ModelSelectProps) 
             "shadow-2xl shadow-black/50",
           )}
         >
-          <div className="max-h-[380px] overflow-y-auto py-1 custom-scroll">
+          <ScrollArea className="max-h-95" viewportClassName="py-1">
             {/* Inherit option */}
             {!hideInherit && (
               <button
@@ -155,7 +156,7 @@ export function ModelSelect({ value, onChange, hideInherit }: ModelSelectProps) 
                     : "text-zinc-400 border-b border-zinc-800/80"
                 )}
               >
-                <span className="w-[18px] flex items-center justify-center shrink-0">
+                <span className="w-4.5 flex items-center justify-center shrink-0">
                   <Sparkles size={13} className="text-violet-400" />
                 </span>
                 <span className="flex-1 text-left font-medium">{MODEL_DISPLAY_NAMES[SubAgentModel.Inherit]}</span>
@@ -195,7 +196,7 @@ export function ModelSelect({ value, onChange, hideInherit }: ModelSelectProps) 
                       type="button"
                       onClick={() => { onChange(m.value); setOpen(false); }}
                       className={cn(
-                        "w-full flex items-center gap-2.5 px-3 py-[7px] text-[13px] transition-colors",
+                        "w-full flex items-center gap-2.5 px-3 py-1.75 text-[13px] transition-colors",
                         "hover:bg-zinc-800/80",
                         isSelected
                           ? "text-zinc-100 bg-violet-500/8"
@@ -203,7 +204,7 @@ export function ModelSelect({ value, onChange, hideInherit }: ModelSelectProps) 
                       )}
                     >
                       {/* Fixed-size alignment spacer for the check area */}
-                      <span className="w-[18px] flex items-center justify-center shrink-0">
+                      <span className="w-4.5 flex items-center justify-center shrink-0">
                         {isSelected && (
                           <Check size={13} className="text-violet-400" />
                         )}
@@ -224,7 +225,7 @@ export function ModelSelect({ value, onChange, hideInherit }: ModelSelectProps) 
                 No models available
               </div>
             )}
-          </div>
+          </ScrollArea>
         </div>
       )}
     </div>

@@ -10,6 +10,7 @@ import {
   setActiveProjectDir,
 } from "@/lib/persistence";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Tooltip,
   TooltipContent,
@@ -321,7 +322,7 @@ export function ProjectSwitcher({
           </div>
 
           {/* Scrollable project list */}
-          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain custom-scroll">
+          <ScrollArea className="flex-1 min-h-0" viewportClassName="overscroll-contain">
             {loading ? (
               <div className="flex items-center justify-center py-8 gap-2 text-zinc-500">
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -477,7 +478,7 @@ export function ProjectSwitcher({
                 )}
               </div>
             )}
-          </div>
+          </ScrollArea>
         </div>
       )}
     </div>
