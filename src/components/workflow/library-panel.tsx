@@ -5,9 +5,11 @@ import { useSavedWorkflowsStore } from "@/store/library-store";
 import { useWorkflowStore } from "@/store/workflow-store";
 import type { SavedWorkflowEntry, LibraryItemEntry, LibraryCategory } from "@/lib/library";
 import { LIBRARY_CATEGORIES } from "@/lib/library";
-import type { NodeType } from "@/types/workflow";
+import type { NodeType, WorkflowNodeData } from "@/types/workflow";
 import { NODE_REGISTRY } from "@/lib/node-registry";
 import { NODE_ACCENT } from "@/lib/node-colors";
+import type { SubWorkflowNodeData } from "@/nodes/sub-workflow/types";
+import { normalizeSubWorkflowContents } from "@/nodes/sub-workflow/constants";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -531,10 +533,15 @@ export default function LibraryPanel({ onLoadWorkflow, onLoadItem }: LibraryPane
         return;
       }
 
-      state.updateNodeData(insertedNode.id, {
+      const normalizedNodeData = {
         ...item.nodeData,
         name: insertedNode.id,
-      });
+        ...(item.nodeType === "sub-workflow"
+          ? normalizeSubWorkflowContents(item.nodeData as Partial<SubWorkflowNodeData>)
+          : {}),
+      } as Partial<WorkflowNodeData>;
+
+      state.updateNodeData(insertedNode.id, normalizedNodeData);
       toast.success(`"${item.name}" added to canvas`);
     },
     [addNode, onLoadItem]

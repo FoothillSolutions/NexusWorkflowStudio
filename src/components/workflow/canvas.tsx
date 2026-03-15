@@ -33,7 +33,6 @@ export default function Canvas() {
   const duplicateSelectedNodes = useWorkflowStore((s) => s.duplicateSelectedNodes);
   const deleteSelectedNodes = useWorkflowStore((s) => s.deleteSelectedNodes);
   const selectAll = useWorkflowStore((s) => s.selectAll);
-  const canvasMode = useWorkflowStore((s) => s.canvasMode);
   const edgeStyle = useWorkflowStore((s) => s.edgeStyle);
   const groupIntoSubWorkflow = useWorkflowStore((s) => s.groupIntoSubWorkflow);
   const openSubWorkflow = useWorkflowStore((s) => s.openSubWorkflow);
@@ -173,6 +172,7 @@ export default function Canvas() {
   }, [groupIntoSubWorkflow]);
 
   const {
+    activeCanvasMode,
     canPaste,
     ctxMenu,
     closeMenu,
@@ -226,7 +226,7 @@ export default function Canvas() {
 
   return (
     <div
-      className={`w-full h-full relative ${canvasMode === "hand" ? "canvas-hand" : "canvas-selection"}`}
+      className={`w-full h-full relative ${activeCanvasMode === "hand" ? "canvas-hand" : "canvas-selection"}`}
       onMouseMove={onCanvasMouseMove}
     >
       <CanvasShell
@@ -248,7 +248,7 @@ export default function Canvas() {
         onNodeContextMenu={onNodeContextMenu}
         onSelectionContextMenu={onSelectionContextMenu}
         onPaneContextMenu={onPaneContextMenu}
-        canvasMode={canvasMode}
+        canvasMode={activeCanvasMode}
         edgeStyle={edgeStyle}
         minimapVisible={minimapVisible}
         toggleMinimap={toggleMinimap}

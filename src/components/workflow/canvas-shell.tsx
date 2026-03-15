@@ -54,6 +54,7 @@ interface CanvasShellProps {
   minimapVisible: boolean;
   toggleMinimap: () => void;
   isDragging: boolean;
+  fitViewOnInit?: boolean;
   children?: React.ReactNode;
 }
 
@@ -85,6 +86,7 @@ export function CanvasShell({
   minimapVisible,
   toggleMinimap,
   isDragging,
+  fitViewOnInit = true,
   children,
 }: CanvasShellProps) {
   const { getViewport, setCenter } = useReactFlow<WorkflowNode, WorkflowEdge>();
@@ -150,7 +152,7 @@ export function CanvasShell({
         connectionLineType={connectionLineType}
         connectionLineStyle={connectionLineStyle}
         minZoom={MIN_CANVAS_ZOOM}
-        fitView
+        fitView={fitViewOnInit}
         fitViewOptions={fitViewOptions}
         defaultEdgeOptions={defaultEdgeOptions}
         proOptions={proOptions}

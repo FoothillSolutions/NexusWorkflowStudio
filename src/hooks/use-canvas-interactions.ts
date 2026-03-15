@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useReactFlow } from "@xyflow/react";
-import { useWorkflowStore } from "@/store/workflow-store";
+import { useWorkflowStore, type CanvasMode } from "@/store/workflow-store";
 import { useSavedWorkflowsStore } from "@/store/library-store";
 import type { NodeType, WorkflowNode } from "@/types/workflow";
 import { isModKey } from "@/lib/platform";
@@ -55,8 +55,10 @@ export function useCanvasInteractions(callbacks: CanvasInteractionCallbacks) {
   } = callbacks;
 
   const { screenToFlowPosition } = useReactFlow();
+  const canvasMode = useWorkflowStore((s) => s.canvasMode);
   const setCanvasMode = useWorkflowStore((s) => s.setCanvasMode);
   const lastPointerPositionRef = useRef<{ x: number; y: number } | null>(null);
+  const [isShiftSelectionActive, setIsShiftSelectionActive] = useState(false);
 
   const updatePointerPosition = useCallback(
     (clientX: number, clientY: number) => {
@@ -208,8 +210,16 @@ export function useCanvasInteractions(callbacks: CanvasInteractionCallbacks) {
     const onKeyDown = (e: KeyboardEvent) => {
       if (!isSubWorkflow && useWorkflowStore.getState().activeSubWorkflowNodeId) return;
 
-      const tag = (e.target as HTMLElement).tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement).isContentEditable) return;
+      const target = e.target as HTMLElement;
+      const tag = target.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable) return;
+
+      if (e.key === "Shift") {
+        if (useWorkflowStore.getState().canvasMode === "hand") {
+          setIsShiftSelectionActive(true);
+        }
+        return;
+      }
 
       const isMod = isModKey(e);
       const lowerKey = e.key.toLowerCase();
@@ -297,10 +307,29 @@ export function useCanvasInteractions(callbacks: CanvasInteractionCallbacks) {
       }
     };
 
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.key === "Shift") {
+        setIsShiftSelectionActive(false);
+      }
+    };
+
+    const resetShiftSelection = () => {
+      setIsShiftSelectionActive(false);
+    };
+
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", resetShiftSelection);
+    document.addEventListener("visibilitychange", resetShiftSelection);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", resetShiftSelection);
+      document.removeEventListener("visibilitychange", resetShiftSelection);
+    };
   }, [
     autoLayout,
+    canvasMode,
     copySelectedNodes,
     duplicateNode,
     duplicateSelectedNodes,
@@ -317,8 +346,12 @@ export function useCanvasInteractions(callbacks: CanvasInteractionCallbacks) {
   ]);
 
   const canPaste = hasClipboardData?.() ?? false;
+  const activeCanvasMode: CanvasMode = isShiftSelectionActive && canvasMode === "hand"
+    ? "selection"
+    : canvasMode;
 
   return {
+    activeCanvasMode,
     canPaste,
     ctxMenu,
     closeMenu,

@@ -32,6 +32,7 @@ import { useAutoLayout } from "@/hooks/use-auto-layout";
 import { useCanvasInteractions } from "@/hooks/use-canvas-interactions";
 import { toast } from "sonner";
 import { moveNodeIntoSubWorkflowContext } from "@/lib/subworkflow-transfer";
+import { normalizeSubWorkflowContents } from "@/nodes/sub-workflow/constants";
 import {
   copyNodesToWorkflowClipboard,
   hasWorkflowClipboardData,
@@ -41,26 +42,6 @@ import {
 const SUBWORKFLOW_HOVER_OPEN_DELAY_MS = 450;
 
 const nanoid = customAlphabet("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", 8);
-
-function createSubStartNode(): WorkflowNode {
-  return {
-    id: `start-sub-${nanoid(8)}`,
-    type: "start",
-    position: { x: 80, y: 200 },
-    data: { type: "start", label: "Start", name: `start-sub-${nanoid(8)}` } as WorkflowNodeData,
-    deletable: false,
-  };
-}
-
-function createSubEndNode(): WorkflowNode {
-  const id = `end-sub-${nanoid(8)}`;
-  return {
-    id,
-    type: "end",
-    position: { x: 600, y: 200 },
-    data: { type: "end", label: "End", name: id } as WorkflowNodeData,
-  };
-}
 
 interface SubWorkflowCanvasInnerProps { nodeId: string; }
 
@@ -79,7 +60,6 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
   const workflowName = useWorkflowStore((s) => s.name);
   const minimapVisible = useWorkflowStore((s) => s.minimapVisible);
   const toggleMinimap = useWorkflowStore((s) => s.toggleMinimap);
-  const canvasMode = useWorkflowStore((s) => s.canvasMode);
   const edgeStyle = useWorkflowStore((s) => s.edgeStyle);
 
   const parentNode = useWorkflowStore(
@@ -90,14 +70,13 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
     }, [nodeId])
   );
   const parentData = parentNode?.data as SubWorkflowNodeData | undefined;
+  const defaultContentsRef = useRef(normalizeSubWorkflowContents(parentData));
 
   // Local state
   const [subNodes, setSubNodes] = useState<WorkflowNode[]>(() => {
-    const initial = parentData?.subNodes ?? [];
-    if (initial.length === 0) return [createSubStartNode(), createSubEndNode()];
-    return initial;
+    return defaultContentsRef.current.subNodes;
   });
-  const [subEdges, setSubEdges] = useState<WorkflowEdge[]>(parentData?.subEdges ?? []);
+  const [subEdges, setSubEdges] = useState<WorkflowEdge[]>(() => defaultContentsRef.current.subEdges);
 
   const subNodesRef = useRef(subNodes);
   const subEdgesRef = useRef(subEdges);
@@ -460,13 +439,17 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
         y: window.innerHeight / 2,
       });
       const newNode = createNodeFromType(item.nodeType, position) as WorkflowNode;
+      const hydratedData = {
+        ...newNode.data,
+        ...item.nodeData,
+        name: newNode.id,
+        ...(item.nodeType === "sub-workflow"
+          ? normalizeSubWorkflowContents(item.nodeData as Partial<SubWorkflowNodeData>)
+          : {}),
+      } as WorkflowNodeData;
       const hydratedNode: WorkflowNode = {
         ...newNode,
-        data: {
-          ...newNode.data,
-          ...item.nodeData,
-          name: newNode.id,
-        } as WorkflowNodeData,
+        data: hydratedData,
       };
 
       setSubNodes((prev) => {
@@ -486,21 +469,6 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
     setNodes: setSubNodes,
     onComplete: (nodes) => syncToParent(nodes, subEdgesRef.current),
   });
-
-  // Auto-layout on first mount when there are existing nodes (> just start/end)
-  const didInitialLayout = useRef(false);
-  useEffect(() => {
-    if (didInitialLayout.current) return;
-    didInitialLayout.current = true;
-    // Defer so React Flow has measured node dimensions
-    const timer = setTimeout(() => {
-      if (subNodesRef.current.length > 0) {
-        autoLayout();
-      }
-    }, 150);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   useEffect(() => {
     const handler = () => autoLayout();
@@ -524,6 +492,7 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
 
   // Canvas interactions via shared hook
   const {
+    activeCanvasMode,
     canPaste,
     ctxMenu,
     closeMenu,
@@ -640,7 +609,10 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
       </div>
 
       {/* Canvas area */}
-      <div className="flex-1 relative overflow-hidden" onMouseMove={onCanvasMouseMove}>
+      <div
+        className={`flex-1 relative overflow-hidden ${activeCanvasMode === "hand" ? "canvas-hand" : "canvas-selection"}`}
+        onMouseMove={onCanvasMouseMove}
+      >
         <CanvasShell
           nodes={subNodes}
           edges={subEdges}
@@ -658,11 +630,12 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
           onNodeContextMenu={onNodeContextMenu}
           onSelectionContextMenu={onSelectionContextMenu}
           onPaneContextMenu={onPaneContextMenu}
-          canvasMode={canvasMode}
+          canvasMode={activeCanvasMode}
           edgeStyle={edgeStyle}
           minimapVisible={minimapVisible}
           toggleMinimap={toggleMinimap}
           isDragging={isDragging}
+          fitViewOnInit={false}
         />
 
         <NodePalette />
