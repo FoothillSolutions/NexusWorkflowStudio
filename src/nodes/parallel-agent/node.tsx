@@ -22,6 +22,7 @@ export const ParallelAgentNode = memo(function ParallelAgentNode({ id, data, sel
   const { icon, accentHex, displayName } = parallelAgentRegistryEntry;
   const branches: ParallelAgentBranchView[] = (data.branches as ParallelAgentBranchView[] | undefined) ?? [];
   const totalSpawnCount = branches.reduce((sum, branch) => sum + Math.max(1, Number(branch.spawnCount ?? 1)), 0);
+  const agentLabel = branches.length === 1 ? "agent" : "agents";
 
   const skillCount = useWorkflowStore(
     useCallback(
@@ -73,7 +74,7 @@ export const ParallelAgentNode = memo(function ParallelAgentNode({ id, data, sel
 
         <div className="flex flex-wrap gap-1.5">
           <span className="inline-flex items-center gap-1 text-[10px] font-mono bg-indigo-950/50 text-indigo-300 border border-indigo-800/40 px-1.5 py-0.5 rounded-md">
-            <Users className="h-2.5 w-2.5" />{branches.length} agents
+            <Users className="h-2.5 w-2.5" />{branches.length} {agentLabel}
           </span>
           <span className="inline-flex items-center gap-1 text-[10px] font-mono bg-violet-950/50 text-violet-300 border border-violet-800/40 px-1.5 py-0.5 rounded-md">
             <Network className="h-2.5 w-2.5" />x{totalSpawnCount} total

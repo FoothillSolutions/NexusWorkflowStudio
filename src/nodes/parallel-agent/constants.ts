@@ -43,6 +43,6 @@ export const parallelAgentSchema = z.object({
   name: z.string().min(1, "Name is required").regex(/^[a-zA-Z0-9_-]+$/, "Only alphanumeric characters, hyphens, and underscores"),
   label: z.string().min(1, "Label is required"),
   sharedInstructions: z.string().default(""),
-  branches: z.array(parallelAgentBranchSchema).min(2, "At least 2 branches are required"),
+  branches: z.array(parallelAgentBranchSchema).min(1, "At least 1 branch is required"),
 });
 

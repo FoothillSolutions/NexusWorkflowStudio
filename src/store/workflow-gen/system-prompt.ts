@@ -271,11 +271,11 @@ The promptText for agents should be a comprehensive, multi-paragraph system prom
 start: {"type":"start","label":"Start","name":"<id>"}
 end: {"type":"end","label":"End","name":"<id>"}
 agent: {"type":"agent","label":"<label>","name":"<id>","description":"<desc>","promptText":"<detailed multi-line agent instructions>","detectedVariables":[],"model":"inherit","memory":"default","temperature":0,"color":"#5f27cd","disabledTools":[],"parameterMappings":[],"variableMappings":{}}
-parallel-agent: {"type":"parallel-agent","label":"<label>","name":"<id>","sharedInstructions":"<instructions shared by all spawned agents>","branches":[{"label":"<branch label>","instructions":"<how this lane should use the connected external agent>","spawnCount":2},{"label":"<second branch label>","instructions":"<how this lane should use the connected external agent>","spawnCount":1}]}
+parallel-agent: {"type":"parallel-agent","label":"<label>","name":"<id>","sharedInstructions":"<instructions shared by all spawned agents>","branches":[{"label":"<branch label>","instructions":"<how this lane should use the connected external agent>","spawnCount":1}]}
   NOTE on parallel-agent:
   - This is a rectangular workflow node that spawns connected external agent nodes in parallel.
   - Prefer this node when multiple independent subtasks can run at the same time, or when a big task should be split across simultaneous agents.
-  - \`branches\` MUST contain at least 2 entries.
+  - \`branches\` MUST contain at least 1 entry.
   - Each branch creates its own output handle using \`branch-<index>\`.
   - Each branch should connect to an external \`agent\` node, and \`spawnCount\` defines how many parallel runs of that target agent to launch.
   - Branch \`instructions\` describe what that branch should ask the connected external agent to focus on.

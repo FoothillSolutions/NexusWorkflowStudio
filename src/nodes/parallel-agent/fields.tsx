@@ -58,7 +58,7 @@ export function Fields({ register, control, nodeId }: ParallelAgentFieldsProps) 
         <div className="flex items-center justify-between">
           <div className="flex flex-col gap-0.5">
             <Label>Parallel Branches ({fields.length})</Label>
-            <p className="text-[11px] text-zinc-500">Minimum 2 branches required, each targeting an external agent node</p>
+            <p className="text-[11px] text-zinc-500">At least 1 branch is required, and each branch can target an external agent node</p>
           </div>
           <Button type="button" variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={handleAddBranch}>
             <Plus className="h-3 w-3" />
@@ -76,7 +76,7 @@ export function Fields({ register, control, nodeId }: ParallelAgentFieldsProps) 
                     <div className="text-xs font-medium text-zinc-200">Branch {index + 1}</div>
                     <div className="text-[11px] text-zinc-500">This branch output should connect to the agent node that gets spawned in parallel.</div>
                   </div>
-                  {fields.length > 2 && (
+                  {fields.length > 1 && (
                     <Button
                       type="button"
                       variant="ghost"

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -21,6 +22,7 @@ import {
   Trash2,
   AlertTriangle,
   History,
+  X,
 } from "lucide-react";
 
 // ── Category styling map ────────────────────────────────────────────────────
@@ -123,7 +125,7 @@ export default function WhatsNewDialog({ open, onDismiss }: WhatsNewDialogProps)
       >
         {/* Header */}
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-zinc-800 shrink-0">
-          <div className="flex items-center gap-3">
+          <div className="flex items-start gap-3">
             <div
               className={`flex items-center justify-center w-10 h-10 rounded-xl border ${
                 isFullMode
@@ -145,6 +147,16 @@ export default function WhatsNewDialog({ open, onDismiss }: WhatsNewDialogProps)
                 {description}
               </DialogDescription>
             </div>
+            <DialogClose asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="ml-auto shrink-0 px-2 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+              >
+                <X className="h-4 w-4" />
+                <span className="sr-only">Close</span>
+              </Button>
+            </DialogClose>
           </div>
         </DialogHeader>
 
@@ -183,8 +195,8 @@ export default function WhatsNewDialog({ open, onDismiss }: WhatsNewDialogProps)
         </ScrollArea>
 
         {/* Footer */}
-        <DialogFooter className="px-6 py-4 border-t border-zinc-800 shrink-0 sm:justify-between">
-          {!isFullMode && (
+        {!isFullMode && (
+          <DialogFooter className="px-6 py-4 border-t border-zinc-800 shrink-0 sm:justify-between">
             <Button
               variant="ghost"
               onClick={() => setMode("full")}
@@ -193,14 +205,14 @@ export default function WhatsNewDialog({ open, onDismiss }: WhatsNewDialogProps)
               <History className="h-4 w-4" />
               View all patch notes
             </Button>
-          )}
-          <Button
-            onClick={handleClose}
-            className="bg-violet-600 hover:bg-violet-500 text-white px-8 ml-auto"
-          >
-            {isFullMode ? "Close" : "Got it!"}
-          </Button>
-        </DialogFooter>
+            <Button
+              onClick={handleClose}
+              className="bg-violet-600 hover:bg-violet-500 text-white px-8 ml-auto"
+            >
+              Got it!
+            </Button>
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );
