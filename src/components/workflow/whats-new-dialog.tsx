@@ -120,8 +120,7 @@ export default function WhatsNewDialog({ open, onDismiss }: WhatsNewDialogProps)
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); }}>
       <DialogContent
         showCloseButton={false}
-        style={{ display: "flex", flexDirection: "column" }}
-        className="bg-zinc-900 border-zinc-700/60 sm:max-w-2xl max-h-[85vh] gap-0 p-0 overflow-hidden shadow-2xl shadow-black/50"
+        className="flex min-h-0 max-h-[85vh] flex-col gap-0 overflow-hidden border-zinc-700/60 bg-zinc-900 p-0 shadow-2xl shadow-black/50 sm:max-w-2xl"
       >
         {/* Header */}
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-zinc-800 shrink-0">
@@ -161,7 +160,7 @@ export default function WhatsNewDialog({ open, onDismiss }: WhatsNewDialogProps)
         </DialogHeader>
 
         {/* Body */}
-        <ScrollArea className="flex-1 min-h-0">
+        <ScrollArea className="min-h-0 flex-1">
           <div className="px-6 py-5 space-y-5">
             {isFullMode ? (
               // ── Full changelog ──
