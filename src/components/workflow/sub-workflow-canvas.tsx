@@ -46,7 +46,7 @@ const nanoid = customAlphabet("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVW
 interface SubWorkflowCanvasInnerProps { nodeId: string; }
 
 function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
-  const { screenToFlowPosition, getIntersectingNodes } = useReactFlow();
+  const { screenToFlowPosition, getIntersectingNodes, fitView } = useReactFlow();
   const closeSubWorkflow = useWorkflowStore((s) => s.closeSubWorkflow);
   const openSubWorkflow = useWorkflowStore((s) => s.openSubWorkflow);
   const updateSubWorkflowData = useWorkflowStore((s) => s.updateSubWorkflowData);
@@ -124,6 +124,14 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
   }, [flushSync, navigateToBreadcrumb]);
 
   useEffect(() => clearSubWorkflowHoverTimer, [clearSubWorkflowHoverTimer]);
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      void fitView({ duration: 250, maxZoom: 0.85, padding: 0.3 });
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [fitView, nodeId]);
 
   useEffect(() => {
     setSubWorkflowNodes(subNodes);
