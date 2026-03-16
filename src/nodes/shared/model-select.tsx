@@ -1,8 +1,8 @@
 "use client";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { ChevronDown, Check, Sparkles, Lock, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { SubAgentModel, MODEL_DISPLAY_NAMES, MODEL_COST_MULTIPLIER } from "@/nodes/agent/enums";
 import { useModels } from "@/hooks/use-models";
 
@@ -41,13 +41,56 @@ interface ModelSelectProps {
 export function ModelSelect({ value, onChange, hideInherit }: ModelSelectProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties | null>(null);
   const { groups, isLoading, isDisabled } = useModels();
+
+  const updateDropdownPosition = useCallback(() => {
+    const trigger = triggerRef.current;
+    if (!trigger || typeof window === "undefined") return;
+
+    const rect = trigger.getBoundingClientRect();
+    const viewportPadding = 16;
+    const gap = 6;
+    const preferredMaxHeight = 380;
+    const availableBelow = window.innerHeight - rect.bottom - viewportPadding - gap;
+    const availableAbove = rect.top - viewportPadding - gap;
+    const openUpwards = availableBelow < 220 && availableAbove > availableBelow;
+    const availableHeight = Math.max(
+      120,
+      Math.min(preferredMaxHeight, openUpwards ? availableAbove : availableBelow)
+    );
+    const width = Math.min(rect.width, window.innerWidth - viewportPadding * 2);
+    const left = Math.min(
+      Math.max(viewportPadding, rect.left),
+      window.innerWidth - viewportPadding - width
+    );
+    const top = openUpwards
+      ? Math.max(viewportPadding, rect.top - gap - availableHeight)
+      : Math.min(rect.bottom + gap, window.innerHeight - viewportPadding - availableHeight);
+
+    setDropdownStyle({
+      top,
+      left,
+      width,
+      maxHeight: availableHeight,
+    });
+  }, []);
 
   // Close on outside click
   useEffect(() => {
     if (!open) return;
     function handleClick(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        containerRef.current?.contains(target) ||
+        dropdownRef.current?.contains(target)
+      ) {
+        return;
+      }
+
+      if (containerRef.current) {
         setOpen(false);
       }
     }
@@ -64,6 +107,19 @@ export function ModelSelect({ value, onChange, hideInherit }: ModelSelectProps) 
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
   }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    updateDropdownPosition();
+    window.addEventListener("resize", updateDropdownPosition);
+    window.addEventListener("scroll", updateDropdownPosition, true);
+
+    return () => {
+      window.removeEventListener("resize", updateDropdownPosition);
+      window.removeEventListener("scroll", updateDropdownPosition, true);
+    };
+  }, [open, updateDropdownPosition]);
 
   // Resolve display name — prefer API data, fall back to static map, then raw value
   const resolveDisplayName = (modelValue: string): string => {
@@ -94,9 +150,12 @@ export function ModelSelect({ value, onChange, hideInherit }: ModelSelectProps) 
     <div ref={containerRef} className="relative">
       {/* Trigger */}
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => !isDisabled && setOpen((p) => !p)}
         disabled={isDisabled}
+        aria-expanded={open}
+        aria-haspopup="listbox"
         className={cn(
           "w-full flex items-center gap-2.5 rounded-xl px-3 py-2.5",
           "bg-zinc-800/60 border border-zinc-700/60",
@@ -134,15 +193,17 @@ export function ModelSelect({ value, onChange, hideInherit }: ModelSelectProps) 
       </button>
 
       {/* Dropdown */}
-      {open && !isDisabled && (
+      {open && !isDisabled && dropdownStyle && typeof document !== "undefined" && createPortal(
         <div
+          ref={dropdownRef}
+          style={dropdownStyle}
           className={cn(
-            "absolute z-50 mt-1.5 w-full rounded-xl overflow-hidden",
+            "fixed z-60 rounded-xl overflow-hidden",
             "bg-zinc-900/95 backdrop-blur-xl border border-zinc-700/60",
             "shadow-2xl shadow-black/50",
           )}
         >
-          <ScrollArea className="max-h-95" viewportClassName="py-1">
+          <div className="custom-scroll overflow-y-auto overscroll-contain py-1" style={{ maxHeight: dropdownStyle.maxHeight }}>
             {/* Inherit option */}
             {!hideInherit && (
               <button
@@ -225,8 +286,9 @@ export function ModelSelect({ value, onChange, hideInherit }: ModelSelectProps) 
                 No models available
               </div>
             )}
-          </ScrollArea>
-        </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );

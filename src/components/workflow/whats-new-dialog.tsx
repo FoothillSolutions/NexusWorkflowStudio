@@ -11,7 +11,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { CHANGELOG, CURRENT_VERSION } from "@/lib/changelog";
 import type { ChangeCategory, ChangelogEntry } from "@/lib/changelog";
@@ -160,7 +159,7 @@ export default function WhatsNewDialog({ open, onDismiss }: WhatsNewDialogProps)
         </DialogHeader>
 
         {/* Body */}
-        <ScrollArea className="min-h-0 flex-1">
+        <div className="custom-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain">
           <div className="px-6 py-5 space-y-5">
             {isFullMode ? (
               // ── Full changelog ──
@@ -191,7 +190,7 @@ export default function WhatsNewDialog({ open, onDismiss }: WhatsNewDialogProps)
               <ChangelogEntryView entry={latestEntry} />
             )}
           </div>
-        </ScrollArea>
+        </div>
 
         {/* Footer */}
         {!isFullMode && (
