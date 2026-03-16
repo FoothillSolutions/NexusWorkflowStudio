@@ -1,5 +1,7 @@
 "use client";
 
+import { useCallback } from "react";
+import { useReactFlow } from "@xyflow/react";
 import { useWorkflowStore, type CanvasMode } from "@/store/workflow-store";
 import { Button } from "@/components/ui/button";
 import {
@@ -8,15 +10,20 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Hand, MousePointer2, Spline, LayoutDashboard } from "lucide-react";
+import { Hand, MousePointer2, Spline, LayoutDashboard, ScanSearch } from "lucide-react";
 import { TEXT_MUTED } from "@/lib/theme";
 import { MOD, SHIFT } from "@/lib/platform";
 
 export default function CanvasToolbar() {
+  const { fitView } = useReactFlow();
   const canvasMode = useWorkflowStore((s) => s.canvasMode);
   const setCanvasMode = useWorkflowStore((s) => s.setCanvasMode);
   const edgeStyle = useWorkflowStore((s) => s.edgeStyle);
   const toggleEdgeStyle = useWorkflowStore((s) => s.toggleEdgeStyle);
+
+  const handleAutoFit = useCallback(() => {
+    void fitView({ duration: 300, maxZoom: 0.85, padding: 0.3 });
+  }, [fitView]);
 
   const handleAutoLayout = () => {
     window.dispatchEvent(new CustomEvent("nexus:auto-layout"));
@@ -75,6 +82,22 @@ export default function CanvasToolbar() {
         </Tooltip>
 
         {/* Auto-layout button */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleAutoFit}
+              className={`h-9 w-9 rounded-xl bg-zinc-900/80 border border-zinc-700/50 backdrop-blur-sm shadow-lg ${TEXT_MUTED} hover:text-zinc-100 hover:bg-zinc-800/80 transition-all duration-150 cursor-pointer`}
+            >
+              <ScanSearch size={16} />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="text-xs">
+            Auto-fit canvas
+          </TooltipContent>
+        </Tooltip>
+
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
