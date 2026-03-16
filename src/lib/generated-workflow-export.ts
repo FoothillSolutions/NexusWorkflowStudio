@@ -4,6 +4,10 @@ import {
   sanitizeGeneratedName,
   type GenerationTargetId,
 } from "@/lib/generation-targets";
+import {
+  getWorkflowExportContent,
+  getWorkflowExportFileName,
+} from "@/lib/persistence";
 import { generateWorkflowFiles, type GeneratedFile } from "@/lib/workflow-generator";
 
 type DirectoryPickerWindow = Window & {
@@ -147,9 +151,16 @@ export async function downloadGeneratedWorkflowZip(
 ): Promise<GeneratedFile[]> {
   const JSZip = (await import("jszip")).default;
   const files = generateWorkflowFiles(workflow, target);
+  const filesInZip = [
+    ...files,
+    {
+      path: getWorkflowExportFileName(workflow),
+      content: getWorkflowExportContent(workflow),
+    },
+  ];
   const zip = new JSZip();
 
-  for (const file of files) {
+  for (const file of filesInZip) {
     zip.file(file.path, file.content);
   }
 
@@ -162,7 +173,7 @@ export async function downloadGeneratedWorkflowZip(
   a.click();
   URL.revokeObjectURL(url);
 
-  return files;
+  return filesInZip;
 }
 
 

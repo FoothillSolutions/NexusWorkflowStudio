@@ -111,14 +111,26 @@ export function hasSavedWorkflow(): boolean {
 }
 
 // ── Export (download) ───────────────────────────────────────────────────────
+export function serializeName(name: string): string {
+  return name.replace(/[^a-z0-9]/gi, "-").toLowerCase();
+}
+
+export function getWorkflowExportContent(data: WorkflowJSON): string {
+  return JSON.stringify(data, null, 2);
+}
+
+export function getWorkflowExportFileName(data: Pick<WorkflowJSON, "name">): string {
+  return `${serializeName(data.name)}.json`;
+}
+
 export function exportWorkflow(data: WorkflowJSON): void {
-  const blob = new Blob([JSON.stringify(data, null, 2)], {
+  const blob = new Blob([getWorkflowExportContent(data)], {
     type: "application/json",
   });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${data.name.replace(/[^a-z0-9]/gi, "-").toLowerCase()}.json`;
+  a.download = getWorkflowExportFileName(data);
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
