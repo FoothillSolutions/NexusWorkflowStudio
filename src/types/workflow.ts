@@ -52,7 +52,7 @@ export interface SubAgentNodeData extends BaseNodeData {
   disabledTools: string[];
   /** Positional parameter mappings passed to the delegated agent */
   parameterMappings: string[];
-  /** Static variable mappings: {{varName}} → resource ref (e.g. "doc:api-guide.md", "skill:my-skill") */
+  /** Static variable mappings: {{varName}} → resource ref (e.g. "doc:product/api-guide.md", "skill:my-skill") */
   variableMappings: Record<string, string>;
 }
 
@@ -100,6 +100,7 @@ export type DocumentContentMode = "inline" | "linked";
 export interface DocumentNodeData extends BaseNodeData {
   type: "document";
   docName: string;
+  docSubfolder: string;
   contentMode: DocumentContentMode;
   /** The file extension for the document (md, txt, json, yaml) */
   fileExtension: "md" | "txt" | "json" | "yaml";

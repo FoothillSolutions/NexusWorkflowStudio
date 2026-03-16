@@ -180,9 +180,10 @@ metadata:
 \`\`\`
 
 ### Documents (type: "document")
-Documents are reference materials attached to agents. They provide context, data, or reference content the agent needs. A document node generates a \`.opencode/docs/<docName>.<ext>\` file.
+Documents are reference materials attached to agents. They provide context, data, or reference content the agent needs. A document node generates a \`.opencode/docs/<docName>.<ext>\` file, or \`.opencode/docs/<docSubfolder>/<docName>.<ext>\` when a subfolder is selected.
 
 - **docName**: A kebab-case slug used as the filename (e.g. "api-guide", "style-rules"). Must match [a-z0-9]+(-[a-z0-9]+)*.
+- **docSubfolder**: Optional shared docs subfolder slug (e.g. "product", "team-guides"). Leave empty to place the file directly under \`docs/\`.
 - **contentMode**: "inline" (content typed directly in contentText) or "linked" (external file).
 - **fileExtension**: "md", "txt", "json", or "yaml".
 - **contentText**: The actual document content when contentMode is "inline". Write meaningful reference content.
@@ -195,7 +196,7 @@ Documents are reference materials attached to agents. They provide context, data
   Use the same x column as skills: doc_x = agent_x - 180 - 40. doc_y = agent_y + agent_height + 30 (below agent baseline).
   If an agent has BOTH skills and documents, stack them in the same column behind the agent below the baseline: skills first, documents below, each with 16px vertical gap.
 
-Generated document file template (\`.opencode/docs/<docName>.<ext>\`):
+Generated document file template (\`.opencode/docs/<docName>.<ext>\` or \`.opencode/docs/<docSubfolder>/<docName>.<ext>\`):
 \`\`\`
 <contentText content here - the actual document content>
 \`\`\`
@@ -212,7 +213,7 @@ skills:
   - <skillName2>
 docs:
   - <docName1>.<ext>
-  - <docName2>.<ext>
+  - <docSubfolder>/<docName2>.<ext>
 color: "#5f27cd"
 ---
 
@@ -226,14 +227,14 @@ When an agent has documents or skills connected to it, reference them by name in
 - The variable name inside \`{{}}\` must match the docName or skillName exactly (kebab-case).
 - These variables MUST be listed in the agent's "detectedVariables" array.
 - These variables MUST be mapped in the agent's "variableMappings" object:
-  - For documents: \`"variableMappings": {"api-guide": "doc:api-guide.md"}\` (format: \`"doc:<docName>.<fileExtension>"\`)
+  - For documents: \`"variableMappings": {"api-guide": "doc:product/api-guide.md"}\` or \`"variableMappings": {"api-guide": "doc:api-guide.md"}\` (format: \`"doc:<optionalSubfolder/><docName>.<fileExtension>"\`)
   - For skills: \`"variableMappings": {"code-review": "skill:code-review"}\` (format: \`"skill:<skillName>"\`)
 - COMPLETE EXAMPLE: An agent connected to document "api-guide" (md) and skill "code-review":
   \`\`\`
   {
     "promptText": "Review the code following the API standards in {{api-guide}} and ensure quality using {{code-review}} guidelines.",
     "detectedVariables": ["api-guide", "code-review"],
-    "variableMappings": {"api-guide": "doc:api-guide.md", "code-review": "skill:code-review"}
+    "variableMappings": {"api-guide": "doc:product/api-guide.md", "code-review": "skill:code-review"}
   }
   \`\`\`
 
@@ -283,7 +284,7 @@ parallel-agent: {"type":"parallel-agent","label":"<label>","name":"<id>","shared
   - Shared skills/documents can connect to the parallel-agent node and are available to every branch.
 prompt: {"type":"prompt","label":"<label>","name":"<id>","promptText":"<text>","detectedVariables":[]}
 skill: {"type":"skill","label":"<label>","name":"<id>","skillName":"<kebab-case-name>","projectName":"","description":"<what this skill does>","promptText":"<detailed skill instructions and knowledge content>","detectedVariables":[],"metadata":[{"key":"workflow","value":"github"}]}
-document: {"type":"document","label":"<label>","name":"<id>","docName":"<kebab-case-name>","contentMode":"inline","fileExtension":"md","contentText":"<actual document content - reference material, guides, data>","linkedFileName":"","linkedFileContent":"","description":"<what this document contains>"}
+document: {"type":"document","label":"<label>","name":"<id>","docName":"<kebab-case-name>","docSubfolder":"<optional-shared-subfolder>","contentMode":"inline","fileExtension":"md","contentText":"<actual document content - reference material, guides, data>","linkedFileName":"","linkedFileContent":"","description":"<what this document contains>"}
 mcp-tool: {"type":"mcp-tool","label":"<label>","name":"<id>","toolName":"<name>","paramsText":""}
 if-else: {"type":"if-else","label":"<label>","name":"<id>","evaluationTarget":"<target>","branches":[{"label":"If <cond>","condition":"<cond>"},{"label":"Else","condition":"else"}]}
 switch: {"type":"switch","label":"<label>","name":"<id>","evaluationTarget":"<target>","branches":[{"label":"<case>","condition":"<cond>"}]}
@@ -312,7 +313,7 @@ sub-workflow: {"type":"sub-workflow","label":"<label>","name":"<id>","mode":"sam
 - Only add tools to disabledTools when you specifically want to prevent an agent from using certain tools. Leave disabledTools empty to give the agent full access.
 - Skill promptText should contain the actual skill instructions/knowledge (not just a placeholder).
 - Document contentText should contain actual reference content (not just a placeholder).
-- When connecting documents or skills to an agent, ALWAYS reference them in the agent's promptText using \`{{docName}}\` or \`{{skillName}}\` syntax, add those names to detectedVariables, and populate variableMappings with the correct \`"doc:<docName>.<ext>"\` or \`"skill:<skillName>"\` values.
+- When connecting documents or skills to an agent, ALWAYS reference them in the agent's promptText using \`{{docName}}\` or \`{{skillName}}\` syntax, add those names to detectedVariables, and populate variableMappings with the correct \`"doc:<optionalSubfolder/><docName>.<ext>"\` or \`"skill:<skillName>"\` values.
 - When a workflow section is complex or reusable, wrap it in a sub-workflow node with fully populated subNodes and subEdges. Use mode "same-context" for simple inline grouping, and mode "agent" when the sub-workflow should run as an independent agent with its own model and description.
 - Sub-workflows must always contain at least a start and end node inside subNodes, with subEdges connecting the inner flow.
 - Skills and documents have a MANY-TO-MANY relationship with agent-like nodes: one agent or parallel-agent node can have multiple skills and documents, and one skill/document can be shared across multiple agents. Be generous — give each node the skills and documents it needs.

@@ -5,9 +5,7 @@ import type { NodeRegistryEntry } from "@/nodes/shared/registry-types";
 import { NodeSize } from "@/nodes/shared/node-size";
 import { NODE_ACCENT } from "@/lib/node-colors";
 import type { DocumentNodeData } from "./types";
-
-/** lowercase, digits, single hyphens — not leading/trailing */
-const DOC_NAME_REGEX = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+import { DOC_NAME_REGEX, DOC_SUBFOLDER_REGEX } from "./utils";
 
 export const documentRegistryEntry: NodeRegistryEntry = {
   type: "document",
@@ -23,6 +21,7 @@ export const documentRegistryEntry: NodeRegistryEntry = {
     label: "Document",
     name: "",
     docName: "",
+    docSubfolder: "",
     contentMode: "inline",
     fileExtension: "md",
     contentText: "",
@@ -38,6 +37,12 @@ export const documentSchema = z.object({
   docName: z.string()
     .min(1, "Document name is required")
     .regex(DOC_NAME_REGEX, "Lowercase letters, digits, and single hyphens only (e.g. my-doc-1)"),
+  docSubfolder: z.string()
+    .default("")
+    .refine(
+      (value) => value.length === 0 || DOC_SUBFOLDER_REGEX.test(value),
+      "Subfolder must use lowercase letters, digits, and single hyphens only",
+    ),
   contentMode: z.enum(["inline", "linked"]),
   fileExtension: z.enum(["md", "txt", "json", "yaml"]),
   contentText: z.string().default(""),

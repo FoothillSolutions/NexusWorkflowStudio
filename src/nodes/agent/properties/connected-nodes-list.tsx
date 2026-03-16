@@ -3,6 +3,7 @@
 import { Label } from "@/components/ui/label";
 import { Zap, FileText, X } from "lucide-react";
 import type { ConnectedNode } from "./use-connected-resources";
+import { getDocumentDisplayPath } from "@/nodes/document/utils";
 
 const VARIANTS = {
   skill: {
@@ -26,11 +27,7 @@ const VARIANTS = {
     border: "border-yellow-800/30",
     textColor: "text-yellow-200",
     subtextColor: "text-yellow-600",
-    getName: (d: Record<string, unknown>) => {
-      const name = (d.docName as string) || (d.label as string) || "";
-      const ext = d.fileExtension as string;
-      return ext ? `${name}.${ext}` : name;
-    },
+    getName: (d: Record<string, unknown>) => getDocumentDisplayPath(d as import("@/nodes/document/types").DocumentNodeData),
     getSub: () => "",
   },
 } as const;

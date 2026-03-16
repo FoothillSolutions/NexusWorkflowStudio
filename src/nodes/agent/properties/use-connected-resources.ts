@@ -3,6 +3,7 @@
 import { useCallback, useMemo } from "react";
 import { useWorkflowStore } from "@/store/workflow-store";
 import type { AskUserNodeData, SubWorkflowNodeData, WorkflowEdge, WorkflowNode } from "@/types/workflow";
+import { getDocumentRelativePath } from "@/nodes/document/utils";
 
 export interface ConnectedNode {
   edge: WorkflowEdge;
@@ -161,8 +162,8 @@ export function useConnectedResources(nodeId?: string) {
           const n = nodes.find((nd) => nd.id === e.source);
           if (!n) continue;
           if (n.data?.type === "document") {
-            const d = n.data as Record<string, unknown>;
-            parts.push(`doc:${e.source}:${d.docName ?? ""}:${d.fileExtension ?? ""}:${d.label ?? ""}`);
+            const d = n.data as import("@/nodes/document/types").DocumentNodeData;
+            parts.push(`doc:${e.source}:${getDocumentRelativePath(d) ?? ""}:${d.label ?? ""}`);
           } else if (n.data?.type === "skill") {
             const d = n.data as Record<string, unknown>;
             parts.push(`skill:${e.source}:${d.skillName ?? ""}:${d.label ?? ""}`);
@@ -188,11 +189,10 @@ export function useConnectedResources(nodeId?: string) {
       if (!src) continue;
 
       if (src.data?.type === "document") {
-        const d = src.data as { docName?: string; fileExtension?: string; label?: string; name?: string };
-        const docName = d.docName?.trim();
-        const ext = d.fileExtension || "md";
-        const displayName = docName ? `${docName}.${ext}` : (d.label || d.name || edge.source);
-        const value = docName ? `doc:${docName}.${ext}` : `doc-id:${edge.source}`;
+        const d = src.data as import("@/nodes/document/types").DocumentNodeData;
+        const relativePath = getDocumentRelativePath(d);
+        const displayName = relativePath || d.label || d.name || edge.source;
+        const value = relativePath ? `doc:${relativePath}` : `doc-id:${edge.source}`;
         if (seenValues.has(value)) continue;
         seenValues.add(value);
         resources.push({

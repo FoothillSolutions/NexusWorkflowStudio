@@ -7,6 +7,7 @@ export interface DocumentNodeData extends Record<string, unknown> {
   label: string;
   name: string;
   docName: string;
+  docSubfolder: string;
   contentMode: DocumentContentMode;
   fileExtension: "md" | "txt" | "json" | "yaml";
   contentText: string;

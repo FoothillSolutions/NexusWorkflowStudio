@@ -17,7 +17,7 @@ export interface SubAgentNodeData extends Record<string, unknown> {
   disabledTools: string[];
   /** Positional parameter mappings passed to the delegated agent ($1→agent $1, etc.) */
   parameterMappings: string[];
-  /** Static variable mappings: {{varName}} → resource ref (e.g. "doc:api-guide.md", "skill:my-skill") */
+  /** Static variable mappings: {{varName}} → resource ref (e.g. "doc:product/api-guide.md", "skill:my-skill") */
   variableMappings: Record<string, string>;
 }
 

@@ -8,6 +8,7 @@ import { FileText, FileUp, Zap } from "lucide-react";
 import { documentRegistryEntry } from "./constants";
 import type { DocumentNodeData } from "./types";
 import { useWorkflowStore } from "@/store/workflow-store";
+import { getDocumentDisplayPath } from "./utils";
 
 const truncate = (str: string, n: number) => (str?.length ?? 0) > n ? str.slice(0, n) + "..." : str;
 
@@ -28,6 +29,7 @@ export const DocumentNode = memo(function DocumentNode({ id, data, selected }: N
 
   const isLinked = data.contentMode === "linked";
   const ext = data.fileExtension || "md";
+  const documentPath = getDocumentDisplayPath(data);
 
   return (
     <BaseNode accentHex={accentHex} selected={selected} label={data.label || displayName} type={data.type} icon={icon} size={NodeSize.Small} nodeId={id}>
@@ -36,7 +38,7 @@ export const DocumentNode = memo(function DocumentNode({ id, data, selected }: N
         {data.docName && (
           <div className="flex items-center gap-1.5">
             <FileText size={10} className="text-yellow-500 shrink-0" />
-            <span className="text-xs font-mono text-yellow-300 truncate">{data.docName}.{ext}</span>
+            <span className="text-xs font-mono text-yellow-300 truncate" title={`docs/${documentPath}`}>{documentPath}</span>
           </div>
         )}
 
@@ -67,6 +69,11 @@ export const DocumentNode = memo(function DocumentNode({ id, data, selected }: N
           <span className="inline-flex items-center gap-1 text-[10px] font-mono bg-yellow-950/60 text-yellow-300 border border-yellow-800/40 px-1.5 py-0.5 rounded-md">
             {EXT_LABELS[ext] || ext}
           </span>
+          {data.docSubfolder && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-mono bg-zinc-800/60 text-zinc-300 border border-zinc-700/40 px-1.5 py-0.5 rounded-md">
+              {data.docSubfolder}
+            </span>
+          )}
           {isLinked && (
             <span className="inline-flex items-center gap-1 text-[10px] font-mono bg-zinc-800/60 text-zinc-400 border border-zinc-700/40 px-1.5 py-0.5 rounded-md">
               linked

@@ -100,10 +100,13 @@ export function Fields({ control, setValue, nodeId }: SubAgentFieldsProps) {
           return skillName.toLowerCase() === lower;
         }
         if (r.kind === "doc") {
-          // value = "doc:docName.ext"
-          const docFull = r.value.replace(/^doc:/, "");       // e.g. "api-guide.md"
-          const docBase = docFull.replace(/\.[^.]+$/, "");     // e.g. "api-guide"
-          return docFull.toLowerCase() === lower || docBase.toLowerCase() === lower;
+          // value = "doc:subfolder/docName.ext" or "doc:docName.ext"
+          const docFull = r.value.replace(/^doc:/, "");
+          const docWithoutExt = docFull.replace(/\.[^.]+$/, "");
+          const docBase = docWithoutExt.split("/").pop() ?? docWithoutExt;
+          return docFull.toLowerCase() === lower
+            || docWithoutExt.toLowerCase() === lower
+            || docBase.toLowerCase() === lower;
         }
         return false;
       });

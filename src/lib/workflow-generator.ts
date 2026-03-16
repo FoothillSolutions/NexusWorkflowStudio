@@ -20,6 +20,7 @@ import { generator as switchGen }       from "@/nodes/switch/generator";
 import { generator as askUserGen }      from "@/nodes/ask-user/generator";
 import type { NodeGeneratorModule }     from "@/nodes/shared/registry-types";
 import { mermaidId, mermaidLabel }      from "@/nodes/shared/mermaid-utils";
+import { getDocumentRelativePath } from "@/nodes/document/utils";
 import {
   buildGeneratedCommandFilePath,
   DEFAULT_GENERATION_TARGET,
@@ -389,9 +390,8 @@ function collectAgentFiles(
         const docNode = allNodeById.get(docId);
         if (docNode?.data?.type === "document") {
           const dd = docNode.data as import("@/nodes/document/types").DocumentNodeData;
-          const docName = dd.docName?.trim();
-          const ext = dd.fileExtension || "md";
-          if (docName) connectedDocNames.push(`${docName}.${ext}`);
+          const relativePath = getDocumentRelativePath(dd);
+          if (relativePath) connectedDocNames.push(relativePath);
         }
       }
 
