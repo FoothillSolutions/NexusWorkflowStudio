@@ -147,6 +147,37 @@
   gap: 2px;
 }
 
+/* ── Code editor / preview ────────────────────────────────────────────────── */
+.nexus-code-editor,
+.nexus-code-editor__textarea,
+.nexus-code-editor__pre,
+.nexus-code-block,
+.nexus-code-block code {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.nexus-code-editor__textarea,
+.nexus-code-editor__pre,
+.nexus-code-block,
+.nexus-code-block code {
+  white-space: pre !important;
+  word-break: normal !important;
+  overflow-wrap: normal !important;
+}
+
+.nexus-code-editor__textarea {
+  outline: none;
+  caret-color: rgb(248 250 252);
+}
+
+.nexus-code-editor__textarea::selection,
+.nexus-code-editor__pre ::selection,
+.nexus-code-block ::selection {
+  background: rgb(56 189 248 / 0.28);
+}
+
 /* ── Canvas mode cursors ─────────────────────────────────────────────────── */
 .canvas-hand .react-flow__pane {
   cursor: grab;
@@ -176,7 +207,11 @@
 .nexus-no-select .w-md-editor-text-input,
 .nexus-no-select .w-md-editor-text-pre,
 .nexus-no-select .w-md-editor-preview,
-.nexus-no-select .w-md-editor-preview * {
+.nexus-no-select .w-md-editor-preview *,
+.nexus-no-select .nexus-code-editor,
+.nexus-no-select .nexus-code-editor *,
+.nexus-no-select .nexus-code-block,
+.nexus-no-select .nexus-code-block * {
   -webkit-user-select: text;
   user-select: text;
 }

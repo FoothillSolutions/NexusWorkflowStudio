@@ -79,6 +79,7 @@ export interface NodeGeneratorModule {
   getSkillFile?(
     nodeId: string,
     data: WorkflowNodeData,
+    connectedScripts?: Array<{ label: string; fileName: string; variableName: string }>,
     target?: GenerationTargetId,
   ): { path: string; content: string } | null;
 }

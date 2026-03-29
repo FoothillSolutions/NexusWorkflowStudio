@@ -1,4 +1,5 @@
 export { Fields as PromptFields }       from "@/nodes/prompt/fields";
+export { Fields as ScriptFields }       from "@/nodes/script/fields";
 export { Fields as SubAgentFields }     from "@/nodes/agent/fields";
 export { Fields as SubWorkflowFields } from "@/nodes/sub-workflow/fields";
 export { Fields as SkillFields }        from "@/nodes/skill/fields";

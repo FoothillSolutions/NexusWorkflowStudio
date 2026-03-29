@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { CodePreview } from "@/components/ui/code-preview";
+import { FullscreenCodeEditor } from "@/components/ui/fullscreen-code-editor";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -19,7 +21,9 @@ import {
   usePromptGenStore,
   type PromptGenTemplateFields,
 } from "@/store/prompt-gen-store";
+import { useWorkflowStore } from "@/store/workflow-store";
 import { getConnectedResourceNames, getConnectedNodeContext } from "@/nodes/agent/properties/use-connected-resources";
+import { getScriptEditorLanguage } from "@/nodes/skill/script-utils";
 
 // ── Template section config ──────────────────────────────────────────────────
 
@@ -79,6 +83,17 @@ const PROMPT_EXAMPLES = [
   "A prompt that generates interview questions based on a job description and candidate level",
 ];
 
+const SCRIPT_EXAMPLES = [
+  "Create a Bun TypeScript script that lints changed files and exits non-zero when issues are found",
+  "Write a Bun script that reads a JSON file, transforms the records, and writes a cleaned output file",
+  "Generate a Bun script that scans a directory, summarizes file metadata, and prints a compact report",
+  "Create a Bun script that validates environment variables and prints actionable setup errors",
+  "Write a Bun script that calls an HTTP API, retries failures, and saves the response to disk",
+  "Generate a Bun script that parses markdown files and extracts headings into a JSON index",
+  "Create a Bun script that compares two config files and prints a readable diff summary",
+  "Write a Bun script that reads CLI args, processes CSV input, and outputs normalized JSON",
+];
+
 /** Number of example prompts shown at a time */
 const VISIBLE_EXAMPLE_COUNT = 3;
 
@@ -108,6 +123,7 @@ export function PromptGenBody() {
   const fields = usePromptGenStore((s) => s.fields);
   const expandedSections = usePromptGenStore((s) => s.expandedSections);
   const targetPrompt = usePromptGenStore((s) => s.targetPrompt);
+  const targetNodeId = usePromptGenStore((s) => s.targetNodeId);
   const targetNodeType = usePromptGenStore((s) => s.targetNodeType);
   const status = usePromptGenStore((s) => s.status);
   const generatedText = usePromptGenStore((s) => s.generatedText);
@@ -128,11 +144,23 @@ export function PromptGenBody() {
 
   const isPromptNode = targetNodeType === "prompt";
   const isSkillNode = targetNodeType === "skill";
+  const isScriptNode = targetNodeType === "script";
+  const scriptLanguage = useMemo(() => {
+    if (!isScriptNode || !targetNodeId) return "typescript";
+    const state = useWorkflowStore.getState();
+    const targetNode = state.nodes.find((node) => node.id === targetNodeId)
+      ?? state.subWorkflowNodes.find((node) => node.id === targetNodeId);
+    return getScriptEditorLanguage(targetNode?.data as { label?: string; name?: string } | undefined);
+  }, [isScriptNode, targetNodeId]);
+  const generatedContentLabel = isScriptNode ? "Generated Script" : "Generated Prompt";
+  const currentContentLabel = isScriptNode ? "Current script" : "Current prompt";
+  const applyContentLabel = isScriptNode ? "Apply to Script" : "Apply to Prompt";
+  const editContentLabel = isScriptNode ? "Edit Script" : "Edit Prompt";
 
   // ── Dynamic example prompts ──────────────────────────────
   const examplePool = useMemo(
-    () => isSkillNode ? SKILL_EXAMPLES : isPromptNode ? PROMPT_EXAMPLES : AGENT_EXAMPLES,
-    [isSkillNode, isPromptNode],
+    () => isScriptNode ? SCRIPT_EXAMPLES : isSkillNode ? SKILL_EXAMPLES : isPromptNode ? PROMPT_EXAMPLES : AGENT_EXAMPLES,
+    [isScriptNode, isSkillNode, isPromptNode],
   );
 
   const [exampleTick, setExampleTick] = useState(0);
@@ -233,12 +261,14 @@ export function PromptGenBody() {
           {mode === "freeform" && (
             <div className="space-y-1.5">
               <Label className="text-[11px] text-zinc-500 uppercase tracking-wider font-medium">
-                {isSkillNode ? "Describe what this skill teaches" : isPromptNode ? "Describe the prompt you want" : "Describe the prompt you need"}
+                  {isScriptNode ? "Describe the Bun script you want" : isSkillNode ? "Describe what this skill teaches" : isPromptNode ? "Describe the prompt you want" : "Describe the prompt you need"}
               </Label>
               <Textarea
                 value={freeformText}
                 onChange={(e) => setFreeformText(e.target.value)}
-                placeholder={isSkillNode
+                placeholder={isScriptNode
+                  ? "e.g. Create a Bun TypeScript script that reads a markdown file, extracts headings, and writes a JSON summary…"
+                  : isSkillNode
                   ? "e.g. A skill that teaches the agent how to write clean unit tests with proper mocking, assertions, and edge case coverage…"
                   : isPromptNode
                     ? "e.g. Write a prompt that takes a topic and generates a structured blog post with an intro, 3 key points, and a conclusion…"
@@ -328,7 +358,7 @@ export function PromptGenBody() {
           />
           {hasPrompt && (
             <p className="text-[10px] text-zinc-600 flex items-center gap-1">
-              <FileText size={10} /> Current prompt ({targetPrompt.length} chars) will be sent as context
+              <FileText size={10} /> {currentContentLabel} ({targetPrompt.length} chars) will be sent as context
             </p>
           )}
         </div>
@@ -344,7 +374,7 @@ export function PromptGenBody() {
             <Label className="text-[11px] text-zinc-500 uppercase tracking-wider font-medium flex items-center gap-1.5">
               {isGenerating
                 ? <><Loader2 size={11} className="animate-spin text-violet-400" /> Generating…</>
-                : <><Check size={11} className="text-emerald-400" /> Generated Prompt</>}
+                : <><Check size={11} className="text-emerald-400" /> {generatedContentLabel}</>}
             </Label>
             <div className="flex items-center gap-2">
               {generatedTokens > 0 && (
@@ -362,12 +392,32 @@ export function PromptGenBody() {
               )}
             </div>
           </div>
-          <div ref={resultRef} className={cn(
-            "custom-scroll rounded-lg border bg-zinc-900/60 p-3 text-xs font-mono text-zinc-300 leading-relaxed max-h-50 overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-all min-w-0",
-            isGenerating ? "border-violet-700/30 shadow-inner shadow-violet-950/20" : "border-emerald-700/30",
-          )}>
-            {generatedText || <span className="text-zinc-600 italic">Waiting for response…</span>}
-            {isGenerating && <span className="inline-block w-1.5 h-4 ml-0.5 bg-violet-400/60 animate-pulse rounded-sm align-middle" />}
+          <div
+            ref={resultRef}
+            className={cn(
+              "custom-scroll rounded-lg border bg-zinc-900/60 max-h-50 overflow-y-auto min-w-0",
+              isGenerating ? "border-violet-700/30 shadow-inner shadow-violet-950/20" : "border-emerald-700/30",
+            )}
+          >
+            {isScriptNode ? (
+              generatedText ? (
+                <>
+                  <CodePreview value={generatedText} language={scriptLanguage} className="p-3" />
+                  {isGenerating && (
+                    <div className="border-t border-zinc-800/70 px-3 py-2 text-[10px] text-violet-300/80">
+                      Streaming highlighted code…
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="px-3 py-3 text-xs italic text-zinc-600">Waiting for response…</div>
+              )
+            ) : (
+              <div className="p-3 text-xs font-mono text-zinc-300 leading-relaxed whitespace-pre-wrap break-all min-w-0">
+                {generatedText || <span className="text-zinc-600 italic">Waiting for response…</span>}
+                {isGenerating && <span className="inline-block w-1.5 h-4 ml-0.5 bg-violet-400/60 animate-pulse rounded-sm align-middle" />}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -384,7 +434,7 @@ export function PromptGenBody() {
               isEditMode ? "bg-amber-600 hover:bg-amber-500 text-white" : "bg-violet-600 hover:bg-violet-500 text-white",
             )}
           >
-            {isEditMode ? <><Wand2 size={13} /> Edit Prompt</> : <><Sparkles size={13} /> Generate</>}
+            {isEditMode ? <><Wand2 size={13} /> {editContentLabel}</> : <><Sparkles size={13} /> Generate</>}
           </Button>
         )}
         {isGenerating && (
@@ -395,7 +445,7 @@ export function PromptGenBody() {
         {hasResult && (
           <>
             <Button type="button" onClick={applyResult} className="flex-1 h-9 rounded-lg text-xs font-medium gap-2 bg-emerald-600 hover:bg-emerald-500 text-white">
-              <Check size={13} /> Apply to Prompt
+              <Check size={13} /> {applyContentLabel}
             </Button>
             <Button type="button" onClick={isEditMode ? handleEdit : handleGenerate} variant="ghost" className="h-9 px-3 rounded-lg text-xs font-medium gap-1.5 text-zinc-400 hover:text-zinc-200">
               <RotateCcw size={12} /> Redo
@@ -413,19 +463,36 @@ export function PromptGenBody() {
       )}
 
       {/* Fullscreen Markdown Viewer */}
-      <FullscreenMarkdownEditor
-        open={viewOpen}
-        onOpenChange={setViewOpen}
-        value={generatedText}
-        onSave={(val) => {
-          // Apply the edited markdown directly via the form setValue
-          const sv = usePromptGenStore.getState()._formSetValue;
-          if (sv) {
-            sv("promptText" as never, val as never, { shouldDirty: true });
-          }
-          setViewOpen(false);
-        }}
-      />
+      {isScriptNode ? (
+        <FullscreenCodeEditor
+          open={viewOpen}
+          onOpenChange={setViewOpen}
+          value={generatedText}
+          language={scriptLanguage}
+          title={generatedContentLabel}
+          placeholder="AI-generated Bun script will appear here…"
+          onSave={(val) => {
+            const sv = usePromptGenStore.getState()._formSetValue;
+            if (sv) {
+              sv("promptText" as never, val as never, { shouldDirty: true });
+            }
+            setViewOpen(false);
+          }}
+        />
+      ) : (
+        <FullscreenMarkdownEditor
+          open={viewOpen}
+          onOpenChange={setViewOpen}
+          value={generatedText}
+          onSave={(val) => {
+            const sv = usePromptGenStore.getState()._formSetValue;
+            if (sv) {
+              sv("promptText" as never, val as never, { shouldDirty: true });
+            }
+            setViewOpen(false);
+          }}
+        />
+      )}
     </>
   );
 }

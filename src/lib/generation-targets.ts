@@ -75,6 +75,14 @@ export function buildGeneratedSkillFilePath(
   return `${getGenerationTarget(target).rootDir}/skills/${skillName}/SKILL.md`;
 }
 
+export function buildGeneratedSkillScriptFilePath(
+  skillName: string,
+  scriptFileName: string,
+  target: GenerationTargetId = DEFAULT_GENERATION_TARGET,
+): string {
+  return `${getGenerationTarget(target).rootDir}/skills/${skillName}/scripts/${scriptFileName}`;
+}
+
 export function buildGeneratedDocsFilePath(
   fileName: string,
   target: GenerationTargetId = DEFAULT_GENERATION_TARGET,

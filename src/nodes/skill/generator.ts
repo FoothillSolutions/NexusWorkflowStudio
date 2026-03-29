@@ -8,6 +8,7 @@ import {
   type GenerationTargetId,
 } from "@/lib/generation-targets";
 import type { SkillNodeData } from "./types";
+import { buildSkillScriptRelativePath } from "./script-utils";
 
 const SLUG_REGEX = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
@@ -16,9 +17,22 @@ function sanitiseSlug(raw: string): string | null {
   return SLUG_REGEX.test(v) ? v : null;
 }
 
+function resolveSkillSlug(d: Pick<SkillNodeData, "skillName" | "label" | "name">): string | null {
+  return sanitiseSlug(d.skillName ?? "")
+    ?? sanitiseSlug(d.label ?? "")
+    ?? sanitiseSlug(d.name ?? "");
+}
+
+export interface ConnectedSkillScript {
+  label: string;
+  fileName: string;
+  variableName: string;
+}
+
 function buildSkillFile(
   skillName: string,
   d: SkillNodeData,
+  connectedScripts: ConnectedSkillScript[] = [],
   target: GenerationTargetId = DEFAULT_GENERATION_TARGET,
 ): string {
   const lines: string[] = ["---"];
@@ -50,7 +64,50 @@ function buildSkillFile(
 
   lines.push("---");
   lines.push("");
-  if (d.promptText?.trim()) lines.push(d.promptText.trim());
+  const mappedScriptVars = Object.entries(d.variableMappings ?? {})
+    .filter(([, ref]) => ref.startsWith("script:"))
+    .map(([varName, ref]) => ({ varName, relativePath: buildSkillScriptRelativePath(ref.replace(/^script:/, "")) }));
+
+  if (connectedScripts.length > 0) {
+    lines.push("");
+    lines.push("## Run Scripts with Bun");
+    lines.push("");
+    lines.push("Run the generated scripts from the repository root:");
+    lines.push("");
+    for (const script of connectedScripts) {
+      lines.push(`- \`bun run ${getGenerationTarget(target).rootDir}/skills/${skillName}/${buildSkillScriptRelativePath(script.fileName)}\``);
+    }
+    lines.push("");
+    lines.push(`Or change into \`${getGenerationTarget(target).rootDir}/skills/${skillName}\` and run:`);
+    lines.push("");
+    for (const script of connectedScripts) {
+      lines.push(`- \`bun run ${buildSkillScriptRelativePath(script.fileName)}\``);
+    }
+  }
+
+  if (d.promptText?.trim()) {
+    lines.push("");
+    lines.push(d.promptText.trim());
+  }
+
+  if (connectedScripts.length > 0) {
+    lines.push("");
+    lines.push("## Connected Scripts");
+    lines.push("");
+    for (const script of connectedScripts) {
+      lines.push(`- \`${script.fileName}\` — generated from connected script node \`${script.label || script.fileName}\``);
+    }
+  }
+
+  if (mappedScriptVars.length > 0) {
+    lines.push("");
+    lines.push("## Script Variables");
+    lines.push("");
+    for (const mapping of mappedScriptVars) {
+      lines.push(`- \`{{${mapping.varName}}}\` → \`${mapping.relativePath}\``);
+    }
+  }
+
   return lines.join("\n") + "\n";
 }
 
@@ -58,12 +115,13 @@ export const generator: NodeGeneratorModule & {
   getSkillFile?(
     nodeId: string,
     data: WorkflowNodeData,
+    connectedScripts?: ConnectedSkillScript[] | GenerationTargetId,
     target?: GenerationTargetId,
   ): { path: string; content: string } | null;
 } = {
   getMermaidShape(nodeId: string, data: WorkflowNodeData): string {
     const d = data as SkillNodeData;
-    return `    ${mermaidId(nodeId)}["Skill: ${mermaidLabel(d.skillName || d.label)}"]`;
+    return `    ${mermaidId(nodeId)}["Skill: ${mermaidLabel(resolveSkillSlug(d) || d.label)}"]`;
   },
   getDetailsSection(nodeId: string, data: WorkflowNodeData): string {
     const d = data as SkillNodeData;
@@ -71,20 +129,24 @@ export const generator: NodeGeneratorModule & {
       `#### Skill: ${d.label || d.name}`,
       "",
       `- **Skill Name:** ${d.skillName || "_not set_"}`,
-      `- **Project:** ${d.projectName || "_not set_"}`,
     ].join("\n");
   },
   getSkillFile(
     _nodeId: string,
     data: WorkflowNodeData,
+    connectedScriptsOrTarget?: ConnectedSkillScript[] | GenerationTargetId,
     target: GenerationTargetId = DEFAULT_GENERATION_TARGET,
   ) {
     const d = data as SkillNodeData;
-    const skillName = d.skillName?.trim() || d.name?.trim();
+    const skillName = resolveSkillSlug(d);
     if (!skillName) return null;
+    const connectedScripts = Array.isArray(connectedScriptsOrTarget) ? connectedScriptsOrTarget : [];
+    const resolvedTarget = Array.isArray(connectedScriptsOrTarget)
+      ? target
+      : (connectedScriptsOrTarget ?? target ?? DEFAULT_GENERATION_TARGET);
     return {
-      path: buildGeneratedSkillFilePath(skillName, target),
-      content: buildSkillFile(skillName, d, target),
+      path: buildGeneratedSkillFilePath(skillName, resolvedTarget),
+      content: buildSkillFile(skillName, d, connectedScripts, resolvedTarget),
     };
   },
 };

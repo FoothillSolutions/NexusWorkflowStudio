@@ -152,19 +152,23 @@ ${buildNodeCatalogue()}
 ## Understanding Skills and Documents
 
 ### Skills (type: "skill")
-Skills are reusable knowledge/instruction units that get attached to agents. They represent specialised capabilities the agent should have. A skill node generates a \`.opencode/skills/<skillName>/SKILL.md\` file containing frontmatter (name, description, metadata) and the skill's instructions (promptText).
+Skills are reusable knowledge/instruction units that get attached to agents. They represent specialised capabilities the agent should have. A skill node generates a \`.opencode/skills/<skillName>/SKILL.md\` file containing frontmatter (name, description, metadata) and the skill's instructions (promptText). A skill may also have multiple connected script nodes that are exported as Bun scripts under \`.opencode/skills/<skillName>/scripts/\`.
 
 - **skillName**: A kebab-case slug used as the folder name (e.g. "code-review", "seo-optimization"). Must match [a-z0-9]+(-[a-z0-9]+)*.
 - **description**: Explains what the skill does.
 - **promptText**: The actual instructions/knowledge content for the skill. This should be detailed and production-ready.
+- **variableMappings**: Optional static variable mappings for connected scripts. Use \`{{script-name}}\` in the skill prompt and map it to \`"script:<scriptFileName>"\`.
 - **metadata**: Optional key-value pairs (e.g. [{"key":"workflow","value":"github"}]).
 - Skills connect ONLY to agent or parallel-agent nodes via: sourceHandle: "skill-out", targetHandle: "skills".
+- Script nodes connect to skills via: sourceHandle: "script-out", targetHandle: "scripts". A skill can have MULTIPLE connected scripts, and those script nodes are exported as runnable Bun scripts.
+- A script node is NOT part of the main workflow execution path — it is an attachment/resource for the skill, similar to how skills attach to agents.
 - An agent or parallel-agent node can have MULTIPLE skills connected to it — each skill adds a different capability. Create a separate skill node for each distinct capability and connect them all to the node.
 - A skill node can be connected to MULTIPLE agents simultaneously — the same skill feeds capabilities to all connected agents. Create one edge per agent it connects to.
 - A skill is NOT part of the main workflow flow — it sits beside its parent agent and provides it with extra capabilities.
 - Position skill nodes BEHIND (to the LEFT of) their connected agent AND BELOW the agent's bottom edge.
   Formula: skill_x = agent_x - 180 - 40 (skill width + 40px gap). skill_y = agent_y + agent_height + 30 (30px below agent baseline).
   For an agent at x:410 y:240 (350×120): skill at x:190 y:390. If multiple skills, stack them vertically downward with 16px gap between them.
+- Position script attachments to the LEFT of their owning skill and BELOW the skill's bottom edge. If multiple scripts are attached to one skill, stack them vertically under that skill.
 
 Generated skill file template (\`.opencode/skills/<skillName>/SKILL.md\`):
 \`\`\`
@@ -177,7 +181,22 @@ metadata:
 ---
 
 <promptText content here - the actual skill instructions>
+
+## Connected Scripts
+- \`<scriptFileName>\` — generated from connected script node \`<scriptLabel>\`
+
+## Script Variables
+- \`{{script-name}}\` → \`scripts/<scriptFileName>\`
 \`\`\`
+
+IMPORTANT — Referencing connected scripts in skill prompts:
+- When a script node is connected to a skill via targetHandle \`"scripts"\`, treat that script node as a Bun script resource for the skill.
+- Use \`{{script-name}}\` inside the skill's \`promptText\` when the skill should refer to that script.
+- The variable name inside \`{{}}\` should match the connected script's exported base filename (derived from the script label, kebab-case, no extension).
+- These variables MUST be listed in the skill's \`detectedVariables\` array.
+- These variables SHOULD be mapped in the skill's \`variableMappings\` object as \`"script:<scriptFileName>"\`.
+- Connected script nodes should contain actual runnable Bun-compatible code, not prose instructions.
+- Prefer JavaScript/TypeScript that Bun can execute directly, and use the script node label as the intended script filename (for example \`lint-fix.ts\`).
 
 ### Documents (type: "document")
 Documents are reference materials attached to agents. They provide context, data, or reference content the agent needs. A document node generates a \`.opencode/docs/<docName>.<ext>\` file, or \`.opencode/docs/<docSubfolder>/<docName>.<ext>\` when a subfolder is selected.
@@ -283,7 +302,8 @@ parallel-agent: {"type":"parallel-agent","label":"<label>","name":"<id>","shared
   - \`sharedInstructions\` applies to every spawned branch run.
   - Shared skills/documents can connect to the parallel-agent node and are available to every branch.
 prompt: {"type":"prompt","label":"<label>","name":"<id>","promptText":"<text>","detectedVariables":[]}
-skill: {"type":"skill","label":"<label>","name":"<id>","skillName":"<kebab-case-name>","projectName":"","description":"<what this skill does>","promptText":"<detailed skill instructions and knowledge content>","detectedVariables":[],"metadata":[{"key":"workflow","value":"github"}]}
+script: {"type":"script","label":"<script-file-name>","name":"<id>","promptText":"<bun-compatible-script-source>","detectedVariables":[]}
+skill: {"type":"skill","label":"<label>","name":"<id>","skillName":"<kebab-case-name>","description":"<what this skill does>","promptText":"<detailed skill instructions and knowledge content, optionally referencing connected scripts like {{lint-fix}}>","detectedVariables":[],"variableMappings":{},"metadata":[{"key":"language","value":"typescript"}]}
 document: {"type":"document","label":"<label>","name":"<id>","docName":"<kebab-case-name>","docSubfolder":"<optional-shared-subfolder>","contentMode":"inline","fileExtension":"md","contentText":"<actual document content - reference material, guides, data>","linkedFileName":"","linkedFileContent":"","description":"<what this document contains>"}
 mcp-tool: {"type":"mcp-tool","label":"<label>","name":"<id>","toolName":"<name>","paramsText":""}
 if-else: {"type":"if-else","label":"<label>","name":"<id>","evaluationTarget":"<target>","branches":[{"label":"If <cond>","condition":"<cond>"},{"label":"Else","condition":"else"}]}
@@ -306,12 +326,17 @@ sub-workflow: {"type":"sub-workflow","label":"<label>","name":"<id>","mode":"sam
   - Use a \`parallel-agent\` node when work can be done by multiple independent agents simultaneously, or when a large task should be split into parallel lanes handled at the same time.
   - Use a \`sub-workflow\` node when you need to group or reuse a multi-step flow, especially when the inner work is primarily sequential rather than parallel.
 - When an agent needs specific capabilities, create skill nodes with detailed instructions and connect them.
+- Prefer a skill node when the capability should be reusable, shared across multiple agents, or kept separate from the main agent prompt for clarity.
+- In agent promptText, mention what each connected skill is for and when the agent should consult it using the exact \`{{skillName}}\` syntax.
+- When a skill needs runnable helper code, create one or more script nodes containing Bun-compatible script content and connect them to the skill using sourceHandle \`"script-out"\` and targetHandle \`"scripts"\`.
+- Script nodes used by a skill should not be wired into the main start→end flow. Their primary role is as skill attachment/resources.
 - When an agent needs reference data, context, or guides, create document nodes with real content and connect them.
 - Agent promptText should be comprehensive — write it as a real system prompt for an AI agent.
 - Choose models wisely for each agent: use capable models (Claude Sonnet/Opus) for complex reasoning, coding, and analysis tasks; use lighter models (Claude Haiku, GPT-4o-mini) for simple formatting, summarisation, or routing tasks. Prefer Claude (Anthropic) models as the default when available.
 - Only set temperature > 0 when creativity/variation is needed (e.g. content generation, brainstorming). Keep temperature at 0 for deterministic tasks (code review, analysis, routing).
 - Only add tools to disabledTools when you specifically want to prevent an agent from using certain tools. Leave disabledTools empty to give the agent full access.
 - Skill promptText should contain the actual skill instructions/knowledge (not just a placeholder).
+- When a skill references connected scripts, add the \`{{script-name}}\` placeholders to \`promptText\`, include those names in \`detectedVariables\`, and populate \`variableMappings\` with \`"script:<scriptFileName>"\` values when known.
 - Document contentText should contain actual reference content (not just a placeholder).
 - When connecting documents or skills to an agent, ALWAYS reference them in the agent's promptText using \`{{docName}}\` or \`{{skillName}}\` syntax, add those names to detectedVariables, and populate variableMappings with the correct \`"doc:<optionalSubfolder/><docName>.<ext>"\` or \`"skill:<skillName>"\` values.
 - When a workflow section is complex or reusable, wrap it in a sub-workflow node with fully populated subNodes and subEdges. Use mode "same-context" for simple inline grouping, and mode "agent" when the sub-workflow should run as an independent agent with its own model and description.

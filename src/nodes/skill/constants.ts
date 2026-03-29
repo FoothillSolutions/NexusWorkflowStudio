@@ -11,10 +11,10 @@ const SLUG_REGEX = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 export const skillRegistryEntry: NodeRegistryEntry = {
   type: "skill", displayName: "Skill", description: "A knowledge unit for subagent",
   icon: Wrench, accentColor: "cyan", accentHex: NODE_ACCENT.skill, category: NodeCategory.Basic,
-  size: NodeSize.Small,
+  size: NodeSize.Medium,
   defaultData: (): SkillNodeData => ({
-    type: "skill", label: "Skill", name: "", skillName: "", projectName: "",
-    description: "", promptText: "", detectedVariables: [], metadata: [],
+    type: "skill", label: "Skill", name: "", skillName: "",
+    description: "", promptText: "", detectedVariables: [], variableMappings: {}, metadata: [],
   }),
 };
 
@@ -22,10 +22,10 @@ export const skillSchema = z.object({
   name: z.string().min(1, "Name is required").regex(/^[a-zA-Z0-9_-]+$/, "Only alphanumeric characters, hyphens, and underscores"),
   label: z.string().min(1, "Label is required"),
   skillName: z.string(),
-  projectName: z.string(),
   description: z.string().default(""),
   promptText: z.string().default(""),
   detectedVariables: z.array(z.string()).default([]),
+  variableMappings: z.record(z.string(), z.string()).default({}),
   metadata: z
     .array(
       z.object({

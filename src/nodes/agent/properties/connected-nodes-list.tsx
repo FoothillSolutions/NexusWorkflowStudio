@@ -1,9 +1,10 @@
 "use client";
 
 import { Label } from "@/components/ui/label";
-import { Zap, FileText, X } from "lucide-react";
+import { FileCode2, Zap, FileText, X } from "lucide-react";
 import type { ConnectedNode } from "./use-connected-resources";
 import { getDocumentDisplayPath } from "@/nodes/document/utils";
+import { getSkillScriptBaseName, getSkillScriptFileName } from "@/nodes/skill/script-utils";
 
 const VARIANTS = {
   skill: {
@@ -16,7 +17,7 @@ const VARIANTS = {
     textColor: "text-cyan-200",
     subtextColor: "text-cyan-600",
     getName: (d: Record<string, unknown>) => (d.skillName as string) || (d.label as string) || "",
-    getSub: (d: Record<string, unknown>) => (d.projectName as string) || "",
+    getSub: () => "",
   },
   doc: {
     icon: FileText,
@@ -30,10 +31,22 @@ const VARIANTS = {
     getName: (d: Record<string, unknown>) => getDocumentDisplayPath(d as import("@/nodes/document/types").DocumentNodeData),
     getSub: () => "",
   },
+  script: {
+    icon: FileCode2,
+    labelColor: "text-sky-300",
+    iconColor: "text-sky-400",
+    itemIconColor: "text-sky-500",
+    bg: "bg-sky-950/30",
+    border: "border-sky-800/30",
+    textColor: "text-sky-200",
+    subtextColor: "text-sky-600",
+    getName: (d: Record<string, unknown>) => getSkillScriptFileName(d),
+    getSub: (d: Record<string, unknown>) => `{{${getSkillScriptBaseName(d)}}}`,
+  },
 } as const;
 
 interface ConnectedNodesListProps {
-  variant: "skill" | "doc";
+  variant: "skill" | "doc" | "script";
   items: ConnectedNode[];
   onDeleteEdge: (edgeId: string) => void;
 }
@@ -43,7 +56,11 @@ export function ConnectedNodesList({ variant, items, onDeleteEdge }: ConnectedNo
 
   const v = VARIANTS[variant];
   const Icon = v.icon;
-  const label = variant === "skill" ? "Connected Skills" : "Connected Documents";
+  const label = variant === "skill"
+    ? "Connected Skills"
+    : variant === "doc"
+      ? "Connected Documents"
+      : "Connected Scripts";
 
   return (
     <div className="space-y-2">

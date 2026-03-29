@@ -16,6 +16,7 @@ import type { NodeRegistryEntry } from "@/nodes/shared/registry-types";
 import { startRegistryEntry, startSchema, StartNode } from "@/nodes/start";
 import { endRegistryEntry, endSchema, EndNode } from "@/nodes/end";
 import { promptRegistryEntry, promptSchema, PromptNode } from "@/nodes/prompt";
+import { scriptRegistryEntry, scriptSchema, ScriptNode } from "@/nodes/script";
 import { subAgentRegistryEntry, subAgentSchema, SubAgentNode } from "@/nodes/agent";
 import { parallelAgentRegistryEntry, parallelAgentSchema, ParallelAgentNode } from "@/nodes/parallel-agent";
 import { subWorkflowRegistryEntry, subWorkflowSchema, SubWorkflowNode } from "@/nodes/sub-workflow";
@@ -31,6 +32,7 @@ export const NODE_REGISTRY: Record<NodeType, NodeRegistryEntry> = {
   start:           startRegistryEntry,
   end:             endRegistryEntry,
   prompt:          promptRegistryEntry,
+  script:          scriptRegistryEntry,
   "agent":         subAgentRegistryEntry,
   "parallel-agent": parallelAgentRegistryEntry,
   skill:           skillRegistryEntry,
@@ -47,6 +49,7 @@ export const NODE_TYPE_COMPONENTS: NodeTypes = {
   start:           StartNode,
   end:             EndNode,
   prompt:          PromptNode,
+  script:          ScriptNode,
   "agent":         SubAgentNode,
   "parallel-agent": ParallelAgentNode,
   "sub-workflow":  SubWorkflowNode,
@@ -63,6 +66,7 @@ export const nodeSchemaMap = {
   start:           startSchema,
   end:             endSchema,
   prompt:          promptSchema,
+  script:          scriptSchema,
   "agent":         subAgentSchema,
   "parallel-agent": parallelAgentSchema,
   "sub-workflow":  subWorkflowSchema,
@@ -75,11 +79,30 @@ export const nodeSchemaMap = {
 } as const;
 
 // Palette groupings
-export const BASIC_NODES = Object.values(NODE_REGISTRY).filter(
-  (n) => n.category === NodeCategory.Basic
+const BASIC_NODE_ORDER: NodeType[] = [
+  "start",
+  "prompt",
+  "agent",
+  "parallel-agent",
+  "skill",
+  "document",
+  "script",
+  "sub-workflow",
+  "mcp-tool",
+  "end",
+];
+
+const CONTROL_FLOW_NODE_ORDER: NodeType[] = [
+  "if-else",
+  "switch",
+  "ask-user",
+];
+
+export const BASIC_NODES = BASIC_NODE_ORDER.map((type) => NODE_REGISTRY[type]).filter(
+  (n) => n.category === NodeCategory.Basic,
 );
-export const CONTROL_FLOW_NODES = Object.values(NODE_REGISTRY).filter(
-  (n) => n.category === NodeCategory.ControlFlow
+export const CONTROL_FLOW_NODES = CONTROL_FLOW_NODE_ORDER.map((type) => NODE_REGISTRY[type]).filter(
+  (n) => n.category === NodeCategory.ControlFlow,
 );
 
 // Node creation helper

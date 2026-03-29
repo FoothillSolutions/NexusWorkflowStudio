@@ -13,7 +13,7 @@ import type { ConnectedNodeContext, NodeSummary } from "@/nodes/agent/properties
 export type PromptGenStatus = "idle" | "creating-session" | "generating" | "streaming" | "done" | "error";
 export type PromptGenView = "closed" | "generate" | "edit";
 export type PromptGenMode = "structured" | "freeform";
-export type PromptGenNodeType = "agent" | "prompt" | "skill";
+export type PromptGenNodeType = "agent" | "prompt" | "skill" | "script";
 
 interface PromptGenState {
   /** The active OpenCode session for prompt generation */
@@ -117,7 +117,7 @@ export interface GeneratePayload {
   /** For freeform mode: a plain description of the desired prompt */
   freeformDescription?: string;
   /** Names of connected skills and documents so the AI can reference them */
-  connectedResourceNames?: { skills: string[]; docs: string[] };
+  connectedResourceNames?: { skills: string[]; docs: string[]; scripts: string[] };
   /** The type of node being targeted — affects system prompt style */
   nodeType?: PromptGenNodeType;
   /** Upstream and downstream flow-connected nodes and their content */
@@ -130,7 +130,7 @@ export interface EditPayload {
   modelId: string;
   providerId: string;
   /** Names of connected skills and documents so the AI can reference them */
-  connectedResourceNames?: { skills: string[]; docs: string[] };
+  connectedResourceNames?: { skills: string[]; docs: string[]; scripts: string[] };
   /** The type of node being targeted — affects system prompt style */
   nodeType?: PromptGenNodeType;
   /** Upstream and downstream flow-connected nodes and their content */
@@ -140,7 +140,7 @@ export interface EditPayload {
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 /** Build a Markdown snippet listing connected skills & docs (empty string if none). */
-function buildConnectedResourcesBlock(res?: { skills: string[]; docs: string[] }): string {
+function buildConnectedResourcesBlock(res?: { skills: string[]; docs: string[]; scripts: string[] }): string {
   if (!res) return "";
   const lines: string[] = [];
   if (res.skills.length > 0) {
@@ -152,6 +152,42 @@ function buildConnectedResourcesBlock(res?: { skills: string[]; docs: string[] }
     lines.push("**Connected Documents:**");
     for (const d of res.docs) lines.push(`- {{${d}}}`);
   }
+  if (res.scripts.length > 0) {
+    if (lines.length > 0) lines.push("");
+    lines.push("**Connected Scripts:**");
+    for (const s of res.scripts) lines.push(`- {{${s}}}`);
+  }
+  return lines.length > 0 ? lines.join("\n") : "";
+}
+
+function buildConnectedResourceGuidance(
+  nodeType: PromptGenNodeType,
+  res?: { skills: string[]; docs: string[]; scripts: string[] },
+): string {
+  if (!res) return "";
+
+  const lines: string[] = [];
+
+  if (nodeType === "agent") {
+    if (res.skills.length > 0) {
+      lines.push("- Connected skills are reusable capability modules. Reference them with the exact `{{skill-name}}` syntax and explain when the agent should rely on each skill.");
+    }
+    if (res.docs.length > 0) {
+      lines.push("- Connected documents are reference sources. Reference them with the exact `{{doc-name.ext}}` or provided `{{name}}` syntax when the agent should consult them.");
+    }
+  }
+
+  if (nodeType === "skill" && res.scripts.length > 0) {
+    lines.push("- Connected scripts are runnable Bun helpers attached to this skill. Refer to them with the exact `{{script-name}}` syntax when the skill should call or recommend a helper script.");
+    lines.push("- Describe what each referenced script is for, when to run it, what inputs it expects, and what output/result the agent should use.");
+    lines.push("- Do not inline the full script source into the skill prompt. Treat scripts as external runnable helpers documented by the skill.");
+  }
+
+  if (nodeType === "script") {
+    lines.push("- If workflow context shows this script is attached to a skill, write the script as a focused helper that supports that skill's workflow directly.");
+    lines.push("- Prefer Bun-compatible TypeScript/JavaScript with a clear entrypoint, explicit inputs, and useful console output or return data.");
+  }
+
   return lines.length > 0 ? lines.join("\n") : "";
 }
 
@@ -227,6 +263,19 @@ Example 3 — Edge case: invalid input → error + accepted formats
 `.trim();
 
 function buildSystemMessage(nodeType?: PromptGenNodeType): string {
+  if (nodeType === "script") {
+    return `You are a Bun script generator. You receive a description of a script node and output only the executable script source code — nothing else.
+
+CRITICAL RULES:
+- Your ENTIRE response must be the script source code itself. No preamble, no explanation, no code fences.
+- Output runnable JavaScript or TypeScript that Bun can execute directly.
+- Prefer clear, production-ready code with sensible imports, async handling, and small comments only when they add real value.
+- Use {{variable_name}} for static/config values when the script should reference connected resources by name.
+- If the script needs inputs, it may read Bun arguments from process.argv or Bun.argv as appropriate.
+- When workflow context shows the script belongs to a skill, make it a purpose-built helper for that skill rather than a generic standalone utility.
+- When workflow context is provided, write the script so it fits naturally with the surrounding workflow and skill behavior.`;
+  }
+
   if (nodeType === "skill") {
     return `You are a skill-prompt generator. A "skill" is a reusable instruction block that teaches an AI agent **how to do something** — like a procedure, technique, coding pattern, or domain-specific method. You receive a description and output **only the skill prompt text** — nothing else.
 
@@ -241,6 +290,8 @@ CRITICAL RULES:
 - Use {{variable_name}} for static/config values.
 - Structure with sections if the skill is complex, but keep it concise for simple skills.
 - Focus on the *how* — the agent already knows *what* to do from its main prompt; the skill teaches the specific technique.
+- When connected scripts are provided, reference them using the exact {{script-name}} syntax and explain when/how the agent should run them.
+- Treat connected scripts as external Bun helpers; document their usage, expected inputs, and outputs instead of pasting their source code into the skill.
 - When workflow context (upstream/downstream nodes) is provided, tailor the skill to fit naturally within the pipeline — consider what data arrives from upstream nodes and what downstream nodes expect.`;
   }
 
@@ -280,6 +331,7 @@ Style rules:
 - Use {{variable_name}} for static/config values
 - **Only include sections that are needed** — a simple agent may only need Title, Purpose, and Instructions
 - When the user provides connected skills or documents, reference them using the exact {{name}} syntax as given
+- When connected skills are provided, explain when the agent should use each skill and what kind of work each skill owns
 - When workflow context (upstream/downstream nodes) is provided, consider the agent's role in the pipeline — what it receives from upstream and what downstream nodes expect from it. Tailor instructions, edge cases, and workflow steps accordingly.`;
 }
 
@@ -303,9 +355,10 @@ function buildGenerateUserMessage(payload: GeneratePayload): string {
 
   // Build connected-resources context (may be empty)
   const resBlock = buildConnectedResourcesBlock(payload.connectedResourceNames);
-  const nodeLabel = nodeType === "skill" ? "skill" : nodeType === "prompt" ? "prompt" : "agent";
+  const resGuidance = buildConnectedResourceGuidance(nodeType, payload.connectedResourceNames);
+  const nodeLabel = nodeType === "skill" ? "skill" : nodeType === "prompt" ? "prompt" : nodeType === "script" ? "script" : "agent";
   const resSection = resBlock
-    ? `\n\n## Connected Resources\nThe ${nodeLabel} has the following skills and documents connected to it. Reference them in the prompt using the exact {{name}} syntax shown below:\n\n${resBlock}`
+    ? `\n\n## Connected Resources\nThe ${nodeLabel} has the following connected resources. Reference them in the prompt using the exact {{name}} syntax shown below:\n\n${resBlock}${resGuidance ? `\n\n## Resource Guidance\n${resGuidance}` : ""}`
     : "";
 
   // Build workflow context section (upstream/downstream neighbours)
@@ -343,6 +396,36 @@ You may add additional content only if clearly inferred from the input. Output O
     }
 
     return `Write a well-structured skill prompt that teaches an AI agent a useful technique or procedure. Fill in realistic, actionable content. Output ONLY the skill prompt text.${resSection}${ctxSection}`;
+  }
+
+  if (nodeType === "script") {
+    if (hasFreeform && hasFields) {
+      return `Write the Bun script source code for a script described as:
+${payload.freeformDescription!.trim()}
+
+Additional details:
+
+${sections.join("\n\n")}${resSection}${ctxSection}
+
+Remember: output ONLY the script source code. No explanation.`;
+    }
+
+    if (hasFreeform) {
+      return `Write Bun-compatible script source code based on this description:
+${payload.freeformDescription!.trim()}${resSection}${ctxSection}
+
+Output ONLY the script source code. No explanation.`;
+    }
+
+    if (hasFields) {
+      return `Write Bun-compatible script source code using these details:
+
+${sections.join("\n\n")}${resSection}${ctxSection}
+
+Output ONLY the script source code.`;
+    }
+
+    return `Write a useful Bun-compatible script template with realistic runnable code. Output ONLY the script source code.${resSection}${ctxSection}`;
   }
 
   if (nodeType === "prompt") {
@@ -413,10 +496,11 @@ You may add other template sections only if clearly inferred from the input. Out
 
 function buildEditUserMessage(payload: EditPayload): string {
   const nodeType = payload.nodeType ?? "agent";
-  const nodeLabel = nodeType === "skill" ? "skill" : nodeType === "prompt" ? "prompt" : "agent prompt";
+  const nodeLabel = nodeType === "skill" ? "skill" : nodeType === "prompt" ? "prompt" : nodeType === "script" ? "script" : "agent prompt";
   const resBlock = buildConnectedResourcesBlock(payload.connectedResourceNames);
+  const resGuidance = buildConnectedResourceGuidance(nodeType, payload.connectedResourceNames);
   const resSection = resBlock
-    ? `\n\nThe ${nodeType === "agent" ? "agent" : nodeType} has the following skills and documents connected — reference them using the exact {{name}} syntax:\n\n${resBlock}`
+    ? `\n\nThe ${nodeType === "agent" ? "agent" : nodeType} has the following connected resources — reference them using the exact {{name}} syntax:\n\n${resBlock}${resGuidance ? `\n\nResource guidance:\n${resGuidance}` : ""}`
     : "";
 
   // Workflow context (upstream/downstream neighbours)

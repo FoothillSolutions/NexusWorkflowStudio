@@ -9,6 +9,7 @@ import type { WorkflowJSON, WorkflowNode, WorkflowEdge } from "@/types/workflow"
 import { generator as startGen }        from "@/nodes/start/generator";
 import { generator as endGen }          from "@/nodes/end/generator";
 import { generator as promptGen }       from "@/nodes/prompt/generator";
+import { generator as scriptGen }       from "@/nodes/script/generator";
 import { generator as subAgentGen }     from "@/nodes/agent/generator";
 import { generator as parallelAgentGen } from "@/nodes/parallel-agent/generator";
 import { generator as subWorkflowGen } from "@/nodes/sub-workflow/generator";
@@ -23,10 +24,12 @@ import { mermaidId, mermaidLabel }      from "@/nodes/shared/mermaid-utils";
 import { getDocumentRelativePath } from "@/nodes/document/utils";
 import {
   buildGeneratedCommandFilePath,
+  buildGeneratedSkillScriptFilePath,
   DEFAULT_GENERATION_TARGET,
   sanitizeGeneratedName,
   type GenerationTargetId,
 } from "@/lib/generation-targets";
+import { getSkillScriptBaseName, getSkillScriptFileName } from "@/nodes/skill/script-utils";
 export interface GeneratedFile {
   path: string;
   content: string;
@@ -35,6 +38,7 @@ const NODE_GENERATORS: Record<string, NodeGeneratorModule> = {
   start:            startGen,
   end:              endGen,
   prompt:           promptGen,
+  script:           scriptGen,
   "agent":          subAgentGen,
   "parallel-agent": parallelAgentGen,
   "sub-workflow":   subWorkflowGen,
@@ -45,9 +49,22 @@ const NODE_GENERATORS: Record<string, NodeGeneratorModule> = {
   switch:           switchGen,
   "ask-user":       askUserGen,
 };
+
+const SKILL_SLUG_REGEX = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
+function resolveSkillReferenceName(d: { skillName?: string; label?: string; name?: string }): string | null {
+  const candidates = [d.skillName, d.label, d.name];
+  for (const candidate of candidates) {
+    const trimmed = candidate?.trim();
+    if (trimmed && SKILL_SLUG_REGEX.test(trimmed)) return trimmed;
+  }
+  return null;
+}
+
 function mermaidNodeShape(node: WorkflowNode): string {
   if (node.data.type === "skill") return "";
   if (node.data.type === "document") return "";
+  if (node.data.type === "script") return "";
   const gen = NODE_GENERATORS[node.data.type];
   if (gen) return gen.getMermaidShape(node.id, node.data);
   return `    ${mermaidId(node.id)}["${mermaidLabel(node.data.label ?? node.data.type)}"]`;
@@ -356,6 +373,16 @@ function collectAgentFiles(
     }
   }
 
+  const scriptsBySkill = new Map<string, string[]>();
+  for (const edge of edges) {
+    const targetNode = allNodeById.get(edge.target);
+    const sourceNode = allNodeById.get(edge.source);
+    if (edge.targetHandle === "scripts" && targetNode?.data?.type === "skill" && sourceNode?.data?.type === "script") {
+      if (!scriptsBySkill.has(edge.target)) scriptsBySkill.set(edge.target, []);
+      scriptsBySkill.get(edge.target)!.push(edge.source);
+    }
+  }
+
   // Track which skill nodes are actually connected to a reachable agent
   const connectedSkillIds = new Set<string>();
   for (const skillIds of skillsByTarget.values()) {
@@ -379,7 +406,7 @@ function collectAgentFiles(
         const skillNode = allNodeById.get(skillId);
         if (skillNode?.data?.type === "skill") {
           const sd = skillNode.data as import("@/nodes/skill/types").SkillNodeData;
-          const skillName = sd.skillName?.trim() || sd.name?.trim();
+          const skillName = resolveSkillReferenceName(sd);
           if (skillName) connectedSkillNames.push(skillName);
         }
       }
@@ -408,9 +435,28 @@ function collectAgentFiles(
     const skillNode = allNodeById.get(skillId);
     if (skillNode?.data?.type === "skill") {
       const gen = NODE_GENERATORS["skill"];
+      const skillData = skillNode.data as import("@/nodes/skill/types").SkillNodeData;
+      const skillName = resolveSkillReferenceName(skillData);
+      const connectedScripts = (scriptsBySkill.get(skillId) ?? [])
+        .map((scriptId) => allNodeById.get(scriptId))
+        .filter((node): node is WorkflowNode => !!node && node.data.type === "script")
+        .map((node) => ({
+          label: (node.data.label as string) || node.id,
+          fileName: getSkillScriptFileName(node.data),
+          variableName: getSkillScriptBaseName(node.data),
+          content: (node.data.promptText as string) || "",
+        }));
       if (gen?.getSkillFile) {
-        const f = gen.getSkillFile(skillNode.id, skillNode.data, target);
+        const f = gen.getSkillFile(skillNode.id, skillNode.data, connectedScripts, target);
         if (f) files.push(f);
+      }
+      if (skillName) {
+        for (const script of connectedScripts) {
+          files.push({
+            path: buildGeneratedSkillScriptFilePath(skillName, script.fileName, target),
+            content: script.content.endsWith("\n") ? script.content : `${script.content}\n`,
+          });
+        }
       }
     }
   }
@@ -479,6 +525,7 @@ function buildCommandMarkdown(workflow: WorkflowJSON): string {
   const dedupedNodes = nodes.filter((n) => {
     if (n.data.type === "skill") return false; // skills excluded from workflow.md
     if (n.data.type === "document") return false; // documents excluded from workflow.md
+    if (n.data.type === "script") return false; // scripts excluded from workflow.md
     if (n.data.type === "start" || n.data.type === "end") {
       if (!seenTypes.has(n.data.type)) {
         seenTypes.add(n.data.type);
@@ -491,13 +538,15 @@ function buildCommandMarkdown(workflow: WorkflowJSON): string {
     return true;
   });
 
-  // Build set of skill and document node IDs so we can exclude their edges
+  // Build set of attachment node IDs so we can exclude their edges
   const skillNodeIds = new Set(nodes.filter((n) => n.data.type === "skill").map((n) => n.id));
   const documentNodeIds = new Set(nodes.filter((n) => n.data.type === "document").map((n) => n.id));
+  const scriptNodeIds = new Set(nodes.filter((n) => n.data.type === "script").map((n) => n.id));
 
   const remappedEdges = edges
     .filter((e) => !skillNodeIds.has(e.source) && !skillNodeIds.has(e.target)
-                 && !documentNodeIds.has(e.source) && !documentNodeIds.has(e.target))
+                 && !documentNodeIds.has(e.source) && !documentNodeIds.has(e.target)
+                 && !scriptNodeIds.has(e.source) && !scriptNodeIds.has(e.target))
     .map((e) => {
       const remappedTarget = endNodeIdMap.get(e.target);
       const remappedSource = endNodeIdMap.get(e.source);

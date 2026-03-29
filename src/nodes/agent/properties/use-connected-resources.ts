@@ -4,6 +4,7 @@ import { useCallback, useMemo } from "react";
 import { useWorkflowStore } from "@/store/workflow-store";
 import type { AskUserNodeData, SubWorkflowNodeData, WorkflowEdge, WorkflowNode } from "@/types/workflow";
 import { getDocumentRelativePath } from "@/nodes/document/utils";
+import { getSkillScriptBaseName, getSkillScriptFileName } from "@/nodes/skill/script-utils";
 
 export interface ConnectedNode {
   edge: WorkflowEdge;
@@ -13,7 +14,7 @@ export interface ConnectedNode {
 export interface AvailableResource {
   value: string;
   label: string;
-  kind: "doc" | "skill";
+  kind: "doc" | "skill" | "script";
 }
 
 type StoreSnapshot = ReturnType<typeof useWorkflowStore.getState>;
@@ -75,7 +76,7 @@ function resolveNodesAndEdges(state: StoreSnapshot, nodeId: string) {
 function buildEdgeKey(
   state: StoreSnapshot,
   nodeId: string,
-  targetHandle: "skills" | "docs",
+  targetHandle: "skills" | "docs" | "scripts",
 ): string {
   const { edges } = resolveNodesAndEdges(state, nodeId);
   return edges
@@ -150,6 +151,26 @@ export function useConnectedResources(nodeId?: string) {
       .filter((item): item is ConnectedNode => isNonNullable(item.node));
   }, [docEdgeKey, nodeId]);
 
+  const scriptEdgeKey = useWorkflowStore(
+    useCallback(
+      (s) => {
+        if (!nodeId) return "";
+        return buildEdgeKey(s, nodeId, "scripts");
+      },
+      [nodeId],
+    ),
+  );
+
+  const connectedScripts = useMemo(() => {
+    if (!scriptEdgeKey) return [] as ConnectedNode[];
+    const state = useWorkflowStore.getState();
+    const { nodes, edges } = resolveNodesAndEdges(state, nodeId ?? "");
+    return edges
+      .filter((e) => e.target === nodeId && e.targetHandle === "scripts")
+      .map((e) => ({ edge: e, node: nodes.find((n) => n.id === e.source) }))
+      .filter((item): item is ConnectedNode => isNonNullable(item.node));
+  }, [scriptEdgeKey, nodeId]);
+
   const resourceKey = useWorkflowStore(
     useCallback(
       (s) => {
@@ -167,6 +188,8 @@ export function useConnectedResources(nodeId?: string) {
           } else if (n.data?.type === "skill") {
             const d = n.data as Record<string, unknown>;
             parts.push(`skill:${e.source}:${d.skillName ?? ""}:${d.label ?? ""}`);
+          } else if (e.targetHandle === "scripts" && n.data?.type === "script") {
+            parts.push(`script:${e.source}:${getSkillScriptFileName(n.data)}:${n.data.label ?? ""}`);
           }
         }
         return parts.sort().join("|");
@@ -212,6 +235,16 @@ export function useConnectedResources(nodeId?: string) {
           label: `⚡ ${displayName}`,
           kind: "skill",
         });
+      } else if (edge.targetHandle === "scripts" && src.data?.type === "script") {
+        const fileName = getSkillScriptFileName(src.data);
+        const value = `script:${fileName}`;
+        if (seenValues.has(value)) continue;
+        seenValues.add(value);
+        resources.push({
+          value,
+          label: `🧩 ${fileName}`,
+          kind: "script",
+        });
       }
     }
     return resources;
@@ -220,6 +253,7 @@ export function useConnectedResources(nodeId?: string) {
   return {
     connectedSkills,
     connectedDocs,
+    connectedScripts,
     availableResources,
     deleteEdge,
     hasImmediateUpstreamParallelAgent,
@@ -369,12 +403,13 @@ export function getConnectedNodeContext(
  */
 export function getConnectedResourceNames(
   nodeId: string | null | undefined,
-): { skills: string[]; docs: string[] } {
-  if (!nodeId) return { skills: [], docs: [] };
+): { skills: string[]; docs: string[]; scripts: string[] } {
+  if (!nodeId) return { skills: [], docs: [], scripts: [] };
   const state = useWorkflowStore.getState();
   const { nodes, edges } = resolveNodesAndEdges(state, nodeId);
   const skills: string[] = [];
   const docs: string[] = [];
+  const scripts: string[] = [];
 
   for (const edge of edges) {
     if (edge.target !== nodeId) continue;
@@ -395,9 +430,11 @@ export function getConnectedResourceNames(
         const fallback = d.label?.trim() || d.name?.trim();
         if (fallback) docs.push(fallback);
       }
+    } else if (edge.targetHandle === "scripts" && src.data?.type === "script") {
+      scripts.push(getSkillScriptBaseName(src.data));
     }
   }
 
-  return { skills, docs };
+  return { skills, docs, scripts };
 }
 

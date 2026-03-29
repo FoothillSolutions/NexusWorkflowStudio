@@ -245,6 +245,118 @@ function updateNestedSubWorkflowNodes(
   });
 }
 
+function updateNestedSubWorkflowEdges(
+  nodes: WorkflowNode[],
+  ancestorPath: string[],
+  nextSubEdges: WorkflowEdge[],
+): WorkflowNode[] {
+  if (ancestorPath.length === 0) return nodes;
+
+  const [currentAncestorId, ...remainingPath] = ancestorPath;
+
+  return nodes.map((node) => {
+    if (node.id !== currentAncestorId || node.data?.type !== "sub-workflow") {
+      return node;
+    }
+
+    const data = node.data as SubWorkflowNodeData;
+    const updatedSubNodes = remainingPath.length === 0
+      ? data.subNodes
+      : updateNestedSubWorkflowEdges(data.subNodes, remainingPath, nextSubEdges);
+    const updatedSubEdges = remainingPath.length === 0 ? nextSubEdges : data.subEdges;
+
+    return {
+      ...node,
+      data: {
+        ...data,
+        subNodes: updatedSubNodes,
+        subEdges: updatedSubEdges,
+      } as WorkflowNodeData,
+    };
+  });
+}
+
+function migrateLegacyPromptScripts(
+  nodes: WorkflowNode[],
+  edges: WorkflowEdge[],
+): { nodes: WorkflowNode[]; edges: WorkflowEdge[] } {
+  const legacyScriptIds = new Set(
+    edges
+      .filter((edge) => edge.targetHandle === "scripts")
+      .map((edge) => edge.source),
+  );
+
+  const migratedNodes = nodes.map((node) => {
+    const data = node.data as WorkflowNodeData;
+
+    if (node.data?.type === "sub-workflow") {
+      const subWorkflowData = data as SubWorkflowNodeData;
+      const migratedSub = migrateLegacyPromptScripts(subWorkflowData.subNodes ?? [], subWorkflowData.subEdges ?? []);
+      return {
+        ...node,
+        data: {
+          ...subWorkflowData,
+          subNodes: migratedSub.nodes,
+          subEdges: migratedSub.edges,
+          nodeCount: migratedSub.nodes.length,
+        } as WorkflowNodeData,
+      };
+    }
+
+    if (legacyScriptIds.has(node.id) && node.data?.type === "prompt") {
+      return {
+        ...node,
+        type: "script",
+        data: {
+          ...data,
+          type: "script",
+        } as WorkflowNodeData,
+      };
+    }
+
+    return node;
+  });
+
+  const migratedEdges = edges.map((edge) => {
+    if (legacyScriptIds.has(edge.source) && edge.targetHandle === "scripts") {
+      return {
+        ...edge,
+        sourceHandle: "script-out",
+      };
+    }
+    return edge;
+  });
+
+  return { nodes: migratedNodes, edges: migratedEdges };
+}
+
+function stripLegacySkillProjectName(nodes: WorkflowNode[]): WorkflowNode[] {
+  return nodes.map((node) => {
+    const data = node.data as WorkflowNodeData;
+
+    if (node.data?.type === "sub-workflow") {
+      const subWorkflowData = data as SubWorkflowNodeData;
+      const nextSubNodes = stripLegacySkillProjectName(subWorkflowData.subNodes ?? []);
+      return {
+        ...node,
+        data: {
+          ...subWorkflowData,
+          subNodes: nextSubNodes,
+          nodeCount: nextSubNodes.length,
+        } as WorkflowNodeData,
+      };
+    }
+
+    if (node.data?.type !== "skill") return node;
+
+    const { projectName: _projectName, ...skillData } = data as WorkflowNodeData & { projectName?: string };
+    return {
+      ...node,
+      data: skillData as WorkflowNodeData,
+    };
+  });
+}
+
 const initialWorkflowData = {
   name: "Untitled Workflow",
   nodes: [createDefaultStartNode(), createDefaultEndNode()] as WorkflowNode[],
@@ -324,6 +436,14 @@ export const useWorkflowStore = create<WorkflowState>()(
     const sourceNode = currentNodes.find((n) => n.id === connection.source);
     const targetNode = currentNodes.find((n) => n.id === connection.target);
 
+    // Script nodes can ONLY connect to skill nodes (as source)
+    if (sourceNode?.data?.type === "script") {
+      if (targetNode?.data?.type !== "skill") return;
+      const scriptConnection = { ...connection, sourceHandle: "script-out", targetHandle: "scripts", type: "deletable" };
+      set({ edges: addEdge(scriptConnection, get().edges) });
+      return;
+    }
+
     // Skill nodes can ONLY connect to agent-like nodes (as source)
     if (sourceNode?.data?.type === "skill") {
       if (targetNode?.data?.type !== "agent" && targetNode?.data?.type !== "parallel-agent") return;
@@ -344,8 +464,10 @@ export const useWorkflowStore = create<WorkflowState>()(
       return;
     }
 
-    // No node can connect TO a skill node
-    if (targetNode?.data?.type === "skill") return;
+    // No node except a script node can connect TO a skill script handle
+    if (targetNode?.data?.type === "skill") {
+      return;
+    }
 
     // No node can connect TO a document node
     if (targetNode?.data?.type === "document") return;
@@ -355,6 +477,9 @@ export const useWorkflowStore = create<WorkflowState>()(
 
     // The "docs" target handle only accepts document nodes — block everything else
     if (connection.targetHandle === "docs") return;
+
+    // The "scripts" target handle only accepts prompt nodes attached to skills
+    if (connection.targetHandle === "scripts") return;
 
     // Parallel-agent branch outputs can only target external agent nodes
     if (sourceNode?.data?.type === "parallel-agent" && connection.sourceHandle?.startsWith("branch-")) {
@@ -407,7 +532,31 @@ export const useWorkflowStore = create<WorkflowState>()(
   },
 
   deleteEdge: (edgeId) => {
-    set({ edges: get().edges.filter((e) => e.id !== edgeId) });
+    const state = get();
+
+    if (state.subWorkflowEdges.some((e) => e.id === edgeId)) {
+      const nextSubEdges = state.subWorkflowEdges.filter((e) => e.id !== edgeId);
+      const stack = state.subWorkflowStack;
+      const ancestorPath = stack.slice(0, -1).map((entry) => entry.nodeId);
+
+      set({
+        subWorkflowEdges: nextSubEdges,
+        nodes:
+          ancestorPath.length === 0
+            ? state.nodes.map((node) => {
+              if (node.id !== state.activeSubWorkflowNodeId || node.data?.type !== "sub-workflow") return node;
+              const data = node.data as SubWorkflowNodeData;
+              return {
+                ...node,
+                data: { ...data, subEdges: nextSubEdges } as WorkflowNodeData,
+              };
+            })
+            : updateNestedSubWorkflowEdges(state.nodes, ancestorPath, nextSubEdges),
+      });
+      return;
+    }
+
+    set({ edges: state.edges.filter((e) => e.id !== edgeId) });
   },
 
   selectNode: (nodeId) => set({ selectedNodeId: nodeId }),
@@ -925,12 +1074,14 @@ export const useWorkflowStore = create<WorkflowState>()(
     usePromptGenStore.getState().disposeSession();
 
     const savedToLibrary = options?.savedToLibrary ?? false;
+    const migrated = migrateLegacyPromptScripts(json.nodes as WorkflowNode[], json.edges as WorkflowEdge[]);
+    const normalizedNodes = stripLegacySkillProjectName(migrated.nodes);
     const nodes = ensureEndNode(
-      ensureStartNode(json.nodes).map((n) =>
+      ensureStartNode(normalizedNodes).map((n) =>
         n.data?.type === "start" ? { ...n, deletable: false } : n
       ) as WorkflowNode[]
     );
-    const edges = json.edges.map((e) => ({ ...e, type: "deletable" }));
+    const edges = migrated.edges.map((e) => ({ ...e, type: "deletable" }));
     const fingerprint = getWorkflowFingerprint({
       name: json.name,
       nodes,

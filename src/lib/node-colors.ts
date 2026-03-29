@@ -7,6 +7,7 @@ export const NODE_ACCENT = {
   start:          "#10b981",  // emerald
   end:            "#ef4444",  // red
   prompt:         "#3b82f6",  // blue
+  script:         "#38bdf8",  // sky
   agent:          "#5f27cd",  // violet
   "parallel-agent": "#6366f1",  // indigo
   "sub-workflow":  "#a855f7",  // purple

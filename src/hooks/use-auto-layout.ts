@@ -179,32 +179,58 @@ function collectSubtree(
 /** Types that are positioned relative to their parent agent-like node, not by Dagre. */
 const ATTACHMENT_TYPES = new Set<string>(["skill", "document"]);
 
+/** Script nodes wired into a skill are also attachment-like for layout. */
+const SCRIPT_ATTACHMENT_HANDLE = "scripts";
+
 /** Horizontal gap (px) between the attachment column and the agent's left edge. */
 const ATTACHMENT_X_GAP = 40;
 
 /** Vertical offset (px) below the agent's bottom edge where attachments start. */
 const ATTACHMENT_Y_OFFSET = 30;
 
-/**
- * Estimated rendered height (px) of a skill / document node.
- */
-const ATTACHMENT_RENDERED_HEIGHT = 200;
-
 /** Vertical gap (px) between stacked skill/document nodes. */
 const ATTACHMENT_Y_GAP = 60;
+
+/** Vertical gap between stacked script nodes under a skill. */
+const SCRIPT_ATTACHMENT_Y_GAP = 40;
 
 
 export function useAutoLayout({ getNodes, getEdges, setNodes, onComplete }: AutoLayoutOptions) {
   const { fitView } = useReactFlow();
 
-  const autoLayout = useCallback(() => {
+  return useCallback(() => {
     const currentNodes = getNodes();
     const currentEdges = getEdges();
     if (currentNodes.length === 0) return;
 
     const defaultDim = NODE_SIZE_DIMENSIONS[NodeSize.Medium];
+    const scriptDim = NODE_SIZE_DIMENSIONS[NODE_REGISTRY.script.size ?? NodeSize.Large] ?? defaultDim;
+    const skillDim = NODE_SIZE_DIMENSIONS[NODE_REGISTRY.skill.size ?? NodeSize.Medium] ?? defaultDim;
+    const documentDim = NODE_SIZE_DIMENSIONS[NODE_REGISTRY.document.size ?? NodeSize.Small] ?? defaultDim;
 
-    // ── Separate attachment (skill/document) nodes from flow nodes ────
+    // ── Discover script nodes attached to skills ──────────
+    const scriptAttachmentIds = new Set<string>();
+    const skillScriptAttachments = new Map<string, WorkflowNode[]>();
+    const claimedScriptAttachments = new Set<string>();
+
+    for (const edge of currentEdges) {
+      const sourceNode = currentNodes.find((node) => node.id === edge.source);
+      const targetNode = currentNodes.find((node) => node.id === edge.target);
+      if (
+        edge.targetHandle === SCRIPT_ATTACHMENT_HANDLE
+        && sourceNode?.data?.type === "script"
+        && targetNode?.data?.type === "skill"
+      ) {
+        if (claimedScriptAttachments.has(edge.source)) continue;
+        claimedScriptAttachments.add(edge.source);
+        scriptAttachmentIds.add(edge.source);
+        if (!skillScriptAttachments.has(edge.target)) skillScriptAttachments.set(edge.target, []);
+        const list = skillScriptAttachments.get(edge.target)!;
+        if (!list.some((node) => node.id === edge.source)) list.push(sourceNode);
+      }
+    }
+
+    // ── Separate attachment (skill/document/script) nodes from flow nodes ────
     const flowNodes: WorkflowNode[] = [];
     const attachmentNodes: WorkflowNode[] = [];
     const nodeDataMap = new Map<string, Record<string, unknown>>();
@@ -212,7 +238,7 @@ export function useAutoLayout({ getNodes, getEdges, setNodes, onComplete }: Auto
     for (const node of currentNodes) {
       const d = node.data as Record<string, unknown>;
       nodeDataMap.set(node.id, d);
-      if (ATTACHMENT_TYPES.has(d.type as string)) {
+       if (ATTACHMENT_TYPES.has(d.type as string) || scriptAttachmentIds.has(node.id)) {
         attachmentNodes.push(node);
       } else {
         flowNodes.push(node);
@@ -249,13 +275,14 @@ export function useAutoLayout({ getNodes, getEdges, setNodes, onComplete }: Auto
       }
     }
 
-    // ── Filter edges: only include flow edges for Dagre ──────────────
+     // ── Filter edges: only include flow edges for Dagre ──────────────
     const flowEdges = currentEdges.filter(edge => {
       const sourceData = nodeDataMap.get(edge.source);
-      if (sourceData && ATTACHMENT_TYPES.has(sourceData.type as string)) return false;
+       if ((sourceData && ATTACHMENT_TYPES.has(sourceData.type as string)) || scriptAttachmentIds.has(edge.source)) return false;
       const targetData = nodeDataMap.get(edge.target);
-      if (targetData && ATTACHMENT_TYPES.has(targetData.type as string)) return false;
-      return true;
+       return !((targetData && ATTACHMENT_TYPES.has(targetData.type as string))
+         || scriptAttachmentIds.has(edge.target)
+         || edge.targetHandle === SCRIPT_ATTACHMENT_HANDLE);
     });
 
     // ── Run Dagre on flow nodes only ─────────────────────────────────
@@ -293,15 +320,18 @@ export function useAutoLayout({ getNodes, getEdges, setNodes, onComplete }: Auto
     // ── Shift agent-like nodes with attachments to make room behind them ───────
     // Push the node (and everything at the same rank or later) right so
     // the single attachment column doesn't overlap with the previous rank.
-    const attachNodeWidth = (NODE_SIZE_DIMENSIONS[NodeSize.Small]?.width ?? 180);
+    const maxAttachmentWidth = Math.max(skillDim.width, documentDim.width);
 
     for (const [agentId, attachments] of agentAttachments) {
       if (attachments.length === 0) continue;
       const agentPos = targetPositions[agentId];
       if (!agentPos) continue;
 
-      // The attachment column left edge
-      const neededLeft = agentPos.x - attachNodeWidth - ATTACHMENT_X_GAP;
+      const hasScriptColumn = attachments.some((attachment) => skillScriptAttachments.has(attachment.id));
+      const totalAttachmentWidth = maxAttachmentWidth + ATTACHMENT_X_GAP + (hasScriptColumn ? scriptDim.width + ATTACHMENT_X_GAP : 0);
+
+      // The left-most edge needed to fit all attachment columns.
+      const neededLeft = agentPos.x - totalAttachmentWidth;
 
       // Find the closest flow node to the left of this agent
       let closestLeftEdge = -Infinity;
@@ -343,13 +373,13 @@ export function useAutoLayout({ getNodes, getEdges, setNodes, onComplete }: Auto
       const agentType = (nodeDataMap.get(agentId)?.type as NodeType | undefined) ?? ("agent" as NodeType);
       const agentEntry = NODE_REGISTRY[agentType];
       const agentDim = NODE_SIZE_DIMENSIONS[agentEntry?.size ?? NodeSize.Large] ?? defaultDim;
-      const attachDim = NODE_SIZE_DIMENSIONS[NodeSize.Small] ?? defaultDim;
+      const attachDim = { width: maxAttachmentWidth, height: Math.max(skillDim.height, documentDim.height) };
 
       // x: single column to the left of the agent
       const attachX = agentPos.x - attachDim.width - ATTACHMENT_X_GAP;
 
       // y: starts below the agent's bottom edge
-      const startY = agentPos.y + agentDim.height + ATTACHMENT_Y_OFFSET;
+      let cursorY = agentPos.y + agentDim.height + ATTACHMENT_Y_OFFSET;
 
       // Sort: skills first, then documents
       const sorted = [...attachments].sort((a, b) => {
@@ -359,12 +389,37 @@ export function useAutoLayout({ getNodes, getEdges, setNodes, onComplete }: Auto
         return aType === "skill" ? -1 : 1;
       });
 
-      // Stack all underneath each other, using realistic rendered height
-      sorted.forEach((node, i) => {
-        targetPositions[node.id] = {
+      // Stack attachments and any script prompts under the owning skill.
+      sorted.forEach((node) => {
+        const nodeType = (node.data as Record<string, unknown>).type as string;
+        const currentDim = nodeType === "skill" ? skillDim : documentDim;
+        const nodePosition = {
           x: attachX,
-          y: startY + i * (ATTACHMENT_RENDERED_HEIGHT + ATTACHMENT_Y_GAP),
+          y: cursorY,
         };
+
+        targetPositions[node.id] = nodePosition;
+
+        let clusterBottom = nodePosition.y + currentDim.height;
+
+        if (nodeType === "skill") {
+          const scripts = skillScriptAttachments.get(node.id) ?? [];
+          if (scripts.length > 0) {
+            const scriptX = nodePosition.x - scriptDim.width - ATTACHMENT_X_GAP;
+            let scriptCursorY = nodePosition.y + currentDim.height + ATTACHMENT_Y_OFFSET;
+
+            scripts.forEach((scriptNode) => {
+              targetPositions[scriptNode.id] = {
+                x: scriptX,
+                y: scriptCursorY,
+              };
+              clusterBottom = Math.max(clusterBottom, scriptCursorY + scriptDim.height);
+              scriptCursorY += scriptDim.height + SCRIPT_ATTACHMENT_Y_GAP;
+            });
+          }
+        }
+
+        cursorY = clusterBottom + ATTACHMENT_Y_GAP;
       });
     }
 
@@ -412,6 +467,4 @@ export function useAutoLayout({ getNodes, getEdges, setNodes, onComplete }: Auto
 
     requestAnimationFrame(animate);
   }, [getNodes, getEdges, setNodes, onComplete, fitView]);
-
-  return autoLayout;
 }

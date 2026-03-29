@@ -2,6 +2,7 @@
 import type { NodeType } from "@/types/workflow";
 import type { FormRegister, FormControl, FormSetValue, FormErrors } from "@/nodes/shared/form-types";
 import { Fields as PromptFields }       from "@/nodes/prompt/fields";
+import { Fields as ScriptFields }       from "@/nodes/script/fields";
 import { Fields as SubAgentFields }     from "@/nodes/agent/fields";
 import { Fields as ParallelAgentFields } from "@/nodes/parallel-agent/fields";
 import { Fields as SubWorkflowFields } from "@/nodes/sub-workflow/fields";
@@ -24,6 +25,7 @@ interface TypeSpecificFieldsProps {
 export function TypeSpecificFields({ nodeType, register, control, setValue, selectedNodeId }: TypeSpecificFieldsProps) {
   switch (nodeType) {
     case "prompt":         return <PromptFields control={control} setValue={setValue} nodeId={selectedNodeId} />;
+    case "script":         return <ScriptFields control={control} setValue={setValue} nodeId={selectedNodeId} />;
     case "agent":          return <SubAgentFields control={control} setValue={setValue} nodeId={selectedNodeId} />;
     case "parallel-agent": return <ParallelAgentFields register={register} control={control} nodeId={selectedNodeId} />;
     case "sub-workflow":   return <SubWorkflowFields control={control} setValue={setValue} nodeId={selectedNodeId} />;

@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useEffect } from "react";
 import { Label } from "@/components/ui/label";
-import { Check, ChevronDown, FileIcon, BoltIcon, Link } from "lucide-react";
+import { Check, ChevronDown, FileCode2, FileIcon, BoltIcon, Link } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
@@ -43,6 +43,7 @@ export function StaticVariableMapping({
   const hasResources = availableResources.length > 0;
   const docs = availableResources.filter((r) => r.kind === "doc");
   const skills = availableResources.filter((r) => r.kind === "skill");
+  const scripts = availableResources.filter((r) => r.kind === "script");
 
   return (
     <div className="space-y-2.5 overflow-hidden">
@@ -64,7 +65,7 @@ export function StaticVariableMapping({
       </div>
       <p className="text-[11px] text-zinc-500 leading-relaxed">
         Map <code className="text-amber-400/80 font-semibold">{"{{"}</code>static
-        <code className="text-amber-400/80 font-semibold">{"}}"}</code> variables to connected documents or skills.
+        <code className="text-amber-400/80 font-semibold">{"}}"}</code> variables to connected resources.
       </p>
       <div className="rounded-xl border border-zinc-700/40 bg-zinc-800/20 divide-y divide-zinc-700/30 overflow-hidden">
         {staticVars.map((varName) => {
@@ -74,7 +75,7 @@ export function StaticVariableMapping({
             <div key={varName} className="flex items-center gap-2.5 px-3 py-2.5 min-w-0 overflow-hidden hover:bg-zinc-700/10 transition-colors">
               <span
                 className={cn(
-                  "text-[11px] font-mono px-2 py-1 rounded-lg shrink-0 truncate max-w-[110px] transition-colors",
+                  "text-[11px] font-mono px-2 py-1 rounded-lg shrink-0 truncate max-w-27.5 transition-colors",
                   isMapped
                     ? "text-amber-300 bg-amber-500/10 border border-amber-500/20"
                     : "text-amber-300/70 bg-amber-950/30 border border-amber-800/20",
@@ -92,11 +93,12 @@ export function StaticVariableMapping({
                   isMapped={isMapped}
                   docs={docs}
                   skills={skills}
+                  scripts={scripts}
                   onSelect={(v) => updateMapping(varName, v)}
                 />
               ) : (
                 <span className="flex-1 min-w-0 text-[11px] text-zinc-500 italic truncate">
-                  Connect a Document or Skill to map
+                  Connect a resource to map
                 </span>
               )}
             </div>
@@ -108,15 +110,16 @@ export function StaticVariableMapping({
 }
 
 function ResourceDropdown({
-  currentValue, isMapped, docs, skills, onSelect,
+  currentValue, isMapped, docs, skills, scripts, onSelect,
 }: {
   currentValue: string;
   isMapped: boolean;
   docs: AvailableResource[];
   skills: AvailableResource[];
+  scripts: AvailableResource[];
   onSelect: (value: string) => void;
 }) {
-  const allResources = [...docs, ...skills];
+  const allResources = [...docs, ...skills, ...scripts];
   const displayLabel = isMapped
     ? allResources.find((r) => r.value === currentValue)?.label ?? currentValue
     : "Select resource…";
@@ -173,6 +176,23 @@ function ResourceDropdown({
               >
                 <BoltIcon className="h-3 w-3 text-cyan-500/70 shrink-0" />
                 <span className="truncate flex-1">{r.label.replace(/^⚡\s*/, "")}</span>
+                {currentValue === r.value && <Check className="h-3 w-3 text-amber-400 shrink-0 ml-auto" />}
+              </DropdownMenuItem>
+            ))}
+          </>
+        )}
+        {(docs.length > 0 || skills.length > 0) && scripts.length > 0 && <DropdownMenuSeparator className="bg-zinc-700/40" />}
+        {scripts.length > 0 && (
+          <>
+            <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-zinc-500 font-medium">Scripts</DropdownMenuLabel>
+            {scripts.map((r) => (
+              <DropdownMenuItem
+                key={r.value}
+                onClick={() => onSelect(r.value)}
+                className={cn("text-xs gap-2 focus:bg-zinc-800", currentValue === r.value ? "text-amber-200 focus:text-amber-200" : "text-zinc-300 focus:text-zinc-100")}
+              >
+                <FileCode2 className="h-3 w-3 text-sky-500/70 shrink-0" />
+                <span className="truncate flex-1">{r.label.replace(/^🧩\s*/, "")}</span>
                 {currentValue === r.value && <Check className="h-3 w-3 text-amber-400 shrink-0 ml-auto" />}
               </DropdownMenuItem>
             ))}

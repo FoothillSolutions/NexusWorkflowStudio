@@ -240,7 +240,7 @@ The discriminated union key is the `type` field.
 | `prompt` | `promptText`, `detectedVariables` | MessageSquareText | basic | `nodes/prompt/` |
 | `agent` | `description`, `promptText`, `model`, `memory`, `temperature`, `color`, `disabledTools`, `parameterMappings`, `variableMappings` | Bot | basic | `nodes/agent/` |
 | `sub-workflow` | `mode` (same-context/agent), `subNodes`, `subEdges`, `nodeCount`, + agent-mode fields | GitBranch | basic | `nodes/sub-workflow/` |
-| `skill` | `skillName`, `projectName`, `description`, `promptText`, `detectedVariables`, `metadata` | Wrench | basic | `nodes/skill/` |
+| `skill` | `skillName`, `description`, `promptText`, `detectedVariables`, `metadata` | Wrench | basic | `nodes/skill/` |
 | `document` | `docName`, `contentMode` (inline/linked), `fileExtension`, `contentText`, `linkedFileName`, `linkedFileContent`, `description` | FileText | basic | `nodes/document/` |
 | `mcp-tool` | `toolName`, `paramsText` | Plug | basic | `nodes/mcp-tool/` |
 | `if-else` | `evaluationTarget`, `branches[]` (label+condition) | GitFork | control-flow | `nodes/if-else/` |

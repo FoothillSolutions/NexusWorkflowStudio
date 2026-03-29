@@ -8,6 +8,7 @@ import { SubAgentMemory } from "@/nodes/agent/enums";
 export const NODE_TYPES = [
   "start",
   "prompt",
+  "script",
   "agent",
   "parallel-agent",
   "sub-workflow",
@@ -35,6 +36,12 @@ export interface StartNodeData extends BaseNodeData {
 
 export interface PromptNodeData extends BaseNodeData {
   type: "prompt";
+  promptText: string;
+  detectedVariables: string[];
+}
+
+export interface ScriptNodeData extends BaseNodeData {
+  type: "script";
   promptText: string;
   detectedVariables: string[];
 }
@@ -88,10 +95,11 @@ export interface SubWorkflowNodeData extends BaseNodeData {
 export interface SkillNodeData extends BaseNodeData {
   type: "skill";
   skillName: string;
-  projectName: string;
   description: string;
   promptText: string;
   detectedVariables: string[];
+  /** Static variable mappings: {{varName}} → script ref (e.g. "script:lint-fix.ts") */
+  variableMappings: Record<string, string>;
   metadata: Array<{ key: string; value: string }>;
 }
 
@@ -162,6 +170,7 @@ export interface EndNodeData extends BaseNodeData {
 export type WorkflowNodeData =
   | StartNodeData
   | PromptNodeData
+  | ScriptNodeData
   | SubAgentNodeData
   | ParallelAgentNodeData
   | SubWorkflowNodeData

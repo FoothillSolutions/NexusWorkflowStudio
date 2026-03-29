@@ -10,9 +10,9 @@ export interface SkillNodeData extends Record<string, unknown> {
   label: string;
   name: string;
   skillName: string;
-  projectName: string;
   description: string;
   promptText: string;
   detectedVariables: string[];
+  variableMappings: Record<string, string>;
   metadata: SkillMetadataEntry[];
 }

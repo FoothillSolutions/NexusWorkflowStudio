@@ -64,6 +64,20 @@ export interface LibraryItemEntry {
   description?: string;
 }
 
+function normalizeNodeData(nodeData: WorkflowNodeData): WorkflowNodeData {
+  if (nodeData.type !== "skill") return nodeData;
+
+  const { projectName: _projectName, ...skillData } = nodeData as WorkflowNodeData & { projectName?: string };
+  return skillData as WorkflowNodeData;
+}
+
+function normalizeLibraryItem(entry: LibraryItemEntry): LibraryItemEntry {
+  return {
+    ...entry,
+    nodeData: normalizeNodeData(entry.nodeData),
+  };
+}
+
 // Helpers
 
 function readCollection(): SavedWorkflowEntry[] {
@@ -204,7 +218,7 @@ function writeLibrary(entries: LibraryItemEntry[]): void {
 
 /** Get all library items. */
 export function getAllLibraryItems(): LibraryItemEntry[] {
-  return readLibrary();
+  return readLibrary().map(normalizeLibraryItem);
 }
 
 /** Extract a short description from node data. */
@@ -244,7 +258,7 @@ export function saveNodeToLibrary(
     nodeType: data.type,
     savedAt: existingIdx >= 0 ? entries[existingIdx].savedAt : now,
     updatedAt: now,
-    nodeData: { ...data },
+    nodeData: normalizeNodeData({ ...data } as WorkflowNodeData),
     description: extractDescription(data),
   };
 

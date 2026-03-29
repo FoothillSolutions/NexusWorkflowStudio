@@ -2,7 +2,7 @@
 
 import { useWorkflowStore } from "@/store/workflow-store";
 import { BASIC_NODES, CONTROL_FLOW_NODES, type NodeRegistryEntry } from "@/lib/node-registry";
-import { Menu, X, ScrollText, Scale, ShieldCheck } from "lucide-react";
+import { Menu, X, Scale, ShieldCheck } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -16,10 +16,6 @@ import {
 /** Node types that are disabled / coming soon */
 const COMING_SOON_TYPES = new Set(["mcp-tool"]);
 
-/** Extra "coming soon" placeholders that aren't real node types */
-const COMING_SOON_BASIC = [
-  { key: "scripts",   label: "Scripts",   description: "Run custom scripts", icon: ScrollText,  hex: "#8b5cf6" },
-];
 const COMING_SOON_CONTROL = [
   { key: "rules",  label: "Rules",  description: "Define execution rules",  icon: Scale,       hex: "#f97316" },
   { key: "guards", label: "Guards", description: "Add safety guardrails",   icon: ShieldCheck, hex: "#22d3ee" },
@@ -80,7 +76,7 @@ export default function NodePalette() {
     );
   };
 
-  const renderComingSoonPlaceholder = (item: typeof COMING_SOON_BASIC[number]) => {
+  const renderComingSoonPlaceholder = (item: typeof COMING_SOON_CONTROL[number]) => {
     const Icon = item.icon;
     return (
       <div
@@ -160,7 +156,6 @@ export default function NodePalette() {
               <ScrollArea className="h-full">
                 <div className="space-y-2 p-3">
                   {BASIC_NODES.filter((n) => n.type !== "start").map(renderNodeItem)}
-                  {COMING_SOON_BASIC.map(renderComingSoonPlaceholder)}
                 </div>
               </ScrollArea>
             </TabsContent>
