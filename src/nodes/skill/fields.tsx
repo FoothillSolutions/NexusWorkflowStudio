@@ -48,9 +48,10 @@ export function Fields({ register, control, setValue, nodeId }: SkillFieldsProps
     .replace(/-{2,}/g, "-")
     .replace(/^-+|-+$/g, "") || "skill";
 
-  const scriptExamples = connectedScripts.slice(0, 2).map(({ node }) => {
+  const scriptExamples = connectedScripts.slice(0, 2).map(({ edge, node }) => {
     const fileName = getSkillScriptFileName(node.data);
     return {
+      key: `${edge.id}:${node.id}`,
       fileName,
       variableName: getSkillScriptBaseName(node.data),
       relativePath: buildSkillScriptRelativePath(fileName),
@@ -174,7 +175,7 @@ export function Fields({ register, control, setValue, nodeId }: SkillFieldsProps
         {scriptExamples.length > 0 ? (
           <div className="space-y-2 rounded-xl border border-zinc-700/40 bg-zinc-950/40 p-2.5">
             {scriptExamples.map((script) => (
-              <div key={script.fileName} className="space-y-1.5 rounded-lg border border-zinc-800/60 bg-zinc-900/40 p-2.5">
+              <div key={script.key} className="space-y-1.5 rounded-lg border border-zinc-800/60 bg-zinc-900/40 p-2.5">
                 <div className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-300">
                   <span className="rounded-md border border-sky-800/40 bg-sky-950/40 px-1.5 py-0.5 font-mono text-sky-300">{script.fileName}</span>
                   <span className="font-mono text-amber-300">{`{{${script.variableName}}}`}</span>

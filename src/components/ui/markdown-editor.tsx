@@ -21,8 +21,9 @@ export function MarkdownEditor({
   hideToolbar = true,
 }: MarkdownEditorProps) {
   return (
-    <div data-color-mode="dark" className="rounded-xl overflow-hidden border border-zinc-700/60">
+    <div data-color-mode="dark" className="nexus-md-editor rounded-xl overflow-hidden border border-zinc-700/60">
       <MDEditor
+        className="nexus-md-editor"
         value={value}
         onChange={(val) => onChange(val ?? "")}
         height={height}
@@ -31,7 +32,6 @@ export function MarkdownEditor({
         visibleDragbar={false}
         textareaProps={{
           placeholder,
-          style: { fontFamily: "var(--font-mono, monospace)", fontSize: 13 },
         }}
         style={{
           background: "transparent",

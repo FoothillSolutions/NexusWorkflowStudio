@@ -100,10 +100,11 @@ export function FullscreenMarkdownEditor({
         </DialogHeader>
 
         {/* Body */}
-        <div className="flex-1 min-h-0 overflow-hidden fullscreen-md-editor" data-color-mode="dark">
+        <div className="nexus-md-editor flex-1 min-h-0 overflow-hidden fullscreen-md-editor" data-color-mode="dark">
           {viewMode === "edit" && (
             <div className="h-full">
               <MDEditor
+                className="nexus-md-editor"
                 value={draft}
                 onChange={(val) => setDraft(val ?? "")}
                 height="100%"
@@ -112,10 +113,6 @@ export function FullscreenMarkdownEditor({
                 visibleDragbar={false}
                 textareaProps={{
                   placeholder: "Write your prompt in Markdown…",
-                  style: {
-                    fontFamily: "var(--font-mono, monospace)",
-                    fontSize: 13,
-                  },
                 }}
                 style={{
                   background: "transparent",
@@ -130,6 +127,7 @@ export function FullscreenMarkdownEditor({
               {/* Editor pane */}
               <div className="flex-1 min-w-0 h-full">
                 <MDEditor
+                  className="nexus-md-editor"
                   value={draft}
                   onChange={(val) => setDraft(val ?? "")}
                   height="100%"
@@ -138,10 +136,6 @@ export function FullscreenMarkdownEditor({
                   visibleDragbar={false}
                   textareaProps={{
                     placeholder: "Write your prompt in Markdown…",
-                    style: {
-                      fontFamily: "var(--font-mono, monospace)",
-                      fontSize: 13,
-                    },
                   }}
                   style={{
                     background: "transparent",

@@ -125,6 +125,50 @@
   }
 }
 
+/* ── Markdown editor text alignment ───────────────────────────────────────── */
+.nexus-md-editor {
+  --md-editor-font-family: var(--font-mono, ui-monospace, monospace);
+  --nexus-md-editor-font-size: 13px;
+  --nexus-md-editor-line-height: 20px;
+  --nexus-md-editor-padding-y: 10px;
+  --nexus-md-editor-padding-x: 12px;
+}
+
+.nexus-md-editor .w-md-editor-text {
+  padding: 0 !important;
+  font-size: var(--nexus-md-editor-font-size) !important;
+  line-height: var(--nexus-md-editor-line-height) !important;
+}
+
+.nexus-md-editor .w-md-editor-text-input,
+.nexus-md-editor .w-md-editor-text-pre {
+  margin: 0 !important;
+  padding: var(--nexus-md-editor-padding-y) var(--nexus-md-editor-padding-x) !important;
+  font-family: var(--font-mono, ui-monospace, monospace), monospace !important;
+  font-size: var(--nexus-md-editor-font-size) !important;
+  line-height: var(--nexus-md-editor-line-height) !important;
+  tab-size: 2;
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
+}
+
+.nexus-md-editor .w-md-editor-text-pre > code {
+  display: block;
+  margin: 0 !important;
+  padding: 0 !important;
+  font-family: var(--font-mono, ui-monospace, monospace), monospace !important;
+  font-size: var(--nexus-md-editor-font-size) !important;
+  line-height: var(--nexus-md-editor-line-height) !important;
+  color: rgb(228 228 231);
+}
+
+.nexus-md-editor .w-md-editor-text-input {
+  background: transparent !important;
+  border: 0 !important;
+  caret-color: rgb(244 244 245);
+}
+
 /* ── Fullscreen Markdown Editor – larger toolbar ─────────────────────────── */
 .fullscreen-md-editor .w-md-editor-toolbar {
   min-height: 38px !important;
