@@ -83,7 +83,7 @@ export function LibraryToggleButton({ className, variant = "default" }: LibraryT
           <span className={cn(isCompact ? "text-xs font-medium" : "")}>Library</span>
         </Button>
       </TooltipTrigger>
-      <TooltipContent side="bottom">Toggle saved workflows</TooltipContent>
+      <TooltipContent side="bottom">Open Library</TooltipContent>
     </Tooltip>
   );
 }
@@ -242,10 +242,10 @@ export function ConnectButton({ className, variant = "default" }: ConnectButtonP
         </TooltipTrigger>
         <TooltipContent side="bottom">
           {isConnected
-            ? "Connected to opencode server"
+            ? "Connected to AI server"
             : isError
-              ? "Connection failed — click to retry"
-              : "Connect to opencode server"}
+              ? "Connection failed, click to retry"
+              : "Connect to AI server"}
         </TooltipContent>
       </Tooltip>
 

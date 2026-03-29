@@ -10,6 +10,7 @@ import { NODE_REGISTRY } from "@/lib/node-registry";
 import { NODE_ACCENT } from "@/lib/node-colors";
 import type { SubWorkflowNodeData } from "@/nodes/sub-workflow/types";
 import { normalizeSubWorkflowContents } from "@/nodes/sub-workflow/constants";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -42,6 +43,7 @@ import {
   BG_CANVAS_HEX,
 } from "@/lib/theme";
 import type { WorkflowJSON } from "@/types/workflow";
+import { cn } from "@/lib/utils";
 
 // ── Category config ─────────────────────────────────────────────────────────
 /** Format an ISO timestamp as a human-readable relative time string. */
@@ -74,6 +76,72 @@ const CATEGORY_ACCENT_HEX: Record<string, string | null> = {
   skill: NODE_ACCENT.skill,
   document: NODE_ACCENT.document,
 };
+
+const PANEL_SHELL_CLASS = "absolute top-4 right-4 z-20 flex flex-col overflow-hidden rounded-[24px] border border-zinc-700/60 bg-zinc-950/88 shadow-[0_28px_100px_rgba(0,0,0,0.55)] backdrop-blur-xl transition-all duration-300 ease-out";
+const PANEL_SURFACE_CLASS = "rounded-2xl border border-zinc-800/80 bg-zinc-900/55 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]";
+const CARD_CLASS = `group rounded-[20px] border ${BORDER_MUTED} bg-zinc-900/55 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-all duration-200 hover:border-zinc-600/80 hover:bg-zinc-900/80`;
+const META_BADGE_CLASS = "rounded-full border border-zinc-700/60 bg-zinc-950/70 px-2 py-0.5 text-[11px] font-medium text-zinc-400";
+
+function cardIconButtonClass(tone: "default" | "danger" = "default") {
+  return cn(
+    "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-transparent bg-zinc-950/70 text-zinc-500 transition-all duration-150",
+    tone === "danger"
+      ? "hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-300"
+      : "hover:border-zinc-700/70 hover:bg-zinc-800/80 hover:text-zinc-100",
+  );
+}
+
+function CardIconButton({
+  icon: Icon,
+  label,
+  onClick,
+  tone = "default",
+}: {
+  icon: React.ElementType;
+  label: string;
+  onClick: () => void;
+  tone?: "default" | "danger";
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cardIconButtonClass(tone)}
+      title={label}
+      aria-label={label}
+    >
+      <Icon size={14} />
+    </button>
+  );
+}
+
+function SectionHeader({
+  icon: Icon,
+  label,
+  count,
+  accentClass,
+}: {
+  icon: React.ElementType;
+  label: string;
+  count: number;
+  accentClass: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 px-1">
+      <div className="flex items-center gap-2">
+        <div className={cn("flex h-7 w-7 items-center justify-center rounded-lg border border-current/10 bg-current/10", accentClass)}>
+          <Icon size={14} />
+        </div>
+        <div className="min-w-0">
+          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-300">{label}</div>
+        </div>
+      </div>
+      <Badge variant="outline" className="rounded-full border-zinc-700/70 bg-zinc-950/70 px-2 py-0 text-[10px] font-medium text-zinc-400">
+        {count}
+      </Badge>
+    </div>
+  );
+}
 
 
 // ── Mini-map renderer (for workflows) ───────────────────────────────────────
@@ -127,7 +195,7 @@ function WorkflowMiniMap({ entry }: { entry: SavedWorkflowEntry }) {
       width="100%"
       height="96"
       viewBox={`0 0 ${svgW} ${svgH}`}
-      className="rounded-t-lg"
+      className="rounded-xl"
       style={{ backgroundColor: BG_CANVAS_HEX }}
     >
       {edges.map((edge) => {
@@ -175,7 +243,7 @@ function NodePreview({ item }: { item: LibraryItemEntry }) {
 
   return (
     <div
-      className="w-full h-24 rounded-t-lg flex items-center justify-center relative overflow-hidden"
+      className="relative flex h-24 w-full items-center justify-center overflow-hidden rounded-xl"
       style={{ backgroundColor: BG_CANVAS_HEX }}
     >
       {/* Accent glow */}
@@ -187,7 +255,7 @@ function NodePreview({ item }: { item: LibraryItemEntry }) {
       />
       {/* Central node preview chip */}
       <div
-        className="relative flex items-center gap-2 px-3 py-1.5 rounded-lg border"
+        className="relative flex items-center gap-2 rounded-xl border px-3 py-1.5 shadow-[0_10px_30px_rgba(0,0,0,0.2)]"
         style={{
           backgroundColor: `${accentHex}15`,
           borderColor: `${accentHex}40`,
@@ -244,75 +312,79 @@ function WorkflowCard({
   const timeAgo = formatTimeAgo(entry.updatedAt);
 
   return (
-    <div className={`group rounded-xl border ${BORDER_MUTED} bg-zinc-800/30 hover:bg-zinc-800/60 hover:border-zinc-600 transition-all duration-200 overflow-hidden`}>
-      <div className="relative">
-        <div className="cursor-pointer" onClick={() => onLoad(entry.id)}>
+    <div className={CARD_CLASS}>
+      <button type="button" className="block w-full p-2 text-left" onClick={() => onLoad(entry.id)}>
+        <div className="relative overflow-hidden rounded-xl border border-zinc-800/70 bg-zinc-950/90">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-violet-500/10 via-blue-500/5 to-transparent" />
           <WorkflowMiniMap entry={entry} />
         </div>
-        <div className="absolute top-1.5 left-1.5 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+      </button>
+
+      <div className="px-3.5 pb-3.5 pt-1.5">
+        <div className="flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            {isRenaming ? (
+              <div className="flex items-center gap-1.5">
+                <input
+                  ref={renameInputRef}
+                  type="text"
+                  value={renameValue}
+                  onChange={(e) => setRenameValue(e.target.value)}
+                  onBlur={handleRename}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleRename();
+                    if (e.key === "Escape") setIsRenaming(false);
+                  }}
+                  className={`h-8 w-full rounded-lg border border-blue-500/40 bg-zinc-950/70 px-2.5 text-sm font-medium ${TEXT_PRIMARY} outline-none transition-colors focus:border-blue-400`}
+                />
+                <button onClick={handleRename} className={`rounded-lg p-1.5 hover:bg-zinc-800 ${TEXT_MUTED}`}>
+                  <Check size={12} />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className={`min-w-0 max-w-full truncate text-left text-sm font-semibold ${TEXT_SECONDARY} transition-colors hover:text-zinc-100`}
+                onDoubleClick={startRenaming}
+                onClick={() => onLoad(entry.id)}
+                title="Open workflow"
+              >
+                {entry.name}
+              </button>
+            )}
+
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <span className={META_BADGE_CLASS}>Updated {timeAgo}</span>
+              <span className={META_BADGE_CLASS}>{entry.nodeCount} nodes</span>
+              <span className={META_BADGE_CLASS}>{entry.edgeCount} edges</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
+            <CardIconButton icon={Pencil} label="Rename workflow" onClick={startRenaming} />
+            <CardIconButton icon={Trash2} label="Delete workflow" onClick={() => onDelete(entry.id)} tone="danger" />
+          </div>
+        </div>
+
+        <div className="mt-3 flex items-center gap-2">
           <button
+            type="button"
             onClick={() => onLoad(entry.id)}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium bg-blue-600/90 hover:bg-blue-500 text-white backdrop-blur-sm shadow-md transition-colors"
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-blue-500/15 px-3 text-xs font-medium text-blue-200 transition-colors hover:bg-blue-500/20 hover:text-blue-100"
             title="Load this workflow"
           >
-            <FolderOpen size={10} /> Load
+            <FolderOpen size={12} />
+            Open
           </button>
           <button
+            type="button"
             onClick={() => onUpdate(entry.id)}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium bg-emerald-600/90 hover:bg-emerald-500 text-white backdrop-blur-sm shadow-md transition-colors"
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-zinc-700/70 bg-zinc-950/70 px-3 text-xs font-medium text-zinc-300 transition-colors hover:border-emerald-500/30 hover:bg-emerald-500/10 hover:text-emerald-200"
             title="Overwrite with current workflow"
           >
-            <Save size={10} /> Update
+            <Save size={12} />
+            Update
           </button>
-          <button
-            onClick={startRenaming}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium bg-amber-600/90 hover:bg-amber-500 text-white backdrop-blur-sm shadow-md transition-colors"
-            title="Rename"
-          >
-            <Pencil size={10} /> Rename
-          </button>
-          <button
-            onClick={() => onDelete(entry.id)}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium bg-red-600/90 hover:bg-red-500 text-white backdrop-blur-sm shadow-md transition-colors"
-            title="Delete"
-          >
-            <Trash2 size={10} /> Delete
-          </button>
-        </div>
-      </div>
-      <div className="px-3.5 py-2.5">
-        {isRenaming ? (
-          <div className="flex items-center gap-1">
-            <input
-              ref={renameInputRef}
-              type="text"
-              value={renameValue}
-              onChange={(e) => setRenameValue(e.target.value)}
-              onBlur={handleRename}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleRename();
-                if (e.key === "Escape") setIsRenaming(false);
-              }}
-              className={`text-xs font-medium ${TEXT_PRIMARY} bg-transparent border-b border-blue-500 outline-none w-full px-0.5`}
-            />
-            <button onClick={handleRename} className={`p-0.5 rounded hover:bg-zinc-700 ${TEXT_MUTED}`}>
-              <Check size={11} />
-            </button>
-          </div>
-        ) : (
-          <div
-            className={`text-sm font-medium ${TEXT_SECONDARY} truncate cursor-pointer hover:text-zinc-100 transition-colors`}
-            onDoubleClick={startRenaming}
-            title="Double-click to rename"
-          >
-            {entry.name}
-          </div>
-        )}
-        <div className={`flex items-center gap-1.5 mt-1.5 text-xs ${TEXT_SUBTLE}`}>
-          <Clock size={11} />
-          <span>{timeAgo}</span>
-          <span>·</span>
-          <span>{entry.nodeCount} nodes</span>
         </div>
       </div>
     </div>
@@ -364,88 +436,91 @@ function LibraryItemCard({
   const categoryLabel = LIBRARY_CATEGORIES.find((c) => c.value === item.category)?.label ?? item.category;
 
   return (
-    <div className={`group rounded-xl border ${BORDER_MUTED} bg-zinc-800/30 hover:bg-zinc-800/60 hover:border-zinc-600 transition-all duration-200 overflow-hidden`}>
-      <div className="relative">
-        <div className="cursor-pointer" onClick={() => onLoad(item)}>
+    <div className={CARD_CLASS}>
+      <button type="button" className="block w-full p-2 text-left" onClick={() => onLoad(item)}>
+        <div className="relative overflow-hidden rounded-xl border border-zinc-800/70 bg-zinc-950/90">
+          <div
+            className="pointer-events-none absolute inset-0 opacity-20"
+            style={{ background: `radial-gradient(circle at top, ${accentHex} 0%, transparent 65%)` }}
+          />
           <NodePreview item={item} />
         </div>
-        <div className="absolute top-1.5 left-1.5 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+      </button>
+
+      <div className="px-3.5 pb-3.5 pt-1.5">
+        <div className="flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="mb-2 flex items-center gap-2">
+              <span
+                className="inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium"
+                style={{
+                  backgroundColor: `${accentHex}14`,
+                  color: accentHex,
+                  borderColor: `${accentHex}33`,
+                }}
+              >
+                {categoryLabel}
+              </span>
+            </div>
+
+            {isRenaming ? (
+              <div className="flex items-center gap-1.5">
+                <input
+                  ref={renameInputRef}
+                  type="text"
+                  value={renameValue}
+                  onChange={(e) => setRenameValue(e.target.value)}
+                  onBlur={handleRename}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleRename();
+                    if (e.key === "Escape") setIsRenaming(false);
+                  }}
+                  className={`h-8 w-full rounded-lg border border-blue-500/40 bg-zinc-950/70 px-2.5 text-sm font-medium ${TEXT_PRIMARY} outline-none transition-colors focus:border-blue-400`}
+                />
+                <button onClick={handleRename} className={`rounded-lg p-1.5 hover:bg-zinc-800 ${TEXT_MUTED}`}>
+                  <Check size={12} />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className={`min-w-0 max-w-full truncate text-left text-sm font-semibold ${TEXT_SECONDARY} transition-colors hover:text-zinc-100`}
+                onDoubleClick={startRenaming}
+                onClick={() => onLoad(item)}
+                title="Add item to canvas"
+              >
+                {item.name}
+              </button>
+            )}
+
+            {item.description && (
+              <p className={`mt-2 line-clamp-2 text-xs leading-5 ${TEXT_SUBTLE}`}>
+                {item.description}
+              </p>
+            )}
+
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <span className={META_BADGE_CLASS}>Updated {timeAgo}</span>
+              <span className={META_BADGE_CLASS}>{item.nodeType}</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
+            <CardIconButton icon={Pencil} label="Rename item" onClick={startRenaming} />
+            <CardIconButton icon={Trash2} label="Delete item" onClick={() => onDelete(item.id)} tone="danger" />
+          </div>
+        </div>
+
+        <div className="mt-3 flex items-center gap-2">
           <button
+            type="button"
             onClick={() => onLoad(item)}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium bg-blue-600/90 hover:bg-blue-500 text-white backdrop-blur-sm shadow-md transition-colors"
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-blue-500/15 px-3 text-xs font-medium text-blue-200 transition-colors hover:bg-blue-500/20 hover:text-blue-100"
             title="Add to canvas"
           >
-            <FolderOpen size={10} /> Load
+            <FolderOpen size={12} />
+            Add to Canvas
           </button>
-          <button
-            onClick={startRenaming}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium bg-amber-600/90 hover:bg-amber-500 text-white backdrop-blur-sm shadow-md transition-colors"
-            title="Rename"
-          >
-            <Pencil size={10} /> Rename
-          </button>
-          <button
-            onClick={() => onDelete(item.id)}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium bg-red-600/90 hover:bg-red-500 text-white backdrop-blur-sm shadow-md transition-colors"
-            title="Delete"
-          >
-            <Trash2 size={10} /> Delete
-          </button>
-        </div>
-        {/* Category badge */}
-        <div
-          className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-md text-[11px] font-medium backdrop-blur-sm"
-          style={{
-            backgroundColor: `${accentHex}20`,
-            color: accentHex,
-            border: `1px solid ${accentHex}30`,
-          }}
-        >
-          {categoryLabel}
-        </div>
-      </div>
-      <div className="px-3.5 py-2.5">
-        <div className="flex items-center gap-1.5">
-          <div
-            className="w-1.5 h-1.5 rounded-full shrink-0"
-            style={{ backgroundColor: accentHex }}
-          />
-          {isRenaming ? (
-            <div className="flex items-center gap-1 flex-1 min-w-0">
-              <input
-                ref={renameInputRef}
-                type="text"
-                value={renameValue}
-                onChange={(e) => setRenameValue(e.target.value)}
-                onBlur={handleRename}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleRename();
-                  if (e.key === "Escape") setIsRenaming(false);
-                }}
-                className={`text-sm font-medium ${TEXT_PRIMARY} bg-transparent border-b border-blue-500 outline-none w-full px-0.5`}
-              />
-              <button onClick={handleRename} className={`p-0.5 rounded hover:bg-zinc-700 ${TEXT_MUTED}`}>
-                <Check size={12} />
-              </button>
-            </div>
-          ) : (
-            <div
-              className={`text-sm font-medium ${TEXT_SECONDARY} truncate cursor-pointer hover:text-zinc-100 transition-colors flex-1 min-w-0`}
-              onDoubleClick={startRenaming}
-              title="Double-click to rename"
-            >
-              {item.name}
-            </div>
-          )}
-        </div>
-        {item.description && (
-          <p className={`text-xs ${TEXT_SUBTLE} mt-1.5 line-clamp-1 pl-3`}>
-            {item.description}
-          </p>
-        )}
-        <div className={`flex items-center gap-1.5 mt-1.5 text-xs ${TEXT_SUBTLE} pl-3`}>
-          <Clock size={11} />
-          <span>{timeAgo}</span>
         </div>
       </div>
     </div>
@@ -457,14 +532,14 @@ function EmptyState({ category }: { category: LibraryCategory | "all" }) {
   const Icon = CATEGORY_ICONS[category] ?? Layers;
   const label = LIBRARY_CATEGORIES.find((c) => c.value === category)?.label ?? "items";
   return (
-    <div className="flex flex-col items-center justify-center py-10 text-center">
-      <div className="w-10 h-10 rounded-xl bg-zinc-800/60 flex items-center justify-center mb-3">
-        <Icon size={20} className={TEXT_SUBTLE} />
+    <div className={`flex flex-col items-center justify-center rounded-[20px] border border-dashed border-zinc-700/60 bg-zinc-900/35 px-6 py-10 text-center ${PANEL_SURFACE_CLASS}`}>
+      <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl border border-zinc-700/60 bg-zinc-950/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+        <Icon size={18} className={TEXT_SUBTLE} />
       </div>
-      <p className={`text-sm font-medium ${TEXT_MUTED}`}>
+      <p className={`text-sm font-semibold ${TEXT_MUTED}`}>
         No {category === "all" ? "items" : label.toLowerCase()} saved
       </p>
-      <p className={`text-xs ${TEXT_SUBTLE} mt-1 max-w-60`}>
+      <p className={`mt-1.5 max-w-64 text-xs leading-5 ${TEXT_SUBTLE}`}>
         {category === "workflow" || category === "all"
           ? "Save workflows via the header, or right-click nodes to save them to the library"
           : "Right-click a node on the canvas and select \"Save to Library\""}
@@ -613,11 +688,13 @@ export default function LibraryPanel({ onLoadWorkflow, onLoadItem }: LibraryPane
   }, [entries, libraryItems]);
 
   const hasItems = filteredWorkflows.length > 0 || filteredItems.length > 0;
+  const activeCategoryLabel = LIBRARY_CATEGORIES.find((category) => category.value === activeCategory)?.label ?? "All";
+  const visibleCount = filteredWorkflows.length + filteredItems.length;
 
   return (
     <>
       <div
-        className={`absolute top-4 right-4 z-20 flex flex-col rounded-2xl border border-zinc-700/50 bg-zinc-900/90 backdrop-blur-xl shadow-2xl overflow-hidden transition-all duration-300 ease-out ${
+        className={`${PANEL_SHELL_CLASS} ${
           sidebarOpen
             ? "opacity-100 translate-y-0 pointer-events-auto"
             : "opacity-0 -translate-y-4 pointer-events-none"
@@ -625,43 +702,67 @@ export default function LibraryPanel({ onLoadWorkflow, onLoadItem }: LibraryPane
         style={{ width: "min(420px, calc(100vw - 32px))", maxHeight: "calc(100vh - 112px)" }}
       >
         {/* ── Header ── */}
-        <div className="flex items-center gap-2.5 px-4 py-3 border-b border-zinc-700/50 shrink-0">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg shrink-0 bg-linear-to-br from-blue-500/20 to-purple-500/20">
-            <Folders className="h-3.5 w-3.5 text-blue-400" />
-          </div>
-          <div className="flex flex-col flex-1 min-w-0 gap-0">
-            <span className="text-sm font-semibold text-zinc-100">Library</span>
-            <span className={`text-xs ${TEXT_SUBTLE}`}>
-              {categoryCounts.all} item{categoryCounts.all !== 1 ? "s" : ""}
-            </span>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={closeSidebar}
-            className={`h-7 w-7 rounded-lg ${TEXT_MUTED} hover:text-zinc-100 hover:bg-zinc-800 transition-colors shrink-0`}
-          >
-            <X size={14} />
-          </Button>
-        </div>
-
-        {/* ── Search ── */}
-        <div className="px-3 pt-2.5 pb-1.5 shrink-0">
-          <div className="relative">
-            <Search size={14} className={`absolute left-2.5 top-1/2 -translate-y-1/2 ${TEXT_SUBTLE}`} />
-            <input
-              type="text"
-              placeholder="Search library..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className={`w-full h-9 pl-8 pr-3 rounded-xl bg-zinc-800/60 border border-zinc-700/40 text-sm ${TEXT_SECONDARY} placeholder:text-zinc-500 outline-none focus:border-zinc-600 transition-colors`}
-            />
+        <div className="shrink-0 border-b border-zinc-800/80 px-4 py-4">
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-blue-500/20 bg-linear-to-br from-blue-500/15 to-violet-500/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+              <Folders className="h-4 w-4 text-blue-300" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-zinc-100">Library</span>
+                <Badge
+                  variant="outline"
+                  className="rounded-full border-zinc-700/70 bg-zinc-950/70 px-2 py-0 text-[10px] font-medium text-zinc-400"
+                >
+                  {categoryCounts.all} total
+                </Badge>
+              </div>
+              <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                <span className="text-xs text-zinc-500">Saved workflows & reusable components</span>
+                <span className="hidden text-zinc-700 sm:inline">•</span>
+                <span className="text-xs text-zinc-500">Viewing {activeCategoryLabel.toLowerCase()}</span>
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={closeSidebar}
+              className={`h-8 w-8 rounded-lg ${TEXT_MUTED} hover:bg-zinc-800/80 hover:text-zinc-100 transition-colors shrink-0`}
+            >
+              <X size={14} />
+            </Button>
           </div>
         </div>
 
-        {/* ── Category tabs (icon-only, label appears on select) ── */}
-        <div className="px-3 py-2.5 shrink-0">
-          <div className="flex items-center gap-1 w-full bg-zinc-950/70 border border-zinc-700/50 rounded-xl p-1">
+        <div className="shrink-0 px-3 pb-3 pt-3">
+          <div className={`${PANEL_SURFACE_CLASS} p-2.5`}>
+            <div className="relative">
+              <Search size={14} className={`absolute left-3 top-1/2 -translate-y-1/2 ${TEXT_SUBTLE}`} />
+              <input
+                type="text"
+                placeholder="Search workflows and library items..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className={`h-10 w-full rounded-xl border border-zinc-700/50 bg-zinc-950/70 pl-9 pr-3 text-sm ${TEXT_SECONDARY} placeholder:text-zinc-500 outline-none transition-colors focus:border-zinc-600`}
+              />
+            </div>
+
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <Badge variant="outline" className="rounded-full border-zinc-700/70 bg-zinc-950/70 px-2 py-0 text-[10px] font-medium text-zinc-400">
+                {visibleCount} result{visibleCount !== 1 ? "s" : ""}
+              </Badge>
+              {searchQuery && (
+                <Badge variant="outline" className="rounded-full border-blue-500/20 bg-blue-500/10 px-2 py-0 text-[10px] font-medium text-blue-200">
+                  Searching “{searchQuery}”
+                </Badge>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Category tabs ── */}
+        <div className="shrink-0 px-3 pb-3">
+          <div className={`${PANEL_SURFACE_CLASS} flex flex-wrap items-center gap-1.5 p-1.5`}>
             {LIBRARY_CATEGORIES.map(({ value, label }) => {
               const isActive = activeCategory === value;
               const count = categoryCounts[value] ?? 0;
@@ -671,55 +772,43 @@ export default function LibraryPanel({ onLoadWorkflow, onLoadItem }: LibraryPane
                 <button
                   key={value}
                   onClick={() => setActiveCategory(value)}
-                  className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg text-xs font-medium transition-all duration-200 ease-out cursor-pointer ${
+                  className={`inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium transition-all duration-200 ease-out cursor-pointer ${
                     isActive
-                      ? "shadow-sm px-3 py-1.5"
-                      : `${TEXT_SUBTLE} hover:text-zinc-300 hover:bg-zinc-800/50 py-1.5`
+                      ? "shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+                      : `border-transparent ${TEXT_SUBTLE} hover:border-zinc-700/70 hover:bg-zinc-800/70 hover:text-zinc-300`
                   }`}
                   style={isActive ? {
-                    backgroundColor: hex ? `${hex}18` : "rgba(63,63,70,0.7)",
+                    backgroundColor: hex ? `${hex}14` : "rgba(63,63,70,0.7)",
                     color: hex ?? "#e4e4e7",
+                    borderColor: hex ? `${hex}30` : "rgba(82,82,91,0.8)",
                   } : undefined}
                 >
                   <Icon size={13} className="shrink-0" />
+                  <span>{label}</span>
                   <span
-                    className="overflow-hidden transition-all duration-200 ease-out whitespace-nowrap"
-                    style={{
-                      maxWidth: isActive ? "80px" : "0px",
-                      opacity: isActive ? 1 : 0,
-                    }}
+                    className="rounded-full px-1.5 py-0 text-[10px]"
+                    style={isActive ? { backgroundColor: hex ? `${hex}18` : "rgba(113,113,122,0.35)" } : undefined}
                   >
-                    {label}
+                    {count}
                   </span>
-                  {count > 0 && (
-                    <span className={`text-[10px] min-w-3.5 text-center transition-opacity duration-200 ${isActive ? "opacity-50" : "opacity-40"}`}>
-                      {count}
-                    </span>
-                  )}
                 </button>
               );
             })}
           </div>
         </div>
 
-        <div className="border-t border-zinc-700/30 mx-3" />
+        <div className="mx-3 border-t border-zinc-800/70" />
 
         {/* ── Content ── */}
         <ScrollArea className="flex-1 min-h-0" viewportClassName="overscroll-contain">
-          <div className="p-3.5 space-y-2.5">
+          <div className="space-y-3 p-3.5">
             {!hasItems && <EmptyState category={activeCategory} />}
 
             {/* Workflows section */}
             {filteredWorkflows.length > 0 && (
               <>
                 {activeCategory === "all" && (
-                  <div className="flex items-center gap-1.5 px-1 pt-1 pb-0.5">
-                    <Layers size={12} className="text-blue-400" />
-                    <span className="text-xs font-semibold text-blue-400 uppercase tracking-wider">
-                      Workflows
-                    </span>
-                    <span className={`text-[11px] ${TEXT_SUBTLE}`}>({filteredWorkflows.length})</span>
-                  </div>
+                  <SectionHeader icon={Layers} label="Workflows" count={filteredWorkflows.length} accentClass="text-blue-300" />
                 )}
                 {filteredWorkflows.map((entry) => (
                   <WorkflowCard
@@ -737,16 +826,10 @@ export default function LibraryPanel({ onLoadWorkflow, onLoadItem }: LibraryPane
             {filteredItems.length > 0 && (
               <>
                 {activeCategory === "all" && filteredWorkflows.length > 0 && (
-                  <div className="border-t border-zinc-700/30 mt-2 pt-2" />
+                  <div className="mx-1 border-t border-zinc-800/70 pt-1" />
                 )}
                 {activeCategory === "all" && (
-                  <div className="flex items-center gap-1.5 px-1 pt-1 pb-0.5">
-                    <Wrench size={12} className="text-purple-400" />
-                    <span className="text-xs font-semibold text-purple-400 uppercase tracking-wider">
-                      Components
-                    </span>
-                    <span className={`text-[11px] ${TEXT_SUBTLE}`}>({filteredItems.length})</span>
-                  </div>
+                  <SectionHeader icon={Wrench} label="Components" count={filteredItems.length} accentClass="text-violet-300" />
                 )}
                 {filteredItems.map((item) => (
                   <LibraryItemCard
