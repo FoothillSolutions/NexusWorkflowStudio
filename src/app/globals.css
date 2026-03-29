@@ -127,7 +127,7 @@
 
 /* ── Markdown editor text alignment ───────────────────────────────────────── */
 .nexus-md-editor {
-  --md-editor-font-family: var(--font-mono, ui-monospace, monospace);
+  --md-editor-font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   --nexus-md-editor-font-size: 13px;
   --nexus-md-editor-line-height: 20px;
   --nexus-md-editor-padding-y: 10px;
@@ -144,7 +144,7 @@
 .nexus-md-editor .w-md-editor-text-pre {
   margin: 0 !important;
   padding: var(--nexus-md-editor-padding-y) var(--nexus-md-editor-padding-x) !important;
-  font-family: var(--font-mono, ui-monospace, monospace), monospace !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace !important;
   font-size: var(--nexus-md-editor-font-size) !important;
   line-height: var(--nexus-md-editor-line-height) !important;
   tab-size: 2;
@@ -157,7 +157,7 @@
   display: block;
   margin: 0 !important;
   padding: 0 !important;
-  font-family: var(--font-mono, ui-monospace, monospace), monospace !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace !important;
   font-size: var(--nexus-md-editor-font-size) !important;
   line-height: var(--nexus-md-editor-line-height) !important;
   color: rgb(228 228 231);
@@ -262,9 +262,18 @@
 
 /* ── Global scrollbar design ──────────────────────────────────────────────── */
 :root {
-  --nexus-scrollbar-thumb: rgb(82 82 91 / 0.72);
-  --nexus-scrollbar-thumb-hover: rgb(113 113 122 / 0.92);
-  --nexus-scrollbar-track: transparent;
+  --nexus-scrollbar-size: 6px;
+  --nexus-scrollbar-thumb: rgb(113 113 122 / 0.42);
+  --nexus-scrollbar-thumb-hover: rgb(148 163 184 / 0.62);
+  --nexus-scrollbar-thumb-active: rgb(226 232 240 / 0.76);
+  --nexus-scrollbar-track: rgb(15 23 42 / 0.04);
+}
+
+.dark {
+  --nexus-scrollbar-thumb: rgb(113 113 122 / 0.5);
+  --nexus-scrollbar-thumb-hover: rgb(161 161 170 / 0.76);
+  --nexus-scrollbar-thumb-active: rgb(228 228 231 / 0.92);
+  --nexus-scrollbar-track: rgb(255 255 255 / 0.035);
 }
 
 * {
@@ -274,27 +283,40 @@
 
 *::-webkit-scrollbar,
 .custom-scroll::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
+  width: var(--nexus-scrollbar-size);
+  height: var(--nexus-scrollbar-size);
 }
 
 *::-webkit-scrollbar-track,
 .custom-scroll::-webkit-scrollbar-track {
   background: var(--nexus-scrollbar-track);
+  border-radius: 9999px;
 }
 
 *::-webkit-scrollbar-thumb,
 .custom-scroll::-webkit-scrollbar-thumb {
   background: var(--nexus-scrollbar-thumb);
   border-radius: 9999px;
-  border: 3px solid transparent;
-  background-clip: content-box;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  min-height: 28px;
 }
 
 *::-webkit-scrollbar-thumb:hover,
 .custom-scroll::-webkit-scrollbar-thumb:hover {
   background: var(--nexus-scrollbar-thumb-hover);
-  background-clip: content-box;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:active,
+.custom-scroll::-webkit-scrollbar-thumb:active {
+  background: var(--nexus-scrollbar-thumb-active);
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-corner,
+.custom-scroll::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 .custom-scroll {

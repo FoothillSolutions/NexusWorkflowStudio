@@ -29,7 +29,7 @@ function ScrollArea({
         {children}
       </ScrollAreaPrimitive.Viewport>
       <ScrollBar />
-      <ScrollAreaPrimitive.Corner />
+      <ScrollAreaPrimitive.Corner className="bg-transparent" />
     </ScrollAreaPrimitive.Root>
   )
 }
@@ -44,18 +44,18 @@ function ScrollBar({
       data-slot="scroll-area-scrollbar"
       orientation={orientation}
       className={cn(
-        "flex touch-none p-0.5 transition-colors select-none",
+        "flex touch-none select-none p-0.5",
         orientation === "vertical" &&
-          "h-full w-3.5 border-l border-l-transparent",
+          "h-full w-(--nexus-scrollbar-size) border-l border-l-transparent",
         orientation === "horizontal" &&
-          "h-3.5 flex-col border-t border-t-transparent",
+          "h-(--nexus-scrollbar-size) flex-col border-t border-t-transparent",
         className
       )}
       {...props}
     >
       <ScrollAreaPrimitive.ScrollAreaThumb
         data-slot="scroll-area-thumb"
-        className="relative flex-1 rounded-full border border-zinc-600/40 bg-zinc-700/65 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-colors hover:bg-zinc-600/85"
+        className="relative flex-1 rounded-full border border-white/6 bg-(--nexus-scrollbar-thumb) shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] hover:bg-(--nexus-scrollbar-thumb-hover) active:bg-(--nexus-scrollbar-thumb-active)"
       />
     </ScrollAreaPrimitive.ScrollAreaScrollbar>
   )

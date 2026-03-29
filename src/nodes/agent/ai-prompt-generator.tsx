@@ -59,7 +59,7 @@ export function AiPromptGenerator({ setValue, currentPrompt, nodeId, nodeType = 
   useEffect(() => {
     if (isActiveForThisNode && !floating && panelRef.current) {
       const t = setTimeout(() => {
-        panelRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        panelRef.current?.scrollIntoView({ block: "nearest" });
       }, 80);
       return () => clearTimeout(t);
     }
