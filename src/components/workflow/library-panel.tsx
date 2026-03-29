@@ -22,7 +22,7 @@ import {
   Clock,
   Check,
   Pencil,
-  Library,
+  Folders,
   Search,
   Bot,
   Wrench,
@@ -624,7 +624,7 @@ export default function LibraryPanel({ onLoadWorkflow, onLoadItem }: LibraryPane
         {/* ── Header ── */}
         <div className="flex items-center gap-2.5 px-4 py-3 border-b border-zinc-700/50 shrink-0">
           <div className="flex h-7 w-7 items-center justify-center rounded-lg shrink-0 bg-linear-to-br from-blue-500/20 to-purple-500/20">
-            <Library className="h-3.5 w-3.5 text-blue-400" />
+            <Folders className="h-3.5 w-3.5 text-blue-400" />
           </div>
           <div className="flex flex-col flex-1 min-w-0 gap-0">
             <span className="text-sm font-semibold text-zinc-100">Library</span>

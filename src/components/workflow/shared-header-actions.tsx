@@ -17,7 +17,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  Library,
+  Folders,
   HelpCircle,
   BookOpen,
   Newspaper,
@@ -30,9 +30,16 @@ import {
 import { toast } from "sonner";
 import { TEXT_MUTED } from "@/lib/theme";
 import { useOpenCodeStore } from "@/store/opencode-store";
+import { cn } from "@/lib/utils";
 import ShortcutsDialog from "./shortcuts-dialog";
 import AboutDialog from "./about-dialog";
 import ConnectDialog from "./connect-dialog";
+
+function chromeButtonClass(isCompact: boolean) {
+  return isCompact
+    ? "group h-8 rounded-lg border border-transparent bg-transparent px-2.5 text-xs gap-1.5"
+    : "group h-8 rounded-lg border border-transparent bg-transparent px-3 text-sm gap-1.5";
+}
 
 /* ── Library Toggle Button ───────────────────────────────────────────────── */
 
@@ -45,24 +52,35 @@ export function LibraryToggleButton({ className, variant = "default" }: LibraryT
   const librarySidebarOpen = useSavedWorkflowsStore((s) => s.sidebarOpen);
   const isCompact = variant === "compact";
 
-  const px = isCompact ? "px-0" : "px-3";
-
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <Button
           variant="ghost"
-          size={isCompact ? "icon-sm" : "sm"}
+          size="sm"
           onClick={() => useSavedWorkflowsStore.getState().toggleSidebar()}
           aria-label="Toggle library"
-          className={`${isCompact ? "size-8" : `h-8 ${px} text-sm`} ${
+          aria-pressed={librarySidebarOpen}
+          title="Library"
+          className={cn(
+            chromeButtonClass(isCompact),
             librarySidebarOpen
-              ? "text-blue-400 bg-zinc-800/80"
-              : TEXT_MUTED
-          } hover:text-zinc-100 ${className ?? ""}`}
+              ? "border-blue-500/25 bg-blue-500/10 text-blue-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+              : `${TEXT_MUTED} hover:border-zinc-700/70 hover:bg-zinc-800/80 hover:text-zinc-100`,
+            className,
+          )}
         >
-          <Library className={`h-4 w-4 ${isCompact ? "" : "mr-1.5"}`} />
-          {!isCompact && "Library"}
+          <span
+            className={cn(
+              "flex size-5.5 shrink-0 items-center justify-center transition-colors",
+              librarySidebarOpen
+                ? "text-blue-300"
+                : "text-zinc-400 group-hover:text-zinc-200",
+            )}
+          >
+            <Folders className="h-3.5 w-3.5" />
+          </span>
+          <span className={cn(isCompact ? "text-xs font-medium" : "")}>Library</span>
         </Button>
       </TooltipTrigger>
       <TooltipContent side="bottom">Toggle saved workflows</TooltipContent>
@@ -158,8 +176,6 @@ export function ConnectButton({ className, variant = "default" }: ConnectButtonP
   const status = useOpenCodeStore((s) => s.status);
   const isCompact = variant === "compact";
 
-  const px = isCompact ? "px-0" : "px-3";
-
   const isConnected = status === "connected";
   const isConnecting = status === "connecting";
   const isError = status === "error";
@@ -172,11 +188,29 @@ export function ConnectButton({ className, variant = "default" }: ConnectButtonP
         ? "bg-amber-400"
         : "bg-zinc-600";
 
-  const labelColor = isConnected
-    ? "text-emerald-400"
+  const buttonStateClass = isConnected
+    ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
     : isError
-      ? "text-red-400"
-      : TEXT_MUTED;
+      ? "border-red-500/25 bg-red-500/10 text-red-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+      : isConnecting
+        ? "border-amber-500/25 bg-amber-500/10 text-amber-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+        : `${TEXT_MUTED} hover:border-zinc-700/70 hover:bg-zinc-800/80 hover:text-zinc-100`;
+
+  const iconStateClass = isConnected
+    ? "text-emerald-300"
+    : isError
+      ? "text-red-300"
+      : isConnecting
+        ? "text-amber-300"
+        : "text-zinc-400 group-hover:text-zinc-200";
+
+  const label = isConnected
+    ? "Connected"
+    : isConnecting
+      ? "Connecting"
+      : isError
+        ? "Retry"
+        : "Connect";
 
   return (
     <>
@@ -184,20 +218,26 @@ export function ConnectButton({ className, variant = "default" }: ConnectButtonP
         <TooltipTrigger asChild>
           <Button
             variant="ghost"
-            size={isCompact ? "icon-sm" : "sm"}
+            size="sm"
             onClick={() => setDialogOpen(true)}
             aria-label={isConnected ? "Connection status" : "Connect to OpenCode"}
-            className={`${isCompact ? "size-8" : `h-8 ${px} text-sm gap-1.5`} ${labelColor} hover:text-zinc-100 ${className ?? ""}`}
+            title={label}
+            className={cn(chromeButtonClass(isCompact), buttonStateClass, className)}
           >
-            <span className="relative flex items-center">
-              <Radio className="h-4 w-4" />
+            <span
+              className={cn(
+                "relative flex size-5.5 shrink-0 items-center justify-center transition-colors",
+                iconStateClass,
+              )}
+            >
+              <Radio className="h-3.5 w-3.5" />
               <span
                 className={`absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full ${dotColor} ${
                   isConnected ? "animate-pulse" : ""
                 } ${isConnecting ? "animate-pulse" : ""} ring-2 ring-zinc-900`}
               />
             </span>
-            {!isCompact && (isConnected ? "Connected" : "Connect")}
+            <span className={cn(isCompact ? "text-xs font-medium" : "")}>{label}</span>
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom">
