@@ -27,6 +27,7 @@ import {
   Bot,
   Wrench,
   MessageSquare,
+  FileCode2,
   Layers,
   LayoutGrid,
   GitBranch,
@@ -60,6 +61,7 @@ const CATEGORY_ICONS: Record<string, React.ElementType> = {
   skill: Wrench,
   document: FileText,
   prompt: MessageSquare,
+  script: FileCode2,
 };
 
 /** Hex accent pulled straight from the centralized node-colors */
@@ -67,6 +69,7 @@ const CATEGORY_ACCENT_HEX: Record<string, string | null> = {
   all: null,
   workflow: NODE_ACCENT["sub-workflow"],
   prompt: NODE_ACCENT.prompt,
+  script: NODE_ACCENT.script,
   agent: NODE_ACCENT.agent,
   skill: NODE_ACCENT.skill,
   document: NODE_ACCENT.document,

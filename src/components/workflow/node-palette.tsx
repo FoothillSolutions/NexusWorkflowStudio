@@ -17,8 +17,8 @@ import {
 const COMING_SOON_TYPES = new Set(["mcp-tool"]);
 
 const COMING_SOON_BASIC = [
-  { key: "variable", label: "Variable", description: "Store named values for later steps", icon: Braces, hex: "#84cc16" },
-  { key: "command", label: "Command", description: "Reusable slash-command style step", icon: TerminalSquare, hex: "#34d399" },
+  { key: "variable", label: "Variable", description: "Store variables across nodes", icon: Braces, hex: "#84cc16" },
+  { key: "command", label: "Command", description: "Reusable command", icon: TerminalSquare, hex: "#34d399" },
 ] as const;
 
 const COMING_SOON_CONTROL = [
