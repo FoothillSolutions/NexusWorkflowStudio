@@ -2,19 +2,20 @@
 
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 import { CURRENT_VERSION } from "@/lib/changelog";
 import {
   ExternalLink,
   Heart,
   Scale,
-  Workflow,
+  X,
 } from "lucide-react";
 
 /* ── GitHub SVG icon (avoids deprecated lucide export) ───────────────────── */
@@ -38,89 +39,129 @@ interface AboutDialogProps {
 export default function AboutDialog({ open, onOpenChange }: AboutDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md bg-zinc-900 border-zinc-800 p-0 overflow-hidden gap-0">
-        {/* ── Hero section ──────────────────────────────────────── */}
-        <div className="relative px-6 pt-8 pb-6 text-center overflow-hidden">
-          {/* Subtle gradient glow */}
-          <div className="absolute inset-0 bg-gradient-to-b from-emerald-600/8 via-transparent to-transparent pointer-events-none" />
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-32 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
+      <DialogContent
+        showCloseButton={false}
+        className="overflow-hidden border-zinc-700/60 bg-zinc-900 p-0 text-zinc-100 shadow-2xl shadow-black/50 sm:max-w-lg"
+      >
+        <div className="relative overflow-hidden border-b border-zinc-800 bg-zinc-950/40 px-6 pt-6 pb-5">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-linear-to-b from-emerald-500/10 via-transparent to-transparent" />
+          <div className="pointer-events-none absolute left-6 top-2 h-20 w-20 rounded-full bg-emerald-500/10 blur-2xl" />
 
-          {/* Logo / Icon */}
-          <div className="relative mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-600/20 to-emerald-900/20 border border-emerald-700/30 shadow-lg shadow-emerald-900/20">
-            <Workflow className="h-8 w-8 text-emerald-400" />
-          </div>
+          <div className="relative flex items-start gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-zinc-700 bg-black text-white shadow-sm shadow-black/40">
+              <span className="text-lg font-semibold tracking-tight">N</span>
+            </div>
 
-          <DialogHeader className="items-center gap-1">
-            <DialogTitle className="text-xl font-bold tracking-tight text-zinc-100">
-              Nexus Workflow Studio
-            </DialogTitle>
-            <DialogDescription className="text-sm text-zinc-400">
-              An open-source platform for designing and exporting AI agent workflows
-            </DialogDescription>
-          </DialogHeader>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-start gap-3">
+                <DialogHeader className="min-w-0 flex-1 gap-1 text-left">
+                  <DialogTitle className="text-lg font-semibold tracking-tight text-zinc-100">
+                    Nexus Workflow Studio
+                  </DialogTitle>
+                  <DialogDescription className="text-sm leading-relaxed text-zinc-400">
+                    An open-source platform for designing and exporting AI agentic
+                    workflows.
+                  </DialogDescription>
+                </DialogHeader>
 
-          {/* Version badge */}
-          <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-zinc-800/80 border border-zinc-700/50 px-3 py-1">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-xs font-medium text-zinc-300">
-              v{CURRENT_VERSION}
-            </span>
+                <DialogClose asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="-mr-2 -mt-1 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100"
+                  >
+                    <X className="h-4 w-4" />
+                    <span className="sr-only">Close</span>
+                  </Button>
+                </DialogClose>
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <Badge className="border border-emerald-500/20 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/10">
+                  v{CURRENT_VERSION}
+                </Badge>
+                <Badge variant="outline" className="border-zinc-700 bg-zinc-900/80 text-zinc-300">
+                  Visual orchestration
+                </Badge>
+                <Badge variant="outline" className="border-zinc-700 bg-zinc-900/80 text-zinc-300">
+                  Portable output
+                </Badge>
+              </div>
+            </div>
           </div>
         </div>
 
-        <Separator className="bg-zinc-800" />
-
-        {/* ── Description ───────────────────────────────────────── */}
         <div className="px-6 py-5">
-          <p className="text-[13px] leading-relaxed text-zinc-400">
+          <p className="text-sm leading-6 text-zinc-400">
             Nexus Workflow Studio provides a structured visual environment for
             designing, orchestrating, and exporting AI agent workflows. Build
             complex automation on an intuitive canvas and generate clean,
             portable artifacts that remain transparent, maintainable, and fully
             under your control.
           </p>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-4">
+              <div className="text-xs font-medium uppercase tracking-[0.14em] text-zinc-500">
+                Workflow design
+              </div>
+              <p className="mt-2 text-sm leading-6 text-zinc-300">
+                Compose agent behavior visually with a canvas built for clarity,
+                iteration, and scale.
+              </p>
+            </div>
+            <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-4">
+              <div className="text-xs font-medium uppercase tracking-[0.14em] text-zinc-500">
+                Artifact ownership
+              </div>
+              <p className="mt-2 text-sm leading-6 text-zinc-300">
+                Export implementation-ready workflow artifacts that remain easy
+                to inspect, adapt, and own.
+              </p>
+            </div>
+          </div>
         </div>
 
-        <Separator className="bg-zinc-800" />
-
-        {/* ── Links ─────────────────────────────────────────────── */}
-        <div className="px-6 py-4 flex flex-col gap-2">
+        <div className="border-t border-zinc-800 px-6 py-4">
           <a
             href={REPO_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="group flex items-center gap-3 rounded-lg px-3 py-2.5 -mx-1 transition-colors hover:bg-zinc-800/60"
+            className="group flex items-start gap-3 rounded-xl border border-zinc-800 bg-zinc-950/40 px-4 py-3 transition-colors hover:border-zinc-700 hover:bg-zinc-950"
           >
-            <GitHubIcon className="h-4 w-4 text-zinc-500 group-hover:text-zinc-300 transition-colors" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900 text-zinc-400 transition-colors group-hover:border-zinc-700 group-hover:text-zinc-200">
+              <GitHubIcon className="h-4 w-4" />
+            </div>
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-zinc-300 group-hover:text-zinc-100 transition-colors">
+              <div className="text-sm font-medium text-zinc-200 transition-colors group-hover:text-zinc-100">
                 GitHub Repository
               </div>
-              <div className="text-[11px] text-zinc-600 truncate">
+              <div className="mt-0.5 text-xs leading-5 text-zinc-500">
+                Follow project development, review the source, and explore the
+                latest updates on GitHub.
+              </div>
+              <div className="mt-1 text-[11px] text-zinc-600 truncate">
                 FoothillSolutions/NexusWorkflowStudio
               </div>
             </div>
-            <ExternalLink className="h-3.5 w-3.5 text-zinc-600 group-hover:text-zinc-400 transition-colors" />
+            <ExternalLink className="mt-0.5 h-4 w-4 text-zinc-600 transition-colors group-hover:text-zinc-400" />
           </a>
         </div>
 
-        <Separator className="bg-zinc-800" />
-
-        {/* ── Footer ────────────────────────────────────────────── */}
-        <div className="px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4 text-[11px] text-zinc-600">
-            <span className="flex items-center gap-1">
+        <div className="flex items-center justify-between border-t border-zinc-800 px-6 py-4">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] text-zinc-500">
+            <span className="flex items-center gap-1.5">
               <Scale className="h-3 w-3" />
               MIT License
             </span>
-            <span className="flex items-center gap-1">
-              Made with <Heart className="h-3 w-3 text-red-500/60" />
+            <span className="flex items-center gap-1.5">
+              Built with care <Heart className="h-3 w-3 text-red-500/60" />
             </span>
           </div>
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 px-3 text-xs text-zinc-400 hover:text-zinc-100"
+            className="border border-zinc-800 text-zinc-300 hover:border-zinc-700 hover:bg-zinc-800 hover:text-zinc-100"
             onClick={() => onOpenChange(false)}
           >
             Close
