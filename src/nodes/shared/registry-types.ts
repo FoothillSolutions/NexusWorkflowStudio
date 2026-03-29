@@ -72,6 +72,7 @@ export interface NodeGeneratorModule {
     target?: GenerationTargetId,
   ): { path: string; content: string } | null;
 
+
   /**
    * Optionally returns a skill file to generate alongside the workflow file.
    * e.g. `.opencode/skills/<name>/SKILL.md` for skill nodes.

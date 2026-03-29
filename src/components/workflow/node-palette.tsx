@@ -2,7 +2,7 @@
 
 import { useWorkflowStore } from "@/store/workflow-store";
 import { BASIC_NODES, CONTROL_FLOW_NODES, type NodeRegistryEntry } from "@/lib/node-registry";
-import { Menu, X, Scale, ShieldCheck } from "lucide-react";
+import { Menu, X, Braces, TerminalSquare, Shield, ShieldCheck, Handshake, Scale } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -16,10 +16,17 @@ import {
 /** Node types that are disabled / coming soon */
 const COMING_SOON_TYPES = new Set(["mcp-tool"]);
 
+const COMING_SOON_BASIC = [
+  { key: "variable", label: "Variable", description: "Store named values for later steps", icon: Braces, hex: "#84cc16" },
+  { key: "command", label: "Command", description: "Reusable slash-command style step", icon: TerminalSquare, hex: "#34d399" },
+] as const;
+
 const COMING_SOON_CONTROL = [
-  { key: "rules",  label: "Rules",  description: "Define execution rules",  icon: Scale,       hex: "#f97316" },
-  { key: "guards", label: "Guards", description: "Add safety guardrails",   icon: ShieldCheck, hex: "#22d3ee" },
-];
+  { key: "validation", label: "Validation", description: "Check rules and branch on pass or fail", icon: ShieldCheck, hex: "#22d3ee" },
+  { key: "guards", label: "Guards", description: "Add protective flow guardrails", icon: Shield, hex: "#38bdf8" },
+  { key: "rules", label: "Rules", description: "Define reusable control rules", icon: Scale, hex: "#f59e0b" },
+  { key: "hands-off", label: "Hands Off", description: "Pause for human review or approval", icon: Handshake, hex: "#fb7185" },
+] as const;
 
 export default function NodePalette() {
   const sidebarOpen = useWorkflowStore((s) => s.sidebarOpen);
@@ -76,8 +83,9 @@ export default function NodePalette() {
     );
   };
 
-  const renderComingSoonPlaceholder = (item: typeof COMING_SOON_CONTROL[number]) => {
+  const renderComingSoonPlaceholder = (item: (typeof COMING_SOON_BASIC)[number] | (typeof COMING_SOON_CONTROL)[number]) => {
     const Icon = item.icon;
+
     return (
       <div
         key={item.key}
@@ -156,6 +164,7 @@ export default function NodePalette() {
               <ScrollArea className="h-full">
                 <div className="space-y-2 p-3">
                   {BASIC_NODES.filter((n) => n.type !== "start").map(renderNodeItem)}
+                  {COMING_SOON_BASIC.map(renderComingSoonPlaceholder)}
                 </div>
               </ScrollArea>
             </TabsContent>

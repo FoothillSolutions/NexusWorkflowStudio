@@ -19,7 +19,6 @@ export const NODE_ACCENT = {
   "ask-user":     "#ec4899",  // pink
 } as const;
 
-export type NodeAccentKey = keyof typeof NODE_ACCENT;
 
 // Semantic branch colors (not node accents)
 export const BRANCH_TRUE  = "#22c55e";  // green — if-else true branch
