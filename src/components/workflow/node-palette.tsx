@@ -108,7 +108,6 @@ export default function NodePalette() {
   const renderNodeItem = (node: NodeRegistryEntry) => {
     const Icon = node.icon;
     const isComingSoon = COMING_SOON_TYPES.has(node.type);
-    const isMcpTool = node.type === "mcp-tool";
 
     return (
       <div
@@ -119,55 +118,44 @@ export default function NodePalette() {
         className={cn(
           "group relative flex items-center gap-2.5 overflow-hidden rounded-2xl border p-2.5 transition-all duration-200",
           isComingSoon
-            ? cn(
-                "cursor-not-allowed select-none opacity-70",
-                isMcpTool
-                  ? "border-teal-800/25 bg-teal-950/12"
-                  : "border-zinc-700/35 bg-zinc-900/45",
-              )
+            ? "cursor-not-allowed select-none border-zinc-700/35 bg-zinc-900/45 opacity-60"
             : `${BORDER_MUTED} cursor-grab bg-zinc-900/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] hover:-translate-y-0.5 hover:border-zinc-600/80 hover:bg-zinc-900/85 hover:shadow-[0_12px_28px_rgba(0,0,0,0.2)] active:cursor-grabbing`,
         )}
-        style={isMcpTool && isComingSoon ? { boxShadow: "inset 0 1px 0 rgba(255,255,255,0.02), 0 0 0 1px rgba(20,184,166,0.025)" } : undefined}
       >
         <div
           className={cn(
             "pointer-events-none absolute inset-x-0 top-0 h-16 transition-opacity duration-200",
             isComingSoon ? "opacity-100" : "opacity-0 group-hover:opacity-100",
           )}
-          style={{ background: `linear-gradient(180deg, ${node.accentHex}${isComingSoon ? (isMcpTool ? "10" : "18") : "22"} 0%, transparent 100%)` }}
+          style={{ background: `linear-gradient(180deg, ${node.accentHex}${isComingSoon ? "14" : "22"} 0%, transparent 100%)` }}
         />
 
         <div
           className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/5"
-          style={{ backgroundColor: `${node.accentHex}${isComingSoon ? (isMcpTool ? "16" : "10") : "20"}` }}
+          style={{ backgroundColor: `${node.accentHex}${isComingSoon ? "10" : "20"}` }}
         >
-          <Icon size={16} style={{ color: node.accentHex }} className={isComingSoon ? (isMcpTool ? "opacity-75" : "opacity-60") : ""} />
+          <Icon size={16} style={{ color: node.accentHex }} className={isComingSoon ? "opacity-60" : ""} />
         </div>
 
         <div className="relative min-w-0 flex-1 space-y-0.5">
           <div className={cn(
             "truncate text-[13px] font-semibold",
             isComingSoon
-              ? (isMcpTool ? "text-teal-100/65" : TEXT_SUBTLE)
+              ? TEXT_SUBTLE
               : `${TEXT_SECONDARY} group-hover:text-white`,
           )}>
             {node.displayName}
           </div>
           <div className={cn(
             "line-clamp-1 text-[11px] leading-4",
-            isComingSoon && isMcpTool ? "text-teal-200/40" : TEXT_SUBTLE,
+            TEXT_SUBTLE,
           )}>
             {node.description}
           </div>
         </div>
 
         {isComingSoon && (
-          <span className={cn(
-            "relative shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em]",
-            isMcpTool
-              ? "border border-teal-800/25 bg-teal-950/20 text-teal-200/55"
-              : "border border-zinc-600/50 bg-zinc-950/80 text-zinc-400",
-          )}>
+          <span className="relative shrink-0 rounded-full border border-zinc-600/50 bg-zinc-950/80 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-zinc-400">
             Soon
           </span>
         )}
