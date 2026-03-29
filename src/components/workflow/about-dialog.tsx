@@ -55,7 +55,7 @@ export default function AboutDialog({ open, onOpenChange }: AboutDialogProps) {
               Nexus Workflow Studio
             </DialogTitle>
             <DialogDescription className="text-sm text-zinc-400">
-              The first open-source visual agent workflow editor
+              An open-source platform for designing and exporting AI agent workflows
             </DialogDescription>
           </DialogHeader>
 
@@ -73,11 +73,11 @@ export default function AboutDialog({ open, onOpenChange }: AboutDialogProps) {
         {/* ── Description ───────────────────────────────────────── */}
         <div className="px-6 py-5">
           <p className="text-[13px] leading-relaxed text-zinc-400">
-            Design, compose, and export AI agent workflows with a beautiful
-            drag-and-drop canvas. Built for{" "}
-            <span className="text-zinc-200 font-medium">open code</span> —
-            every workflow you create generates clean, portable artifacts you
-            fully own.
+            Nexus Workflow Studio provides a structured visual environment for
+            designing, orchestrating, and exporting AI agent workflows. Build
+            complex automation on an intuitive canvas and generate clean,
+            portable artifacts that remain transparent, maintainable, and fully
+            under your control.
           </p>
         </div>
 
@@ -114,7 +114,7 @@ export default function AboutDialog({ open, onOpenChange }: AboutDialogProps) {
               MIT License
             </span>
             <span className="flex items-center gap-1">
-              Made with <Heart className="h-3 w-3 text-red-500/60" /> for open code
+              Made with <Heart className="h-3 w-3 text-red-500/60" />
             </span>
           </div>
           <Button
