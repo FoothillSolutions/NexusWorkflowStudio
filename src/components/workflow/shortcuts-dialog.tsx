@@ -61,7 +61,7 @@ export default function ShortcutsDialog({ open, onOpenChange }: ShortcutsDialogP
 
         <ScrollArea className="mt-1 max-h-[60vh]" viewportClassName="pr-3">
           <div>
-          <Section title="File">
+          <Section title="Workflow">
             <Row keys={[MOD, ALT, "N"]} label="New workflow" />
             <Row keys={[MOD, "S"]} label="Save to library" />
             <Row keys={[MOD, ALT, "E"]} label="Export workflow JSON" />

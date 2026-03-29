@@ -271,7 +271,7 @@ export default function Header() {
                   size="sm"
                   className={`${TEXT_MUTED} h-8 rounded-lg px-2.5 text-xs hover:bg-zinc-800/80 hover:text-zinc-100`}
                 >
-                  File
+                  Workflow
                   <ChevronDown className="h-3 w-3 opacity-50" />
                 </Button>
               </DropdownMenuTrigger>
