@@ -22,6 +22,38 @@ export interface ChangelogEntry {
 // ─────────────────────────────────────────────────────────────────────────────
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.9.0",
+    date: "March 29, 2026",
+    categories: [
+      {
+        category: "New",
+        items: [
+          "Script node support",
+          "Copy/paste component functionality",
+        ],
+      },
+      {
+        category: "Improved",
+        items: [
+          "Refreshed Nexus UI across the header, nodes, library, and properties panel",
+          "Enhanced auto-layout algorithm",
+          "Enhanced AI connection detection",
+        ],
+      },
+      {
+        category: "Fixed",
+        items: [
+          "Fixed overflow in the prompt text fullscreen editor",
+          "Fixed sub-workflow auto-layout",
+          "Fixed sub-workflow AI generator",
+          "Fixed model selection scrollbar",
+          "Fixed multi-select tool glitches",
+          "Fixed connection issues on macOS devices",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.8.0",
     date: "March 12, 2026",
     categories: [
