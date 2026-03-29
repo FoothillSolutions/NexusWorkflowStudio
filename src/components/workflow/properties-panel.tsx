@@ -8,14 +8,42 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { X, Trash2, SlidersHorizontal } from "lucide-react";
 import { useWorkflowStore } from "@/store/workflow-store";
 import { useSavedWorkflowsStore } from "@/store/library-store";
 import { nodeSchemaMap, NODE_REGISTRY } from "@/lib/node-registry";
 import type { NodeType, WorkflowNodeData } from "@/types/workflow";
-import { BORDER_DEFAULT, TEXT_MUTED } from "@/lib/theme";
+import {
+  TEXT_MUTED,
+  TEXT_PRIMARY,
+  TEXT_SUBTLE,
+} from "@/lib/theme";
 import { TypeSpecificFields } from "./properties";
+import { cn } from "@/lib/utils";
+
+const PANEL_SHELL_CLASS = "absolute top-4 right-4 z-20 flex min-h-0 flex-col overflow-hidden rounded-3xl border border-zinc-700/60 bg-zinc-950/88 shadow-[0_16px_48px_rgba(0,0,0,0.32)] backdrop-blur-xl transition-all duration-300 ease-out";
+const PANEL_SURFACE_CLASS = "rounded-2xl border border-zinc-800/80 bg-zinc-900/55 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]";
+const TOGGLE_BUTTON_CLASS = `h-9 w-9 rounded-xl bg-zinc-900/80 border border-zinc-700/50 backdrop-blur-sm shadow-lg ${TEXT_MUTED} hover:text-zinc-100 hover:bg-zinc-800/80 transition-all duration-200`;
+
+function SectionIntro({
+  eyebrow,
+  title,
+  description,
+}: {
+  eyebrow: string;
+  title: string;
+  description?: string;
+}) {
+  return (
+    <div className="space-y-1 px-0.5">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-400">
+        {eyebrow}
+      </div>
+      <div className={cn("text-sm font-semibold", TEXT_PRIMARY)}>{title}</div>
+      {description && <p className={cn("text-xs leading-5", TEXT_SUBTLE)}>{description}</p>}
+    </div>
+  );
+}
 
 // ── Main panel ──────────────────────────────────────────────────────────────
 
@@ -138,7 +166,7 @@ export default function PropertiesPanel() {
             variant="ghost"
             size="icon"
             onClick={() => useWorkflowStore.getState().openPropertiesPanel(selectedNodeId)}
-            className={`h-9 w-9 rounded-xl bg-zinc-900/80 border border-zinc-700/50 backdrop-blur-sm shadow-lg ${TEXT_MUTED} hover:text-zinc-100 hover:bg-zinc-800/80 transition-all duration-200`}
+            className={TOGGLE_BUTTON_CLASS}
           >
             <SlidersHorizontal size={16} />
           </Button>
@@ -152,84 +180,139 @@ export default function PropertiesPanel() {
 
   return (
     <div
-      className="absolute top-4 right-4 z-20 flex flex-col rounded-2xl border border-zinc-700/50 bg-zinc-900/85 backdrop-blur-md shadow-2xl overflow-hidden animate-in slide-in-from-top-4 fade-in-0 duration-200"
+      className={`${PANEL_SHELL_CLASS} animate-in slide-in-from-top-4 fade-in-0 duration-200`}
       style={{ width: "min(380px, calc(100vw - 32px))", height: activeSubWorkflowNodeId ? "calc(100% - 32px)" : "calc(100vh - 112px)" }}
     >
       {/* Header */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-700/50 shrink-0">
-        <div
-          className="flex h-7 w-7 items-center justify-center rounded-lg shrink-0"
-          style={{ backgroundColor: `${registryEntry.accentHex}20` }}
-        >
-          <Icon className="h-4 w-4" style={{ color: registryEntry.accentHex }} />
+      <div className="relative shrink-0 border-b border-zinc-800/80 px-3 py-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/5 bg-zinc-900/75 text-zinc-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+            <Icon size={15} style={{ color: registryEntry.accentHex }} />
+          </div>
+          <div className="min-w-0 pr-10">
+            <div className={cn("text-sm font-semibold", TEXT_PRIMARY)}>Properties</div>
+            <div className={cn("truncate text-xs", TEXT_SUBTLE)}>
+              {registryEntry.displayName}
+            </div>
+          </div>
         </div>
-        <div className="flex flex-col flex-1 min-w-0 gap-0.5">
-          <span className="text-sm font-semibold text-zinc-100 truncate">
-            {registryEntry.displayName}
-          </span>
-          {nodeData?.name && (
-            <Badge
-              variant="outline"
-              className="font-mono text-[10px] px-1.5 py-0 h-4 w-fit border-zinc-600 text-zinc-400 truncate max-w-full block"
-              title={nodeData.name}
-            >
-              {nodeData.name}
-            </Badge>
-          )}
-        </div>
+
         <Button
           variant="ghost"
           size="icon"
           onClick={closePropertiesPanel}
-          className={`h-7 w-7 rounded-lg ${TEXT_MUTED} hover:text-zinc-100 hover:bg-zinc-800 transition-colors shrink-0`}
+          className={`absolute right-3 top-3 h-8 w-8 rounded-xl border border-zinc-700/60 bg-zinc-950/70 ${TEXT_MUTED} hover:border-zinc-600/80 hover:bg-zinc-800/80 hover:text-zinc-100`}
         >
-          <X size={14} />
+          <X size={15} />
         </Button>
       </div>
 
       {/* Content */}
-      <ScrollArea className="flex-1 min-h-0 w-full">
-        <form className="space-y-4 p-4 overflow-hidden" onSubmit={(e) => e.preventDefault()}>
-
-          {/* Label */}
-          <div className="space-y-2">
-            <Label htmlFor="node-label">Label</Label>
-            <Input
-              id="node-label"
-              placeholder="Node label"
-              className="bg-zinc-800/60 border-zinc-700/60 rounded-xl text-sm focus-visible:ring-zinc-600"
-              {...register("label")}
+      <ScrollArea className="flex-1 min-h-0 w-full" viewportClassName="min-h-0">
+        <form className="space-y-3 p-3 pb-4" onSubmit={(e) => e.preventDefault()}>
+          <section className={`${PANEL_SURFACE_CLASS} relative overflow-hidden p-3`}>
+            <div
+              className="pointer-events-none absolute inset-x-0 top-0 h-20 opacity-100"
+              style={{ background: `linear-gradient(180deg, ${registryEntry.accentHex}18 0%, transparent 100%)` }}
             />
-            {errors.label && (
-              <p className="text-xs text-destructive">
-                {errors.label.message as string}
+
+            <div className="relative flex items-start gap-3">
+              <div
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/5"
+                style={{ backgroundColor: `${registryEntry.accentHex}16` }}
+              >
+                <Icon size={18} style={{ color: registryEntry.accentHex }} />
+              </div>
+
+              <div className="min-w-0 flex-1 space-y-2">
+                <div>
+                  <div className={cn("truncate text-sm font-semibold", TEXT_PRIMARY)}>
+                    {nodeData.label?.trim() || registryEntry.displayName}
+                  </div>
+                  <p className={cn("mt-1 text-xs leading-5", TEXT_SUBTLE)}>
+                    {registryEntry.description}
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-1.5">
+                  <Badge
+                    variant="outline"
+                    className="h-auto min-w-0 max-w-full whitespace-normal break-all rounded-full border-zinc-700/70 bg-zinc-950/70 px-2 py-1 text-left font-mono text-[10px] font-medium leading-4 text-zinc-400"
+                    title={selectedNodeId}
+                  >
+                    {selectedNodeId}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className={`${PANEL_SURFACE_CLASS} space-y-3 p-3`}>
+            <SectionIntro
+              eyebrow="General"
+              title="Base settings"
+              description="Update the node label and keep the block readable on the canvas."
+            />
+
+            <div className="space-y-2">
+              <Label htmlFor="node-label" className="text-xs font-medium uppercase tracking-[0.14em] text-zinc-400">
+                Label
+              </Label>
+              <Input
+                id="node-label"
+                placeholder="Give this node a concise label"
+                className={cn(
+                  "h-10 rounded-xl border-zinc-700/70 bg-zinc-950/75 text-sm text-zinc-100 placeholder:text-zinc-500 focus-visible:border-zinc-600 focus-visible:ring-1 focus-visible:ring-zinc-500/50",
+                  errors.label && "border-red-500/50 focus-visible:ring-red-500/40",
+                )}
+                {...register("label")}
+              />
+              <p className={cn("text-xs leading-5", errors.label ? "text-red-300" : TEXT_SUBTLE)}>
+                {errors.label?.message
+                  ? (errors.label.message as string)
+                  : "This title appears on the node card inside your workflow."}
               </p>
-            )}
-          </div>
+            </div>
+          </section>
 
-          {/* Type-specific fields */}
-          <TypeSpecificFields
-            nodeType={nodeType!}
-            register={register}
-            control={control}
-            setValue={setValue}
-            errors={errors}
-            selectedNodeId={selectedNodeId ?? undefined}
-          />
+          <section className={`${PANEL_SURFACE_CLASS} space-y-3 p-3`}>
+            <SectionIntro
+              eyebrow="Configuration"
+              title="Node behavior"
+              description="Adjust the fields below to control how this node runs inside the workflow."
+            />
 
-          <Separator className={BORDER_DEFAULT} />
+            <div className="space-y-4">
+              <TypeSpecificFields
+                nodeType={nodeType!}
+                register={register}
+                control={control}
+                setValue={setValue}
+                errors={errors}
+                selectedNodeId={selectedNodeId ?? undefined}
+              />
+            </div>
+          </section>
 
           {nodeType !== "start" && (
-            <Button
-              type="button"
-              variant="destructive"
-              size="sm"
-              className="w-full gap-2 rounded-xl"
-              onClick={handleDelete}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              Delete Node
-            </Button>
+            <section className={`${PANEL_SURFACE_CLASS} p-3`}>
+              <SectionIntro
+                eyebrow="Danger zone"
+                title="Remove node"
+                description="Delete this node from the current canvas when you no longer need it."
+              />
+
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="mt-3 w-full gap-2 rounded-xl border border-red-500/20 bg-red-500/10 text-red-200 transition-colors hover:border-red-500/35 hover:bg-red-500/15 hover:text-red-100"
+                onClick={handleDelete}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Delete Node
+              </Button>
+            </section>
           )}
         </form>
       </ScrollArea>
