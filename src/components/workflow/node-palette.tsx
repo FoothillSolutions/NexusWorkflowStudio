@@ -38,10 +38,10 @@ const COMING_SOON_BASIC = [
 ] as const;
 
 const COMING_SOON_CONTROL = [
-  { key: "validation", label: "Validation", description: "Check rules and branch on pass or fail", icon: ShieldCheck, hex: "#22d3ee" },
-  { key: "guards", label: "Guards", description: "Add protective flow guardrails", icon: Shield, hex: "#38bdf8" },
-  { key: "rules", label: "Rules", description: "Define reusable control rules", icon: Scale, hex: "#f59e0b" },
-  { key: "hands-off", label: "Hands Off", description: "Pause for human review or approval", icon: Handshake, hex: "#fb7185" },
+  { key: "validation", label: "Validation", description: "Check output of a branch", icon: ShieldCheck, hex: "#22d3ee" },
+  { key: "guards", label: "Guards", description: "Add protective guardrails", icon: Shield, hex: "#38bdf8" },
+  { key: "rules", label: "Rules", description: "Define reusable rules", icon: Scale, hex: "#f59e0b" },
+  { key: "hands-off", label: "Hands Off", description: "Define handing off method", icon: Handshake, hex: "#fb7185" },
 ] as const;
 
 const PANEL_SHELL_CLASS = "absolute top-16 left-4 z-20 flex min-h-0 flex-col overflow-hidden rounded-3xl border border-zinc-700/60 bg-zinc-950/88 shadow-[0_16px_48px_rgba(0,0,0,0.32)] backdrop-blur-xl transition-all duration-300 ease-out";
