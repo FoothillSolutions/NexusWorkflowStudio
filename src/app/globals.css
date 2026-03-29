@@ -216,27 +216,46 @@
   user-select: text;
 }
 
-/* ── Legacy native scrollbar fallback (prefer ScrollArea for new UI) ─────── */
+/* ── Global scrollbar design ──────────────────────────────────────────────── */
+:root {
+  --nexus-scrollbar-thumb: rgb(82 82 91 / 0.72);
+  --nexus-scrollbar-thumb-hover: rgb(113 113 122 / 0.92);
+  --nexus-scrollbar-track: transparent;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--nexus-scrollbar-thumb) var(--nexus-scrollbar-track);
+}
+
+*::-webkit-scrollbar,
 .custom-scroll::-webkit-scrollbar {
   width: 12px;
   height: 12px;
 }
+
+*::-webkit-scrollbar-track,
 .custom-scroll::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--nexus-scrollbar-track);
 }
+
+*::-webkit-scrollbar-thumb,
 .custom-scroll::-webkit-scrollbar-thumb {
-  background: rgb(63 63 70 / 0.75);
+  background: var(--nexus-scrollbar-thumb);
   border-radius: 9999px;
   border: 3px solid transparent;
   background-clip: content-box;
 }
+
+*::-webkit-scrollbar-thumb:hover,
 .custom-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgb(82 82 91 / 1);
+  background: var(--nexus-scrollbar-thumb-hover);
   background-clip: content-box;
 }
+
 .custom-scroll {
   scrollbar-width: thin;
-  scrollbar-color: rgb(63 63 70 / 0.75) transparent;
+  scrollbar-color: var(--nexus-scrollbar-thumb) var(--nexus-scrollbar-track);
 }
 
 

@@ -14,13 +14,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import {
   X,
   Save,
   Trash2,
   FolderOpen,
-  Clock,
   Check,
   Pencil,
   Folders,
@@ -77,9 +77,9 @@ const CATEGORY_ACCENT_HEX: Record<string, string | null> = {
   document: NODE_ACCENT.document,
 };
 
-const PANEL_SHELL_CLASS = "absolute top-4 right-4 z-20 flex flex-col overflow-hidden rounded-[24px] border border-zinc-700/60 bg-zinc-950/88 shadow-[0_28px_100px_rgba(0,0,0,0.55)] backdrop-blur-xl transition-all duration-300 ease-out";
+const PANEL_SHELL_CLASS = "absolute top-4 right-4 z-20 flex min-h-0 flex-col overflow-hidden rounded-3xl border border-zinc-700/60 bg-zinc-950/88 shadow-[0_16px_48px_rgba(0,0,0,0.32)] backdrop-blur-xl transition-all duration-300 ease-out";
 const PANEL_SURFACE_CLASS = "rounded-2xl border border-zinc-800/80 bg-zinc-900/55 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]";
-const CARD_CLASS = `group rounded-[20px] border ${BORDER_MUTED} bg-zinc-900/55 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-all duration-200 hover:border-zinc-600/80 hover:bg-zinc-900/80`;
+const CARD_CLASS = `group rounded-2xl border ${BORDER_MUTED} bg-zinc-900/55 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-all duration-200 hover:border-zinc-600/80 hover:bg-zinc-900/80`;
 const META_BADGE_CLASS = "rounded-full border border-zinc-700/60 bg-zinc-950/70 px-2 py-0.5 text-[11px] font-medium text-zinc-400";
 
 function cardIconButtonClass(tone: "default" | "danger" = "default") {
@@ -243,7 +243,7 @@ function NodePreview({ item }: { item: LibraryItemEntry }) {
 
   return (
     <div
-      className="relative flex h-24 w-full items-center justify-center overflow-hidden rounded-xl"
+      className="relative flex h-20 w-full items-center justify-center overflow-hidden rounded-xl"
       style={{ backgroundColor: BG_CANVAS_HEX }}
     >
       {/* Accent glow */}
@@ -255,14 +255,14 @@ function NodePreview({ item }: { item: LibraryItemEntry }) {
       />
       {/* Central node preview chip */}
       <div
-        className="relative flex items-center gap-2 rounded-xl border px-3 py-1.5 shadow-[0_10px_30px_rgba(0,0,0,0.2)]"
+        className="relative flex max-w-[85%] items-center gap-2 rounded-xl border px-2.5 py-1.5 shadow-[0_8px_22px_rgba(0,0,0,0.18)]"
         style={{
           backgroundColor: `${accentHex}15`,
           borderColor: `${accentHex}40`,
         }}
       >
-        {Icon && <Icon size={16} style={{ color: accentHex }} />}
-        <span className="text-sm font-medium text-zinc-300 max-w-40 truncate">
+        {Icon && <Icon size={15} style={{ color: accentHex }} />}
+        <span className="max-w-full truncate text-xs font-medium text-zinc-300 sm:text-sm">
           {item.name}
         </span>
       </div>
@@ -315,7 +315,7 @@ function WorkflowCard({
     <div className={CARD_CLASS}>
       <button type="button" className="block w-full p-2 text-left" onClick={() => onLoad(entry.id)}>
         <div className="relative overflow-hidden rounded-xl border border-zinc-800/70 bg-zinc-950/90">
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-violet-500/10 via-blue-500/5 to-transparent" />
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-linear-to-b from-violet-500/10 via-blue-500/5 to-transparent" />
           <WorkflowMiniMap entry={entry} />
         </div>
       </button>
@@ -433,8 +433,6 @@ function LibraryItemCard({
 
   const timeAgo = formatTimeAgo(item.updatedAt);
 
-  const categoryLabel = LIBRARY_CATEGORIES.find((c) => c.value === item.category)?.label ?? item.category;
-
   return (
     <div className={CARD_CLASS}>
       <button type="button" className="block w-full p-2 text-left" onClick={() => onLoad(item)}>
@@ -447,22 +445,9 @@ function LibraryItemCard({
         </div>
       </button>
 
-      <div className="px-3.5 pb-3.5 pt-1.5">
-        <div className="flex items-start gap-3">
+      <div className="px-3 pb-3 pt-1.5">
+        <div className="flex items-start gap-2.5">
           <div className="min-w-0 flex-1">
-            <div className="mb-2 flex items-center gap-2">
-              <span
-                className="inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium"
-                style={{
-                  backgroundColor: `${accentHex}14`,
-                  color: accentHex,
-                  borderColor: `${accentHex}33`,
-                }}
-              >
-                {categoryLabel}
-              </span>
-            </div>
-
             {isRenaming ? (
               <div className="flex items-center gap-1.5">
                 <input
@@ -482,26 +467,27 @@ function LibraryItemCard({
                 </button>
               </div>
             ) : (
-              <button
-                type="button"
-                className={`min-w-0 max-w-full truncate text-left text-sm font-semibold ${TEXT_SECONDARY} transition-colors hover:text-zinc-100`}
-                onDoubleClick={startRenaming}
-                onClick={() => onLoad(item)}
-                title="Add item to canvas"
-              >
-                {item.name}
-              </button>
+              <div className="flex items-start justify-between gap-2">
+                <button
+                  type="button"
+                  className={`min-w-0 max-w-full truncate text-left text-sm font-semibold ${TEXT_SECONDARY} transition-colors hover:text-zinc-100`}
+                  onDoubleClick={startRenaming}
+                  onClick={() => onLoad(item)}
+                  title="Add item to canvas"
+                >
+                  {item.name}
+                </button>
+              </div>
             )}
 
             {item.description && (
-              <p className={`mt-2 line-clamp-2 text-xs leading-5 ${TEXT_SUBTLE}`}>
+              <p className={`mt-1 line-clamp-2 text-xs leading-4.5 ${TEXT_SUBTLE}`}>
                 {item.description}
               </p>
             )}
 
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              <span className={META_BADGE_CLASS}>Updated {timeAgo}</span>
-              <span className={META_BADGE_CLASS}>{item.nodeType}</span>
+            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-zinc-500">
+              <span>Updated {timeAgo}</span>
             </div>
           </div>
 
@@ -511,7 +497,7 @@ function LibraryItemCard({
           </div>
         </div>
 
-        <div className="mt-3 flex items-center gap-2">
+        <div className="mt-2.5 flex items-center gap-2">
           <button
             type="button"
             onClick={() => onLoad(item)}
@@ -519,7 +505,7 @@ function LibraryItemCard({
             title="Add to canvas"
           >
             <FolderOpen size={12} />
-            Add to Canvas
+            Add
           </button>
         </div>
       </div>
@@ -532,7 +518,7 @@ function EmptyState({ category }: { category: LibraryCategory | "all" }) {
   const Icon = CATEGORY_ICONS[category] ?? Layers;
   const label = LIBRARY_CATEGORIES.find((c) => c.value === category)?.label ?? "items";
   return (
-    <div className={`flex flex-col items-center justify-center rounded-[20px] border border-dashed border-zinc-700/60 bg-zinc-900/35 px-6 py-10 text-center ${PANEL_SURFACE_CLASS}`}>
+    <div className={`flex flex-col items-center justify-center border border-dashed border-zinc-700/60 bg-zinc-900/35 px-6 py-10 text-center ${PANEL_SURFACE_CLASS}`}>
       <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl border border-zinc-700/60 bg-zinc-950/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
         <Icon size={18} className={TEXT_SUBTLE} />
       </div>
@@ -689,8 +675,6 @@ export default function LibraryPanel({ onLoadWorkflow, onLoadItem }: LibraryPane
 
   const hasItems = filteredWorkflows.length > 0 || filteredItems.length > 0;
   const activeCategoryLabel = LIBRARY_CATEGORIES.find((category) => category.value === activeCategory)?.label ?? "All";
-  const visibleCount = filteredWorkflows.length + filteredItems.length;
-
   return (
     <>
       <div
@@ -699,7 +683,11 @@ export default function LibraryPanel({ onLoadWorkflow, onLoadItem }: LibraryPane
             ? "opacity-100 translate-y-0 pointer-events-auto"
             : "opacity-0 -translate-y-4 pointer-events-none"
         }`}
-        style={{ width: "min(420px, calc(100vw - 32px))", maxHeight: "calc(100vh - 112px)" }}
+        style={{
+          width: "min(420px, calc(100vw - 32px))",
+          height: "calc(100vh - 112px)",
+          maxHeight: "calc(100vh - 112px)",
+        }}
       >
         {/* ── Header ── */}
         <div className="shrink-0 border-b border-zinc-800/80 px-4 py-4">
@@ -717,11 +705,7 @@ export default function LibraryPanel({ onLoadWorkflow, onLoadItem }: LibraryPane
                   {categoryCounts.all} total
                 </Badge>
               </div>
-              <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                <span className="text-xs text-zinc-500">Saved workflows & reusable components</span>
-                <span className="hidden text-zinc-700 sm:inline">•</span>
-                <span className="text-xs text-zinc-500">Viewing {activeCategoryLabel.toLowerCase()}</span>
-              </div>
+              <p className="mt-1 text-xs text-zinc-500">Browse saved workflows and reusable components</p>
             </div>
             <Button
               variant="ghost"
@@ -746,62 +730,68 @@ export default function LibraryPanel({ onLoadWorkflow, onLoadItem }: LibraryPane
                 className={`h-10 w-full rounded-xl border border-zinc-700/50 bg-zinc-950/70 pl-9 pr-3 text-sm ${TEXT_SECONDARY} placeholder:text-zinc-500 outline-none transition-colors focus:border-zinc-600`}
               />
             </div>
-
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              <Badge variant="outline" className="rounded-full border-zinc-700/70 bg-zinc-950/70 px-2 py-0 text-[10px] font-medium text-zinc-400">
-                {visibleCount} result{visibleCount !== 1 ? "s" : ""}
-              </Badge>
-              {searchQuery && (
-                <Badge variant="outline" className="rounded-full border-blue-500/20 bg-blue-500/10 px-2 py-0 text-[10px] font-medium text-blue-200">
-                  Searching “{searchQuery}”
-                </Badge>
-              )}
-            </div>
           </div>
         </div>
 
         {/* ── Category tabs ── */}
         <div className="shrink-0 px-3 pb-3">
-          <div className={`${PANEL_SURFACE_CLASS} flex flex-wrap items-center gap-1.5 p-1.5`}>
-            {LIBRARY_CATEGORIES.map(({ value, label }) => {
-              const isActive = activeCategory === value;
-              const count = categoryCounts[value] ?? 0;
-              const Icon = CATEGORY_ICONS[value] ?? LayoutGrid;
-              const hex = CATEGORY_ACCENT_HEX[value] ?? null;
-              return (
-                <button
-                  key={value}
-                  onClick={() => setActiveCategory(value)}
-                  className={`inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium transition-all duration-200 ease-out cursor-pointer ${
-                    isActive
-                      ? "shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
-                      : `border-transparent ${TEXT_SUBTLE} hover:border-zinc-700/70 hover:bg-zinc-800/70 hover:text-zinc-300`
-                  }`}
-                  style={isActive ? {
-                    backgroundColor: hex ? `${hex}14` : "rgba(63,63,70,0.7)",
-                    color: hex ?? "#e4e4e7",
-                    borderColor: hex ? `${hex}30` : "rgba(82,82,91,0.8)",
-                  } : undefined}
-                >
-                  <Icon size={13} className="shrink-0" />
-                  <span>{label}</span>
-                  <span
-                    className="rounded-full px-1.5 py-0 text-[10px]"
-                    style={isActive ? { backgroundColor: hex ? `${hex}18` : "rgba(113,113,122,0.35)" } : undefined}
-                  >
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+          <TooltipProvider delayDuration={150}>
+            <div className={`${PANEL_SURFACE_CLASS} p-2`}>
+              <div className="grid grid-cols-4 gap-1 sm:grid-cols-7">
+                {LIBRARY_CATEGORIES.map(({ value, label }) => {
+                  const isActive = activeCategory === value;
+                  const count = categoryCounts[value] ?? 0;
+                  const Icon = CATEGORY_ICONS[value] ?? LayoutGrid;
+                  const hex = CATEGORY_ACCENT_HEX[value] ?? null;
+
+                  return (
+                    <Tooltip key={value}>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => setActiveCategory(value)}
+                          className={`relative flex h-10 w-full items-center justify-center rounded-xl border transition-all duration-200 ease-out ${
+                            isActive
+                              ? "shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+                              : `border-transparent ${TEXT_SUBTLE} hover:border-zinc-700/70 hover:bg-zinc-800/70 hover:text-zinc-300`
+                          }`}
+                          style={isActive ? {
+                            backgroundColor: hex ? `${hex}14` : "rgba(63,63,70,0.7)",
+                            color: hex ?? "#e4e4e7",
+                            borderColor: hex ? `${hex}30` : "rgba(82,82,91,0.8)",
+                          } : undefined}
+                          aria-label={label}
+                          title={label}
+                        >
+                          <Icon size={15} className="shrink-0" />
+                          {count > 0 && (
+                            <span className="absolute -right-1 -top-1 rounded-full border border-zinc-800 bg-zinc-900 px-1 text-[9px] font-semibold leading-4 text-zinc-300">
+                              {count}
+                            </span>
+                          )}
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="text-xs">
+                        {label}
+                      </TooltipContent>
+                    </Tooltip>
+                  );
+                })}
+              </div>
+
+              <div className="mt-2 flex items-center justify-between gap-3 rounded-xl border border-zinc-800/80 bg-zinc-950/70 px-3 py-2">
+                <div className="min-w-0 truncate text-xs font-medium text-zinc-200">{activeCategoryLabel}</div>
+                <div className="shrink-0 text-[10px] text-zinc-500">{categoryCounts[activeCategory] ?? 0} item{(categoryCounts[activeCategory] ?? 0) !== 1 ? "s" : ""}</div>
+              </div>
+            </div>
+          </TooltipProvider>
         </div>
 
         <div className="mx-3 border-t border-zinc-800/70" />
 
         {/* ── Content ── */}
-        <ScrollArea className="flex-1 min-h-0" viewportClassName="overscroll-contain">
-          <div className="space-y-3 p-3.5">
+        <div className="flex min-h-0 flex-1">
+          <ScrollArea className="flex-1 min-h-0 w-full" viewportClassName="overscroll-contain">
+            <div className="space-y-3 p-3.5">
             {!hasItems && <EmptyState category={activeCategory} />}
 
             {/* Workflows section */}
@@ -829,7 +819,7 @@ export default function LibraryPanel({ onLoadWorkflow, onLoadItem }: LibraryPane
                   <div className="mx-1 border-t border-zinc-800/70 pt-1" />
                 )}
                 {activeCategory === "all" && (
-                  <SectionHeader icon={Wrench} label="Components" count={filteredItems.length} accentClass="text-violet-300" />
+                  <SectionHeader icon={LayoutGrid} label="Components" count={filteredItems.length} accentClass="text-violet-300" />
                 )}
                 {filteredItems.map((item) => (
                   <LibraryItemCard
@@ -841,8 +831,9 @@ export default function LibraryPanel({ onLoadWorkflow, onLoadItem }: LibraryPane
                 ))}
               </>
             )}
-          </div>
-        </ScrollArea>
+            </div>
+          </ScrollArea>
+        </div>
       </div>
 
       {/* ── Delete confirmation ── */}
