@@ -169,7 +169,7 @@ export default function GeneratedExportDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={`flex max-h-[90vh] w-full max-w-[calc(100vw-1rem)] flex-col overflow-hidden p-0 sm:max-w-[calc(100vw-2rem)] lg:max-w-4xl ${BG_SURFACE} ${BORDER_DEFAULT} ${TEXT_PRIMARY}`}>
+      <DialogContent className={`min-h-0 max-h-[90vh] w-full max-w-[calc(100vw-1rem)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:max-w-[calc(100vw-2rem)] lg:max-w-4xl ${BG_SURFACE} ${BORDER_DEFAULT} ${TEXT_PRIMARY}`}>
         <DialogHeader className="gap-3 border-b border-zinc-800 px-4 py-5 pr-12 sm:px-6 sm:py-6 sm:pr-14">
           <div className="flex items-start gap-4">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-300 shadow-sm shadow-emerald-950/30">
@@ -179,13 +179,12 @@ export default function GeneratedExportDialog({
               <DialogTitle className="text-xl">Generate workflow files</DialogTitle>
               <DialogDescription className={`max-w-2xl leading-relaxed ${TEXT_MUTED}`}>
                 Choose a target format, then export the generated folder directly into a directory.
-                Existing files with the same path are updated in place, while unrelated files stay untouched.
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
-        <ScrollArea className="min-h-0 flex-1">
+        <ScrollArea className="min-h-0 w-full" viewportClassName="overscroll-contain" type="always">
           <div className="space-y-6 px-4 py-5 sm:px-6 sm:py-6">
           <section className="space-y-3">
             <div>
@@ -268,7 +267,7 @@ export default function GeneratedExportDialog({
                   Target directory
                 </div>
                 <p className={`mt-1 text-sm leading-relaxed ${TEXT_MUTED}`}>
-                  The export merges into the selected folder and only overwrites generated files that share the same name.
+                  The export merges into the target folder and only updates existing files of the current workflow.
                   You can select either the project root or an existing <code className="rounded bg-zinc-900 px-1 py-0.5 text-[11px] text-zinc-300">{selectedTarget.rootDir}</code> folder.
                 </p>
                 {currentProject?.worktree ? (
