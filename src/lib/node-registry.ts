@@ -83,7 +83,6 @@ const BASIC_NODE_ORDER: NodeType[] = [
   "start",
   "prompt",
   "agent",
-  "parallel-agent",
   "skill",
   "document",
   "script",
@@ -94,6 +93,7 @@ const BASIC_NODE_ORDER: NodeType[] = [
 const CONTROL_FLOW_NODE_ORDER: NodeType[] = [
   "if-else",
   "switch",
+  "parallel-agent",
   "ask-user",
   "end",
 ];
