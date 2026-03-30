@@ -89,13 +89,13 @@ const BASIC_NODE_ORDER: NodeType[] = [
   "script",
   "sub-workflow",
   "mcp-tool",
-  "end",
 ];
 
 const CONTROL_FLOW_NODE_ORDER: NodeType[] = [
   "if-else",
   "switch",
   "ask-user",
+  "end",
 ];
 
 export const BASIC_NODES = BASIC_NODE_ORDER.map((type) => NODE_REGISTRY[type]).filter(

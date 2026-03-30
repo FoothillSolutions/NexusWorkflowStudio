@@ -290,7 +290,7 @@ export default function NodePalette() {
                 <div className="space-y-2.5 p-3 pb-4">
                   <CompactHelp
                     label="Basic"
-                    description="Core building blocks for prompts, agents, skills, documents, scripts, and workflow exits."
+                    description="Core building blocks for prompts, agents, skills, documents, scripts, and reusable workflow units."
                   />
                   {basicNodes.map(renderNodeItem)}
                   {COMING_SOON_BASIC.map(renderComingSoonPlaceholder)}
@@ -303,7 +303,7 @@ export default function NodePalette() {
                 <div className="space-y-2.5 p-3 pb-4">
                   <CompactHelp
                     label="Control"
-                    description="Branch flows, route decisions, and introduce interaction checkpoints inside the canvas."
+                    description="Branch flows, route decisions, interaction checkpoints, and workflow exits inside the canvas."
                   />
                   {controlNodes.map(renderNodeItem)}
                   {COMING_SOON_CONTROL.map(renderComingSoonPlaceholder)}
