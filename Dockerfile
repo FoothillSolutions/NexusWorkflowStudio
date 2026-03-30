@@ -2,48 +2,30 @@
 # Stage 1: Dependencies Installation Stage
 # ============================================
 
-# IMPORTANT: Node.js Version Maintenance
-# This Dockerfile uses Node.js 24.13.0-slim, which was the latest LTS version at the time of writing.
-# To ensure security and compatibility, regularly update the NODE_VERSION ARG to the latest LTS version.
-ARG NODE_VERSION=24.13.0-slim
+ARG BUN_VERSION=1.3.10
 ARG GIT_SHA=unknown
 ARG BUILD_TIMESTAMP=unknown
 
-FROM node:${NODE_VERSION} AS dependencies
+FROM oven/bun:${BUN_VERSION} AS dependencies
 
-# Set working directory
 WORKDIR /app
 
-# Copy package-related files first to leverage Docker's caching mechanism
-COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* .npmrc* ./
+# Copy Bun package metadata first to leverage Docker layer caching.
+COPY package.json bun.lock ./
 
-# Install project dependencies with frozen lockfile for reproducible builds
-RUN --mount=type=cache,target=/root/.npm \
-    --mount=type=cache,target=/usr/local/share/.cache/yarn \
-    --mount=type=cache,target=/root/.local/share/pnpm/store \
-  if [ -f package-lock.json ]; then \
-    npm ci --no-audit --no-fund; \
-  elif [ -f yarn.lock ]; then \
-    corepack enable yarn && yarn install --frozen-lockfile --production=false; \
-  elif [ -f pnpm-lock.yaml ]; then \
-    corepack enable pnpm && pnpm install --frozen-lockfile; \
-  else \
-    echo "No lockfile found." && exit 1; \
-  fi
+# Install project dependencies with a frozen lockfile for reproducible builds.
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+    bun install --frozen-lockfile
 
 # ============================================
 # Stage 2: Build Next.js application in standalone mode
 # ============================================
 
-FROM node:${NODE_VERSION} AS builder
+FROM oven/bun:${BUN_VERSION} AS builder
 
-# Set working directory
 WORKDIR /app
 
-# Copy project dependencies from dependencies stage
 COPY --from=dependencies /app/node_modules ./node_modules
-
-# Copy application source code
 COPY . .
 
 ENV NODE_ENV=production
@@ -53,42 +35,25 @@ ENV NODE_ENV=production
 # Uncomment the following line in case you want to disable telemetry during the build.
 # ENV NEXT_TELEMETRY_DISABLED=1
 
-# Build Next.js application
-# If you want to speed up Docker rebuilds, you can cache the build artifacts
-# by adding: --mount=type=cache,target=/app/.next/cache
-# This caches the .next/cache directory across builds, but it also prevents
-# .next/cache/fetch-cache from being included in the final image, meaning
-# cached fetch responses from the build won't be available at runtime.
-RUN if [ -f package-lock.json ]; then \
-    npm run build; \
-  elif [ -f yarn.lock ]; then \
-    corepack enable yarn && yarn build; \
-  elif [ -f pnpm-lock.yaml ]; then \
-    corepack enable pnpm && pnpm build; \
-  else \
-    echo "No lockfile found." && exit 1; \
-  fi
+RUN bun run build
 
 # ============================================
 # Stage 3: Run Next.js application
 # ============================================
 
-FROM node:${NODE_VERSION} AS runner
+FROM oven/bun:${BUN_VERSION} AS runner
 
-ARG GIT_SHA
-ARG BUILD_TIMESTAMP
+ARG GIT_SHA=unknown
+ARG BUILD_TIMESTAMP=unknown
 
-# Set working directory
 WORKDIR /app
 
-# Set production environment variables
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 ENV APP_GIT_SHA=${GIT_SHA}
 ENV APP_BUILD_TIMESTAMP=${BUILD_TIMESTAMP}
 
-# Advertise the internal application port for platforms that auto-detect it.
 EXPOSE 3000
 
 # Next.js collects completely anonymous telemetry data about general usage.
@@ -96,24 +61,19 @@ EXPOSE 3000
 # Uncomment the following line in case you want to disable telemetry during the run time.
 # ENV NEXT_TELEMETRY_DISABLED=1
 
-# Copy production assets
-COPY --from=builder --chown=node:node /app/public ./public
+COPY --from=builder --chown=bun:bun /app/public ./public
 
-# Set the correct permission for prerender cache
-RUN mkdir .next
-RUN chown node:node .next
+RUN mkdir .next && chown bun:bun .next
 
-# Automatically leverage output traces to reduce image size
+# Automatically leverage output traces to reduce image size.
 # https://nextjs.org/docs/advanced-features/output-file-tracing
-COPY --from=builder --chown=node:node /app/.next/standalone ./
-COPY --from=builder --chown=node:node /app/.next/static ./.next/static
+COPY --from=builder --chown=bun:bun /app/.next/standalone ./
+COPY --from=builder --chown=bun:bun /app/.next/static ./.next/static
 
 # If you want to persist the fetch cache generated during the build so that
 # cached responses are available immediately on startup, uncomment this line:
-# COPY --from=builder --chown=node:node /app/.next/cache ./.next/cache
+# COPY --from=builder --chown=bun:bun /app/.next/cache ./.next/cache
 
-# Switch to non-root user for security best practices
-USER node
+USER bun
 
-# Start Next.js standalone server
-CMD ["node", "server.js"]
+CMD ["bun", "server.js"]

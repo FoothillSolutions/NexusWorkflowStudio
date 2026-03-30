@@ -2,8 +2,10 @@
   "name": "nexus-workflow-studio",
   "version": "0.1.0",
   "license": "MIT",
+  "packageManager": "bun@1.3.10",
   "engines": {
-    "node": ">=18.18"
+    "bun": ">=1.3.10",
+    "node": ">=20"
   },
   "scripts": {
     "dev": "next dev",
@@ -11,9 +13,9 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
+    "docker:up": "docker compose up --build",
     "docker:bun": "docker compose up --build",
-    "docker:node": "docker compose --profile node up nextjs-standalone --build",
-    "docker:down": "docker compose --profile node down"
+    "docker:down": "docker compose down"
   },
   "dependencies": {
     "@dagrejs/dagre": "^2.0.4",

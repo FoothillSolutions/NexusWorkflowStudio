@@ -37,11 +37,11 @@ Front-end-only dark-themed drag-and-drop workflow editor built with Next.js. No 
 ## Scripts
 
 ```bash
-npm run dev      # Start dev server (Turbopack, default port 3000 or next available)
-npm run build    # Production build
-npm run start    # Serve production build
-npm run lint     # ESLint
-npm run typecheck # TypeScript type checking (tsc --noEmit)
+bun run dev       # Start dev server (Turbopack, default port 3000 or next available)
+bun run build     # Production build
+bun run start     # Serve production build
+bun run lint      # ESLint
+bun run typecheck # TypeScript type checking (tsc --noEmit)
 ```
 
 The dev server typically runs on `http://localhost:3000`. If port 3000 is occupied, Next.js auto-increments.
@@ -58,9 +58,8 @@ nexus-workflow-studio/
 ├── components.json                  # shadcn: new-york, neutral, CSS vars, lucide icons
 ├── postcss.config.mjs
 ├── eslint.config.mjs
-├── docker-compose.yml               # Docker Compose with Bun (default) + Node.js profiles
-├── Dockerfile                       # Node.js multi-stage production build
-├── Dockerfile.bun                   # Bun multi-stage production build
+├── docker-compose.yml               # Docker Compose for the Bun-based production image
+├── Dockerfile                       # Bun multi-stage production build
 ├── CONTEXT.md                       # This file
 ├── CONTRIBUTING.md                  # Contribution guide
 │
@@ -717,7 +716,7 @@ The Zustand subscription in `workflow-editor.tsx` fires on EVERY state change (i
 4. **Properties** — `src/components/workflow/properties/type-specific-fields.tsx`:
    - Add case for `"my-type"` in `TypeSpecificFields` switch
 
-5. **Verify**: `npm run build` must pass with zero errors.
+5. **Verify**: `bun run build` must pass with zero errors.
 
 ---
 
@@ -725,10 +724,10 @@ The Zustand subscription in `workflow-editor.tsx` fires on EVERY state change (i
 
 ```bash
 # Build check (must exit 0 with no errors)
-npm run build
+bun run build
 
 # Dev server
-npm run dev
+bun run dev
 # Then open http://localhost:3000 and verify:
 #   - Header renders with "Nexus Workflow Studio" and editable name
 #   - Left sidebar shows 11 node types across Basic/Control tabs
@@ -771,9 +770,9 @@ npm run dev
 
 Vercel-ready. No environment variables needed. No backend required (OpenCode connection is optional for AI features). Just:
 ```bash
-npm run build && npm run start
+bun run build && bun run start
 ```
 
 Or connect the repo to Vercel for automatic deployments.
 
-Docker support available via `docker-compose.yml` with Bun (default) and Node.js runtime profiles.
+Docker support is Bun-based via `docker-compose.yml` and the primary `Dockerfile`.

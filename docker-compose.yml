@@ -1,24 +1,6 @@
 services:
   # Bun service (default — runs with: docker compose up --build)
-  nextjs-standalone-with-bun:
-    build:
-      context: .
-      dockerfile: Dockerfile.bun
-      args:
-        GIT_SHA: ${GIT_SHA:-unknown}
-        BUILD_TIMESTAMP: ${BUILD_TIMESTAMP:-unknown}
-    pull_policy: build
-    image: nextjs-standalone-bun-image
-    container_name: nextjs-standalone-bun-container
-    environment:
-      NODE_ENV: production
-      PORT: "3000"
-    expose:
-      - "3000"
-    restart: unless-stopped
-
-  # Node.js service (use with: docker compose --profile node up nextjs-standalone --build)
-  nextjs-standalone:
+  nexus-workflow-studio:
     build:
       context: .
       dockerfile: Dockerfile
@@ -26,13 +8,11 @@ services:
         GIT_SHA: ${GIT_SHA:-unknown}
         BUILD_TIMESTAMP: ${BUILD_TIMESTAMP:-unknown}
     pull_policy: build
-    image: nextjs-standalone-image
-    container_name: nextjs-standalone-container
+    image: nexus-workflow-studio:latest
+    container_name: nexus-workflow-studio
     environment:
       NODE_ENV: production
       PORT: "3000"
     expose:
       - "3000"
     restart: unless-stopped
-    profiles:
-      - node

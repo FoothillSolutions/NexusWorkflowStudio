@@ -64,13 +64,13 @@ Nexus currently supports **13 workflow node types**.
 
 ### Requirements
 
-- Node.js `>= 18.18`
+- Bun `>= 1.3.10`
 
 ### Install and run
 
 ```bash
-npm install
-npm run dev
+bun install
+bun run dev
 ```
 
 Open the app in your browser at the local Next.js URL shown in the terminal, usually:
@@ -82,10 +82,19 @@ http://localhost:3000
 ### Other useful commands
 
 ```bash
-npm run build
-npm run start
-npm run lint
-npm run typecheck
+bun run build
+bun run start
+bun run lint
+bun run typecheck
+```
+
+### Docker
+
+The default container setup now uses Bun as well:
+
+```bash
+bun run docker:up
+bun run docker:down
 ```
 
 ## Usage
@@ -110,7 +119,7 @@ npm run typecheck
 AI features require a running [OpenCode](https://github.com/nichochar/opencode) server.
 
 ```bash
-npm i -g opencode-ai
+bun add -g opencode-ai
 opencode serve --cors http://localhost:3000
 ```
 

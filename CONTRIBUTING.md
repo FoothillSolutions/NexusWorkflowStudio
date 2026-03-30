@@ -6,27 +6,26 @@ Thank you for your interest in contributing! This guide will help you get starte
 
 ### Prerequisites
 
-- **Node.js** ≥ 18.18
-- **npm** ≥ 9
+- **Bun** ≥ 1.3.10
 
 ### Getting Started
 
 ```bash
 git clone https://github.com/anthropics/nexus-workflow-studio.git
 cd nexus-workflow-studio
-npm install
-npm run dev
+bun install
+bun run dev
 ```
 
 ### Available Scripts
 
 | Script | Description |
 |--------|-------------|
-| `npm run dev` | Start the development server |
-| `npm run build` | Build for production |
-| `npm run start` | Start the production server |
-| `npm run lint` | Run ESLint |
-| `npm run typecheck` | Run TypeScript type checking |
+| `bun run dev` | Start the development server |
+| `bun run build` | Build for production |
+| `bun run start` | Start the production server |
+| `bun run lint` | Run ESLint |
+| `bun run typecheck` | Run TypeScript type checking |
 
 ## Architecture Overview
 
@@ -104,8 +103,8 @@ After creating the module, register it in:
 
 1. Fork the repository and create a feature branch from `main`
 2. Make your changes with clear, descriptive commits
-3. Ensure `npm run lint` and `npm run typecheck` pass
-4. Ensure `npm run build` succeeds
+3. Ensure `bun run lint` and `bun run typecheck` pass
+4. Ensure `bun run build` succeeds
 5. Update documentation if you've changed public APIs
 6. Submit a PR with a clear description of the change
 
