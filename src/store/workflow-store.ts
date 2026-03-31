@@ -20,21 +20,29 @@ import type {
 import type { SubWorkflowNodeData } from "@/nodes/sub-workflow/types";
 import { SubAgentModel, SubAgentMemory } from "@/nodes/agent/enums";
 import { createNodeFromType } from "@/lib/node-registry";
-import { stripTransientProperties, stripFingerprintProperties } from "@/lib/persistence";
 import { usePromptGenStore } from "@/store/prompt-gen-store";
 import { moveNodeIntoSubWorkflowContext } from "@/lib/subworkflow-transfer";
+import type { CanvasMode, DeleteTarget, EdgeStyle } from "./workflow-store-types";
+import {
+  buildWorkflowJson,
+  deriveSaveStatus,
+  ensureEndNode,
+  ensureStartNode,
+  getWorkflowFingerprint,
+  initialState,
+  migrateLegacyPromptScripts,
+  PRISTINE_WORKFLOW_FINGERPRINT,
+  stripLegacySkillProjectName,
+} from "./workflow-store-helpers";
+import {
+  resolveParentNodes,
+  updateNestedSubWorkflowEdges,
+  updateNestedSubWorkflowNodes,
+} from "./workflow-store-subworkflow";
 
 const nanoid = customAlphabet("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", 8);
 
-// Canvas interaction modes
-export type CanvasMode = "hand" | "selection";
-export type EdgeStyle = "bezier" | "smoothstep";
-export type DeleteTarget = {
-  type: "node" | "edge" | "selection";
-  id: string;
-  scope?: "root" | "subworkflow";
-  count?: number;
-};
+export type { CanvasMode, DeleteTarget, EdgeStyle } from "./workflow-store-types";
 
 // State shape
 interface WorkflowState {
@@ -121,271 +129,6 @@ interface WorkflowState {
   refreshSaveState: (snapshot?: Pick<WorkflowJSON, "name" | "nodes" | "edges">) => void;
   markWorkflowSaved: (snapshot?: Pick<WorkflowJSON, "name" | "nodes" | "edges">) => void;
 }
-
-// Helpers
-
-/** The fixed ID used for the mandatory Start node. */
-export const START_NODE_ID = "start-default";
-/** The fixed ID used for the default End node. */
-export const END_NODE_ID = "end-default";
-
-const SAVE_STATUS_UI = {
-  sidebarOpen: false,
-  minimapVisible: true,
-  viewport: { x: 0, y: 0, zoom: 1 } as Viewport,
-  canvasMode: "hand" as CanvasMode,
-  edgeStyle: "bezier" as EdgeStyle,
-};
-
-function createDefaultStartNode(): WorkflowNode {
-  return {
-    ...createNodeFromType("start", { x: 80, y: 200 }),
-    id: START_NODE_ID,
-    deletable: false,
-  } as WorkflowNode;
-}
-
-function createDefaultEndNode(): WorkflowNode {
-  return {
-    ...createNodeFromType("end", { x: 600, y: 200 }),
-    id: END_NODE_ID,
-  } as WorkflowNode;
-}
-
-function getWorkflowFingerprint(snapshot: Pick<WorkflowJSON, "name" | "nodes" | "edges">): string {
-  const cleaned = stripFingerprintProperties({
-    ...snapshot,
-    ui: SAVE_STATUS_UI,
-  });
-
-  return JSON.stringify({
-    name: cleaned.name,
-    nodes: cleaned.nodes,
-    edges: cleaned.edges,
-  });
-}
-
-function deriveSaveStatus(
-  currentFingerprint: string,
-  baselineFingerprint: string,
-  librarySavedFingerprint: string | null,
-) {
-  const isDirty = currentFingerprint !== baselineFingerprint;
-  const needsSave = isDirty || (
-    librarySavedFingerprint === null &&
-    currentFingerprint !== PRISTINE_WORKFLOW_FINGERPRINT
-  );
-
-  return { isDirty, needsSave };
-}
-
-/** Ensure a workflow's node list always contains the Start node. */
-function ensureStartNode(nodes: WorkflowNode[]): WorkflowNode[] {
-  const hasStart = nodes.some((n) => n.data?.type === "start");
-  return hasStart ? nodes : [createDefaultStartNode(), ...nodes];
-}
-
-/** Ensure a workflow's node list always contains at least one End node. */
-function ensureEndNode(nodes: WorkflowNode[]): WorkflowNode[] {
-  const hasEnd = nodes.some((n) => n.data?.type === "end");
-  return hasEnd ? nodes : [...nodes, createDefaultEndNode()];
-}
-
-// Initial state
-
-/**
- * Walk the breadcrumb stack from root to resolve the parent context nodes
- * at any given depth. For stack [A, B], to show B's canvas we need A's
- * sub-nodes (because B lives inside A). For stack [A] we need root nodes.
- */
-function resolveParentNodes(
-  rootNodes: WorkflowNode[],
-  stack: { nodeId: string; label: string }[],
-): WorkflowNode[] {
-  if (stack.length <= 1) return rootNodes;
-  // Walk from root through each ancestor, diving into subNodes
-  let context: WorkflowNode[] = rootNodes;
-  for (let i = 0; i < stack.length - 1; i++) {
-    const entry = stack[i];
-    const node = context.find((n) => n.id === entry.nodeId);
-    const data = node?.data as SubWorkflowNodeData | undefined;
-    if (!data?.subNodes) return rootNodes; // fallback
-    context = data.subNodes;
-  }
-  return context;
-}
-
-function updateNestedSubWorkflowNodes(
-  nodes: WorkflowNode[],
-  ancestorPath: string[],
-  nextSubNodes: WorkflowNode[],
-): WorkflowNode[] {
-  if (ancestorPath.length === 0) return nodes;
-
-  const [currentAncestorId, ...remainingPath] = ancestorPath;
-
-  return nodes.map((node) => {
-    if (node.id !== currentAncestorId || node.data?.type !== "sub-workflow") {
-      return node;
-    }
-
-    const data = node.data as SubWorkflowNodeData;
-    const updatedSubNodes = remainingPath.length === 0
-      ? nextSubNodes
-      : updateNestedSubWorkflowNodes(data.subNodes, remainingPath, nextSubNodes);
-
-    return {
-      ...node,
-      data: {
-        ...data,
-        subNodes: updatedSubNodes,
-        nodeCount: updatedSubNodes.length,
-      } as WorkflowNodeData,
-    };
-  });
-}
-
-function updateNestedSubWorkflowEdges(
-  nodes: WorkflowNode[],
-  ancestorPath: string[],
-  nextSubEdges: WorkflowEdge[],
-): WorkflowNode[] {
-  if (ancestorPath.length === 0) return nodes;
-
-  const [currentAncestorId, ...remainingPath] = ancestorPath;
-
-  return nodes.map((node) => {
-    if (node.id !== currentAncestorId || node.data?.type !== "sub-workflow") {
-      return node;
-    }
-
-    const data = node.data as SubWorkflowNodeData;
-    const updatedSubNodes = remainingPath.length === 0
-      ? data.subNodes
-      : updateNestedSubWorkflowEdges(data.subNodes, remainingPath, nextSubEdges);
-    const updatedSubEdges = remainingPath.length === 0 ? nextSubEdges : data.subEdges;
-
-    return {
-      ...node,
-      data: {
-        ...data,
-        subNodes: updatedSubNodes,
-        subEdges: updatedSubEdges,
-      } as WorkflowNodeData,
-    };
-  });
-}
-
-function migrateLegacyPromptScripts(
-  nodes: WorkflowNode[],
-  edges: WorkflowEdge[],
-): { nodes: WorkflowNode[]; edges: WorkflowEdge[] } {
-  const legacyScriptIds = new Set(
-    edges
-      .filter((edge) => edge.targetHandle === "scripts")
-      .map((edge) => edge.source),
-  );
-
-  const migratedNodes = nodes.map((node) => {
-    const data = node.data as WorkflowNodeData;
-
-    if (node.data?.type === "sub-workflow") {
-      const subWorkflowData = data as SubWorkflowNodeData;
-      const migratedSub = migrateLegacyPromptScripts(subWorkflowData.subNodes ?? [], subWorkflowData.subEdges ?? []);
-      return {
-        ...node,
-        data: {
-          ...subWorkflowData,
-          subNodes: migratedSub.nodes,
-          subEdges: migratedSub.edges,
-          nodeCount: migratedSub.nodes.length,
-        } as WorkflowNodeData,
-      };
-    }
-
-    if (legacyScriptIds.has(node.id) && node.data?.type === "prompt") {
-      return {
-        ...node,
-        type: "script",
-        data: {
-          ...data,
-          type: "script",
-        } as WorkflowNodeData,
-      };
-    }
-
-    return node;
-  });
-
-  const migratedEdges = edges.map((edge) => {
-    if (legacyScriptIds.has(edge.source) && edge.targetHandle === "scripts") {
-      return {
-        ...edge,
-        sourceHandle: "script-out",
-      };
-    }
-    return edge;
-  });
-
-  return { nodes: migratedNodes, edges: migratedEdges };
-}
-
-function stripLegacySkillProjectName(nodes: WorkflowNode[]): WorkflowNode[] {
-  return nodes.map((node) => {
-    const data = node.data as WorkflowNodeData;
-
-    if (node.data?.type === "sub-workflow") {
-      const subWorkflowData = data as SubWorkflowNodeData;
-      const nextSubNodes = stripLegacySkillProjectName(subWorkflowData.subNodes ?? []);
-      return {
-        ...node,
-        data: {
-          ...subWorkflowData,
-          subNodes: nextSubNodes,
-          nodeCount: nextSubNodes.length,
-        } as WorkflowNodeData,
-      };
-    }
-
-    if (node.data?.type !== "skill") return node;
-
-    const { projectName: _projectName, ...skillData } = data as WorkflowNodeData & { projectName?: string };
-    return {
-      ...node,
-      data: skillData as WorkflowNodeData,
-    };
-  });
-}
-
-const initialWorkflowData = {
-  name: "Untitled Workflow",
-  nodes: [createDefaultStartNode(), createDefaultEndNode()] as WorkflowNode[],
-  edges: [] as WorkflowEdge[],
-};
-
-const PRISTINE_WORKFLOW_FINGERPRINT = getWorkflowFingerprint(initialWorkflowData);
-
-const initialState = {
-  ...initialWorkflowData,
-  sidebarOpen: true,
-  minimapVisible: true,
-  selectedNodeId: null as string | null,
-  propertiesPanelOpen: false,
-  viewport: { x: 0, y: 0, zoom: 1 },
-  canvasMode: "hand" as CanvasMode,
-  edgeStyle: "bezier" as EdgeStyle,
-  currentDraggedNodeType: null as NodeType | null,
-  deleteTarget: null as DeleteTarget | null,
-  activeSubWorkflowNodeId: null as string | null,
-  subWorkflowStack: [] as { nodeId: string; label: string }[],
-  subWorkflowNodes: [] as WorkflowNode[],
-  subWorkflowEdges: [] as WorkflowEdge[],
-  subWorkflowParentNodes: [] as WorkflowNode[],
-  saveBaselineFingerprint: PRISTINE_WORKFLOW_FINGERPRINT,
-  librarySavedFingerprint: null as string | null,
-  isDirty: false,
-  needsSave: false,
-};
 
 // Store
 
@@ -1108,24 +851,18 @@ export const useWorkflowStore = create<WorkflowState>()(
       propertiesPanelOpen: false,
       saveBaselineFingerprint: fingerprint,
       librarySavedFingerprint,
-      ...deriveSaveStatus(fingerprint, fingerprint, librarySavedFingerprint),
+        ...deriveSaveStatus(
+          fingerprint,
+          fingerprint,
+          librarySavedFingerprint,
+          PRISTINE_WORKFLOW_FINGERPRINT,
+        ),
     });
   },
 
   getWorkflowJSON: (): WorkflowJSON => {
     const state = get();
-    return stripTransientProperties({
-      name: state.name,
-      nodes: state.nodes,
-      edges: state.edges,
-      ui: {
-        sidebarOpen: state.sidebarOpen,
-        minimapVisible: state.minimapVisible,
-        viewport: state.viewport,
-        canvasMode: state.canvasMode,
-        edgeStyle: state.edgeStyle,
-      },
-    });
+    return buildWorkflowJson(state);
   },
 
   refreshSaveState: (snapshot) => {
@@ -1141,6 +878,7 @@ export const useWorkflowStore = create<WorkflowState>()(
       currentFingerprint,
       state.saveBaselineFingerprint,
       state.librarySavedFingerprint,
+        PRISTINE_WORKFLOW_FINGERPRINT,
     );
 
     if (state.isDirty !== next.isDirty || state.needsSave !== next.needsSave) {
@@ -1161,7 +899,12 @@ export const useWorkflowStore = create<WorkflowState>()(
     set({
       saveBaselineFingerprint: fingerprint,
       librarySavedFingerprint: fingerprint,
-      ...deriveSaveStatus(fingerprint, fingerprint, fingerprint),
+        ...deriveSaveStatus(
+          fingerprint,
+          fingerprint,
+          fingerprint,
+          PRISTINE_WORKFLOW_FINGERPRINT,
+        ),
     });
   },
 

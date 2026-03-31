@@ -2,7 +2,8 @@
 
 import { useCallback } from "react";
 import { useReactFlow } from "@xyflow/react";
-import { useWorkflowStore, type CanvasMode } from "@/store/workflow-store";
+import { useWorkflowStore } from "@/store/workflow-store";
+import type { CanvasMode } from "@/store/workflow-store-types";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
