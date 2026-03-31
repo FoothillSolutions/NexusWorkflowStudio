@@ -8,7 +8,7 @@ import {
   estimateTokens,
   extractTextFromParts,
   formatNodeSummary,
-} from "../../prompt-gen-helpers";
+} from "../../prompt-gen";
 import type { ConnectedNodeContext, NodeSummary } from "@/nodes/shared/use-connected-resources";
 
 describe("prompt-gen-helpers", () => {
