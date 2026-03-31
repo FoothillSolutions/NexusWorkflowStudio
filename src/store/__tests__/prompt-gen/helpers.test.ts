@@ -8,7 +8,7 @@ import {
   estimateTokens,
   extractTextFromParts,
   formatNodeSummary,
-} from "./prompt-gen-helpers";
+} from "../../prompt-gen-helpers";
 import type { ConnectedNodeContext, NodeSummary } from "@/nodes/shared/use-connected-resources";
 
 describe("prompt-gen-helpers", () => {
@@ -161,4 +161,6 @@ describe("prompt-gen-helpers", () => {
     expect(estimateTokens("")).toBe(0);
   });
 });
+
+
 

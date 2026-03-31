@@ -1,5 +1,5 @@
 import { describe, expect, it, mock } from "bun:test";
-import { runPromptGenRequest } from "./prompt-gen-runner";
+import { runPromptGenRequest } from "../../prompt-gen-runner";
 
 function createEvents(values: unknown[]) {
   return {
@@ -89,5 +89,7 @@ describe("runPromptGenRequest", () => {
     expect(onText).toHaveBeenCalledWith("Fallback output", 4);
   });
 });
+
+
 
 
