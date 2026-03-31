@@ -6,7 +6,6 @@ import type {
   WorkflowNodeData,
 } from "@/types/workflow";
 import type { SubWorkflowNodeData } from "@/nodes/sub-workflow/types";
-import { createNodeFromType } from "@/lib/node-registry";
 import {
   stripFingerprintProperties,
   stripTransientProperties,
@@ -26,16 +25,28 @@ export const SAVE_STATUS_UI = {
 
 export function createDefaultStartNode(): WorkflowNode {
   return {
-    ...createNodeFromType("start", { x: 80, y: 200 }),
     id: START_NODE_ID,
+    type: "start",
+    position: { x: 80, y: 200 },
+    data: {
+      type: "start",
+      label: "Start",
+      name: START_NODE_ID,
+    } as WorkflowNodeData,
     deletable: false,
   } as WorkflowNode;
 }
 
 export function createDefaultEndNode(): WorkflowNode {
   return {
-    ...createNodeFromType("end", { x: 600, y: 200 }),
     id: END_NODE_ID,
+    type: "end",
+    position: { x: 600, y: 200 },
+    data: {
+      type: "end",
+      label: "END",
+      name: END_NODE_ID,
+    } as WorkflowNodeData,
   } as WorkflowNode;
 }
 
