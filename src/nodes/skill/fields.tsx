@@ -10,12 +10,12 @@ import { AiPromptGenerator } from "@/nodes/agent/ai-prompt-generator";
 import { FileCode2, Plus, Sparkles, Trash2 } from "lucide-react";
 import { DetectedVariablesPanel } from "@/nodes/shared/variable-utils";
 import type { FormControl, FormSetValue, FormRegister } from "@/nodes/shared/form-types";
+import { ConnectedNodesList } from "@/nodes/shared/connected-nodes-list";
 import { RequiredIndicator } from "@/nodes/shared/required-indicator";
-import { StaticVariableMapping } from "@/nodes/agent/properties/static-variable-mapping";
-import { ConnectedNodesList } from "@/nodes/agent/properties/connected-nodes-list";
-import { useConnectedResources } from "@/nodes/agent/properties/use-connected-resources";
+import { StaticVariableMapping } from "@/nodes/shared/static-variable-mapping";
 import { useAutoResourceVariableMapping } from "@/nodes/shared/use-auto-resource-variable-mapping";
 import { useDetectedVariables } from "@/nodes/shared/use-detected-variables";
+import { useConnectedResources } from "@/nodes/shared/use-connected-resources";
 import type { SkillMetadataEntry } from "./types";
 import { buildSkillScriptRelativePath, getSkillScriptBaseName, getSkillScriptFileName } from "./script-utils";
 

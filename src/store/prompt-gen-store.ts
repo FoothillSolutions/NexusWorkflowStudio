@@ -8,7 +8,10 @@ import { useOpenCodeStore } from "./opencode-store";
 import { useWorkflowStore } from "./workflow-store";
 import type { Part } from "@/lib/opencode";
 import type { FormSetValue } from "@/nodes/shared/form-types";
-import type { ConnectedNodeContext, NodeSummary } from "@/nodes/agent/properties/use-connected-resources";
+import type {
+  ConnectedNodeContext,
+  NodeSummary,
+} from "@/nodes/shared/use-connected-resources";
 
 export type PromptGenStatus = "idle" | "creating-session" | "generating" | "streaming" | "done" | "error";
 export type PromptGenView = "closed" | "generate" | "edit";

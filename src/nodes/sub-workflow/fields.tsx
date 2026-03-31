@@ -7,11 +7,11 @@ import { Layers, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NODE_ACCENT } from "@/lib/node-colors";
 import { SubAgentMemory } from "@/nodes/agent/enums";
+import { ColorPicker } from "@/nodes/shared/color-picker";
 import type { FormControl, FormSetValue } from "@/nodes/shared/form-types";
 import { ModelSelect } from "@/nodes/shared/model-select";
+import { ToolsGrid } from "@/nodes/shared/tools-grid";
 import { useTools } from "@/hooks/use-tools";
-import { ToolsGrid } from "@/nodes/agent/properties/tools-grid";
-import { ColorPicker } from "@/nodes/agent/properties/color-picker";
 import type { SubWorkflowMode } from "./types";
 
 // ── Shared select / option configs ──────────────────────────────────────────

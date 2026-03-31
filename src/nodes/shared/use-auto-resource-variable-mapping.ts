@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { FormSetValue } from "@/nodes/shared/form-types";
-import type { AvailableResource } from "@/nodes/agent/properties/use-connected-resources";
+import type { AvailableResource } from "@/nodes/shared/use-connected-resources";
 
 interface UseAutoResourceVariableMappingOptions {
   staticVars: string[];

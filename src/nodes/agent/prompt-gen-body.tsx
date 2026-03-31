@@ -22,7 +22,10 @@ import {
   type PromptGenTemplateFields,
 } from "@/store/prompt-gen-store";
 import { useWorkflowStore } from "@/store/workflow-store";
-import { getConnectedResourceNames, getConnectedNodeContext } from "@/nodes/agent/properties/use-connected-resources";
+import {
+  getConnectedNodeContext,
+  getConnectedResourceNames,
+} from "@/nodes/shared/use-connected-resources";
 import { getScriptEditorLanguage } from "@/nodes/skill/script-utils";
 
 // ── Template section config ──────────────────────────────────────────────────

@@ -7,10 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { ConnectedNodesList } from "@/nodes/agent/properties/connected-nodes-list";
-import { useConnectedResources } from "@/nodes/agent/properties/use-connected-resources";
+import { ConnectedNodesList } from "@/nodes/shared/connected-nodes-list";
 import type { FormControl, FormRegister } from "@/nodes/shared/form-types";
 import { RequiredIndicator } from "@/nodes/shared/required-indicator";
+import { useConnectedResources } from "@/nodes/shared/use-connected-resources";
 import { createParallelAgentBranch } from "./constants";
 
 interface ParallelAgentFieldsProps {
