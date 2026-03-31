@@ -12,7 +12,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "lint:fix": "eslint . --fix --cache --cache-location .eslintcache",
     "typecheck": "tsc --noEmit",
+    "check": "bun run typecheck && bun run lint",
     "docker:up": "docker compose up --build",
     "docker:bun": "docker compose up --build",
     "docker:down": "docker compose down"
