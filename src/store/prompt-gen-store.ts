@@ -8,138 +8,8 @@ import { useOpenCodeStore } from "./opencode-store";
 import { useWorkflowStore } from "./workflow-store";
 import type { Part } from "@/lib/opencode";
 import type { FormSetValue } from "@/nodes/shared/form-types";
+import { runPromptGenRequest } from "./prompt-gen-runner";
 import type {
-  ConnectedNodeContext,
-  NodeSummary,
-} from "@/nodes/shared/use-connected-resources";
-
-export type PromptGenStatus = "idle" | "creating-session" | "generating" | "streaming" | "done" | "error";
-export type PromptGenView = "closed" | "generate" | "edit";
-export type PromptGenMode = "structured" | "freeform";
-export type PromptGenNodeType = "agent" | "prompt" | "skill" | "script";
-
-interface PromptGenState {
-  /** The active OpenCode session for prompt generation */
-  sessionId: string | null;
-  /** Current generation status */
-  status: PromptGenStatus;
-  /** Generated/streamed text so far */
-  generatedText: string;
-  /** Estimated token count for the generated text */
-  generatedTokens: number;
-  /** Error message if status is "error" */
-  error: string | null;
-  /** AbortController for the SSE stream */
-  _abortController: AbortController | null;
-  /** Reference to the properties panel form's setValue (for applying results) */
-  _formSetValue: FormSetValue | null;
-
-  // ── Panel UI state (persists across properties panel close) ──
-  /** Current panel view */
-  view: PromptGenView;
-  /** Freeform vs structured mode */
-  mode: PromptGenMode;
-  /** Freeform description text */
-  freeformText: string;
-  /** Edit-with-AI instruction text */
-  editInstruction: string;
-  /** Template section fields */
-  fields: PromptGenTemplateFields;
-  /** Which template sections are expanded */
-  expandedSections: Set<string>;
-  /** The node ID + current prompt text this generator is targeting */
-  targetNodeId: string | null;
-  targetNodeType: PromptGenNodeType | null;
-  targetPrompt: string;
-  /** Whether the panel is undocked/floating (vs inline in properties panel) */
-  floating: boolean;
-  /** Whether the floating panel body is collapsed */
-  collapsed: boolean;
-
-  /** Open the generator for a specific node */
-  open: (nodeId: string, currentPrompt: string, view: PromptGenView, nodeType?: PromptGenNodeType) => void;
-  /** Close the generator panel */
-  close: () => void;
-  /** Set the panel view */
-  setView: (view: PromptGenView) => void;
-  /** Set freeform vs structured mode */
-  setMode: (mode: PromptGenMode) => void;
-  /** Set freeform text */
-  setFreeformText: (text: string) => void;
-  /** Set edit instruction */
-  setEditInstruction: (text: string) => void;
-  /** Update a template field */
-  updateField: (key: keyof PromptGenTemplateFields, value: string) => void;
-  /** Toggle a template section's expanded state */
-  toggleSection: (key: string) => void;
-  /** Undock from properties panel into floating mode */
-  undock: () => void;
-  /** Dock back into properties panel from floating mode */
-  dock: () => void;
-  /** Toggle collapsed state of floating panel */
-  toggleCollapsed: () => void;
-  /** Update target prompt (keeps it in sync when the prompt field changes) */
-  setTargetPrompt: (prompt: string) => void;
-  /** Register / unregister the form's setValue function */
-  registerFormSetValue: (sv: FormSetValue | null) => void;
-  /** Apply the generated text to the prompt field */
-  applyResult: () => void;
-
-  /** Create a new session for prompt generation */
-  ensureSession: () => Promise<string | null>;
-  /** Generate a prompt from template fields */
-  generate: (payload: GeneratePayload) => Promise<void>;
-  /** Edit an existing prompt with AI */
-  editWithAi: (payload: EditPayload) => Promise<void>;
-  /** Cancel an in-progress generation */
-  cancel: () => void;
-  /** Dispose the current session (called on workflow switch/reset) */
-  disposeSession: () => Promise<void>;
-  /** Reset to idle state (e.g. after applying result) */
-  resetState: () => void;
-}
-
-export interface PromptGenTemplateFields {
-  title?: string;
-  purpose?: string;
-  variables?: string;
-  instructions?: string;
-  relevantFiles?: string;
-  codebaseStructure?: string;
-  workflow?: string;
-  template?: string;
-  examples?: string;
-}
-
-export interface GeneratePayload {
-  fields: PromptGenTemplateFields;
-  modelId: string;
-  providerId: string;
-  /** "structured" uses template sections; "freeform" uses a plain description */
-  mode: "structured" | "freeform";
-  /** For freeform mode: a plain description of the desired prompt */
-  freeformDescription?: string;
-  /** Names of connected skills and documents so the AI can reference them */
-  connectedResourceNames?: { skills: string[]; docs: string[]; scripts: string[] };
-  /** The type of node being targeted — affects system prompt style */
-  nodeType?: PromptGenNodeType;
-  /** Upstream and downstream flow-connected nodes and their content */
-  connectedNodeContext?: ConnectedNodeContext;
-}
-
-export interface EditPayload {
-  currentPrompt: string;
-  editInstruction: string;
-  modelId: string;
-  providerId: string;
-  /** Names of connected skills and documents so the AI can reference them */
-  connectedResourceNames?: { skills: string[]; docs: string[]; scripts: string[] };
-  /** The type of node being targeted — affects system prompt style */
-  nodeType?: PromptGenNodeType;
-  /** Upstream and downstream flow-connected nodes and their content */
-  connectedNodeContext?: ConnectedNodeContext;
-}
-
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 /** Build a Markdown snippet listing connected skills & docs (empty string if none). */
@@ -537,6 +407,16 @@ function estimateTokens(text: string): number {
   if (!text) return 0;
   return Math.ceil(text.length / 4);
 }
+export type {
+  EditPayload,
+  GeneratePayload,
+  PromptGenMode,
+  PromptGenNodeType,
+  PromptGenState,
+  PromptGenStatus,
+  PromptGenTemplateFields,
+  PromptGenView,
+} from "./prompt-gen-types";
 
 // ── Store ────────────────────────────────────────────────────────────────────
 
