@@ -1,5 +1,6 @@
 import type { WorkflowJSON, WorkflowNodeData, NodeType } from "@/types/workflow";
-import { workflowJsonSchema } from "@/lib/workflow-schema";
+import { readJsonStorage, writeJsonStorage } from "@/lib/browser-storage";
+import { readWorkflowJson } from "@/lib/workflow-validation";
 
 // Storage key prefix
 const COLLECTION_KEY = "nexus-workflow-studio:saved-workflows";
@@ -83,22 +84,15 @@ function normalizeLibraryItem(entry: LibraryItemEntry): LibraryItemEntry {
 // Helpers
 
 function readCollection(): SavedWorkflowEntry[] {
-  try {
-    const raw = localStorage.getItem(COLLECTION_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw) as SavedWorkflowEntry[];
-  } catch {
+  return readJsonStorage<SavedWorkflowEntry[]>(COLLECTION_KEY, [], () => {
     console.error("Failed to read saved workflows collection");
-    return [];
-  }
+  });
 }
 
 function writeCollection(entries: SavedWorkflowEntry[]): void {
-  try {
-    localStorage.setItem(COLLECTION_KEY, JSON.stringify(entries));
-  } catch {
+  writeJsonStorage(COLLECTION_KEY, entries, () => {
     console.error("Failed to write saved workflows collection");
-  }
+  });
 }
 
 // Public API
@@ -153,12 +147,9 @@ export function loadFromCollection(id: string): WorkflowJSON | null {
   const entry = readCollection().find((e) => e.id === id);
   if (!entry) return null;
 
-  const result = workflowJsonSchema.safeParse(entry.workflow);
-  if (!result.success) {
-    console.warn("Saved workflow failed validation:", result.error);
-    return null;
-  }
-  return result.data as unknown as WorkflowJSON;
+  return readWorkflowJson(entry.workflow, (message) => {
+    console.warn("Saved workflow failed validation:", message);
+  });
 }
 
 /** Rename a saved workflow in the collection. */
@@ -200,22 +191,15 @@ export function duplicateInCollection(
 // Library items (individual nodes: agents, skills, tools, prompts)
 
 function readLibrary(): LibraryItemEntry[] {
-  try {
-    const raw = localStorage.getItem(LIBRARY_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw) as LibraryItemEntry[];
-  } catch {
+  return readJsonStorage<LibraryItemEntry[]>(LIBRARY_KEY, [], () => {
     console.error("Failed to read library collection");
-    return [];
-  }
+  });
 }
 
 function writeLibrary(entries: LibraryItemEntry[]): void {
-  try {
-    localStorage.setItem(LIBRARY_KEY, JSON.stringify(entries));
-  } catch {
+  writeJsonStorage(LIBRARY_KEY, entries, () => {
     console.error("Failed to write library collection");
-  }
+  });
 }
 
 /** Get all library items. */

@@ -1,6 +1,7 @@
 import throttle from "lodash.throttle";
 import type { WorkflowJSON, WorkflowNode, WorkflowEdge } from "@/types/workflow";
-import { workflowJsonSchema } from "@/lib/workflow-schema";
+import { readJsonStorage, readStorageValue, removeStorageValue, writeJsonStorage, writeStorageValue } from "@/lib/browser-storage";
+import { parseWorkflowJsonOrThrow, readWorkflowJson } from "@/lib/workflow-validation";
 
 const STORAGE_KEY = "nexus-workflow-studio:last";
 
@@ -76,38 +77,26 @@ export function stripFingerprintProperties(data: WorkflowJSON): WorkflowJSON {
 
 // ── Save ────────────────────────────────────────────────────────────────────
 export function saveToLocalStorage(data: WorkflowJSON): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch {
+  writeJsonStorage(STORAGE_KEY, data, () => {
     console.error("Failed to save workflow to localStorage");
-  }
+  });
 }
 
 // ── Load ────────────────────────────────────────────────────────────────────
 export function loadFromLocalStorage(): WorkflowJSON | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    const result = workflowJsonSchema.safeParse(parsed);
-    if (!result.success) {
-      console.warn("Stored workflow failed validation:", result.error);
-      return null;
-    }
-    return result.data as unknown as WorkflowJSON;
-  } catch {
+  const parsed = readJsonStorage<unknown | null>(STORAGE_KEY, null, () => {
     console.error("Failed to load workflow from localStorage");
-    return null;
-  }
+  });
+  if (!parsed) return null;
+
+  return readWorkflowJson(parsed, (message) => {
+    console.warn("Stored workflow failed validation:", message);
+  });
 }
 
 // ── Check if saved data exists ──────────────────────────────────────────────
 export function hasSavedWorkflow(): boolean {
-  try {
-    return localStorage.getItem(STORAGE_KEY) !== null;
-  } catch {
-    return false;
-  }
+  return readStorageValue(STORAGE_KEY) !== null;
 }
 
 // ── Export (download) ───────────────────────────────────────────────────────
@@ -141,11 +130,7 @@ export function exportWorkflow(data: WorkflowJSON): void {
 export async function importWorkflow(file: File): Promise<WorkflowJSON> {
   const text = await file.text();
   const parsed = JSON.parse(text);
-  const result = workflowJsonSchema.safeParse(parsed);
-  if (!result.success) {
-    throw new Error(`Invalid workflow file: ${result.error.message}`);
-  }
-  return result.data as unknown as WorkflowJSON;
+  return parseWorkflowJsonOrThrow(parsed, "Invalid workflow file");
 }
 
 // ── Throttled save (2 second interval) ──────────────────────────────────────
@@ -160,21 +145,13 @@ const CUSTOM_DIRS_KEY = "nexus:custom-project-dirs";
 const ACTIVE_DIR_KEY = "nexus:active-project-dir";
 
 export function loadCustomProjectDirs(): string[] {
-  try {
-    const raw = localStorage.getItem(CUSTOM_DIRS_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw) as string[];
-  } catch {
-    return [];
-  }
+  return readJsonStorage<string[]>(CUSTOM_DIRS_KEY, []);
 }
 
 export function saveCustomProjectDirs(dirs: string[]): void {
-  try {
-    localStorage.setItem(CUSTOM_DIRS_KEY, JSON.stringify(dirs));
-  } catch {
+  writeJsonStorage(CUSTOM_DIRS_KEY, dirs, () => {
     console.error("Failed to save custom project dirs");
-  }
+  });
 }
 
 export function addCustomProjectDir(dir: string): string[] {
@@ -194,22 +171,19 @@ export function removeCustomProjectDir(dir: string): string[] {
 }
 
 export function getActiveProjectDir(): string | null {
-  try {
-    return localStorage.getItem(ACTIVE_DIR_KEY);
-  } catch {
-    return null;
-  }
+  return readStorageValue(ACTIVE_DIR_KEY);
 }
 
 export function setActiveProjectDir(dir: string | null): void {
-  try {
-    if (dir) {
-      localStorage.setItem(ACTIVE_DIR_KEY, dir);
-    } else {
-      localStorage.removeItem(ACTIVE_DIR_KEY);
-    }
-  } catch {
-    console.error("Failed to save active project dir");
+  if (dir) {
+    writeStorageValue(ACTIVE_DIR_KEY, dir, () => {
+      console.error("Failed to save active project dir");
+    });
+    return;
   }
+
+  removeStorageValue(ACTIVE_DIR_KEY, () => {
+    console.error("Failed to save active project dir");
+  });
 }
 
