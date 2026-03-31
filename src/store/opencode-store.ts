@@ -4,10 +4,8 @@ import {
   type OpenCodeClient,
   OpenCodeError,
 } from "@/lib/opencode";
+import { loadOpenCodeUrl, saveOpenCodeUrl } from "@/lib/opencode/config";
 import type { Provider, Project } from "@/lib/opencode/types";
-
-const STORAGE_KEY = "nexus:opencode-url";
-const DEFAULT_URL = "http://127.0.0.1:4096";
 
 type ConnectionStatus = "disconnected" | "connecting" | "connected" | "error";
 
@@ -216,14 +214,11 @@ interface OpenCodeState {
 }
 
 function loadUrl(): string {
-  if (typeof window === "undefined") return DEFAULT_URL;
-  return localStorage.getItem(STORAGE_KEY) ?? DEFAULT_URL;
+  return loadOpenCodeUrl();
 }
 
 function persistUrl(url: string) {
-  if (typeof window !== "undefined") {
-    localStorage.setItem(STORAGE_KEY, url);
-  }
+  saveOpenCodeUrl(url);
 }
 
 export const useOpenCodeStore = create<OpenCodeState>((set, get) => ({

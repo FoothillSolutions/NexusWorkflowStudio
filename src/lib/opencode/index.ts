@@ -44,6 +44,7 @@ import {
   createProjectService,
   createResourceService,
 } from "./services";
+import { loadOpenCodeUrl } from "./config";
 
 // Client type
 
@@ -158,14 +159,6 @@ export function createOpenCodeClient(
 
 // Singleton (lazy, reads URL from localStorage)
 
-const STORAGE_KEY = "nexus:opencode-url";
-const DEFAULT_URL = "http://127.0.0.1:4096";
-
-function getStoredUrl(): string {
-  if (typeof window === "undefined") return DEFAULT_URL;
-  return localStorage.getItem(STORAGE_KEY) ?? DEFAULT_URL;
-}
-
 let _singleton: OpenCodeClient | null = null;
 
 /**
@@ -177,7 +170,7 @@ let _singleton: OpenCodeClient | null = null;
  */
 export function getOpenCodeClient(): OpenCodeClient {
   if (!_singleton) {
-    _singleton = createOpenCodeClient(getStoredUrl());
+    _singleton = createOpenCodeClient(loadOpenCodeUrl());
   }
   return _singleton;
 }
