@@ -87,6 +87,11 @@ export function Fields({ control, setValue, nodeId }: SubAgentFieldsProps) {
     [],
   );
 
+  useParameterMappingSync({
+    dynamicVariableCount: dynamic.length,
+    parameterMappings,
+    setValue,
+  });
 
   useAutoResourceVariableMapping({
     staticVars,
