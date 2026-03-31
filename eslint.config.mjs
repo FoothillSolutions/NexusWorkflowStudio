@@ -6,6 +6,9 @@ const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   {
+    linterOptions: {
+      reportUnusedDisableDirectives: "error",
+    },
     rules: {
       // Allow underscore-prefixed unused vars (interface conformance convention)
       "@typescript-eslint/no-unused-vars": [
