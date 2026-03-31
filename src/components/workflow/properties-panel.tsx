@@ -1,8 +1,6 @@
 "use client";
 
-import { useEffect, useCallback, useRef } from "react";
-import { useForm, useWatch } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useEffect, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -11,8 +9,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { X, Trash2, SlidersHorizontal } from "lucide-react";
 import { useWorkflowStore } from "@/store/workflow-store";
 import { useSavedWorkflowsStore } from "@/store/library-store";
-import { nodeSchemaMap, NODE_REGISTRY } from "@/lib/node-registry";
-import type { NodeType, WorkflowNodeData } from "@/types/workflow";
 import {
   TEXT_MUTED,
   TEXT_PRIMARY,
@@ -20,6 +16,8 @@ import {
 } from "@/lib/theme";
 import { TypeSpecificFields } from "./properties";
 import { cn } from "@/lib/utils";
+import { useNodePropertiesForm } from "./properties/use-node-properties-form";
+import { useSelectedWorkflowNode } from "./properties/use-selected-workflow-node";
 
 const PANEL_SHELL_CLASS = "absolute top-4 right-4 z-20 flex min-h-0 flex-col overflow-hidden rounded-3xl border border-zinc-700/60 bg-zinc-950/88 shadow-[0_16px_48px_rgba(0,0,0,0.32)] backdrop-blur-xl transition-all duration-300 ease-out";
 const PANEL_SURFACE_CLASS = "rounded-2xl border border-zinc-800/80 bg-zinc-900/55 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]";
@@ -48,96 +46,27 @@ function SectionIntro({
 // ── Main panel ──────────────────────────────────────────────────────────────
 
 export default function PropertiesPanel() {
-  const selectedNodeId = useWorkflowStore((s) => s.selectedNodeId);
   const propertiesPanelOpen = useWorkflowStore((s) => s.propertiesPanelOpen);
   const closePropertiesPanel = useWorkflowStore((s) => s.closePropertiesPanel);
   const updateNodeData = useWorkflowStore((s) => s.updateNodeData);
   const updateSubNodeData = useWorkflowStore((s) => s.updateSubNodeData);
   const setDeleteTarget = useWorkflowStore((s) => s.setDeleteTarget);
   const activeSubWorkflowNodeId = useWorkflowStore((s) => s.activeSubWorkflowNodeId);
-
-  // Look up the selected node from either main nodes OR sub-workflow nodes
-  const nodeData = useWorkflowStore(
-    useCallback(
-      (s) => {
-        if (!selectedNodeId) return undefined;
-        return (
-          s.nodes.find((n) => n.id === selectedNodeId)?.data ??
-          s.subWorkflowNodes.find((n) => n.id === selectedNodeId)?.data
-        );
-      },
-      [selectedNodeId]
-    )
-  );
-
-  // Determine whether the selected node lives in a sub-workflow
-  const isSubNode = useWorkflowStore(
-    useCallback(
-      (s) => {
-        if (!selectedNodeId) return false;
-        return !s.nodes.some((n) => n.id === selectedNodeId) &&
-               s.subWorkflowNodes.some((n) => n.id === selectedNodeId);
-      },
-      [selectedNodeId]
-    )
-  );
-  const nodeType = nodeData?.type as NodeType | undefined;
-  const registryEntry = nodeType ? NODE_REGISTRY[nodeType] : null;
-  const schema = nodeType ? nodeSchemaMap[nodeType] : null;
-
+  const { selectedNodeId, nodeData, isSubNode } = useSelectedWorkflowNode();
   const {
     register,
     control,
-    reset,
     setValue,
+    nodeType,
+    registryEntry,
     formState: { errors },
-  } = useForm({
-    // SAFETY: 'as any' is required — useForm's generic inference conflicts with the dynamic
-    // schema selection pattern. The schema is always valid Zod from nodeSchemaMap.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: schema ? (zodResolver(schema) as any) : undefined,
-    defaultValues: nodeData as Record<string, unknown>,
-    mode: "onChange",
+  } = useNodePropertiesForm({
+    selectedNodeId,
+    nodeData,
+    isSubNode,
+    updateNodeData,
+    updateSubNodeData,
   });
-
-  const watchedValues = useWatch({ control });
-
-  // Guards stale form writes when switching between nodes.
-  // Set to `null` when selectedNodeId changes, then set to the new ID
-  // one micro-tick after reset so the *current* render cycle (which still
-  // carries the previous node's watchedValues) is skipped.
-  const readyNodeIdRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    // Block writes immediately — watchedValues in this commit are stale
-    readyNodeIdRef.current = null;
-
-    if (nodeData && registryEntry) {
-      const defaults = registryEntry.defaultData() as Record<string, unknown>;
-      const merged = { ...defaults, ...nodeData } as Record<string, unknown>;
-      reset(merged);
-    }
-
-    // Enable writes only after React has flushed the re-render caused by
-    // reset(), so watchedValues reflects the *new* node's data.
-    const id = selectedNodeId ?? null;
-    const handle = requestAnimationFrame(() => {
-      readyNodeIdRef.current = id;
-    });
-    return () => cancelAnimationFrame(handle);
-  }, [selectedNodeId, reset]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (!selectedNodeId || !watchedValues || !nodeType) return;
-    // Skip until the form has been reset AND a full render cycle has passed
-    if (readyNodeIdRef.current !== selectedNodeId) return;
-    const updatedData = { ...watchedValues, type: nodeType } as Partial<WorkflowNodeData>;
-    if (isSubNode) {
-      updateSubNodeData(selectedNodeId, updatedData);
-    } else {
-      updateNodeData(selectedNodeId, updatedData);
-    }
-  }, [watchedValues, selectedNodeId, nodeType, updateNodeData, updateSubNodeData, isSubNode]);
 
   const handleDelete = useCallback(() => {
     if (selectedNodeId) {
