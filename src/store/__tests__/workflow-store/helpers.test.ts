@@ -10,7 +10,7 @@ import {
   ensureStartNode,
   migrateLegacyPromptScripts,
   stripLegacySkillProjectName,
-} from "../../workflow-store-helpers";
+} from "../../workflow";
 
 function makeNode(overrides: Partial<WorkflowNode>): WorkflowNode {
   return {

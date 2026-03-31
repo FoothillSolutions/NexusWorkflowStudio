@@ -1,3 +1,5 @@
+export { useWorkflowStore } from "./store";
+export type { CanvasMode, DeleteTarget, EdgeStyle } from "./types";
 export {
   buildWorkflowJson,
   createDefaultEndNode,
@@ -14,4 +16,10 @@ export {
   SAVE_STATUS_UI,
   START_NODE_ID,
   stripLegacySkillProjectName,
-} from "./workflow/helpers";
+} from "./helpers";
+export {
+  resolveParentNodes,
+  updateNestedSubWorkflowEdges,
+  updateNestedSubWorkflowNodes,
+} from "./subworkflow";
+
