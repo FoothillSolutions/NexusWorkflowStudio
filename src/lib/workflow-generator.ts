@@ -30,6 +30,7 @@ import {
   type GenerationTargetId,
 } from "@/lib/generation-targets";
 import { getSkillScriptBaseName, getSkillScriptFileName } from "@/nodes/skill/script-utils";
+import { generateRunScriptFiles } from "@/lib/run-script-generator";
 export interface GeneratedFile {
   path: string;
   content: string;
@@ -622,7 +623,8 @@ export function generateWorkflowFiles(
     content: buildCommandMarkdown(workflow),
   };
   const agentFiles = collectAgentFiles(workflow.nodes, workflow.edges, target);
-  return [commandFile, ...agentFiles];
+  const runScripts = generateRunScriptFiles(safeName, target);
+  return [commandFile, ...agentFiles, ...runScripts];
 }
 export function getCommandMarkdown(workflow: WorkflowJSON): string {
   return buildCommandMarkdown(workflow);
