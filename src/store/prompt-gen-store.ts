@@ -571,58 +571,31 @@ export const usePromptGenStore = create<PromptGenState>((set, get) => ({
     const abortController = new AbortController();
     set({ status: "streaming", generatedText: "", generatedTokens: 0, error: null, _abortController: abortController });
 
-    try {
-      // Send prompt async then stream events
-      await client.messages.sendAsync(sid, {
+    const result = await runPromptGenRequest({
+      client,
+      sessionId: sid,
+      request: {
         parts: [{ type: "text", text: buildGenerateUserMessage(payload) }],
         model: { providerID: payload.providerId, modelID: payload.modelId },
         system: buildSystemMessage(payload.nodeType),
-      }, { signal: abortController.signal });
+      },
+      signal: abortController.signal,
+      onText: (text, tokenEstimate) => {
+        set({ generatedText: text, generatedTokens: tokenEstimate });
+      },
+    });
 
-      // Stream SSE events to get real-time text
-      let fullText = "";
-      for await (const event of client.events.subscribe({ signal: abortController.signal })) {
-        if (abortController.signal.aborted) break;
-
-        if (event.type === "message.part.delta") {
-          const props = event.properties as { sessionID: string; field: string; delta: string };
-          if (props.sessionID === sid && props.field === "text") {
-            fullText += props.delta;
-            set({ generatedText: fullText, generatedTokens: estimateTokens(fullText) });
-          }
-        } else if (event.type === "session.idle") {
-          const props = event.properties as { sessionID: string };
-          if (props.sessionID === sid) {
-            break;
-          }
-        } else if (event.type === "session.error") {
-          const props = event.properties as { sessionID?: string; error?: { name: string; data?: { message?: string } } };
-          if (props.sessionID === sid) {
-            set({ error: props.error?.data?.message ?? "Generation failed", status: "error" });
-            return;
-          }
-        }
-      }
-
-      // If streaming produced nothing, fall back to fetching the last message
-      if (!fullText.trim()) {
-        const messages = await client.messages.list(sid, 2);
-        const assistantMsg = messages.find((m) => m.info.role === "assistant");
-        if (assistantMsg) {
-          fullText = extractTextFromParts(assistantMsg.parts);
-          set({ generatedText: fullText, generatedTokens: estimateTokens(fullText) });
-        }
-      }
-
-      set({ status: "done" });
-    } catch (err) {
-      if (abortController.signal.aborted) {
-        set({ status: "idle", _abortController: null });
-        return;
-      }
-      const msg = err instanceof Error ? err.message : "Generation failed";
-      set({ error: msg, status: "error", _abortController: null });
+    if (result.aborted) {
+      set({ status: "idle", _abortController: null });
+      return;
     }
+
+    if (result.error) {
+      set({ error: result.error, status: "error", _abortController: null });
+      return;
+    }
+
+    set({ status: "done" });
   },
 
   editWithAi: async (payload) => {
@@ -641,53 +614,31 @@ export const usePromptGenStore = create<PromptGenState>((set, get) => ({
     const abortController = new AbortController();
     set({ status: "streaming", generatedText: "", generatedTokens: 0, error: null, _abortController: abortController });
 
-    try {
-      await client.messages.sendAsync(sid, {
+    const result = await runPromptGenRequest({
+      client,
+      sessionId: sid,
+      request: {
         parts: [{ type: "text", text: buildEditUserMessage(payload) }],
         model: { providerID: payload.providerId, modelID: payload.modelId },
         system: buildSystemMessage(payload.nodeType),
-      }, { signal: abortController.signal });
+      },
+      signal: abortController.signal,
+      onText: (text, tokenEstimate) => {
+        set({ generatedText: text, generatedTokens: tokenEstimate });
+      },
+    });
 
-      let fullText = "";
-      for await (const event of client.events.subscribe({ signal: abortController.signal })) {
-        if (abortController.signal.aborted) break;
-
-        if (event.type === "message.part.delta") {
-          const props = event.properties as { sessionID: string; field: string; delta: string };
-          if (props.sessionID === sid && props.field === "text") {
-            fullText += props.delta;
-            set({ generatedText: fullText, generatedTokens: estimateTokens(fullText) });
-          }
-        } else if (event.type === "session.idle") {
-          const props = event.properties as { sessionID: string };
-          if (props.sessionID === sid) break;
-        } else if (event.type === "session.error") {
-          const props = event.properties as { sessionID?: string; error?: { name: string; data?: { message?: string } } };
-          if (props.sessionID === sid) {
-            set({ error: props.error?.data?.message ?? "Edit failed", status: "error" });
-            return;
-          }
-        }
-      }
-
-      if (!fullText.trim()) {
-        const messages = await client.messages.list(sid, 2);
-        const assistantMsg = messages.find((m) => m.info.role === "assistant");
-        if (assistantMsg) {
-          fullText = extractTextFromParts(assistantMsg.parts);
-          set({ generatedText: fullText, generatedTokens: estimateTokens(fullText) });
-        }
-      }
-
-      set({ status: "done" });
-    } catch (err) {
-      if (abortController.signal.aborted) {
-        set({ status: "idle", _abortController: null });
-        return;
-      }
-      const msg = err instanceof Error ? err.message : "Edit failed";
-      set({ error: msg, status: "error", _abortController: null });
+    if (result.aborted) {
+      set({ status: "idle", _abortController: null });
+      return;
     }
+
+    if (result.error) {
+      set({ error: result.error, status: "error", _abortController: null });
+      return;
+    }
+
+    set({ status: "done" });
   },
 
   cancel: () => {
