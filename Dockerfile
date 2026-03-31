@@ -3,8 +3,6 @@
 # ============================================
 
 ARG BUN_VERSION=1.3.10
-ARG GIT_SHA=unknown
-ARG BUILD_TIMESTAMP=unknown
 
 FROM oven/bun:${BUN_VERSION} AS dependencies
 
@@ -29,11 +27,7 @@ COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
 
 ENV NODE_ENV=production
-
-# Next.js collects completely anonymous telemetry data about general usage.
-# Learn more here: https://nextjs.org/telemetry
-# Uncomment the following line in case you want to disable telemetry during the build.
-# ENV NEXT_TELEMETRY_DISABLED=1
+ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN bun run build
 
@@ -49,17 +43,13 @@ ARG BUILD_TIMESTAMP=unknown
 WORKDIR /app
 
 ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 ENV APP_GIT_SHA=${GIT_SHA}
 ENV APP_BUILD_TIMESTAMP=${BUILD_TIMESTAMP}
 
 EXPOSE 3000
-
-# Next.js collects completely anonymous telemetry data about general usage.
-# Learn more here: https://nextjs.org/telemetry
-# Uncomment the following line in case you want to disable telemetry during the run time.
-# ENV NEXT_TELEMETRY_DISABLED=1
 
 COPY --from=builder --chown=bun:bun /app/public ./public
 
@@ -70,10 +60,12 @@ RUN mkdir .next && chown bun:bun .next
 COPY --from=builder --chown=bun:bun /app/.next/standalone ./
 COPY --from=builder --chown=bun:bun /app/.next/static ./.next/static
 
-# If you want to persist the fetch cache generated during the build so that
-# cached responses are available immediately on startup, uncomment this line:
-# COPY --from=builder --chown=bun:bun /app/.next/cache ./.next/cache
+# Persist the fetch cache generated during the build for faster cold starts.
+COPY --from=builder --chown=bun:bun /app/.next/cache ./.next/cache
 
 USER bun
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s \
+  CMD bun --eval "fetch('http://localhost:3000/livez').then(r=>{if(!r.ok)throw 1})"
 
 CMD ["bun", "server.js"]
