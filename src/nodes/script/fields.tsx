@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
 import { useWatch } from "react-hook-form";
 import { CodeFieldGroup } from "@/nodes/shared/code-field-group";
 import { AiPromptGenerator } from "@/nodes/agent/ai-prompt-generator";
-import { detectVariables, DetectedVariablesPanel } from "@/nodes/shared/variable-utils";
+import { DetectedVariablesPanel } from "@/nodes/shared/variable-utils";
 import type { FormControl, FormSetValue } from "@/nodes/shared/form-types";
 import { getScriptEditorLanguage } from "@/nodes/skill/script-utils";
+import { useDetectedVariables } from "@/nodes/shared/use-detected-variables";
 
 interface ScriptFieldsProps {
   control: FormControl;
@@ -16,15 +16,12 @@ interface ScriptFieldsProps {
 
 export function Fields({ control, setValue, nodeId }: ScriptFieldsProps) {
   const label: string = useWatch({ control, name: "label" }) ?? "script.ts";
-  const promptText: string = useWatch({ control, name: "promptText" }) ?? "";
-  const { dynamic, static: staticVars } = detectVariables(promptText);
-  const allVars = [...dynamic, ...staticVars];
+  const { value: promptText, dynamic, staticVars } = useDetectedVariables({
+    control,
+    setValue,
+  });
   const scriptLanguage = getScriptEditorLanguage(label);
 
-  useEffect(() => {
-    setValue("detectedVariables" as never, allVars as never, { shouldDirty: false });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [promptText]);
 
   return (
     <div className="space-y-3">

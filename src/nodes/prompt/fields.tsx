@@ -1,10 +1,9 @@
 "use client";
-import { useEffect } from "react";
-import { useWatch } from "react-hook-form";
-import { detectVariables, DetectedVariablesPanel } from "@/nodes/shared/variable-utils";
+import { DetectedVariablesPanel } from "@/nodes/shared/variable-utils";
 import { PromptFieldGroup } from "@/nodes/shared/prompt-field-group";
 import { AiPromptGenerator } from "@/nodes/agent/ai-prompt-generator";
 import type { FormControl, FormSetValue } from "@/nodes/shared/form-types";
+import { useDetectedVariables } from "@/nodes/shared/use-detected-variables";
 
 interface PromptFieldsProps {
   control: FormControl;
@@ -13,14 +12,10 @@ interface PromptFieldsProps {
 }
 
 export function Fields({ control, setValue, nodeId }: PromptFieldsProps) {
-  const promptText: string = useWatch({ control, name: "promptText" }) ?? "";
-  const { dynamic, static: staticVars } = detectVariables(promptText);
-  const allVars = [...dynamic, ...staticVars];
-
-  useEffect(() => {
-    setValue("detectedVariables" as never, allVars as never, { shouldDirty: false });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [promptText]);
+  const { value: promptText, dynamic, staticVars } = useDetectedVariables({
+    control,
+    setValue,
+  });
 
   return (
     <div className="space-y-3">

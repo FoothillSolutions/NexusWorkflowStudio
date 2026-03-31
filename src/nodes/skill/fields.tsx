@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useMemo } from "react";
 import { useWatch, Controller } from "react-hook-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,12 +8,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { PromptFieldGroup } from "@/nodes/shared/prompt-field-group";
 import { AiPromptGenerator } from "@/nodes/agent/ai-prompt-generator";
 import { FileCode2, Plus, Sparkles, Trash2 } from "lucide-react";
-import { detectVariables, DetectedVariablesPanel } from "@/nodes/shared/variable-utils";
+import { DetectedVariablesPanel } from "@/nodes/shared/variable-utils";
 import type { FormControl, FormSetValue, FormRegister } from "@/nodes/shared/form-types";
 import { RequiredIndicator } from "@/nodes/shared/required-indicator";
 import { StaticVariableMapping } from "@/nodes/agent/properties/static-variable-mapping";
 import { ConnectedNodesList } from "@/nodes/agent/properties/connected-nodes-list";
 import { useConnectedResources } from "@/nodes/agent/properties/use-connected-resources";
+import { useAutoResourceVariableMapping } from "@/nodes/shared/use-auto-resource-variable-mapping";
+import { useDetectedVariables } from "@/nodes/shared/use-detected-variables";
 import type { SkillMetadataEntry } from "./types";
 import { buildSkillScriptRelativePath, getSkillScriptBaseName, getSkillScriptFileName } from "./script-utils";
 
@@ -30,7 +32,11 @@ interface SkillFieldsProps {
 export function Fields({ register, control, setValue, nodeId }: SkillFieldsProps) {
   const label: string = useWatch({ control, name: "label" }) ?? "Skill";
   const skillName: string = useWatch({ control, name: "skillName" }) ?? "";
-  const promptText: string = useWatch({ control, name: "promptText" }) ?? "";
+  const {
+    value: promptText,
+    dynamic,
+    staticVars,
+  } = useDetectedVariables({ control, setValue });
   const rawVariableMappings = useWatch({ control, name: "variableMappings" });
   const variableMappings = useMemo(
     () => (rawVariableMappings as Record<string, string> | undefined) ?? {},
@@ -38,10 +44,6 @@ export function Fields({ register, control, setValue, nodeId }: SkillFieldsProps
   );
   const metadata: SkillMetadataEntry[] = useWatch({ control, name: "metadata" }) ?? [];
   const { connectedScripts, availableResources, deleteEdge } = useConnectedResources(nodeId);
-  const mappingsRef = useRef(variableMappings);
-  const prevResourceKeyRef = useRef<string>("");
-
-  const { dynamic, static: staticVars } = detectVariables(promptText);
   const skillFolder = (skillName.trim() || label.trim() || "skill")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
@@ -58,48 +60,25 @@ export function Fields({ register, control, setValue, nodeId }: SkillFieldsProps
     };
   });
 
-  useEffect(() => {
-    mappingsRef.current = variableMappings;
-  }, [variableMappings]);
+  const matchesStaticScriptResource = useCallback(
+    (variableName: string, resource: (typeof availableResources)[number]) => {
+      if (resource.kind !== "script") return false;
 
-  useEffect(() => {
-    setValue("detectedVariables" as never, [...dynamic, ...staticVars] as never, { shouldDirty: false });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [promptText]);
+      const lower = variableName.toLowerCase();
+      const scriptRef = resource.value.replace(/^script:/, "");
+      const fileStem = scriptRef.replace(/\.[^.]+$/, "");
+      return fileStem.toLowerCase() === lower || scriptRef.toLowerCase() === lower;
+    },
+    [],
+  );
 
-  useEffect(() => {
-    if (staticVars.length === 0 || availableResources.length === 0) return;
-
-    const resourceKey = availableResources.map((resource) => resource.value).join("|");
-    const varsKey = staticVars.join(",");
-    const compositeKey = `${varsKey}::${resourceKey}`;
-    if (prevResourceKeyRef.current === compositeKey) return;
-    prevResourceKeyRef.current = compositeKey;
-
-    const updated = { ...mappingsRef.current };
-    let changed = false;
-
-    for (const varName of staticVars) {
-      if (updated[varName]) continue;
-      const lower = varName.toLowerCase();
-
-      const match = availableResources.find((resource) => {
-        if (resource.kind !== "script") return false;
-        const scriptRef = resource.value.replace(/^script:/, "");
-        const fileStem = scriptRef.replace(/\.[^.]+$/, "");
-        return fileStem.toLowerCase() === lower || scriptRef.toLowerCase() === lower;
-      });
-
-      if (match) {
-        updated[varName] = match.value;
-        changed = true;
-      }
-    }
-
-    if (changed) {
-      setValue("variableMappings" as never, updated as never, { shouldDirty: true });
-    }
-  }, [availableResources, setValue, staticVars]);
+  useAutoResourceVariableMapping({
+    staticVars,
+    availableResources,
+    variableMappings,
+    setValue,
+    isMatch: matchesStaticScriptResource,
+  });
 
   const addEntry = () =>
     setValue("metadata" as never, [...metadata, { key: "", value: "" }] as never, { shouldDirty: true });

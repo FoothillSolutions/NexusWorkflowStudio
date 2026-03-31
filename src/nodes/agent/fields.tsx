@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback } from "react";
 import { useWatch, Controller } from "react-hook-form";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { PromptFieldGroup } from "@/nodes/shared/prompt-field-group";
-import { detectVariables, DetectedVariablesPanel } from "@/nodes/shared/variable-utils";
+import { DetectedVariablesPanel } from "@/nodes/shared/variable-utils";
 import type { FormControl, FormSetValue } from "@/nodes/shared/form-types";
 import { RequiredIndicator } from "@/nodes/shared/required-indicator";
 import { NODE_ACCENT } from "@/lib/node-colors";
@@ -20,6 +20,8 @@ import { ConnectedNodesList } from "./properties/connected-nodes-list";
 import { ToolsGrid } from "./properties/tools-grid";
 import { ColorPicker } from "./properties/color-picker";
 import { useConnectedResources } from "./properties/use-connected-resources";
+import { useDetectedVariables } from "@/nodes/shared/use-detected-variables";
+import { useParameterMappingSync } from "@/nodes/shared/use-parameter-mapping-sync";
 
 const MEMORY_OPTIONS = [
   { value: SubAgentMemory.Default, label: "- (default)" },
@@ -38,7 +40,11 @@ interface SubAgentFieldsProps {
 }
 
 export function Fields({ control, setValue, nodeId }: SubAgentFieldsProps) {
-  const promptText: string = useWatch({ control, name: "promptText" }) ?? "";
+  const {
+    value: promptText,
+    dynamic,
+    staticVars,
+  } = useDetectedVariables({ control, setValue });
   const rawTemp = useWatch({ control, name: "temperature" });
   const temperature = rawTemp != null ? Number(rawTemp) : 0;
   const color: string = useWatch({ control, name: "color" }) || NODE_ACCENT.agent;
