@@ -7,7 +7,7 @@ import { useOpenCodeStore } from "../opencode-store";
 import { useWorkflowStore } from "../workflow-store";
 import { useSavedWorkflowsStore } from "../library-store";
 import { AGENT_TOOLS } from "@/nodes/agent/constants";
-import { workflowJsonSchema } from "@/lib/workflow-schema";
+import { validateWorkflowJson } from "@/lib/workflow-validation";
 import type { WorkflowNode } from "@/types/workflow";
 import type { StoreGet, StoreSet } from "./types";
 import { estimateTokens } from "./types";
@@ -436,7 +436,7 @@ export async function generate(set: StoreSet, get: StoreGet): Promise<void> {
       // Validate the complete JSON if possible (non-blocking — we already have nodes on canvas)
       const fullParsed = tryParseCompleteJSON(cleanText);
       if (fullParsed) {
-        const result = workflowJsonSchema.safeParse(fullParsed);
+        const result = validateWorkflowJson(fullParsed);
         if (!result.success) {
           console.warn("Generated workflow has validation issues:", result.error.message);
           // Don't fail — nodes are already on canvas, just warn
