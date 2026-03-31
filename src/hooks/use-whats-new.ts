@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { CURRENT_VERSION } from "@/lib/changelog";
+import { readStorageValue, writeStorageValue } from "@/lib/browser-storage";
 
 const STORAGE_KEY = "nexus-workflow-studio:last-seen-version";
 
@@ -14,11 +15,9 @@ const STORAGE_KEY = "nexus-workflow-studio:last-seen-version";
 export function useWhatsNew() {
   const [open, setOpen] = useState(() => {
     if (typeof window === "undefined") return false;
-    try {
-      return localStorage.getItem(STORAGE_KEY) !== CURRENT_VERSION;
-    } catch {
-      return false;
-    }
+
+    const lastSeenVersion = readStorageValue(STORAGE_KEY);
+    return lastSeenVersion !== CURRENT_VERSION;
   });
 
   // Allow opening from the header Help → Patch Notes menu item
@@ -30,11 +29,7 @@ export function useWhatsNew() {
 
   const dismiss = useCallback(() => {
     setOpen(false);
-    try {
-      localStorage.setItem(STORAGE_KEY, CURRENT_VERSION);
-    } catch {
-      // ignore
-    }
+    writeStorageValue(STORAGE_KEY, CURRENT_VERSION);
   }, []);
 
   return { open, dismiss } as const;
