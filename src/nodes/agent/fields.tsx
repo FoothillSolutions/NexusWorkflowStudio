@@ -20,6 +20,7 @@ import { ConnectedNodesList } from "./properties/connected-nodes-list";
 import { ToolsGrid } from "./properties/tools-grid";
 import { ColorPicker } from "./properties/color-picker";
 import { useConnectedResources } from "./properties/use-connected-resources";
+import { useAutoResourceVariableMapping } from "@/nodes/shared/use-auto-resource-variable-mapping";
 import { useDetectedVariables } from "@/nodes/shared/use-detected-variables";
 import { useParameterMappingSync } from "@/nodes/shared/use-parameter-mapping-sync";
 
@@ -61,73 +62,39 @@ export function Fields({ control, setValue, nodeId }: SubAgentFieldsProps) {
     deleteEdge,
     hasImmediateUpstreamParallelAgent,
   } = useConnectedResources(nodeId);
-  const { dynamic, static: staticVars } = detectVariables(promptText);
+  const matchesStaticResource = useCallback(
+    (variableName: string, resource: (typeof availableResources)[number]) => {
+      const lower = variableName.toLowerCase();
 
-  useEffect(() => {
-    setValue("detectedVariables" as never, [...dynamic, ...staticVars] as never, { shouldDirty: false });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [promptText]);
-
-  useEffect(() => {
-    if (dynamic.length > parameterMappings.length) {
-      const expanded = [...parameterMappings];
-      while (expanded.length < dynamic.length) expanded.push(`$${expanded.length + 1}`);
-      setValue("parameterMappings" as never, expanded as never, { shouldDirty: false });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dynamic.length]);
-
-  // ── Auto-map static {{varName}} references to matching connected resources ──
-  const prevResourceKeyRef = useRef<string>("");
-  useEffect(() => {
-    if (staticVars.length === 0 || availableResources.length === 0) return;
-
-    // Build a stable key so we only fire when resources or variables actually change
-    const resourceKey = availableResources.map((r) => r.value).join("|");
-    const varsKey = staticVars.join(",");
-    const compositeKey = `${varsKey}::${resourceKey}`;
-    if (compositeKey === prevResourceKeyRef.current) return;
-    prevResourceKeyRef.current = compositeKey;
-
-    const updated = { ...variableMappings };
-    let changed = false;
-
-    for (const varName of staticVars) {
-      // Skip if already mapped
-      if (updated[varName]) continue;
-
-      const lower = varName.toLowerCase();
-
-      // Try to find a matching resource (case-insensitive)
-      const match = availableResources.find((r) => {
-        if (r.kind === "skill") {
-          // value = "skill:skillName"
-          const skillName = r.value.replace(/^skill:/, "");
-          return skillName.toLowerCase() === lower;
-        }
-        if (r.kind === "doc") {
-          // value = "doc:subfolder/docName.ext" or "doc:docName.ext"
-          const docFull = r.value.replace(/^doc:/, "");
-          const docWithoutExt = docFull.replace(/\.[^.]+$/, "");
-          const docBase = docWithoutExt.split("/").pop() ?? docWithoutExt;
-          return docFull.toLowerCase() === lower
-            || docWithoutExt.toLowerCase() === lower
-            || docBase.toLowerCase() === lower;
-        }
-        return false;
-      });
-
-      if (match) {
-        updated[varName] = match.value;
-        changed = true;
+      if (resource.kind === "skill") {
+        const skillName = resource.value.replace(/^skill:/, "");
+        return skillName.toLowerCase() === lower;
       }
-    }
 
-    if (changed) {
-      setValue("variableMappings" as never, updated as never, { shouldDirty: true });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [staticVars, availableResources]);
+      if (resource.kind === "doc") {
+        const docFull = resource.value.replace(/^doc:/, "");
+        const docWithoutExt = docFull.replace(/\.[^.]+$/, "");
+        const docBase = docWithoutExt.split("/").pop() ?? docWithoutExt;
+        return (
+          docFull.toLowerCase() === lower ||
+          docWithoutExt.toLowerCase() === lower ||
+          docBase.toLowerCase() === lower
+        );
+      }
+
+      return false;
+    },
+    [],
+  );
+
+
+  useAutoResourceVariableMapping({
+    staticVars,
+    availableResources,
+    variableMappings,
+    setValue,
+    isMatch: matchesStaticResource,
+  });
 
   const toggleTool = (tool: string) => {
     const next = disabledTools.includes(tool)
@@ -150,7 +117,7 @@ export function Fields({ control, setValue, nodeId }: SubAgentFieldsProps) {
             <Textarea
               id="description"
               placeholder="What does this agent do?"
-              className="bg-zinc-800/60 border-zinc-700/60 rounded-xl focus-visible:ring-zinc-600 min-h-[72px] resize-none text-sm"
+              className="bg-zinc-800/60 border-zinc-700/60 rounded-xl focus-visible:ring-zinc-600 min-h-18 resize-none text-sm"
               value={field.value ?? ""}
               onChange={field.onChange}
             />
