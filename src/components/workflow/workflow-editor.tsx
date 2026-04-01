@@ -22,6 +22,16 @@ import FloatingWorkflowGen from "./floating-workflow-gen";
 import WhatsNewDialog from "./whats-new-dialog";
 import { useWhatsNew } from "@/hooks/use-whats-new";
 
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+
+  if (target.isContentEditable) return true;
+
+  return !!target.closest(
+    'input, textarea, select, [contenteditable="true"], [role="textbox"]',
+  );
+}
+
 export default function WorkflowEditor() {
   const closePropertiesPanel = useWorkflowStore((s) => s.closePropertiesPanel);
   const getWorkflowJSON = useWorkflowStore((s) => s.getWorkflowJSON);
@@ -44,11 +54,11 @@ export default function WorkflowEditor() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const mod = isModKey(e);
+      const isEditingText = isEditableTarget(e.target);
 
       // ── ? → Show shortcuts dialog (? = Shift+/ on most keyboards) ──
       if (e.key === "?") {
-        const tag = (e.target as HTMLElement).tagName;
-        if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement).isContentEditable) return;
+        if (isEditingText) return;
         e.preventDefault();
         window.dispatchEvent(new CustomEvent("nexus:open-shortcuts"));
         return;
@@ -56,6 +66,7 @@ export default function WorkflowEditor() {
 
       // ── Mod+Shift+Z → Redo ──────────────────────────────────────
       if (mod && e.shiftKey && e.key.toLowerCase() === "z") {
+        if (isEditingText) return;
         e.preventDefault();
         useWorkflowStore.temporal.getState().redo();
         return;
@@ -63,6 +74,7 @@ export default function WorkflowEditor() {
 
       // ── Mod+Z → Undo ────────────────────────────────────────────
       if (mod && !e.shiftKey && e.key.toLowerCase() === "z") {
+        if (isEditingText) return;
         e.preventDefault();
         useWorkflowStore.temporal.getState().undo();
         return;
