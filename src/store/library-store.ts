@@ -14,13 +14,19 @@ import {
   renameLibraryItem,
 } from "@/lib/library";
 import type { WorkflowJSON, WorkflowNodeData } from "@/types/workflow";
+import type { MarketplaceLibraryItem } from "@/lib/marketplace/types";
 import { useWorkflowStore } from "@/store/workflow-store";
 
 const nanoid = customAlphabet("abcdefghijklmnopqrstuvwxyz0123456789", 12);
 
+let _pollTimer: ReturnType<typeof setTimeout> | null = null;
+
 interface SavedWorkflowsState {
   entries: SavedWorkflowEntry[];
   libraryItems: LibraryItemEntry[];
+  marketplaceItems: MarketplaceLibraryItem[];
+  marketplaceRefreshing: boolean;
+  marketplaceError: string | null;
   activeCategory: LibraryCategory | "all";
   sidebarOpen: boolean;
   /** ID of the workflow currently being edited (null = unsaved / new) */
@@ -39,11 +45,16 @@ interface SavedWorkflowsState {
   saveNodeToLib: (nodeData: WorkflowNodeData) => string;
   removeLibraryItem: (id: string) => void;
   renameLibraryItem: (id: string, newName: string) => void;
+  fetchMarketplaceItems: () => Promise<void>;
+  refreshMarketplaces: () => Promise<void>;
 }
 
 export const useSavedWorkflowsStore = create<SavedWorkflowsState>((set, get) => ({
   entries: [],
   libraryItems: [],
+  marketplaceItems: [],
+  marketplaceRefreshing: false,
+  marketplaceError: null,
   activeCategory: "all",
   sidebarOpen: false,
   activeId: null,
@@ -100,6 +111,7 @@ export const useSavedWorkflowsStore = create<SavedWorkflowsState>((set, get) => 
     if (willOpen) {
       useWorkflowStore.getState().closePropertiesPanel();
       get().refresh();
+      get().fetchMarketplaceItems();
     }
     set({ sidebarOpen: willOpen });
   },
@@ -107,6 +119,7 @@ export const useSavedWorkflowsStore = create<SavedWorkflowsState>((set, get) => 
   openSidebar: () => {
     useWorkflowStore.getState().closePropertiesPanel();
     get().refresh();
+    get().fetchMarketplaceItems();
     set({ sidebarOpen: true });
   },
 
@@ -129,6 +142,45 @@ export const useSavedWorkflowsStore = create<SavedWorkflowsState>((set, get) => 
   renameLibraryItem: (id, newName) => {
     renameLibraryItem(id, newName);
     get().refresh();
+  },
+
+  fetchMarketplaceItems: async () => {
+    try {
+      const res = await fetch("/api/marketplaces/items");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as {
+        items: MarketplaceLibraryItem[];
+        isRefreshing: boolean;
+      };
+      set({
+        marketplaceItems: data.items,
+        marketplaceRefreshing: data.isRefreshing,
+        marketplaceError: null,
+      });
+
+      // Poll while server is still refreshing
+      if (_pollTimer) clearTimeout(_pollTimer);
+      if (data.isRefreshing) {
+        _pollTimer = setTimeout(() => {
+          _pollTimer = null;
+          get().fetchMarketplaceItems();
+        }, 2000);
+      }
+    } catch (err) {
+      console.error("[library-store] Failed to fetch marketplace items:", err);
+      set({ marketplaceError: String(err) });
+    }
+  },
+
+  refreshMarketplaces: async () => {
+    set({ marketplaceRefreshing: true });
+    try {
+      await fetch("/api/marketplaces", { method: "POST" });
+    } catch {
+      // POST is fire-and-forget; errors are non-fatal
+    }
+    // Fetch items (will poll until server refresh completes)
+    await get().fetchMarketplaceItems();
   },
 }));
 

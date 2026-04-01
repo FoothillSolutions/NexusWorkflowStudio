@@ -5,6 +5,7 @@ import { useSavedWorkflowsStore } from "@/store/library-store";
 import { useWorkflowStore } from "@/store/workflow-store";
 import type { SavedWorkflowEntry, LibraryItemEntry, LibraryCategory } from "@/lib/library";
 import { LIBRARY_CATEGORIES } from "@/lib/library";
+import type { MarketplaceLibraryItem } from "@/lib/marketplace/types";
 import type { NodeType, WorkflowNodeData } from "@/types/workflow";
 import { NODE_REGISTRY } from "@/lib/node-registry";
 import { NODE_ACCENT } from "@/lib/node-colors";
@@ -33,6 +34,8 @@ import {
   LayoutGrid,
   GitBranch,
   FileText,
+  RefreshCw,
+  Store,
 } from "lucide-react";
 import {
   BORDER_MUTED,
@@ -270,6 +273,19 @@ function NodePreview({ item }: { item: LibraryItemEntry }) {
   );
 }
 
+// ── Marketplace source badge ─────────────────────────────────────────────────
+function MarketplaceSourceBadge({ pluginName, marketplaceName }: { pluginName: string; marketplaceName: string }) {
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full border border-violet-500/25 bg-violet-500/10 px-2 py-0.5 text-[10px] font-medium text-violet-300"
+      title={`From marketplace: ${marketplaceName}`}
+    >
+      <Store size={9} />
+      {pluginName}
+    </span>
+  );
+}
+
 // ── Workflow card ────────────────────────────────────────────────────────────
 function WorkflowCard({
   entry,
@@ -396,10 +412,14 @@ function LibraryItemCard({
   item,
   onLoad,
   onDelete,
+  readonly = false,
+  marketplaceInfo,
 }: {
   item: LibraryItemEntry;
   onLoad: (item: LibraryItemEntry) => void;
   onDelete: (id: string) => void;
+  readonly?: boolean;
+  marketplaceInfo?: { marketplaceName: string; pluginName: string };
 }) {
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(item.name);
@@ -491,10 +511,12 @@ function LibraryItemCard({
             </div>
           </div>
 
-          <div className="flex items-center gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
-            <CardIconButton icon={Pencil} label="Rename item" onClick={startRenaming} />
-            <CardIconButton icon={Trash2} label="Delete item" onClick={() => onDelete(item.id)} tone="danger" />
-          </div>
+          {!readonly && (
+            <div className="flex items-center gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
+              <CardIconButton icon={Pencil} label="Rename item" onClick={startRenaming} />
+              <CardIconButton icon={Trash2} label="Delete item" onClick={() => onDelete(item.id)} tone="danger" />
+            </div>
+          )}
         </div>
 
         <div className="mt-2.5 flex items-center gap-2">
@@ -507,6 +529,9 @@ function LibraryItemCard({
             <FolderOpen size={12} />
             Add
           </button>
+          {marketplaceInfo && (
+            <MarketplaceSourceBadge pluginName={marketplaceInfo.pluginName} marketplaceName={marketplaceInfo.marketplaceName} />
+          )}
         </div>
       </div>
     </div>
@@ -544,6 +569,8 @@ export default function LibraryPanel({ onLoadWorkflow, onLoadItem }: LibraryPane
   const {
     entries,
     libraryItems,
+    marketplaceItems,
+    marketplaceRefreshing,
     activeCategory,
     sidebarOpen,
     closeSidebar,
@@ -551,6 +578,7 @@ export default function LibraryPanel({ onLoadWorkflow, onLoadItem }: LibraryPane
     load,
     removeLibraryItem: removeLibItem,
     setActiveCategory,
+    refreshMarketplaces,
   } = useSavedWorkflowsStore();
 
   const getWorkflowJSON = useWorkflowStore((s) => s.getWorkflowJSON);
@@ -649,8 +677,13 @@ export default function LibraryPanel({ onLoadWorkflow, onLoadItem }: LibraryPane
     );
   }, [entries, activeCategory, searchQuery]);
 
+  const allItems = useMemo(
+    () => [...libraryItems, ...(marketplaceItems as unknown as LibraryItemEntry[])],
+    [libraryItems, marketplaceItems],
+  );
+
   const filteredItems = useMemo(() => {
-    let items = libraryItems;
+    let items = allItems;
     if (activeCategory !== "all") {
       items = items.filter((i) => i.category === activeCategory);
     }
@@ -662,16 +695,16 @@ export default function LibraryPanel({ onLoadWorkflow, onLoadItem }: LibraryPane
       );
     }
     return items;
-  }, [libraryItems, activeCategory, searchQuery]);
+  }, [allItems, activeCategory, searchQuery]);
 
   // Count per category
   const categoryCounts = useMemo(() => {
-    const counts: Record<string, number> = { all: entries.length + libraryItems.length, workflow: entries.length };
-    for (const item of libraryItems) {
+    const counts: Record<string, number> = { all: entries.length + allItems.length, workflow: entries.length };
+    for (const item of allItems) {
       counts[item.category] = (counts[item.category] ?? 0) + 1;
     }
     return counts;
-  }, [entries, libraryItems]);
+  }, [entries, allItems]);
 
   const hasItems = filteredWorkflows.length > 0 || filteredItems.length > 0;
   const activeCategoryLabel = LIBRARY_CATEGORIES.find((category) => category.value === activeCategory)?.label ?? "All";
@@ -707,14 +740,26 @@ export default function LibraryPanel({ onLoadWorkflow, onLoadItem }: LibraryPane
               </div>
               <p className="mt-1 text-xs text-zinc-500">Browse saved workflows and reusable components</p>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={closeSidebar}
-              className={`h-8 w-8 rounded-lg ${TEXT_MUTED} hover:bg-zinc-800/80 hover:text-zinc-100 transition-colors shrink-0`}
-            >
-              <X size={14} />
-            </Button>
+            <div className="flex items-center gap-1 shrink-0">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => refreshMarketplaces()}
+                disabled={marketplaceRefreshing}
+                className={`h-8 w-8 rounded-lg ${TEXT_MUTED} hover:bg-zinc-800/80 hover:text-zinc-100 transition-colors`}
+                title="Refresh marketplace items"
+              >
+                <RefreshCw size={14} className={marketplaceRefreshing ? "animate-spin" : ""} />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={closeSidebar}
+                className={`h-8 w-8 rounded-lg ${TEXT_MUTED} hover:bg-zinc-800/80 hover:text-zinc-100 transition-colors`}
+              >
+                <X size={14} />
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -821,14 +866,19 @@ export default function LibraryPanel({ onLoadWorkflow, onLoadItem }: LibraryPane
                 {activeCategory === "all" && (
                   <SectionHeader icon={LayoutGrid} label="Components" count={filteredItems.length} accentClass="text-violet-300" />
                 )}
-                {filteredItems.map((item) => (
-                  <LibraryItemCard
-                    key={item.id}
-                    item={item}
-                    onLoad={handleLoadItem}
-                    onDelete={handleDeleteItem}
-                  />
-                ))}
+                {filteredItems.map((item) => {
+                  const mpItem = "readonly" in item && item.readonly ? (item as unknown as MarketplaceLibraryItem) : null;
+                  return (
+                    <LibraryItemCard
+                      key={item.id}
+                      item={item}
+                      onLoad={handleLoadItem}
+                      onDelete={handleDeleteItem}
+                      readonly={!!mpItem}
+                      marketplaceInfo={mpItem ? { marketplaceName: mpItem.marketplaceName, pluginName: mpItem.pluginName } : undefined}
+                    />
+                  );
+                })}
               </>
             )}
             </div>
