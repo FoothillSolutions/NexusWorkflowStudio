@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import "prismjs/themes/prism-tomorrow.css";
 import { cn } from "@/lib/utils";
@@ -17,6 +18,7 @@ interface CodeEditorProps {
   readOnly?: boolean;
   disabled?: boolean;
   className?: string;
+  scrollElementRef?: (element: HTMLElement | null) => void;
 }
 
 export function CodeEditor({
@@ -29,12 +31,32 @@ export function CodeEditor({
   readOnly = false,
   disabled = false,
   className,
+  scrollElementRef,
 }: CodeEditorProps) {
   const prismLanguage = resolveCodeLanguage(language);
   const resolvedHeight = typeof height === "number" ? `${height}px` : height;
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!scrollElementRef) return;
+
+    const resolveScrollElement = () => {
+      const element = containerRef.current?.querySelector<HTMLElement>(".nexus-code-editor__textarea");
+      scrollElementRef(element ?? null);
+    };
+
+    resolveScrollElement();
+    const frameId = window.requestAnimationFrame(resolveScrollElement);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      scrollElementRef(null);
+    };
+  }, [scrollElementRef, value, language, readOnly, disabled]);
 
   return (
     <div
+      ref={containerRef}
       className={cn(
         "nexus-code-editor custom-scroll overflow-auto rounded-xl border border-zinc-700/60 bg-zinc-950/80",
         disabled && "opacity-60",

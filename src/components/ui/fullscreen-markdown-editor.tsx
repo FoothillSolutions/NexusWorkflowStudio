@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
 import "@uiw/react-md-editor/markdown-editor.css";
@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Check, Eye, SplitSquareHorizontal, Code } from "lucide-react";
+import { useSyncedScroll } from "./use-synced-scroll";
 
 const MDEditor = dynamic(() => import("@uiw/react-md-editor"), { ssr: false });
 const MarkdownPreview = dynamic(
@@ -23,6 +24,25 @@ const MarkdownPreview = dynamic(
 );
 
 type ViewMode = "edit" | "split" | "preview";
+
+function resolveMarkdownScrollElement(container: HTMLElement | null): HTMLElement | null {
+  if (!container) return null;
+
+  const candidates = [
+    ".w-md-editor-input",
+    ".w-md-editor-text-input",
+    "textarea",
+    ".w-md-editor-text-pre",
+  ];
+
+  const elements = candidates
+    .map((selector) => container.querySelector<HTMLElement>(selector))
+    .filter((element): element is HTMLElement => !!element);
+
+  return elements.find((element) => element.scrollHeight > element.clientHeight + 1)
+    ?? elements[0]
+    ?? null;
+}
 
 interface FullscreenMarkdownEditorProps {
   open: boolean;
@@ -39,6 +59,10 @@ export function FullscreenMarkdownEditor({
 }: FullscreenMarkdownEditorProps) {
   const [draft, setDraft] = useState(value);
   const [viewMode, setViewMode] = useState<ViewMode>("split");
+  const [editorScrollElement, setEditorScrollElement] = useState<HTMLElement | null>(null);
+  const [previewScrollElement, setPreviewScrollElement] = useState<HTMLElement | null>(null);
+  const editorPaneRef = useRef<HTMLDivElement>(null);
+  const previewPaneRef = useRef<HTMLDivElement>(null);
 
   // Sync draft when dialog opens
   useEffect(() => {
@@ -52,6 +76,45 @@ export function FullscreenMarkdownEditor({
     onSave(draft);
     onOpenChange(false);
   }, [draft, onSave, onOpenChange]);
+
+  useEffect(() => {
+    if (!open || viewMode !== "split") {
+      return;
+    }
+
+    let timeoutId: number | null = null;
+    let attempts = 0;
+
+    const resolveScrollElements = () => {
+      const editorElement = resolveMarkdownScrollElement(editorPaneRef.current);
+      const previewElement = previewPaneRef.current;
+
+      if (editorElement && previewElement) {
+        setEditorScrollElement(editorElement);
+        setPreviewScrollElement(previewElement);
+        return;
+      }
+
+      attempts += 1;
+      if (attempts < 10) {
+        timeoutId = window.setTimeout(resolveScrollElements, 50);
+      }
+    };
+
+    resolveScrollElements();
+
+    return () => {
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, [open, viewMode]);
+
+  useSyncedScroll({
+    enabled: open && viewMode === "split",
+    firstElement: editorScrollElement,
+    secondElement: previewScrollElement,
+  });
 
   const hasChanges = draft !== value;
 
@@ -125,7 +188,7 @@ export function FullscreenMarkdownEditor({
           {viewMode === "split" && (
             <div className="flex h-full divide-x divide-zinc-700/50">
               {/* Editor pane */}
-              <div className="flex-1 min-w-0 h-full">
+              <div ref={editorPaneRef} className="flex-1 min-w-0 h-full">
                 <MDEditor
                   className="nexus-md-editor"
                   value={draft}

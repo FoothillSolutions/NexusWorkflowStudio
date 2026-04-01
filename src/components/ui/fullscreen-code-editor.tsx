@@ -14,6 +14,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Check, Eye, SplitSquareHorizontal, Code } from "lucide-react";
 import { CodeEditor } from "./code-editor";
 import { CodePreview } from "./code-preview";
+import { useSyncedScroll } from "./use-synced-scroll";
 
 type ViewMode = "edit" | "split" | "preview";
 
@@ -38,6 +39,8 @@ export function FullscreenCodeEditor({
 }: FullscreenCodeEditorProps) {
   const [draft, setDraft] = useState(value);
   const [viewMode, setViewMode] = useState<ViewMode>("split");
+  const [editorScrollElement, setEditorScrollElement] = useState<HTMLElement | null>(null);
+  const [previewScrollElement, setPreviewScrollElement] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -52,6 +55,12 @@ export function FullscreenCodeEditor({
     onSave(draft);
     onOpenChange(false);
   }, [draft, onSave, onOpenChange]);
+
+  useSyncedScroll({
+    enabled: open && viewMode === "split",
+    firstElement: editorScrollElement,
+    secondElement: previewScrollElement,
+  });
 
   const hasChanges = draft !== value;
 
@@ -99,6 +108,7 @@ export function FullscreenCodeEditor({
                 language={language}
                 placeholder={placeholder}
                 height="100%"
+                scrollElementRef={setEditorScrollElement}
               />
             </div>
           )}
@@ -112,6 +122,7 @@ export function FullscreenCodeEditor({
                   language={language}
                   placeholder={placeholder}
                   height="100%"
+                  scrollElementRef={setEditorScrollElement}
                 />
               </div>
               <div className="flex-1 min-w-0 overflow-hidden bg-zinc-950/40">
@@ -120,6 +131,7 @@ export function FullscreenCodeEditor({
                   language={language}
                   className="h-full overflow-auto p-5"
                   emptyMessage="Write your script to preview it here…"
+                  scrollElementRef={setPreviewScrollElement}
                 />
               </div>
             </div>
@@ -132,6 +144,7 @@ export function FullscreenCodeEditor({
                 language={language}
                 className="h-full overflow-auto p-6"
                 emptyMessage="Write your script to preview it here…"
+                scrollElementRef={setPreviewScrollElement}
               />
             </div>
           )}
