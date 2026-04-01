@@ -27,6 +27,10 @@ import {
   TEXT_MUTED,
   TEXT_SUBTLE,
 } from "@/lib/theme";
+import {
+  buildWorkflowIconToggleButtonClass,
+  buildWorkflowPanelShellClass,
+} from "./panel-primitives";
 import { cn } from "@/lib/utils";
 
 /** Node types that are disabled / coming soon */
@@ -44,8 +48,8 @@ const COMING_SOON_CONTROL = [
   { key: "hands-off", label: "Hands Off", description: "Define handing off method", icon: Handshake, hex: "#fb7185" },
 ] as const;
 
-const PANEL_SHELL_CLASS = "absolute top-16 left-4 z-20 flex min-h-0 flex-col overflow-hidden rounded-3xl border border-zinc-700/60 bg-zinc-950/88 shadow-[0_16px_48px_rgba(0,0,0,0.32)] backdrop-blur-xl transition-all duration-300 ease-out";
-const TOGGLE_BUTTON_CLASS = `h-9 w-9 rounded-xl bg-zinc-900/80 border border-zinc-700/50 backdrop-blur-sm shadow-lg ${TEXT_MUTED} hover:text-zinc-100 hover:bg-zinc-800/80 transition-all duration-200`;
+const PANEL_SHELL_CLASS = buildWorkflowPanelShellClass("top-16 left-4");
+const TOGGLE_BUTTON_CLASS = buildWorkflowIconToggleButtonClass(TEXT_MUTED);
 
 type ComingSoonItem = (typeof COMING_SOON_BASIC)[number] | (typeof COMING_SOON_CONTROL)[number];
 
