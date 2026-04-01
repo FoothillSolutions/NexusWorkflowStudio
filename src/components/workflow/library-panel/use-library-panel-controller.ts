@@ -6,7 +6,7 @@ import type { LibraryItemEntry } from "@/lib/library";
 import type { MarketplaceWorkflowEntry } from "@/lib/marketplace/types";
 import { normalizeSubWorkflowContents } from "@/nodes/sub-workflow/constants";
 import type { SubWorkflowNodeData } from "@/nodes/sub-workflow/types";
-import type { WorkflowNodeData } from "@/types/workflow";
+import { WorkflowNodeType, type WorkflowNodeData } from "@/types/workflow";
 import { getLibraryCategoryLabel } from "./constants";
 import type {
   LibraryPanelItem,
@@ -99,7 +99,7 @@ export function useLibraryPanelController({
       const normalizedNodeData = {
         ...item.nodeData,
         name: insertedNode.id,
-        ...(item.nodeType === "sub-workflow"
+        ...(item.nodeType === WorkflowNodeType.SubWorkflow
           ? normalizeSubWorkflowContents(item.nodeData as Partial<SubWorkflowNodeData>)
           : {}),
       } as Partial<WorkflowNodeData>;
