@@ -531,8 +531,11 @@ function LibraryItemCard({
               </p>
             )}
 
-            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-zinc-500">
-              <span>Updated {timeAgo}</span>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <span className={META_BADGE_CLASS}>Updated {timeAgo}</span>
+              {marketplaceInfo && (
+                <MarketplaceSourceBadge pluginName={marketplaceInfo.pluginName} marketplaceName={marketplaceInfo.marketplaceName} />
+              )}
             </div>
           </div>
 
@@ -544,7 +547,7 @@ function LibraryItemCard({
           )}
         </div>
 
-        <div className="mt-2.5 flex flex-wrap items-center gap-2">
+        <div className="mt-3 flex items-center gap-2">
           <button
             type="button"
             onClick={() => onLoad(item)}
@@ -554,9 +557,6 @@ function LibraryItemCard({
             <FolderOpen size={12} />
             Add
           </button>
-          {marketplaceInfo && (
-            <MarketplaceSourceBadge pluginName={marketplaceInfo.pluginName} marketplaceName={marketplaceInfo.marketplaceName} />
-          )}
         </div>
       </div>
     </div>
