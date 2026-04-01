@@ -22,14 +22,16 @@ Nexus is a visual workflow editor for designing, composing, and exporting AI wor
 
 - Save workflows locally and reload them later
 - Save reusable node configurations to the library
-- Browse and import pre-built agents, skills, and prompts from marketplace repositories
+- Browse and import pre-built agents, skills, and prompts from remote marketplace library repositories
 - Import and export workflow JSON files
 - Generate runnable workflow artifacts for `OpenCode`, `PI`, and `Claude Code`
 - Export generated files as a ZIP or write them directly into a target folder
+- Include generated `run-<workflow>.sh` and `run-<workflow>.bat` helper scripts with exported workflow artifacts
 
 ### 📝 Content and Agent Authoring
 
 - Fullscreen editing for prompts and documents
+- Synced scrolling between editor and viewer in fullscreen prompt split view
 - Skill, document, and script attachments for richer agent behavior
 - Variable mapping and positional parameter mapping for generated workflows
 - Agent configuration for model, memory, tools, and temperature
@@ -160,6 +162,8 @@ Typical generated files include:
 - `skills/<skill-name>/SKILL.md`
 - `skills/<skill-name>/scripts/<script-file>`
 - `docs/<document-file>`
+- `run-<workflow-name>.sh`
+- `run-<workflow-name>.bat`
 
 You can also:
 
@@ -216,6 +220,27 @@ maps to:
 - `$3 = 10`
 
 These positional values can then be passed through agent parameter mappings inside the workflow.
+
+### Optional generated runner scripts
+
+Nexus also exports helper launchers next to the generated workflow artifacts:
+
+- `run-<workflow-name>.sh` for Bash-compatible shells
+- `run-<workflow-name>.bat` for Windows Command Prompt
+
+Run them from your repository root so the selected target CLI can receive the current project directory automatically.
+
+Examples:
+
+```bash
+bash run-my-workflow.sh
+bash run-my-workflow.sh customer-123
+```
+
+```bat
+run-my-workflow.bat
+run-my-workflow.bat customer-123
+```
 
 ## Marketplace
 

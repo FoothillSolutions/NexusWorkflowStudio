@@ -1,6 +1,6 @@
 {
   "name": "nexus-workflow-studio",
-  "version": "0.1.0",
+  "version": "2.0.0",
   "license": "MIT",
   "packageManager": "bun@1.3.10",
   "engines": {

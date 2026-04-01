@@ -22,6 +22,28 @@ export interface ChangelogEntry {
 // ─────────────────────────────────────────────────────────────────────────────
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "2.0.0",
+    date: "April 2, 2026",
+    categories: [
+      {
+        category: "New",
+        items: [
+          "Remote marketplace library support for browsing and refreshing Git-hosted reusable agents, skills, and prompts directly inside the library panel",
+          "Generated workflow runner scripts for both Bash and Windows Batch so exported workflows can be launched from repository roots more easily",
+        ],
+      },
+      {
+        category: "Improved",
+        items: [
+          "Enhanced fullscreen prompt editor split-view scroll syncing between the editor and viewer",
+          "Prompt AI generation optimized with tighter agent-file output instructions and cleaner platform-neutral prompt generation guidance",
+          "Refactored the notification system into a compact stackable left-side toast experience",
+          "Refined confirmation dialogs and related modal surfaces to better match the refreshed Nexus UI conventions",
+        ],
+      },
+    ],
+  },
+  {
     version: "1.9.0",
     date: "March 29, 2026",
     categories: [
