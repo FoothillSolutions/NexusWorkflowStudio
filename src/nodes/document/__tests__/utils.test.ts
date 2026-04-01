@@ -1,24 +1,15 @@
 import { describe, expect, it } from "bun:test";
-import { SubAgentMemory, SubAgentModel } from "@/nodes/agent/enums";
 import type { WorkflowNode } from "@/types/workflow";
+import {
+  makeSubWorkflowNode,
+  makeWorkflowNode,
+} from "@/test-support/workflow-fixtures";
 import {
   collectDocumentSubfolders,
   getDocumentDisplayPath,
   getDocumentRelativePath,
   normalizeDocSubfolder,
 } from "../utils";
-
-function makeNode(overrides: Partial<WorkflowNode>): WorkflowNode {
-  return {
-    id: overrides.id ?? "node-1",
-    type: overrides.type ?? "document",
-    position: overrides.position ?? { x: 0, y: 0 },
-    data:
-      overrides.data ??
-      ({ type: "document", label: "Doc", name: "node-1" } as WorkflowNode["data"]),
-    ...overrides,
-  } as WorkflowNode;
-}
 
 describe("document utils", () => {
   it("normalizes subfolder names to lowercase hyphenated slugs", () => {
@@ -62,8 +53,9 @@ describe("document utils", () => {
   });
 
   it("collects, de-duplicates, and sorts document subfolders across nested sub-workflows", () => {
-    const nestedDoc = makeNode({
+    const nestedDoc = makeWorkflowNode({
       id: "doc-2",
+      type: "document",
       data: {
         type: "document",
         label: "Nested Doc",
@@ -74,29 +66,12 @@ describe("document utils", () => {
       } as WorkflowNode["data"],
     });
 
-    const nestedSubWorkflow = makeNode({
-      id: "sub-1",
-      type: "sub-workflow",
-      data: {
-        type: "sub-workflow",
-        label: "Nested Workflow",
-        name: "sub-1",
-        mode: "same-context",
-        description: "",
-        subNodes: [nestedDoc],
-        subEdges: [],
-        nodeCount: 1,
-        model: SubAgentModel.Inherit,
-        memory: SubAgentMemory.Default,
-        temperature: 0,
-        color: "#000000",
-        disabledTools: [],
-      } as WorkflowNode["data"],
-    });
+    const nestedSubWorkflow = makeSubWorkflowNode("sub-1", [nestedDoc]);
 
     const rootNodes: WorkflowNode[] = [
-      makeNode({
+      makeWorkflowNode({
         id: "doc-1",
+        type: "document",
         data: {
           type: "document",
           label: "Root Doc",
@@ -106,8 +81,9 @@ describe("document utils", () => {
           docSubfolder: "alpha",
         } as WorkflowNode["data"],
       }),
-      makeNode({
+      makeWorkflowNode({
         id: "doc-3",
+        type: "document",
         data: {
           type: "document",
           label: "Another Root Doc",

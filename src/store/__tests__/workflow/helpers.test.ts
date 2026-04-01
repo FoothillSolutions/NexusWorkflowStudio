@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { SubAgentMemory, SubAgentModel } from "@/nodes/agent/enums";
-import type { WorkflowEdge, WorkflowNode } from "@/types/workflow";
+import type { WorkflowNode } from "@/types/workflow";
+import { makeWorkflowEdge, makeWorkflowNode } from "@/test-support/workflow-fixtures";
 import {
   buildWorkflowJson,
   createDefaultEndNode,
@@ -12,29 +13,7 @@ import {
   stripLegacySkillProjectName,
 } from "../../workflow";
 
-function makeNode(overrides: Partial<WorkflowNode>): WorkflowNode {
-  return {
-    id: overrides.id ?? "node-1",
-    type: overrides.type ?? "prompt",
-    position: overrides.position ?? { x: 0, y: 0 },
-    data:
-      overrides.data ??
-      ({ type: "prompt", label: "Prompt", name: "node-1" } as WorkflowNode["data"]),
-    ...overrides,
-  } as WorkflowNode;
-}
-
-function makeEdge(overrides: Partial<WorkflowEdge>): WorkflowEdge {
-  return {
-    id: overrides.id ?? "edge-1",
-    source: overrides.source ?? "a",
-    target: overrides.target ?? "b",
-    type: overrides.type ?? "deletable",
-    ...overrides,
-  } as WorkflowEdge;
-}
-
-describe("workflow-store-helpers", () => {
+describe("workflow helpers", () => {
   it("derives dirty and save status correctly", () => {
     expect(deriveSaveStatus("current", "baseline", null, "pristine")).toEqual({
       isDirty: true,
@@ -53,7 +32,7 @@ describe("workflow-store-helpers", () => {
   });
 
   it("ensures start and end nodes exist without duplicating existing ones", () => {
-    const promptNode = makeNode({
+    const promptNode = makeWorkflowNode({
       id: "prompt-1",
       data: { type: "prompt", label: "Prompt", name: "prompt-1" } as WorkflowNode["data"],
     });
@@ -76,7 +55,7 @@ describe("workflow-store-helpers", () => {
   });
 
   it("migrates legacy prompt-to-script attachments, including nested sub-workflows", () => {
-    const legacyPrompt = makeNode({
+    const legacyPrompt = makeWorkflowNode({
       id: "prompt-script",
       type: "prompt",
       data: {
@@ -86,12 +65,12 @@ describe("workflow-store-helpers", () => {
         promptText: "console.log('hi')",
       } as WorkflowNode["data"],
     });
-    const skillNode = makeNode({
+    const skillNode = makeWorkflowNode({
       id: "skill-1",
       type: "skill",
       data: { type: "skill", label: "Skill", name: "skill-1" } as WorkflowNode["data"],
     });
-    const subPrompt = makeNode({
+    const subPrompt = makeWorkflowNode({
       id: "sub-prompt",
       type: "prompt",
       data: {
@@ -100,7 +79,7 @@ describe("workflow-store-helpers", () => {
         name: "sub-prompt",
       } as WorkflowNode["data"],
     });
-    const subWorkflow = makeNode({
+    const subWorkflow = makeWorkflowNode({
       id: "sub-1",
       type: "sub-workflow",
       data: {
@@ -111,7 +90,7 @@ describe("workflow-store-helpers", () => {
         description: "",
         subNodes: [subPrompt],
         subEdges: [
-          makeEdge({
+          makeWorkflowEdge({
             id: "sub-edge",
             source: "sub-prompt",
             target: "skill-2",
@@ -129,7 +108,7 @@ describe("workflow-store-helpers", () => {
 
     const { nodes, edges } = migrateLegacyPromptScripts(
       [legacyPrompt, skillNode, subWorkflow],
-      [makeEdge({ id: "edge-1", source: "prompt-script", target: "skill-1", targetHandle: "scripts" })],
+      [makeWorkflowEdge({ id: "edge-1", source: "prompt-script", target: "skill-1", targetHandle: "scripts" })],
     );
 
     expect(nodes[0].type).toBe("script");
@@ -142,7 +121,7 @@ describe("workflow-store-helpers", () => {
   });
 
   it("removes legacy skill projectName fields recursively", () => {
-    const skillNode = makeNode({
+    const skillNode = makeWorkflowNode({
       id: "skill-1",
       type: "skill",
       data: {
@@ -153,7 +132,7 @@ describe("workflow-store-helpers", () => {
         projectName: "legacy-project",
       } as WorkflowNode["data"] & { projectName: string },
     });
-    const nestedSkill = makeNode({
+    const nestedSkill = makeWorkflowNode({
       id: "nested-skill",
       type: "skill",
       data: {
@@ -163,7 +142,7 @@ describe("workflow-store-helpers", () => {
         projectName: "old-project",
       } as WorkflowNode["data"] & { projectName: string },
     });
-    const subWorkflow = makeNode({
+    const subWorkflow = makeWorkflowNode({
       id: "sub-1",
       type: "sub-workflow",
       data: {
@@ -193,7 +172,7 @@ describe("workflow-store-helpers", () => {
     const json = buildWorkflowJson({
       name: "Workflow",
       nodes: [
-        makeNode({
+        makeWorkflowNode({
           id: "prompt-1",
           selected: true,
           dragging: true,
@@ -207,7 +186,7 @@ describe("workflow-store-helpers", () => {
         }),
       ],
       edges: [
-        makeEdge({
+        makeWorkflowEdge({
           id: "edge-1",
           source: "prompt-1",
           target: "end-1",
@@ -231,5 +210,6 @@ describe("workflow-store-helpers", () => {
     expect(json.edges[0]).not.toHaveProperty("style");
   });
 });
+
 
 

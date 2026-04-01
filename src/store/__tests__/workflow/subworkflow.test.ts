@@ -1,53 +1,18 @@
 import { describe, expect, it } from "bun:test";
-import { SubAgentMemory, SubAgentModel } from "@/nodes/agent/enums";
 import type { WorkflowEdge, WorkflowNode } from "@/types/workflow";
+import {
+  makeSubWorkflowNode,
+  makeWorkflowNode,
+} from "@/test-support/workflow-fixtures";
 import {
   resolveParentNodes,
   updateNestedSubWorkflowEdges,
   updateNestedSubWorkflowNodes,
 } from "../../workflow";
 
-function makeNode(overrides: Partial<WorkflowNode>): WorkflowNode {
-  return {
-    id: overrides.id ?? "node-1",
-    type: overrides.type ?? "prompt",
-    position: overrides.position ?? { x: 0, y: 0 },
-    data:
-      overrides.data ??
-      ({ type: "prompt", label: "Prompt", name: "node-1" } as WorkflowNode["data"]),
-    ...overrides,
-  } as WorkflowNode;
-}
-
-function makeSubWorkflowNode(
-  id: string,
-  subNodes: WorkflowNode[],
-  subEdges: WorkflowEdge[] = [],
-): WorkflowNode {
-  return makeNode({
-    id,
-    type: "sub-workflow",
-    data: {
-      type: "sub-workflow",
-      label: id,
-      name: id,
-      mode: "same-context",
-      description: "",
-      subNodes,
-      subEdges,
-      nodeCount: subNodes.length,
-      model: SubAgentModel.Inherit,
-      memory: SubAgentMemory.Default,
-      temperature: 0,
-      color: "#000000",
-      disabledTools: [],
-    } as WorkflowNode["data"],
-  });
-}
-
 describe("workflow subworkflow helpers", () => {
   it("resolves parent nodes for nested breadcrumb stacks", () => {
-    const nestedNode = makeNode({
+    const nestedNode = makeWorkflowNode({
       id: "prompt-1",
       data: { type: "prompt", label: "Nested Prompt", name: "prompt-1" } as WorkflowNode["data"],
     });
@@ -65,7 +30,7 @@ describe("workflow subworkflow helpers", () => {
   });
 
   it("updates nested subworkflow nodes along an ancestor path", () => {
-    const replacementNode = makeNode({
+    const replacementNode = makeWorkflowNode({
       id: "prompt-2",
       data: { type: "prompt", label: "Replacement", name: "prompt-2" } as WorkflowNode["data"],
     });
