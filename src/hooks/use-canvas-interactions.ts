@@ -2,7 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useReactFlow } from "@xyflow/react";
 import { useWorkflowStore, type CanvasMode } from "@/store/workflow";
 import { useSavedWorkflowsStore } from "@/store/library";
-import type { NodeType, WorkflowNode } from "@/types/workflow";
+import {
+  NON_DELETABLE_NODE_TYPES,
+  WorkflowNodeType,
+  type NodeType,
+  type WorkflowNode,
+} from "@/types/workflow";
 import { isModKey } from "@/lib/platform";
 import { toast } from "sonner";
 import type { ContextMenuTarget } from "@/components/workflow/context-menu";
@@ -88,9 +93,9 @@ export function useCanvasInteractions(callbacks: CanvasInteractionCallbacks) {
         target: {
           kind: "node",
           nodeId: node.id,
-          nodeType: (node.data?.type ?? "start") as NodeType,
-          isDeletable: node.data?.type !== "start",
-          isDuplicatable: node.data?.type !== "start",
+          nodeType: (node.data?.type ?? WorkflowNodeType.Start) as NodeType,
+          isDeletable: !NON_DELETABLE_NODE_TYPES.has((node.data?.type ?? WorkflowNodeType.Start) as NodeType),
+          isDuplicatable: !NON_DELETABLE_NODE_TYPES.has((node.data?.type ?? WorkflowNodeType.Start) as NodeType),
         },
       });
     },
@@ -225,9 +230,13 @@ export function useCanvasInteractions(callbacks: CanvasInteractionCallbacks) {
       const lowerKey = e.key.toLowerCase();
       const currentNodes = getNodes();
       const selected = currentNodes.filter((n) => n.selected);
-      const copyableSelected = selected.filter((n) => n.data?.type !== "start");
+      const copyableSelected = selected.filter(
+        (node) => !NON_DELETABLE_NODE_TYPES.has((node.data?.type ?? WorkflowNodeType.Start) as NodeType),
+      );
       const multiSelected = selected.length > 1;
-      const singleSelected = selected.length === 1 && selected[0].data?.type !== "start";
+      const singleSelected =
+        selected.length === 1
+        && !NON_DELETABLE_NODE_TYPES.has((selected[0].data?.type ?? WorkflowNodeType.Start) as NodeType);
 
       if (e.key === "Escape" && onEscape) {
         e.preventDefault();
@@ -289,7 +298,9 @@ export function useCanvasInteractions(callbacks: CanvasInteractionCallbacks) {
       if (e.key === "Delete" || e.key === "Backspace") {
         e.preventDefault();
         if (multiSelected) {
-          const deletableCount = selected.filter((n) => n.data?.type !== "start").length;
+          const deletableCount = selected.filter(
+            (node) => !NON_DELETABLE_NODE_TYPES.has((node.data?.type ?? WorkflowNodeType.Start) as NodeType),
+          ).length;
           if (deletableCount > 0) {
             if (setDeleteTarget) {
               setDeleteTarget({ type: "selection", id: "multi" });
