@@ -7,7 +7,7 @@ const COLLECTION_KEY = "nexus-workflow-studio:saved-workflows";
 const LIBRARY_KEY = "nexus-workflow-studio:library";
 
 // Library categories
-export type LibraryCategory = "workflow" | "agent" | "skill" | "document" | "mcp-tool" | "prompt" | "script";
+export type LibraryCategory = "workflow" | "agent" | "skill" | "document" | "prompt" | "script";
 
 export const LIBRARY_CATEGORIES: { value: LibraryCategory | "all"; label: string }[] = [
   { value: "all", label: "All" },
@@ -25,7 +25,6 @@ export function nodeTypeToCategory(type: NodeType): LibraryCategory | null {
     case "agent": return "agent";
     case "skill": return "skill";
     case "document": return "document";
-    case "mcp-tool": return "mcp-tool";
     case "prompt": return "prompt";
     case "script": return "script";
     default: return null;
@@ -192,7 +191,7 @@ export function duplicateInCollection(
   return duplicate;
 }
 
-// Library items (individual nodes: agents, skills, tools, prompts)
+// Library items (individual reusable nodes saved from the canvas)
 
 function readLibrary(): LibraryItemEntry[] {
   return readJsonStorage<LibraryItemEntry[]>(LIBRARY_KEY, [], () => {
@@ -227,8 +226,6 @@ function extractDescription(data: WorkflowNodeData): string {
       return (data as import("@/types/workflow").SkillNodeData).description || "";
     case "document":
       return (data as import("@/types/workflow").DocumentNodeData).description || "";
-    case "mcp-tool":
-      return (data as import("@/types/workflow").McpToolNodeData).toolName || "";
     case "prompt":
       return (data as import("@/types/workflow").PromptNodeData).promptText?.slice(0, 80) || "";
     case "script":

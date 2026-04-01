@@ -10,7 +10,7 @@ export type ContextMenuTarget =
   | { kind: "pane" };
 
 /** Node types that can be saved to the library */
-const SAVEABLE_TYPES = new Set<NodeType>(["agent", "skill", "document", "mcp-tool", "prompt", "script"]);
+const SAVEABLE_TYPES = new Set<NodeType>(["agent", "skill", "document", "prompt", "script"]);
 
 interface ContextMenuProps {
   x: number;
