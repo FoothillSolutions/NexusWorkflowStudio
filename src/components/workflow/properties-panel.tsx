@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { X, Trash2, SlidersHorizontal } from "lucide-react";
 import { useWorkflowStore } from "@/store/workflow";
-import { useSavedWorkflowsStore } from "@/store/library-store";
+import { useSavedWorkflowsStore } from "@/store/library";
 import {
   TEXT_MUTED,
   TEXT_PRIMARY,

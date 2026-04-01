@@ -7,9 +7,9 @@ import {
   DEFAULT_GENERATION_TARGET,
   type GenerationTargetId,
 } from "@/lib/generation-targets";
-import { useSavedWorkflowsStore } from "@/store/library-store";
-import { useWorkflowGenStore } from "@/store/workflow-gen-store";
+import { useSavedWorkflowsStore } from "@/store/library";
 import { useOpenCodeStore } from "@/store/opencode";
+import { useWorkflowGenStore } from "@/store/workflow-gen";
 import { useWorkflowStore } from "@/store/workflow";
 import { toast } from "sonner";
 import type { WorkflowJSON } from "@/types/workflow";

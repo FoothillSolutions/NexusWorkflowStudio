@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { useSavedWorkflowsStore } from "@/store/library-store";
+import { useSavedWorkflowsStore } from "@/store/library";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { TEXT_MUTED } from "@/lib/theme";
-import { useOpenCodeStore } from "@/store/opencode-store";
+import { useOpenCodeStore } from "@/store/opencode";
 import { cn } from "@/lib/utils";
 import ShortcutsDialog from "./shortcuts-dialog";
 import AboutDialog from "./about-dialog";

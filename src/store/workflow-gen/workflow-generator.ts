@@ -3,9 +3,9 @@
 // response via SSE, incrementally parses the JSON, and pushes nodes/edges
 // to the canvas in real-time.
 
-import { useWorkflowStore } from "../workflow-store";
-import { useSavedWorkflowsStore } from "../library-store";
 import { useOpenCodeStore } from "../opencode";
+import { useWorkflowStore } from "../workflow";
+import { useSavedWorkflowsStore } from "../library";
 import { AGENT_TOOLS } from "@/nodes/agent/constants";
 import { validateWorkflowJson } from "@/lib/workflow-validation";
 import type { WorkflowNode } from "@/types/workflow";

@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import { useWorkflowStore } from "@/store/workflow";
-import { useSavedWorkflowsStore } from "@/store/library-store";
+import { useSavedWorkflowsStore } from "@/store/library";
 import {
   importWorkflow,
   loadFromLocalStorage,
