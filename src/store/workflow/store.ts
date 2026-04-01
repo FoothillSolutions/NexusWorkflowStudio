@@ -20,7 +20,7 @@ import type {
 import type { SubWorkflowNodeData } from "@/nodes/sub-workflow/types";
 import { SubAgentModel, SubAgentMemory } from "@/nodes/agent/enums";
 import { createNodeFromType } from "@/lib/node-registry";
-import { usePromptGenStore } from "@/store/prompt-gen-store";
+import { usePromptGenStore } from "@/store/prompt-gen";
 import { moveNodeIntoSubWorkflowContext } from "@/lib/subworkflow-transfer";
 import type { CanvasMode, DeleteTarget, EdgeStyle } from "./types";
 import {

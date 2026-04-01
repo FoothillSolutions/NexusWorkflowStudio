@@ -5,7 +5,7 @@
 
 import { create } from "zustand";
 import { useOpenCodeStore } from "../opencode-store";
-import { useWorkflowStore } from "../workflow-store";
+import { useWorkflowStore } from "../workflow";
 import {
   buildEditUserMessage,
   buildGenerateUserMessage,
