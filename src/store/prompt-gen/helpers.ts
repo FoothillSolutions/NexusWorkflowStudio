@@ -207,12 +207,14 @@ CRITICAL RULES:
 - When workflow context (upstream/downstream nodes) is provided, consider what precedes and follows this prompt in the pipeline and write content that fits naturally in that flow.`;
   }
 
-  return `You are a prompt-text generator. You receive a description of an agent and you output **only the prompt text** that will be assigned to that agent — nothing else.
+  return `You are an agent-file prompt generator. You receive a description of an agent and you output **only the raw Markdown content that belongs inside that agent file's body/system prompt** — nothing else.
 
 CRITICAL RULES:
-- Your ENTIRE response must be the prompt text itself. No preamble, no "Here is the prompt:", no explanation, no plan, no steps to build anything, no commentary before or after.
+- Your ENTIRE response must be the agent file content itself. No preamble, no "Here is the prompt:", no explanation, no plan, no steps to build anything, no commentary before or after.
+- Output only the body content that should live in the agent's Markdown file. Do not add code fences, wrapper prose, notes, suggestions, or extra sections outside the agent content itself.
 - Do NOT create a plan. Do NOT describe how to build the agent. Do NOT list implementation steps.
 - You are writing THE PROMPT that the agent will receive as its system instructions.
+- Keep the result platform-neutral. Do NOT include device-specific commands, OS-specific setup steps, keyboard shortcuts, shell commands, terminal configuration, or machine settings unless the input explicitly requires a concrete environment.
 - Output raw Markdown directly. Do NOT wrap the output in a code block.
 - Fill in concrete, actionable content — never leave placeholder brackets like [text] in the final output.
 
@@ -315,24 +317,27 @@ export function buildGenerateUserMessage(payload: GeneratePayload): string {
   }
 
   if (hasFreeform && hasFields) {
-    return `Write the agent prompt text for an agent described as:\n${payload.freeformDescription!.trim()}\n\nAdditional details for the template sections:\n\n${sections.join("\n\n")}${resourceSection}${contextSection}\n\nRemember: output ONLY the prompt text. No plan, no explanation.`;
+    return `Write only the Markdown body content for the agent file for an agent described as:\n${payload.freeformDescription!.trim()}\n\nAdditional details for the template sections:\n\n${sections.join("\n\n")}${resourceSection}${contextSection}\n\nRemember: output ONLY the agent file content itself. No plan, no explanation, no suggestions, and no wrapper text. Keep it platform-neutral with no device-specific commands or settings unless explicitly required by the input.`;
   }
 
   if (hasFreeform) {
-    return `Write the agent prompt text for an agent described as:\n${payload.freeformDescription!.trim()}${resourceSection}${contextSection}\n\nInfer which template sections are relevant and fill only those with concrete content. Skip sections that don't apply. Output ONLY the prompt text.`;
+    return `Write only the Markdown body content for the agent file for an agent described as:\n${payload.freeformDescription!.trim()}${resourceSection}${contextSection}\n\nInfer which template sections are relevant and fill only those with concrete content. Skip sections that don't apply. Output ONLY the agent file content itself, with no wrapper text, suggestions, or device-specific commands/settings.`;
   }
 
   if (hasFields) {
-    return `Write the agent prompt text using these details:\n\n${sections.join("\n\n")}${resourceSection}${contextSection}\n\nYou may add other template sections only if clearly inferred from the input. Output ONLY the prompt text.`;
+    return `Write only the Markdown body content for the agent file using these details:\n\n${sections.join("\n\n")}${resourceSection}${contextSection}\n\nYou may add other template sections only if clearly inferred from the input. Output ONLY the agent file content itself, with no wrapper text, suggestions, or device-specific commands/settings.`;
   }
 
-  return `Write a general-purpose agent prompt template following the template structure. Fill each section with realistic content that demonstrates how the template should be used. Output ONLY the prompt text.${resourceSection}${contextSection}`;
+  return `Write a general-purpose agent file body template following the template structure. Fill each section with realistic content that demonstrates how the template should be used. Output ONLY the agent file content itself, with no wrapper text, suggestions, or device-specific commands/settings.${resourceSection}${contextSection}`;
 }
 
 export function buildEditUserMessage(payload: EditPayload): string {
   const nodeType = payload.nodeType ?? DEFAULT_PROMPT_GEN_NODE_TYPE;
   const nodeLabel =
     nodeType === WorkflowNodeType.Agent ? "agent prompt" : getPromptGenNodeLabel(nodeType);
+  const outputInstruction = nodeType === WorkflowNodeType.Agent
+    ? "Keep the same template structure. Output ONLY the modified agent file content itself — no explanation, no commentary, no wrapper text, and no device-specific commands/settings unless explicitly required by the edit instruction."
+    : `Keep a clear structure. Output ONLY the modified ${getPromptGenOutputLabel(nodeType)} text — no explanation, no commentary.`;
   const resourceBlock = buildConnectedResourcesBlock(
     payload.connectedResourceNames,
   );
@@ -349,7 +354,7 @@ export function buildEditUserMessage(payload: EditPayload): string {
     ? `\n\nThis ${getPromptGenNodeLabel(nodeType)} is part of a larger workflow. Here are the nodes that execute before and after it — consider its role in the pipeline when making edits:\n\n${contextBlock}`
     : "";
 
-  return `Here is the current ${nodeLabel}:\n\n---\n${payload.currentPrompt}\n---\n\nModify this ${getPromptGenOutputLabel(nodeType)} according to the following instruction:\n${payload.editInstruction}${resourceSection}${contextSection}\n\n${nodeType === WorkflowNodeType.Agent ? "Keep the same template structure." : "Keep a clear structure."} Output ONLY the modified ${getPromptGenOutputLabel(nodeType)} text — no explanation, no commentary.`;
+  return `Here is the current ${nodeLabel}:\n\n---\n${payload.currentPrompt}\n---\n\nModify this ${getPromptGenOutputLabel(nodeType)} according to the following instruction:\n${payload.editInstruction}${resourceSection}${contextSection}\n\n${outputInstruction}`;
 }
 
 /** Extract text from assistant message parts. */

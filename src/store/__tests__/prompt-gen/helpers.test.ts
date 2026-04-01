@@ -147,7 +147,59 @@ describe("prompt-gen-helpers", () => {
     expect(buildSystemMessage(WorkflowNodeType.Script)).toContain("Bun script generator");
     expect(buildSystemMessage(WorkflowNodeType.Skill)).toContain("skill-prompt generator");
     expect(buildSystemMessage(WorkflowNodeType.Prompt)).toContain("prompt-text generator");
-    expect(buildSystemMessage(WorkflowNodeType.Agent)).toContain("THE PROMPT that the agent will receive");
+    expect(buildSystemMessage(WorkflowNodeType.Agent)).toContain("agent-file prompt generator");
+    expect(buildSystemMessage(WorkflowNodeType.Agent)).toContain("agent file content itself");
+    expect(buildSystemMessage(WorkflowNodeType.Agent)).toContain("Do NOT include device-specific commands");
+  });
+
+  it("keeps generated agent prompts limited to agent file content and platform-neutral guidance", () => {
+    const message = buildGenerateUserMessage({
+      mode: "freeform",
+      freeformDescription: "Create an agent that reviews pull requests and summarizes risks.",
+      nodeType: WorkflowNodeType.Agent,
+      modelId: "claude-sonnet-4.5",
+      providerId: "github-copilot",
+      fields: {
+        instructions: "Review changed files, highlight regressions, and summarize follow-up work.",
+      },
+      connectedResourceNames: {
+        skills: ["security-review"],
+        docs: ["review-checklist.md"],
+        scripts: [],
+      },
+      connectedNodeContext: {
+        upstream: [],
+        downstream: [],
+      },
+    });
+
+    expect(message).toContain("Write only the Markdown body content for the agent file");
+    expect(message).toContain("output ONLY the agent file content itself");
+    expect(message).toContain("no device-specific commands or settings");
+    expect(message).toContain("{{security-review}}");
+    expect(message).toContain("{{review-checklist.md}}");
+  });
+
+  it("keeps edited agent prompts limited to agent file content and avoids device-specific settings", () => {
+    const message = buildEditUserMessage({
+      currentPrompt: "You are a careful code review agent.",
+      editInstruction: "Make the review stricter about security-sensitive file changes.",
+      modelId: "claude-sonnet-4.5",
+      providerId: "github-copilot",
+      nodeType: WorkflowNodeType.Agent,
+      connectedResourceNames: {
+        skills: [],
+        docs: [],
+        scripts: [],
+      },
+      connectedNodeContext: {
+        upstream: [],
+        downstream: [],
+      },
+    });
+
+    expect(message).toContain("Output ONLY the modified agent file content itself");
+    expect(message).toContain("no wrapper text, and no device-specific commands/settings unless explicitly required by the edit instruction");
   });
 
   it("extracts text parts and estimates tokens", () => {
