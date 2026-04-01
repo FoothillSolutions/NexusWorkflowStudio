@@ -8,10 +8,12 @@ import { usePromptGenStore as usePromptGenStoreLegacy } from "../../prompt-gen-s
 import { buildGenerateUserMessage as buildGenerateUserMessageLegacy } from "../../prompt-gen-helpers";
 import { runPromptGenRequest as runPromptGenRequestLegacy } from "../../prompt-gen-runner";
 import {
+  buildWorkflowJson as buildWorkflowJsonCanonical,
   resolveParentNodes as resolveParentNodesCanonical,
   useWorkflowStore as useWorkflowStoreCanonical,
 } from "../../workflow";
 import { useWorkflowStore as useWorkflowStoreLegacy } from "../../workflow-store";
+import { buildWorkflowJson as buildWorkflowJsonLegacy } from "../../workflow-store-helpers";
 import { resolveParentNodes as resolveParentNodesLegacy } from "../../workflow-store-subworkflow";
 
 describe("store compatibility shims", () => {
@@ -24,6 +26,7 @@ describe("store compatibility shims", () => {
   it("keeps workflow legacy root exports aligned with canonical domain exports", () => {
     expect(useWorkflowStoreLegacy).toBe(useWorkflowStoreCanonical);
     expect(resolveParentNodesLegacy).toBe(resolveParentNodesCanonical);
+    expect(buildWorkflowJsonLegacy).toBe(buildWorkflowJsonCanonical);
   });
 });
 
