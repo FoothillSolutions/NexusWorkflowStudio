@@ -32,10 +32,10 @@ import {
   buildWorkflowPanelShellClass,
 } from "./panel-primitives";
 import { cn } from "@/lib/utils";
-import type { NodeType } from "@/types/workflow";
+import { WorkflowNodeType, type NodeType } from "@/types/workflow";
 
 /** Node types that are disabled / coming soon */
-const COMING_SOON_TYPES = new Set(["mcp-tool"]);
+const COMING_SOON_TYPES = new Set<NodeType>([WorkflowNodeType.McpTool]);
 
 const COMING_SOON_BASIC = [
   { key: "variable", label: "Variable", description: "Store variables across nodes", icon: Braces, hex: "#84cc16" },
@@ -186,7 +186,7 @@ export default function NodePalette() {
   const toggleSidebar = useWorkflowStore((s) => s.toggleSidebar);
   const setCurrentDraggedNodeType = useWorkflowStore((s) => s.setCurrentDraggedNodeType);
 
-  const basicNodes = BASIC_NODES.filter((n) => n.type !== "start");
+  const basicNodes = BASIC_NODES.filter((node) => node.type !== WorkflowNodeType.Start);
   const controlNodes = CONTROL_FLOW_NODES;
 
   const onDragStart = (event: DragEvent, nodeType: NodeType) => {
