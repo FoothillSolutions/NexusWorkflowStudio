@@ -16,11 +16,13 @@ import { Input } from "@/components/ui/input";
 import { FullscreenMarkdownEditor } from "@/components/ui/fullscreen-markdown-editor";
 import { ModelSelect } from "@/nodes/shared/model-select";
 import { SubAgentModel } from "@/nodes/agent/enums";
+import { WorkflowNodeType } from "@/types/workflow";
 import { useOpenCodeStore } from "@/store/opencode";
 import {
   usePromptGenStore,
   type PromptGenTemplateFields,
 } from "@/store/prompt-gen";
+import { DEFAULT_PROMPT_GEN_NODE_TYPE } from "@/store/prompt-gen/node-type-utils";
 import { useWorkflowStore } from "@/store/workflow";
 import {
   getConnectedNodeContext,
@@ -145,9 +147,9 @@ export function PromptGenBody() {
 
   const isConnected = useOpenCodeStore((s) => s.status) === "connected";
 
-  const isPromptNode = targetNodeType === "prompt";
-  const isSkillNode = targetNodeType === "skill";
-  const isScriptNode = targetNodeType === "script";
+  const isPromptNode = targetNodeType === WorkflowNodeType.Prompt;
+  const isSkillNode = targetNodeType === WorkflowNodeType.Skill;
+  const isScriptNode = targetNodeType === WorkflowNodeType.Script;
   const scriptLanguage = useMemo(() => {
     if (!isScriptNode || !targetNodeId) return "typescript";
     const state = useWorkflowStore.getState();
@@ -218,7 +220,7 @@ export function PromptGenBody() {
     const targetNodeId = usePromptGenStore.getState().targetNodeId;
     const connectedResourceNames = getConnectedResourceNames(targetNodeId);
     const connectedNodeContext = getConnectedNodeContext(targetNodeId);
-    const nodeType = usePromptGenStore.getState().targetNodeType ?? "agent";
+    const nodeType = usePromptGenStore.getState().targetNodeType ?? DEFAULT_PROMPT_GEN_NODE_TYPE;
     generate({ fields, modelId, providerId, mode, freeformDescription: mode === "freeform" ? freeformText : undefined, connectedResourceNames, nodeType, connectedNodeContext });
   }, [fields, genModel, mode, freeformText, generate]);
 
@@ -228,7 +230,7 @@ export function PromptGenBody() {
     const targetNodeId = usePromptGenStore.getState().targetNodeId;
     const connectedResourceNames = getConnectedResourceNames(targetNodeId);
     const connectedNodeContext = getConnectedNodeContext(targetNodeId);
-    const nodeType = usePromptGenStore.getState().targetNodeType ?? "agent";
+    const nodeType = usePromptGenStore.getState().targetNodeType ?? DEFAULT_PROMPT_GEN_NODE_TYPE;
     editWithAi({ currentPrompt: targetPrompt, editInstruction, modelId, providerId, connectedResourceNames, nodeType, connectedNodeContext });
   }, [targetPrompt, editInstruction, genModel, editWithAi]);
 

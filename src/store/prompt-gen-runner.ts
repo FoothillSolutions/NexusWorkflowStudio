@@ -1,1 +1,1 @@
-export { runPromptGenRequest } from "./prompt-gen/runner";
+export { runPromptGenRequest } from "./prompt-gen/compat";

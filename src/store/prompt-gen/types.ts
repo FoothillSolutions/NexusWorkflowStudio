@@ -1,5 +1,6 @@
 import type { FormSetValue } from "@/nodes/shared/form-types";
 import type { ConnectedNodeContext } from "@/nodes/shared/use-connected-resources";
+import { WorkflowNodeType } from "@/types/workflow";
 
 export type PromptGenStatus =
   | "idle"
@@ -10,7 +11,11 @@ export type PromptGenStatus =
   | "error";
 export type PromptGenView = "closed" | "generate" | "edit";
 export type PromptGenMode = "structured" | "freeform";
-export type PromptGenNodeType = "agent" | "prompt" | "skill" | "script";
+export type PromptGenNodeType =
+  | WorkflowNodeType.Agent
+  | WorkflowNodeType.Prompt
+  | WorkflowNodeType.Skill
+  | WorkflowNodeType.Script;
 
 export interface PromptGenTemplateFields {
   title?: string;

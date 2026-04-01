@@ -1,4 +1,4 @@
-export { usePromptGenStore } from "./prompt-gen/store";
+export { usePromptGenStore } from "./prompt-gen/compat";
 export type {
   EditPayload,
   GeneratePayload,
@@ -8,4 +8,4 @@ export type {
   PromptGenStatus,
   PromptGenTemplateFields,
   PromptGenView,
-} from "./prompt-gen/types";
+} from "./prompt-gen/compat";

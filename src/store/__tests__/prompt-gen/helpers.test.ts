@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { WorkflowNodeType } from "@/types/workflow";
 import {
   buildConnectedNodeContextBlock,
   buildConnectedResourcesBlock,
@@ -76,7 +77,7 @@ describe("prompt-gen-helpers", () => {
     const message = buildGenerateUserMessage({
       mode: "freeform",
       freeformDescription: "Teach the agent how to validate CSV imports.",
-      nodeType: "skill",
+      nodeType: WorkflowNodeType.Skill,
       modelId: "claude-sonnet-4.5",
       providerId: "github-copilot",
       fields: {
@@ -115,7 +116,7 @@ describe("prompt-gen-helpers", () => {
       editInstruction: "Make it stricter about including breaking changes.",
       modelId: "claude-sonnet-4.5",
       providerId: "github-copilot",
-      nodeType: "prompt",
+      nodeType: WorkflowNodeType.Prompt,
       connectedResourceNames: {
         skills: ["release-audit"],
         docs: ["changelog.md"],
@@ -143,10 +144,10 @@ describe("prompt-gen-helpers", () => {
   });
 
   it("returns node-type-specific system messages", () => {
-    expect(buildSystemMessage("script")).toContain("Bun script generator");
-    expect(buildSystemMessage("skill")).toContain("skill-prompt generator");
-    expect(buildSystemMessage("prompt")).toContain("prompt-text generator");
-    expect(buildSystemMessage("agent")).toContain("THE PROMPT that the agent will receive");
+    expect(buildSystemMessage(WorkflowNodeType.Script)).toContain("Bun script generator");
+    expect(buildSystemMessage(WorkflowNodeType.Skill)).toContain("skill-prompt generator");
+    expect(buildSystemMessage(WorkflowNodeType.Prompt)).toContain("prompt-text generator");
+    expect(buildSystemMessage(WorkflowNodeType.Agent)).toContain("THE PROMPT that the agent will receive");
   });
 
   it("extracts text parts and estimates tokens", () => {

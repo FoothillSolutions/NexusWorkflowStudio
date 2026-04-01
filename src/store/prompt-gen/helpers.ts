@@ -5,6 +5,12 @@ import type {
   GeneratePayload,
   PromptGenNodeType,
 } from "./types";
+import { WorkflowNodeType } from "@/types/workflow";
+import {
+  DEFAULT_PROMPT_GEN_NODE_TYPE,
+  getPromptGenNodeLabel,
+  getPromptGenOutputLabel,
+} from "./node-type-utils";
 
 /** Build a Markdown snippet listing connected skills, docs, and scripts. */
 export function buildConnectedResourcesBlock(
@@ -39,7 +45,7 @@ export function buildConnectedResourceGuidance(
 
   const lines: string[] = [];
 
-  if (nodeType === "agent") {
+  if (nodeType === WorkflowNodeType.Agent) {
     if (resources.skills.length > 0) {
       lines.push(
         "- Connected skills are reusable capability modules. Reference them with the exact `{{skill-name}}` syntax and explain when the agent should rely on each skill.",
@@ -52,7 +58,7 @@ export function buildConnectedResourceGuidance(
     }
   }
 
-  if (nodeType === "skill" && resources.scripts.length > 0) {
+  if (nodeType === WorkflowNodeType.Skill && resources.scripts.length > 0) {
     lines.push(
       "- Connected scripts are runnable Bun helpers attached to this skill. Refer to them with the exact `{{script-name}}` syntax when the skill should call or recommend a helper script.",
     );
@@ -64,7 +70,7 @@ export function buildConnectedResourceGuidance(
     );
   }
 
-  if (nodeType === "script") {
+  if (nodeType === WorkflowNodeType.Script) {
     lines.push(
       "- If workflow context shows this script is attached to a skill, write the script as a focused helper that supports that skill's workflow directly.",
     );
@@ -154,7 +160,7 @@ Example 3 — Edge case: invalid input → error + accepted formats
 `.trim();
 
 export function buildSystemMessage(nodeType?: PromptGenNodeType): string {
-  if (nodeType === "script") {
+  if (nodeType === WorkflowNodeType.Script) {
     return `You are a Bun script generator. You receive a description of a script node and output only the executable script source code — nothing else.
 
 CRITICAL RULES:
@@ -167,7 +173,7 @@ CRITICAL RULES:
 - When workflow context is provided, write the script so it fits naturally with the surrounding workflow and skill behavior.`;
   }
 
-  if (nodeType === "skill") {
+  if (nodeType === WorkflowNodeType.Skill) {
     return `You are a skill-prompt generator. A "skill" is a reusable instruction block that teaches an AI agent **how to do something** — like a procedure, technique, coding pattern, or domain-specific method. You receive a description and output **only the skill prompt text** — nothing else.
 
 CRITICAL RULES:
@@ -186,7 +192,7 @@ CRITICAL RULES:
 - When workflow context (upstream/downstream nodes) is provided, tailor the skill to fit naturally within the pipeline — consider what data arrives from upstream nodes and what downstream nodes expect.`;
   }
 
-  if (nodeType === "prompt") {
+  if (nodeType === WorkflowNodeType.Prompt) {
     return `You are a prompt-text generator. You receive a description of a prompt and you output **only the prompt text** — nothing else.
 
 CRITICAL RULES:
@@ -227,7 +233,7 @@ Style rules:
 }
 
 export function buildGenerateUserMessage(payload: GeneratePayload): string {
-  const nodeType = payload.nodeType ?? "agent";
+  const nodeType = payload.nodeType ?? DEFAULT_PROMPT_GEN_NODE_TYPE;
   const sections: string[] = [];
   const fields = payload.fields;
 
@@ -250,14 +256,7 @@ export function buildGenerateUserMessage(payload: GeneratePayload): string {
     nodeType,
     payload.connectedResourceNames,
   );
-  const nodeLabel =
-    nodeType === "skill"
-      ? "skill"
-      : nodeType === "prompt"
-        ? "prompt"
-        : nodeType === "script"
-          ? "script"
-          : "agent";
+  const nodeLabel = getPromptGenNodeLabel(nodeType);
   const resourceSection = resourceBlock
     ? `\n\n## Connected Resources\nThe ${nodeLabel} has the following connected resources. Reference them in the prompt using the exact {{name}} syntax shown below:\n\n${resourceBlock}${resourceGuidance ? `\n\n## Resource Guidance\n${resourceGuidance}` : ""}`
     : "";
@@ -267,7 +266,7 @@ export function buildGenerateUserMessage(payload: GeneratePayload): string {
     ? `\n\n## Workflow Context\nThis ${nodeLabel} is part of a larger workflow. Here are the nodes connected before and after it — consider its role in this pipeline:\n\n${contextBlock}`
     : "";
 
-  if (nodeType === "skill") {
+  if (nodeType === WorkflowNodeType.Skill) {
     if (hasFreeform && hasFields) {
       return `Write the skill prompt text for a skill described as:\n${payload.freeformDescription!.trim()}\n\nAdditional details:\n\n${sections.join("\n\n")}${resourceSection}${contextSection}\n\nRemember: output ONLY the skill prompt text — step-by-step instructions that teach an AI agent how to perform this skill. No plan, no explanation.`;
     }
@@ -283,7 +282,7 @@ export function buildGenerateUserMessage(payload: GeneratePayload): string {
     return `Write a well-structured skill prompt that teaches an AI agent a useful technique or procedure. Fill in realistic, actionable content. Output ONLY the skill prompt text.${resourceSection}${contextSection}`;
   }
 
-  if (nodeType === "script") {
+  if (nodeType === WorkflowNodeType.Script) {
     if (hasFreeform && hasFields) {
       return `Write the Bun script source code for a script described as:\n${payload.freeformDescription!.trim()}\n\nAdditional details:\n\n${sections.join("\n\n")}${resourceSection}${contextSection}\n\nRemember: output ONLY the script source code. No explanation.`;
     }
@@ -299,7 +298,7 @@ export function buildGenerateUserMessage(payload: GeneratePayload): string {
     return `Write a useful Bun-compatible script template with realistic runnable code. Output ONLY the script source code.${resourceSection}${contextSection}`;
   }
 
-  if (nodeType === "prompt") {
+  if (nodeType === WorkflowNodeType.Prompt) {
     if (hasFreeform && hasFields) {
       return `Write prompt text based on this description:\n${payload.freeformDescription!.trim()}\n\nAdditional details:\n\n${sections.join("\n\n")}${resourceSection}${contextSection}\n\nRemember: output ONLY the prompt text. No plan, no explanation. Structure the output naturally based on the content — no need to follow a rigid template.`;
     }
@@ -331,15 +330,9 @@ export function buildGenerateUserMessage(payload: GeneratePayload): string {
 }
 
 export function buildEditUserMessage(payload: EditPayload): string {
-  const nodeType = payload.nodeType ?? "agent";
+  const nodeType = payload.nodeType ?? DEFAULT_PROMPT_GEN_NODE_TYPE;
   const nodeLabel =
-    nodeType === "skill"
-      ? "skill"
-      : nodeType === "prompt"
-        ? "prompt"
-        : nodeType === "script"
-          ? "script"
-          : "agent prompt";
+    nodeType === WorkflowNodeType.Agent ? "agent prompt" : getPromptGenNodeLabel(nodeType);
   const resourceBlock = buildConnectedResourcesBlock(
     payload.connectedResourceNames,
   );
@@ -348,15 +341,15 @@ export function buildEditUserMessage(payload: EditPayload): string {
     payload.connectedResourceNames,
   );
   const resourceSection = resourceBlock
-    ? `\n\nThe ${nodeType === "agent" ? "agent" : nodeType} has the following connected resources — reference them using the exact {{name}} syntax:\n\n${resourceBlock}${resourceGuidance ? `\n\nResource guidance:\n${resourceGuidance}` : ""}`
+    ? `\n\nThe ${getPromptGenNodeLabel(nodeType)} has the following connected resources — reference them using the exact {{name}} syntax:\n\n${resourceBlock}${resourceGuidance ? `\n\nResource guidance:\n${resourceGuidance}` : ""}`
     : "";
 
   const contextBlock = buildConnectedNodeContextBlock(payload.connectedNodeContext);
   const contextSection = contextBlock
-    ? `\n\nThis ${nodeType === "agent" ? "agent" : nodeType} is part of a larger workflow. Here are the nodes that execute before and after it — consider its role in the pipeline when making edits:\n\n${contextBlock}`
+    ? `\n\nThis ${getPromptGenNodeLabel(nodeType)} is part of a larger workflow. Here are the nodes that execute before and after it — consider its role in the pipeline when making edits:\n\n${contextBlock}`
     : "";
 
-  return `Here is the current ${nodeLabel}:\n\n---\n${payload.currentPrompt}\n---\n\nModify this ${nodeType === "agent" ? "prompt" : nodeType} according to the following instruction:\n${payload.editInstruction}${resourceSection}${contextSection}\n\n${nodeType === "agent" ? "Keep the same template structure." : "Keep a clear structure."} Output ONLY the modified ${nodeType === "agent" ? "prompt" : nodeType} text — no explanation, no commentary.`;
+  return `Here is the current ${nodeLabel}:\n\n---\n${payload.currentPrompt}\n---\n\nModify this ${getPromptGenOutputLabel(nodeType)} according to the following instruction:\n${payload.editInstruction}${resourceSection}${contextSection}\n\n${nodeType === WorkflowNodeType.Agent ? "Keep the same template structure." : "Keep a clear structure."} Output ONLY the modified ${getPromptGenOutputLabel(nodeType)} text — no explanation, no commentary.`;
 }
 
 /** Extract text from assistant message parts. */

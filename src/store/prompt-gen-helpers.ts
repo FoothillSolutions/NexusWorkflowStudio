@@ -9,4 +9,4 @@ export {
   extractTextFromParts,
   formatNodeSummary,
   PROMPT_TEMPLATE,
-} from "./prompt-gen/helpers";
+} from "./prompt-gen/compat";

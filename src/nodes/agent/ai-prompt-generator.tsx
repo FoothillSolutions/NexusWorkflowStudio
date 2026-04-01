@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { Sparkles, PenLine, ExternalLink, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { WorkflowNodeType } from "@/types/workflow";
 import { useOpenCodeStore } from "@/store/opencode";
 import { usePromptGenStore, type PromptGenNodeType } from "@/store/prompt-gen";
 import type { FormSetValue } from "@/nodes/shared/form-types";
@@ -19,7 +20,12 @@ interface AiPromptGeneratorProps {
 
 // ── Component ────────────────────────────────────────────────────────────────
 
-export function AiPromptGenerator({ setValue, currentPrompt, nodeId, nodeType = "agent" }: AiPromptGeneratorProps) {
+export function AiPromptGenerator({
+  setValue,
+  currentPrompt,
+  nodeId,
+  nodeType = WorkflowNodeType.Agent,
+}: AiPromptGeneratorProps) {
   const isConnected = useOpenCodeStore((s) => s.status) === "connected";
   const view = usePromptGenStore((s) => s.view);
   const floating = usePromptGenStore((s) => s.floating);

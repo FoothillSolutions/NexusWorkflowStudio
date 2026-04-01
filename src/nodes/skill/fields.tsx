@@ -16,6 +16,7 @@ import { StaticVariableMapping } from "@/nodes/shared/static-variable-mapping";
 import { useAutoResourceVariableMapping } from "@/nodes/shared/use-auto-resource-variable-mapping";
 import { useDetectedVariables } from "@/nodes/shared/use-detected-variables";
 import { useConnectedResources } from "@/nodes/shared/use-connected-resources";
+import { WorkflowNodeType } from "@/types/workflow";
 import type { SkillMetadataEntry } from "./types";
 import { buildSkillScriptRelativePath, getSkillScriptBaseName, getSkillScriptFileName } from "./script-utils";
 
@@ -133,7 +134,7 @@ export function Fields({ register, control, setValue, nodeId }: SkillFieldsProps
         placeholder="The content of the skill goes here"
         required
       />
-      <AiPromptGenerator setValue={setValue} currentPrompt={promptText} nodeId={nodeId} nodeType="skill" />
+      <AiPromptGenerator setValue={setValue} currentPrompt={promptText} nodeId={nodeId} nodeType={WorkflowNodeType.Skill} />
       <DetectedVariablesPanel dynamic={dynamic} staticVars={staticVars} />
 
       <StaticVariableMapping

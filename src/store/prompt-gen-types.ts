@@ -7,4 +7,4 @@ export type {
   PromptGenStatus,
   PromptGenTemplateFields,
   PromptGenView,
-} from "./prompt-gen/types";
+} from "./prompt-gen/compat";

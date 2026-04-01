@@ -11,6 +11,7 @@ import {
   buildGenerateUserMessage,
   buildSystemMessage,
 } from "./helpers";
+import { DEFAULT_PROMPT_GEN_NODE_TYPE } from "./node-type-utils";
 import { runPromptGenRequest } from "./runner";
 import type {
   PromptGenMode,
@@ -57,7 +58,7 @@ export const usePromptGenStore = create<PromptGenState>((set, get) => ({
     set({
       view,
       targetNodeId: nodeId,
-      targetNodeType: nodeType ?? "agent",
+      targetNodeType: nodeType ?? DEFAULT_PROMPT_GEN_NODE_TYPE,
       targetPrompt: currentPrompt,
       floating: false,
       collapsed: false,
