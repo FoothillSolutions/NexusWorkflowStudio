@@ -22,6 +22,41 @@ interface CacheEntry {
 const cache = new Map<string, CacheEntry>();
 let refreshing = false;
 
+// ── Duration parser ───────────────────────────────────────────────────────────
+
+/** Parses a human-friendly duration string (e.g. "1h", "30m", "90s") into ms. */
+function parseDuration(value: string): number {
+  const match = value.trim().match(/^(\d+)\s*(ms|s|m|h)$/i);
+  if (!match) return Number(value);
+  const n = Number(match[1]);
+  switch (match[2].toLowerCase()) {
+    case "h":
+      return n * 3_600_000;
+    case "m":
+      return n * 60_000;
+    case "s":
+      return n * 1_000;
+    default:
+      return n;
+  }
+}
+
+// ── Periodic auto-refresh ─────────────────────────────────────────────────────
+// Set NEXUS_MARKETPLACE_REFRESH_INTERVAL to a duration (e.g. "1h", "30m", "90s")
+// or raw milliseconds. Default: "1h". Set to "0" to disable.
+
+const MARKETPLACE_REFRESH_INTERVAL_MS = parseDuration(
+  process.env.NEXUS_MARKETPLACE_REFRESH_INTERVAL ?? "1h",
+);
+
+let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleNextRefresh(): void {
+  if (MARKETPLACE_REFRESH_INTERVAL_MS <= 0) return;
+  if (refreshTimer) clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(triggerRefresh, MARKETPLACE_REFRESH_INTERVAL_MS);
+}
+
 // ── Internal ──────────────────────────────────────────────────────────────────
 
 /**
@@ -32,12 +67,8 @@ function readMarketplaceName(localDir: string, fallback: string): string {
   const manifestPath = join(localDir, ".claude-plugin", "marketplace.json");
   if (!existsSync(manifestPath)) return fallback;
   try {
-    const manifest = JSON.parse(
-      readFileSync(manifestPath, "utf-8"),
-    ) as MarketplaceJson;
-    return typeof manifest.name === "string" && manifest.name
-      ? manifest.name
-      : fallback;
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf-8")) as MarketplaceJson;
+    return typeof manifest.name === "string" && manifest.name ? manifest.name : fallback;
   } catch {
     return fallback;
   }
@@ -100,7 +131,9 @@ async function refreshOne(config: MarketplaceSourceConfig): Promise<void> {
         name: config.name,
         source: config.source,
         status: "error",
-        itemCount: (cache.get(config.name)?.items.length ?? 0) + (cache.get(config.name)?.workflows.length ?? 0),
+        itemCount:
+          (cache.get(config.name)?.items.length ?? 0) +
+          (cache.get(config.name)?.workflows.length ?? 0),
         lastRefreshed: cache.get(config.name)?.state.lastRefreshed ?? null,
         error: errorMsg,
       },
@@ -121,15 +154,20 @@ async function doRefreshAll(): Promise<void> {
     }
   } finally {
     refreshing = false;
+    scheduleNextRefresh();
   }
 }
 
 // ── Eager init on module load ─────────────────────────────────────────────────
 // Runs automatically when the module is first imported (server start).
+// The first call to doRefreshAll triggers scheduleNextRefresh via its finally
+// block, which starts the periodic auto-refresh cycle.
 
-doRefreshAll().catch((err) =>
-  console.error("[marketplace] Initial refresh failed:", err),
-);
+if (MARKETPLACE_REFRESH_INTERVAL_MS > 0) {
+  console.info(`[marketplace] Auto-refresh every ${MARKETPLACE_REFRESH_INTERVAL_MS} ms`);
+}
+
+triggerRefresh();
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
@@ -164,7 +202,5 @@ export function getIsRefreshing(): boolean {
 /** Triggers a background refresh of all marketplaces. */
 export function triggerRefresh(): void {
   if (refreshing) return; // Don't stack refreshes
-  doRefreshAll().catch((err) =>
-    console.error("[marketplace] Background refresh failed:", err),
-  );
+  doRefreshAll().catch((err) => console.error("[marketplace] Background refresh failed:", err));
 }

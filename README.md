@@ -268,6 +268,26 @@ Each plugin directory can contain:
 
 Click the refresh button in the library panel header to pull the latest from all configured marketplaces.
 
+#### Auto-refresh
+
+Nexus refreshes marketplace data automatically on a server-side timer. The default interval is **1 hour**. Configure via `NEXUS_MARKETPLACE_REFRESH_INTERVAL`:
+
+```bash
+# Every 30 minutes
+NEXUS_MARKETPLACE_REFRESH_INTERVAL=30m
+
+# Every 90 seconds
+NEXUS_MARKETPLACE_REFRESH_INTERVAL=90s
+
+# Raw milliseconds also work
+NEXUS_MARKETPLACE_REFRESH_INTERVAL=600000
+
+# Disable auto-refresh entirely
+NEXUS_MARKETPLACE_REFRESH_INTERVAL=0
+```
+
+The timer starts after the initial refresh on server startup completes. Manual refreshes (via the UI button or `POST /api/marketplaces`) reset the countdown, so a refresh never fires redundantly right after a manual one.
+
 ## Recommended workflow authoring flow
 
 1. Create the main execution path from `Start` to `End`
