@@ -1,9 +1,9 @@
-import type { NodeType } from "@/types/workflow";
+import { WorkflowNodeType } from "@/types/workflow";
 
 export type DocumentContentMode = "inline" | "linked";
 
 export interface DocumentNodeData extends Record<string, unknown> {
-  type: Extract<NodeType, "document">;
+  type: WorkflowNodeType.Document;
   label: string;
   name: string;
   docName: string;
@@ -11,7 +11,7 @@ export interface DocumentNodeData extends Record<string, unknown> {
   contentMode: DocumentContentMode;
   fileExtension: "md" | "txt" | "json" | "yaml";
   contentText: string;
-  linkedFileName: string;
-  linkedFileContent: string;
+  linkedFileName: string | null;
+  linkedFileContent: string | null;
   description: string;
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { SubAgentMemory, SubAgentModel } from "@/nodes/agent/enums";
-import type { WorkflowNode } from "@/types/workflow";
+import { WorkflowNodeType, type WorkflowNode } from "@/types/workflow";
 import { makeWorkflowEdge, makeWorkflowNode } from "@/test-support/workflow-fixtures";
 import {
   buildWorkflowJson,
@@ -34,11 +34,11 @@ describe("workflow helpers", () => {
   it("ensures start and end nodes exist without duplicating existing ones", () => {
     const promptNode = makeWorkflowNode({
       id: "prompt-1",
-      data: { type: "prompt", label: "Prompt", name: "prompt-1" } as WorkflowNode["data"],
+      data: { type: WorkflowNodeType.Prompt, label: "Prompt", name: "prompt-1" } as WorkflowNode["data"],
     });
 
     const withStart = ensureStartNode([promptNode]);
-    expect(withStart[0].data.type).toBe("start");
+    expect(withStart[0].data.type).toBe(WorkflowNodeType.Start);
     expect(withStart).toHaveLength(2);
 
     const existingStart = createDefaultStartNode();
@@ -46,7 +46,7 @@ describe("workflow helpers", () => {
     expect(ensureStartNode(sameStartArray)).toBe(sameStartArray);
 
     const withEnd = ensureEndNode([promptNode]);
-    expect(withEnd.at(-1)?.data.type).toBe("end");
+    expect(withEnd.at(-1)?.data.type).toBe(WorkflowNodeType.End);
     expect(withEnd).toHaveLength(2);
 
     const existingEnd = createDefaultEndNode();
@@ -57,9 +57,9 @@ describe("workflow helpers", () => {
   it("migrates legacy prompt-to-script attachments, including nested sub-workflows", () => {
     const legacyPrompt = makeWorkflowNode({
       id: "prompt-script",
-      type: "prompt",
+      type: WorkflowNodeType.Prompt,
       data: {
-        type: "prompt",
+        type: WorkflowNodeType.Prompt,
         label: "Legacy Script",
         name: "prompt-script",
         promptText: "console.log('hi')",
@@ -67,23 +67,23 @@ describe("workflow helpers", () => {
     });
     const skillNode = makeWorkflowNode({
       id: "skill-1",
-      type: "skill",
-      data: { type: "skill", label: "Skill", name: "skill-1" } as WorkflowNode["data"],
+      type: WorkflowNodeType.Skill,
+      data: { type: WorkflowNodeType.Skill, label: "Skill", name: "skill-1" } as WorkflowNode["data"],
     });
     const subPrompt = makeWorkflowNode({
       id: "sub-prompt",
-      type: "prompt",
+      type: WorkflowNodeType.Prompt,
       data: {
-        type: "prompt",
+        type: WorkflowNodeType.Prompt,
         label: "Nested Legacy Script",
         name: "sub-prompt",
       } as WorkflowNode["data"],
     });
     const subWorkflow = makeWorkflowNode({
       id: "sub-1",
-      type: "sub-workflow",
+      type: WorkflowNodeType.SubWorkflow,
       data: {
-        type: "sub-workflow",
+        type: WorkflowNodeType.SubWorkflow,
         label: "Nested",
         name: "sub-1",
         mode: "same-context",
@@ -111,12 +111,12 @@ describe("workflow helpers", () => {
       [makeWorkflowEdge({ id: "edge-1", source: "prompt-script", target: "skill-1", targetHandle: "scripts" })],
     );
 
-    expect(nodes[0].type).toBe("script");
-    expect(nodes[0].data.type).toBe("script");
+    expect(nodes[0].type).toBe(WorkflowNodeType.Script);
+    expect(nodes[0].data.type).toBe(WorkflowNodeType.Script);
     expect(edges[0].sourceHandle).toBe("script-out");
 
-    const nested = nodes[2].data as Extract<WorkflowNode["data"], { type: "sub-workflow" }>;
-    expect(nested.subNodes[0].type).toBe("script");
+    const nested = nodes[2].data as Extract<WorkflowNode["data"], { type: WorkflowNodeType.SubWorkflow }>;
+    expect(nested.subNodes[0].type).toBe(WorkflowNodeType.Script);
     expect(nested.subEdges[0].sourceHandle).toBe("script-out");
   });
 

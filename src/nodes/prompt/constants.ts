@@ -4,9 +4,10 @@ import { NodeCategory } from "@/nodes/shared/registry-types";
 import type { NodeRegistryEntry } from "@/nodes/shared/registry-types";
 import { NodeSize } from "@/nodes/shared/node-size";
 import { NODE_ACCENT } from "@/lib/node-colors";
+import { WorkflowNodeType } from "@/types/workflow";
 import type { PromptNodeData } from "./types";
 export const promptRegistryEntry: NodeRegistryEntry = {
-  type: "prompt",
+  type: WorkflowNodeType.Prompt,
   displayName: "Prompt",
   description: "Natural language prompt",
   icon: MessageSquareText,
@@ -15,7 +16,7 @@ export const promptRegistryEntry: NodeRegistryEntry = {
   category: NodeCategory.Basic,
   size: NodeSize.Large,
   defaultData: (): PromptNodeData => ({
-    type: "prompt",
+    type: WorkflowNodeType.Prompt,
     label: "Prompt",
     name: "",
     promptText: "Enter your prompt here.\n\nYou can use variables like {{variableName}}.",

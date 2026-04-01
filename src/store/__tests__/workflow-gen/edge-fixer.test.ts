@@ -1,18 +1,19 @@
 import { describe, expect, it } from "bun:test";
+import { WorkflowNodeType } from "@/types/workflow";
 import { fixEdgeHandles } from "../../workflow-gen/edge-fixer";
 
 describe("fixEdgeHandles", () => {
   it("normalizes handles for if-else, switch, ask-user, and parallel-agent edges", () => {
     const nodeTypeMap = new Map([
-      ["if-1", { type: "if-else" }],
+      ["if-1", { type: WorkflowNodeType.IfElse }],
       [
         "switch-1",
-        { type: "switch", branches: [{ label: "Pending" }, { label: "Done" }] },
+        { type: WorkflowNodeType.Switch, branches: [{ label: "Pending" }, { label: "Done" }] },
       ],
       [
         "ask-1",
         {
-          type: "ask-user",
+          type: WorkflowNodeType.AskUser,
           options: [{ label: "Yes" }, { label: "No" }],
           multipleSelection: false,
           aiSuggestOptions: false,
@@ -20,7 +21,7 @@ describe("fixEdgeHandles", () => {
       ],
       [
         "parallel-1",
-        { type: "parallel-agent", branches: [{ label: "A" }, { label: "B" }] },
+        { type: WorkflowNodeType.ParallelAgent, branches: [{ label: "A" }, { label: "B" }] },
       ],
     ]);
 

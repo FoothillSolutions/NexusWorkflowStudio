@@ -1,4 +1,4 @@
-import type { WorkflowEdge, WorkflowNode } from "@/types/workflow";
+import { WorkflowNodeType, type NodeType, type WorkflowEdge, type WorkflowNode } from "@/types/workflow";
 import { mermaidId } from "@/nodes/shared/mermaid-utils";
 import { NODE_GENERATORS, topologicalOrder } from "./shared";
 
@@ -63,7 +63,7 @@ export function buildPromptDetailsSection(
   nodes: WorkflowNode[],
   edges: WorkflowEdge[],
 ): string {
-  return buildGeneratedNodeSection(nodes, edges, "prompt", "### Prompt Node Details");
+  return buildGeneratedNodeSection(nodes, edges, WorkflowNodeType.Prompt, "### Prompt Node Details");
 }
 
 export function buildSubAgentDetailsSection(
@@ -96,7 +96,7 @@ export function buildSubAgentDetailsSection(
   const sections: string[] = [];
   for (const id of order) {
     const node = allNodeById.get(id);
-    if (!node || node.data.type !== "agent") continue;
+    if (!node || node.data.type !== WorkflowNodeType.Agent) continue;
 
     const d = node.data as import("@/nodes/agent/types").SubAgentNodeData;
     const agentName = d.name || `agent-${node.id}`;
@@ -117,7 +117,7 @@ export function buildSubAgentDetailsSection(
     const skillIds = skillEdgesByTarget.get(node.id) ?? [];
     for (const skillId of skillIds) {
       const skillNode = allNodeById.get(skillId);
-      if (skillNode?.data.type !== "skill") continue;
+      if (skillNode?.data.type !== WorkflowNodeType.Skill) continue;
 
       const skillData = skillNode.data as import("@/nodes/skill/types").SkillNodeData;
       const skillName = skillData.skillName?.trim() || skillData.name?.trim() || skillId;
@@ -135,14 +135,14 @@ export function buildIfElseDetailsSection(
   nodes: WorkflowNode[],
   edges: WorkflowEdge[],
 ): string {
-  return buildGeneratedNodeSection(nodes, edges, "if-else", "### If/Else Node Details");
+  return buildGeneratedNodeSection(nodes, edges, WorkflowNodeType.IfElse, "### If/Else Node Details");
 }
 
 export function buildSwitchDetailsSection(
   nodes: WorkflowNode[],
   edges: WorkflowEdge[],
 ): string {
-  return buildGeneratedNodeSection(nodes, edges, "switch", "### Switch Node Details");
+  return buildGeneratedNodeSection(nodes, edges, WorkflowNodeType.Switch, "### Switch Node Details");
 }
 
 export function buildParallelAgentDetailsSection(
@@ -155,7 +155,7 @@ export function buildParallelAgentDetailsSection(
 
   for (const id of order) {
     const node = nodeById.get(id);
-    if (!node || node.data.type !== "parallel-agent") continue;
+    if (!node || node.data.type !== WorkflowNodeType.ParallelAgent) continue;
 
     const d = node.data as import("@/types/workflow").ParallelAgentNodeData;
     const lines: string[] = [`#### ${mermaidId(node.id)}(Parallel Agent)`, ""];
@@ -200,7 +200,7 @@ export function buildAskUserDetailsSection(
   return buildGeneratedNodeSection(
     nodes,
     edges,
-    "ask-user",
+    WorkflowNodeType.AskUser,
     "### AskUserQuestion Node Details",
     "Ask the user using question or AskUserQuestion tools and proceed based on their choice.",
   );
@@ -213,7 +213,7 @@ export function buildSubWorkflowDetailsSection(
   return buildGeneratedNodeSection(
     nodes,
     edges,
-    "sub-workflow",
+    WorkflowNodeType.SubWorkflow,
     "### Sub-Workflow Node Details",
   );
 }
@@ -222,18 +222,18 @@ export function buildDetailsSection(
   nodes: WorkflowNode[],
   edges: WorkflowEdge[],
 ): string {
-  const skipTypes = new Set([
-    "start",
-    "end",
-    "prompt",
-    "agent",
-    "parallel-agent",
-    "skill",
-    "document",
-    "if-else",
-    "switch",
-    "ask-user",
-    "sub-workflow",
+  const skipTypes = new Set<NodeType>([
+    WorkflowNodeType.Start,
+    WorkflowNodeType.End,
+    WorkflowNodeType.Prompt,
+    WorkflowNodeType.Agent,
+    WorkflowNodeType.ParallelAgent,
+    WorkflowNodeType.Skill,
+    WorkflowNodeType.Document,
+    WorkflowNodeType.IfElse,
+    WorkflowNodeType.Switch,
+    WorkflowNodeType.AskUser,
+    WorkflowNodeType.SubWorkflow,
   ]);
 
   const sections = collectSections(

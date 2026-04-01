@@ -7,7 +7,7 @@
  */
 
 import type { NodeTypes } from "@xyflow/react";
-import type { NodeType } from "@/types/workflow";
+import { WorkflowNodeType, type NodeType } from "@/types/workflow";
 import { customAlphabet } from "nanoid";
 import { NodeCategory } from "@/nodes/shared/registry-types";
 import type { NodeRegistryEntry } from "@/nodes/shared/registry-types";
@@ -29,73 +29,73 @@ import { askUserRegistryEntry, askUserSchema, AskUserNode } from "@/nodes/ask-us
 
 // Registry
 export const NODE_REGISTRY: Record<NodeType, NodeRegistryEntry> = {
-  start:           startRegistryEntry,
-  end:             endRegistryEntry,
-  prompt:          promptRegistryEntry,
-  script:          scriptRegistryEntry,
-  "agent":         subAgentRegistryEntry,
-  "parallel-agent": parallelAgentRegistryEntry,
-  skill:           skillRegistryEntry,
-  document:        documentRegistryEntry,
-  "sub-workflow":  subWorkflowRegistryEntry,
-  "mcp-tool":      mcpToolRegistryEntry,
-  "if-else":       ifElseRegistryEntry,
-  switch:          switchRegistryEntry,
-  "ask-user":      askUserRegistryEntry,
+  [WorkflowNodeType.Start]: startRegistryEntry,
+  [WorkflowNodeType.End]: endRegistryEntry,
+  [WorkflowNodeType.Prompt]: promptRegistryEntry,
+  [WorkflowNodeType.Script]: scriptRegistryEntry,
+  [WorkflowNodeType.Agent]: subAgentRegistryEntry,
+  [WorkflowNodeType.ParallelAgent]: parallelAgentRegistryEntry,
+  [WorkflowNodeType.Skill]: skillRegistryEntry,
+  [WorkflowNodeType.Document]: documentRegistryEntry,
+  [WorkflowNodeType.SubWorkflow]: subWorkflowRegistryEntry,
+  [WorkflowNodeType.McpTool]: mcpToolRegistryEntry,
+  [WorkflowNodeType.IfElse]: ifElseRegistryEntry,
+  [WorkflowNodeType.Switch]: switchRegistryEntry,
+  [WorkflowNodeType.AskUser]: askUserRegistryEntry,
 };
 
 // React Flow node type → component map
 export const NODE_TYPE_COMPONENTS: NodeTypes = {
-  start:           StartNode,
-  end:             EndNode,
-  prompt:          PromptNode,
-  script:          ScriptNode,
-  "agent":         SubAgentNode,
-  "parallel-agent": ParallelAgentNode,
-  "sub-workflow":  SubWorkflowNode,
-  skill:           SkillNode,
-  document:        DocumentNode,
-  "mcp-tool":      McpToolNode,
-  "if-else":       IfElseNode,
-  switch:          SwitchNode,
-  "ask-user":      AskUserNode,
+  [WorkflowNodeType.Start]: StartNode,
+  [WorkflowNodeType.End]: EndNode,
+  [WorkflowNodeType.Prompt]: PromptNode,
+  [WorkflowNodeType.Script]: ScriptNode,
+  [WorkflowNodeType.Agent]: SubAgentNode,
+  [WorkflowNodeType.ParallelAgent]: ParallelAgentNode,
+  [WorkflowNodeType.SubWorkflow]: SubWorkflowNode,
+  [WorkflowNodeType.Skill]: SkillNode,
+  [WorkflowNodeType.Document]: DocumentNode,
+  [WorkflowNodeType.McpTool]: McpToolNode,
+  [WorkflowNodeType.IfElse]: IfElseNode,
+  [WorkflowNodeType.Switch]: SwitchNode,
+  [WorkflowNodeType.AskUser]: AskUserNode,
 };
 
 // Schema map
 export const nodeSchemaMap = {
-  start:           startSchema,
-  end:             endSchema,
-  prompt:          promptSchema,
-  script:          scriptSchema,
-  "agent":         subAgentSchema,
-  "parallel-agent": parallelAgentSchema,
-  "sub-workflow":  subWorkflowSchema,
-  skill:           skillSchema,
-  document:        documentSchema,
-  "mcp-tool":      mcpToolSchema,
-  "if-else":       ifElseSchema,
-  switch:          switchSchema,
-  "ask-user":      askUserSchema,
+  [WorkflowNodeType.Start]: startSchema,
+  [WorkflowNodeType.End]: endSchema,
+  [WorkflowNodeType.Prompt]: promptSchema,
+  [WorkflowNodeType.Script]: scriptSchema,
+  [WorkflowNodeType.Agent]: subAgentSchema,
+  [WorkflowNodeType.ParallelAgent]: parallelAgentSchema,
+  [WorkflowNodeType.SubWorkflow]: subWorkflowSchema,
+  [WorkflowNodeType.Skill]: skillSchema,
+  [WorkflowNodeType.Document]: documentSchema,
+  [WorkflowNodeType.McpTool]: mcpToolSchema,
+  [WorkflowNodeType.IfElse]: ifElseSchema,
+  [WorkflowNodeType.Switch]: switchSchema,
+  [WorkflowNodeType.AskUser]: askUserSchema,
 } as const;
 
 // Palette groupings
 const BASIC_NODE_ORDER: NodeType[] = [
-  "start",
-  "prompt",
-  "agent",
-  "skill",
-  "document",
-  "script",
-  "sub-workflow",
-  "mcp-tool",
+  WorkflowNodeType.Start,
+  WorkflowNodeType.Prompt,
+  WorkflowNodeType.Agent,
+  WorkflowNodeType.Skill,
+  WorkflowNodeType.Document,
+  WorkflowNodeType.Script,
+  WorkflowNodeType.SubWorkflow,
+  WorkflowNodeType.McpTool,
 ];
 
 const CONTROL_FLOW_NODE_ORDER: NodeType[] = [
-  "if-else",
-  "switch",
-  "parallel-agent",
-  "ask-user",
-  "end",
+  WorkflowNodeType.IfElse,
+  WorkflowNodeType.Switch,
+  WorkflowNodeType.ParallelAgent,
+  WorkflowNodeType.AskUser,
+  WorkflowNodeType.End,
 ];
 
 export const BASIC_NODES = BASIC_NODE_ORDER.map((type) => NODE_REGISTRY[type]).filter(

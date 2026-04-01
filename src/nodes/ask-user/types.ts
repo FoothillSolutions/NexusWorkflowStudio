@@ -1,4 +1,4 @@
-import type { NodeType } from "@/types/workflow";
+import { WorkflowNodeType } from "@/types/workflow";
 
 export interface AskUserOption {
   label: string;
@@ -6,7 +6,7 @@ export interface AskUserOption {
 }
 
 export interface AskUserNodeData extends Record<string, unknown> {
-  type: Extract<NodeType, "ask-user">;
+  type: WorkflowNodeType.AskUser;
   label: string;
   name: string;
   questionText: string;

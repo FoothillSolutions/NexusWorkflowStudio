@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { makeSubWorkflowNode, makeWorkflowEdge, makeWorkflowNode } from "@/test-support/workflow-fixtures";
-import type { WorkflowNode } from "@/types/workflow";
+import { WorkflowNodeType, type WorkflowNode } from "@/types/workflow";
 import {
   detachNodeFromContext,
   moveNodeIntoSubWorkflowContext,
@@ -10,13 +10,13 @@ describe("subworkflow transfer", () => {
   it("detaches a node from its current context and removes connected edges", () => {
     const sourceNode = makeWorkflowNode({
       id: "agent-1",
-      type: "agent",
-      data: { type: "agent", label: "Agent", name: "agent-1" } as WorkflowNode["data"],
+      type: WorkflowNodeType.Agent,
+      data: { type: WorkflowNodeType.Agent, label: "Agent", name: "agent-1" } as WorkflowNode["data"],
     });
     const siblingNode = makeWorkflowNode({
       id: "prompt-1",
-      type: "prompt",
-      data: { type: "prompt", label: "Prompt", name: "prompt-1" } as WorkflowNode["data"],
+      type: WorkflowNodeType.Prompt,
+      data: { type: WorkflowNodeType.Prompt, label: "Prompt", name: "prompt-1" } as WorkflowNode["data"],
     });
 
     const result = detachNodeFromContext({
@@ -56,9 +56,13 @@ describe("subworkflow transfer", () => {
     expect(result.edges).toEqual([]);
 
     const updatedTarget = result.nodes.find((node) => node.id === "target-sub");
-    const subNodes = (updatedTarget?.data as Extract<WorkflowNode["data"], { type: "sub-workflow" }>).subNodes;
+    const subNodes = (updatedTarget?.data as Extract<WorkflowNode["data"], { type: WorkflowNodeType.SubWorkflow }>).subNodes;
 
-    expect(subNodes.map((node) => node.data.type)).toEqual(["start", "end", "skill"]);
+    expect(subNodes.map((node) => node.data.type)).toEqual([
+      WorkflowNodeType.Start,
+      WorkflowNodeType.End,
+      WorkflowNodeType.Skill,
+    ]);
     expect(subNodes[2].position).toEqual({ x: 340, y: 200 });
     expect(subNodes[2].data.name).toBe("skill-1");
   });
@@ -81,8 +85,8 @@ describe("subworkflow transfer", () => {
   it("refuses to move a start node into a sub-workflow", () => {
     const startNode = makeWorkflowNode({
       id: "start-1",
-      type: "start",
-      data: { type: "start", label: "Start", name: "start-1" } as WorkflowNode["data"],
+      type: WorkflowNodeType.Start,
+      data: { type: WorkflowNodeType.Start, label: "Start", name: "start-1" } as WorkflowNode["data"],
     });
     const targetSubWorkflow = makeSubWorkflowNode("target-sub", []);
 

@@ -6,12 +6,15 @@ import type { NodeRegistryEntry } from "@/nodes/shared/registry-types";
 import { NodeSize } from "@/nodes/shared/node-size";
 import { NODE_ACCENT } from "@/lib/node-colors";
 import { SubAgentModel, SubAgentMemory } from "@/nodes/agent/enums";
-import type { WorkflowNode, WorkflowNodeData } from "@/types/workflow";
+import { WorkflowNodeType, type WorkflowNode, type WorkflowNodeData } from "@/types/workflow";
 import type { SubWorkflowNodeData } from "./types";
 
 const nanoid = customAlphabet("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", 8);
 
-function createSubWorkflowBoundaryNode(type: "start" | "end", position: { x: number; y: number }): WorkflowNode {
+function createSubWorkflowBoundaryNode(
+  type: WorkflowNodeType.Start | WorkflowNodeType.End,
+  position: { x: number; y: number },
+): WorkflowNode {
   const id = `${type}-sub-${nanoid(8)}`;
   return {
     id,
@@ -19,17 +22,17 @@ function createSubWorkflowBoundaryNode(type: "start" | "end", position: { x: num
     position,
     data: {
       type,
-      label: type === "start" ? "Start" : "End",
+      label: type === WorkflowNodeType.Start ? "Start" : "End",
       name: id,
     } as WorkflowNodeData,
-    ...(type === "start" ? { deletable: false } : {}),
+    ...(type === WorkflowNodeType.Start ? { deletable: false } : {}),
   } as WorkflowNode;
 }
 
 export function createDefaultSubWorkflowContents(): Pick<SubWorkflowNodeData, "subNodes" | "subEdges" | "nodeCount"> {
   const subNodes = [
-    createSubWorkflowBoundaryNode("start", { x: 80, y: 200 }),
-    createSubWorkflowBoundaryNode("end", { x: 600, y: 200 }),
+    createSubWorkflowBoundaryNode(WorkflowNodeType.Start, { x: 80, y: 200 }),
+    createSubWorkflowBoundaryNode(WorkflowNodeType.End, { x: 600, y: 200 }),
   ];
 
   return {
@@ -54,7 +57,7 @@ export function normalizeSubWorkflowContents(
 }
 
 export const subWorkflowRegistryEntry: NodeRegistryEntry = {
-  type: "sub-workflow",
+  type: WorkflowNodeType.SubWorkflow,
   displayName: "Sub Workflow",
   description: "Embed a sub-workflow",
   icon: GitBranch,
@@ -63,7 +66,7 @@ export const subWorkflowRegistryEntry: NodeRegistryEntry = {
   category: NodeCategory.Basic,
   size: NodeSize.Large,
   defaultData: (): SubWorkflowNodeData => ({
-    type: "sub-workflow",
+    type: WorkflowNodeType.SubWorkflow,
     label: "Sub Workflow",
     name: "",
     mode: "same-context",

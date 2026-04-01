@@ -4,6 +4,7 @@ import { NodeCategory } from "@/nodes/shared/registry-types";
 import type { NodeRegistryEntry } from "@/nodes/shared/registry-types";
 import { NodeSize } from "@/nodes/shared/node-size";
 import { NODE_ACCENT } from "@/lib/node-colors";
+import { WorkflowNodeType } from "@/types/workflow";
 import type { ParallelAgentBranch, ParallelAgentNodeData } from "./types";
 
 export function createParallelAgentBranch(index: number): ParallelAgentBranch {
@@ -16,7 +17,7 @@ export function createParallelAgentBranch(index: number): ParallelAgentBranch {
 }
 
 export const parallelAgentRegistryEntry: NodeRegistryEntry = {
-  type: "parallel-agent",
+  type: WorkflowNodeType.ParallelAgent,
   displayName: "Parallel Agent",
   description: "Split work across simultaneous external agents",
   icon: Network,
@@ -25,7 +26,7 @@ export const parallelAgentRegistryEntry: NodeRegistryEntry = {
   category: NodeCategory.ControlFlow,
   size: NodeSize.Large,
   defaultData: (): ParallelAgentNodeData => ({
-    type: "parallel-agent",
+    type: WorkflowNodeType.ParallelAgent,
     label: "Parallel Agent",
     name: "",
     sharedInstructions: "",

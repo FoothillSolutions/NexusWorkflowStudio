@@ -4,16 +4,17 @@ import { NodeCategory } from "@/nodes/shared/registry-types";
 import type { NodeRegistryEntry } from "@/nodes/shared/registry-types";
 import { NodeSize } from "@/nodes/shared/node-size";
 import { NODE_ACCENT } from "@/lib/node-colors";
+import { WorkflowNodeType } from "@/types/workflow";
 import type { SkillNodeData } from "./types";
 
 const SLUG_REGEX = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 export const skillRegistryEntry: NodeRegistryEntry = {
-  type: "skill", displayName: "Skill", description: "A knowledge unit for subagent",
+  type: WorkflowNodeType.Skill, displayName: "Skill", description: "A knowledge unit for subagent",
   icon: Wrench, accentColor: "cyan", accentHex: NODE_ACCENT.skill, category: NodeCategory.Basic,
   size: NodeSize.Medium,
   defaultData: (): SkillNodeData => ({
-    type: "skill", label: "Skill", name: "", skillName: "",
+    type: WorkflowNodeType.Skill, label: "Skill", name: "", skillName: "",
     description: "", promptText: "", detectedVariables: [], variableMappings: {}, metadata: [],
   }),
 };

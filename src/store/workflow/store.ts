@@ -547,7 +547,7 @@ export const useWorkflowStore = create<WorkflowState>()(
     const updateInList = (list: WorkflowNode[]): WorkflowNode[] =>
       list.map((node) => {
         if (node.id !== nodeId) return node;
-        if (node.data?.type !== "sub-workflow") return node;
+        if (node.data?.type !== WorkflowNodeType.SubWorkflow) return node;
         const d = node.data as SubWorkflowNodeData;
         return {
           ...node,

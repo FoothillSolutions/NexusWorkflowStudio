@@ -4,11 +4,12 @@ import { NodeCategory } from "@/nodes/shared/registry-types";
 import type { NodeRegistryEntry } from "@/nodes/shared/registry-types";
 import { NodeSize } from "@/nodes/shared/node-size";
 import { NODE_ACCENT } from "@/lib/node-colors";
+import { WorkflowNodeType } from "@/types/workflow";
 import type { DocumentNodeData } from "./types";
 import { DOC_NAME_REGEX, DOC_SUBFOLDER_REGEX } from "./utils";
 
 export const documentRegistryEntry: NodeRegistryEntry = {
-  type: "document",
+  type: WorkflowNodeType.Document,
   displayName: "Document",
   description: "Attach docs to agents",
   icon: FileText,
@@ -17,7 +18,7 @@ export const documentRegistryEntry: NodeRegistryEntry = {
   category: NodeCategory.Basic,
   size: NodeSize.Small,
   defaultData: (): DocumentNodeData => ({
-    type: "document",
+    type: WorkflowNodeType.Document,
     label: "Document",
     name: "",
     docName: "",
@@ -25,8 +26,8 @@ export const documentRegistryEntry: NodeRegistryEntry = {
     contentMode: "inline",
     fileExtension: "md",
     contentText: "",
-    linkedFileName: "",
-    linkedFileContent: "",
+    linkedFileName: null,
+    linkedFileContent: null,
     description: "",
   }),
 };
@@ -46,8 +47,8 @@ export const documentSchema = z.object({
   contentMode: z.enum(["inline", "linked"]),
   fileExtension: z.enum(["md", "txt", "json", "yaml"]),
   contentText: z.string().default(""),
-  linkedFileName: z.string().default(""),
-  linkedFileContent: z.string().default(""),
+  linkedFileName: z.string().nullable().default(null),
+  linkedFileContent: z.string().nullable().default(null),
   description: z.string().default(""),
 });
 

@@ -3,7 +3,7 @@ import type {
   MarketplaceLibraryItem,
   MarketplaceWorkflowEntry,
 } from "@/lib/marketplace/types";
-import type { WorkflowJSON } from "@/types/workflow";
+import { WorkflowNodeType, type WorkflowJSON } from "@/types/workflow";
 import { makeWorkflowNode } from "@/test-support/workflow-fixtures";
 import { useSavedWorkflowsStore } from "../../library";
 import { useWorkflowStore } from "../../workflow";
@@ -53,7 +53,7 @@ function makeWorkflowJson(name: string): WorkflowJSON {
       makeWorkflowNode({
         id: `${name}-prompt`,
         data: {
-          type: "prompt",
+          type: WorkflowNodeType.Prompt,
           label: name,
           name: `${name}-prompt`,
           promptText: "hello",

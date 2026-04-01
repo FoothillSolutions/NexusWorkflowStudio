@@ -1,9 +1,9 @@
-import type { NodeType } from "@/types/workflow";
+import { WorkflowNodeType } from "@/types/workflow";
 export { SubAgentModel, SubAgentMemory, MODEL_DISPLAY_NAMES, MODEL_COST_MULTIPLIER } from "./enums";
 import type { SubAgentMemory } from "./enums";
 
 export interface SubAgentNodeData extends Record<string, unknown> {
-  type: Extract<NodeType, "agent">;
+  type: WorkflowNodeType.Agent;
   label: string;
   name: string;
   description: string;

@@ -8,12 +8,32 @@ import { useWorkflowStore } from "../workflow";
 import { useSavedWorkflowsStore } from "../library";
 import { AGENT_TOOLS } from "@/nodes/agent/constants";
 import { validateWorkflowJson } from "@/lib/workflow-validation";
-import type { WorkflowNode } from "@/types/workflow";
+import { WorkflowNodeType, type NodeType, type WorkflowNode } from "@/types/workflow";
 import type { StoreGet, StoreSet } from "./types";
 import { estimateTokens } from "./types";
 import { buildSystemPrompt } from "./system-prompt";
 import { extractStreamedWorkflow, tryParseCompleteJSON } from "./streaming-parser";
 import { fixEdgeHandles, type NodeBranchInfo } from "./edge-fixer";
+import { parseSelectedModel } from "./model-utils";
+
+/** Delay before clearing the temporary glow applied to newly streamed nodes. */
+const NODE_GLOW_CLEAR_DELAY_MS = 450;
+
+/** Minimum time between incremental JSON parses while streaming. */
+const STREAM_PARSE_MIN_GAP_MS = 80;
+
+/** Delay before dispatching auto-layout after generation completes. */
+const AUTO_LAYOUT_DISPATCH_DELAY_MS = 100;
+
+/** Delay between auto-layout and fit-view so the layout pass can settle first. */
+const FIT_VIEW_DISPATCH_DELAY_MS = 500;
+
+/** Number of recent assistant messages fetched when SSE streaming returns no text. */
+const MESSAGE_FALLBACK_FETCH_LIMIT = 2;
+
+function toNodeType(value: unknown): NodeType | null {
+  return typeof value === "string" ? (value as NodeType) : null;
+}
 
 // ── Node / Edge readiness checks ─────────────────────────────────────────────
 
@@ -77,14 +97,16 @@ function pushIncremental(
 
       // Register in type map regardless of readiness
       const d = rawNode.data as Record<string, unknown> | undefined;
-      if (d?.type) {
-        nodeTypeMap.set(nodeId, {
-          type: (d.type as string) ?? "",
-          branches: d.branches as Array<{ label: string }> | undefined,
-          options: d.options as Array<{ label: string }> | undefined,
-          multipleSelection: d.multipleSelection as boolean | undefined,
-          aiSuggestOptions: d.aiSuggestOptions as boolean | undefined,
-        });
+      const nodeType = toNodeType(d?.type);
+      if (nodeType) {
+        const branchInfo: NodeBranchInfo = {
+          type: nodeType,
+          branches: d?.branches as Array<{ label: string }> | undefined,
+          options: d?.options as Array<{ label: string }> | undefined,
+          multipleSelection: d?.multipleSelection as boolean | undefined,
+          aiSuggestOptions: d?.aiSuggestOptions as boolean | undefined,
+        };
+        nodeTypeMap.set(nodeId, branchInfo);
       }
 
       if (!isNodeReady(rawNode, isLast)) continue;
@@ -94,7 +116,7 @@ function pushIncremental(
 
       if (!addedNodeIds.has(nodeId)) {
         // ── Brand new node — add to canvas ──────────────────────
-        const isStart = d?.type === "start";
+        const isStart = d?.type === WorkflowNodeType.Start;
         const node: WorkflowNode = {
           ...rawNode,
           type: rawNode.type as string ?? (d?.type as string),
@@ -118,8 +140,8 @@ function pushIncremental(
     if (brandNewNodes.length > 0) {
       const existingNodes = useWorkflowStore.getState().nodes;
       const filtered = existingNodes.filter((n) => (
-        !(n.data?.type === "start" && brandNewNodes.some((nn) => (nn.data as Record<string, unknown>)?.type === "start")) &&
-        !(n.data?.type === "end" && brandNewNodes.some((nn) => (nn.data as Record<string, unknown>)?.type === "end")) &&
+        !(n.data?.type === WorkflowNodeType.Start && brandNewNodes.some((nn) => nn.data.type === WorkflowNodeType.Start)) &&
+        !(n.data?.type === WorkflowNodeType.End && brandNewNodes.some((nn) => nn.data.type === WorkflowNodeType.End)) &&
         !brandNewNodes.some((nn) => nn.id === n.id)
       ));
       useWorkflowStore.setState({ nodes: [...filtered, ...brandNewNodes] });
@@ -139,7 +161,7 @@ function pushIncremental(
         if (current === newNodeIds) {
           set({ _glowingNodeIds: [] });
         }
-      }, 450);
+      }, NODE_GLOW_CLEAR_DELAY_MS);
     }
 
     // Apply data updates to already-rendered nodes
@@ -271,10 +293,18 @@ export async function generate(set: StoreSet, get: StoreGet): Promise<void> {
     _pendingEdges: [],
   });
 
-  // Parse selected model
-  const slashIdx = selectedModel.indexOf("/");
-  const providerId = slashIdx > 0 ? selectedModel.slice(0, slashIdx) : "";
-  const modelId = slashIdx > 0 ? selectedModel.slice(slashIdx + 1) : selectedModel;
+  const parsedModel = parseSelectedModel(selectedModel);
+  if (!parsedModel) {
+    useWorkflowStore.temporal.getState().resume();
+    set({
+      error: "Please select a model before generating a workflow.",
+      status: "error",
+      _abortController: null,
+    });
+    return;
+  }
+
+  const { providerId, modelId } = parsedModel;
 
   try {
     const { useProjectContext, projectContext } = get();
@@ -311,7 +341,6 @@ export async function generate(set: StoreSet, get: StoreGet): Promise<void> {
     let lastParsedEdgeCount = 0;
     let rafPending = false;
     let lastParseTime = 0;
-    const MIN_PARSE_GAP_MS = 80;
 
     /** Run an incremental parse and push results to canvas. */
     const doParse = () => {
@@ -338,12 +367,12 @@ export async function generate(set: StoreSet, get: StoreGet): Promise<void> {
       requestAnimationFrame(() => {
         rafPending = false;
         const now = performance.now();
-        if (now - lastParseTime < MIN_PARSE_GAP_MS) {
+        if (now - lastParseTime < STREAM_PARSE_MIN_GAP_MS) {
           // Too soon since last parse — schedule a delayed follow-up
           setTimeout(() => {
             lastParseTime = performance.now();
             doParse();
-          }, MIN_PARSE_GAP_MS - (now - lastParseTime));
+          }, STREAM_PARSE_MIN_GAP_MS - (now - lastParseTime));
         } else {
           lastParseTime = now;
           doParse();
@@ -389,7 +418,7 @@ export async function generate(set: StoreSet, get: StoreGet): Promise<void> {
 
     // If streaming produced nothing, fall back to fetching the last message
     if (!fullText.trim()) {
-      const messages = await client.messages.list(sid, 2);
+      const messages = await client.messages.list(sid, MESSAGE_FALLBACK_FETCH_LIMIT);
       const assistantMsg = messages.find((m) => m.info.role === "assistant");
       if (assistantMsg) {
         const parts = assistantMsg.parts as Array<{ type: string; text?: string }>;
@@ -417,14 +446,17 @@ export async function generate(set: StoreSet, get: StoreGet): Promise<void> {
         const nodeTypeMap = new Map<string, NodeBranchInfo>();
         for (const n of finalStreamed.nodes) {
           const d = n.data as Record<string, unknown> | undefined;
+          const nodeType = toNodeType(d?.type) ?? toNodeType(n.type);
           if (n.id) {
-            nodeTypeMap.set(n.id as string, {
-              type: (d?.type as string) ?? (n.type as string) ?? "",
+            if (!nodeType) continue;
+            const branchInfo: NodeBranchInfo = {
+              type: nodeType,
               branches: d?.branches as Array<{ label: string }> | undefined,
               options: d?.options as Array<{ label: string }> | undefined,
               multipleSelection: d?.multipleSelection as boolean | undefined,
               aiSuggestOptions: d?.aiSuggestOptions as boolean | undefined,
-            });
+            };
+            nodeTypeMap.set(n.id as string, branchInfo);
           }
         }
         const fixedEdges = fixEdgeHandles(ctx.pendingEdges, nodeTypeMap);
@@ -451,8 +483,8 @@ export async function generate(set: StoreSet, get: StoreGet): Promise<void> {
         window.dispatchEvent(new CustomEvent("nexus:auto-layout"));
         setTimeout(() => {
           window.dispatchEvent(new CustomEvent("nexus:fit-view"));
-        }, 500);
-      }, 100);
+        }, FIT_VIEW_DISPATCH_DELAY_MS);
+      }, AUTO_LAYOUT_DISPATCH_DELAY_MS);
 
       const finalNodes = useWorkflowStore.getState().nodes;
       const finalEdges = useWorkflowStore.getState().edges;

@@ -1,4 +1,4 @@
-import type { NodeType } from "@/types/workflow";
+import { WorkflowNodeType } from "@/types/workflow";
 
 export interface SkillMetadataEntry {
   key: string;
@@ -6,7 +6,7 @@ export interface SkillMetadataEntry {
 }
 
 export interface SkillNodeData extends Record<string, unknown> {
-  type: Extract<NodeType, "skill">;
+  type: WorkflowNodeType.Skill;
   label: string;
   name: string;
   skillName: string;

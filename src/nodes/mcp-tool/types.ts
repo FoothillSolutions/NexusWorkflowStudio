@@ -1,5 +1,5 @@
-import type { NodeType } from "@/types/workflow";
+import { WorkflowNodeType } from "@/types/workflow";
 export interface McpToolNodeData extends Record<string, unknown> {
-  type: Extract<NodeType, "mcp-tool">;
+  type: WorkflowNodeType.McpTool;
   label: string; name: string; toolName: string; paramsText: string;
 }

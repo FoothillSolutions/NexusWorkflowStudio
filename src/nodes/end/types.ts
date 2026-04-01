@@ -1,6 +1,6 @@
-import type { NodeType } from "@/types/workflow";
+import { WorkflowNodeType } from "@/types/workflow";
 export interface EndNodeData extends Record<string, unknown> {
-  type: Extract<NodeType, "end">;
+  type: WorkflowNodeType.End;
   label: string;
   name: string;
 }

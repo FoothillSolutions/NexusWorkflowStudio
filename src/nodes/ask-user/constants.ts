@@ -3,10 +3,11 @@ import { z } from "zod/v4";
 import { NodeCategory } from "@/nodes/shared/registry-types";
 import type { NodeRegistryEntry } from "@/nodes/shared/registry-types";
 import { NODE_ACCENT } from "@/lib/node-colors";
+import { WorkflowNodeType } from "@/types/workflow";
 import type { AskUserNodeData } from "./types";
 
 export const askUserRegistryEntry: NodeRegistryEntry = {
-  type: "ask-user",
+  type: WorkflowNodeType.AskUser,
   displayName: "Ask User Question",
   description: "Prompt user for input",
   icon: HelpCircle,
@@ -14,7 +15,7 @@ export const askUserRegistryEntry: NodeRegistryEntry = {
   accentHex: NODE_ACCENT["ask-user"],
   category: NodeCategory.ControlFlow,
   defaultData: (): AskUserNodeData => ({
-    type: "ask-user",
+    type: WorkflowNodeType.AskUser,
     label: "Ask User Question",
     name: "",
     questionText: "New Question",

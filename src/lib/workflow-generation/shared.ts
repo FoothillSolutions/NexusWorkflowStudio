@@ -1,4 +1,4 @@
-import type { WorkflowEdge, WorkflowNode } from "@/types/workflow";
+import { WorkflowNodeType, type NodeType, type WorkflowEdge, type WorkflowNode } from "@/types/workflow";
 import { generator as startGen } from "@/nodes/start/generator";
 import { generator as endGen } from "@/nodes/end/generator";
 import { generator as promptGen } from "@/nodes/prompt/generator";
@@ -20,20 +20,20 @@ export interface GeneratedFile {
   content: string;
 }
 
-export const NODE_GENERATORS: Record<string, NodeGeneratorModule> = {
-  start: startGen,
-  end: endGen,
-  prompt: promptGen,
-  script: scriptGen,
-  agent: subAgentGen,
-  "parallel-agent": parallelAgentGen,
-  "sub-workflow": subWorkflowGen,
-  skill: skillGen,
-  document: documentGen,
-  "mcp-tool": mcpToolGen,
-  "if-else": ifElseGen,
-  switch: switchGen,
-  "ask-user": askUserGen,
+export const NODE_GENERATORS: Record<NodeType, NodeGeneratorModule> = {
+  [WorkflowNodeType.Start]: startGen,
+  [WorkflowNodeType.End]: endGen,
+  [WorkflowNodeType.Prompt]: promptGen,
+  [WorkflowNodeType.Script]: scriptGen,
+  [WorkflowNodeType.Agent]: subAgentGen,
+  [WorkflowNodeType.ParallelAgent]: parallelAgentGen,
+  [WorkflowNodeType.SubWorkflow]: subWorkflowGen,
+  [WorkflowNodeType.Skill]: skillGen,
+  [WorkflowNodeType.Document]: documentGen,
+  [WorkflowNodeType.McpTool]: mcpToolGen,
+  [WorkflowNodeType.IfElse]: ifElseGen,
+  [WorkflowNodeType.Switch]: switchGen,
+  [WorkflowNodeType.AskUser]: askUserGen,
 };
 
 const SKILL_SLUG_REGEX = /^[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -52,9 +52,9 @@ export function resolveSkillReferenceName(d: {
 }
 
 export function mermaidNodeShape(node: WorkflowNode): string {
-  if (node.data.type === "skill") return "";
-  if (node.data.type === "document") return "";
-  if (node.data.type === "script") return "";
+  if (node.data.type === WorkflowNodeType.Skill) return "";
+  if (node.data.type === WorkflowNodeType.Document) return "";
+  if (node.data.type === WorkflowNodeType.Script) return "";
 
   const generator = NODE_GENERATORS[node.data.type];
   if (generator) return generator.getMermaidShape(node.id, node.data);
@@ -70,6 +70,7 @@ export function mermaidEdge(
   const tgtId = mermaidId(edge.target);
   const defaultHandles = new Set(["output", "input"]);
   const sourceHandle = edge.sourceHandle;
+  const DECIMAL_RADIX = 10;
 
   if (typeof sourceHandle === "string" && !defaultHandles.has(sourceHandle)) {
     let raw: string = sourceHandle;
@@ -77,9 +78,9 @@ export function mermaidEdge(
     const optionMatch = raw.match(/^option-(\d+)$/);
     if (optionMatch && nodeById) {
       const srcNode = nodeById.get(edge.source);
-      if (srcNode?.data?.type === "ask-user") {
+      if (srcNode?.data?.type === WorkflowNodeType.AskUser) {
         const d = srcNode.data as import("@/types/workflow").AskUserNodeData;
-        const idx = Number.parseInt(optionMatch[1], 10);
+        const idx = Number.parseInt(optionMatch[1], DECIMAL_RADIX);
         const opt = d.options?.[idx];
         if (opt && typeof opt === "object" && opt.label) {
           raw = opt.label;
@@ -90,9 +91,9 @@ export function mermaidEdge(
     const parallelMatch = raw.match(/^branch-(\d+)$/);
     if (parallelMatch && nodeById) {
       const srcNode = nodeById.get(edge.source);
-      if (srcNode?.data?.type === "parallel-agent") {
+      if (srcNode?.data?.type === WorkflowNodeType.ParallelAgent) {
         const d = srcNode.data as import("@/types/workflow").ParallelAgentNodeData;
-        const idx = Number.parseInt(parallelMatch[1], 10);
+        const idx = Number.parseInt(parallelMatch[1], DECIMAL_RADIX);
         const branch = d.branches?.[idx];
         if (branch?.label) {
           raw = branch.label;
@@ -119,7 +120,7 @@ export function filterReachable(
 
   const visited = new Set<string>();
   const queue = nodes
-    .filter((node) => node.data.type === "start")
+    .filter((node) => node.data.type === WorkflowNodeType.Start)
     .map((node) => node.id);
 
   for (const id of queue) visited.add(id);

@@ -5,12 +5,23 @@ import { BaseNode, NodeSize } from "@/nodes/shared/base-node";
 import { HANDLE_CLASS } from "@/lib/theme";
 import { NODE_ACCENT } from "@/lib/node-colors";
 import { FileText, FileUp, Zap } from "lucide-react";
+import { WorkflowNodeType } from "@/types/workflow";
 import { documentRegistryEntry } from "./constants";
 import type { DocumentNodeData } from "./types";
 import { useWorkflowStore } from "@/store/workflow";
 import { getDocumentDisplayPath } from "./utils";
 
-const truncate = (str: string, n: number) => (str?.length ?? 0) > n ? str.slice(0, n) + "..." : str;
+/** Maximum number of characters shown for a linked file badge. */
+const LINKED_FILE_LABEL_MAX_LENGTH = 30;
+
+/** Number of inline content preview lines to render inside the node card. */
+const INLINE_CONTENT_PREVIEW_LINE_COUNT = 3;
+
+/** Maximum characters kept from each inline preview line before truncation. */
+const INLINE_CONTENT_PREVIEW_LINE_LENGTH = 45;
+
+const truncate = (str: string | null | undefined, maxLength: number) =>
+  (str?.length ?? 0) > maxLength ? `${str?.slice(0, maxLength)}...` : (str ?? "");
 
 const EXT_LABELS: Record<string, string> = { md: "Markdown", txt: "Text", json: "JSON", yaml: "YAML" };
 
@@ -22,7 +33,8 @@ export const DocumentNode = memo(function DocumentNode({ id, data, selected }: N
       const state = useWorkflowStore.getState();
       const targetNode = state.nodes.find((n) => n.id === connection.target)
         ?? state.subWorkflowNodes.find((n) => n.id === connection.target);
-      return targetNode?.data?.type === "agent" || targetNode?.data?.type === "parallel-agent";
+      return targetNode?.data?.type === WorkflowNodeType.Agent
+        || targetNode?.data?.type === WorkflowNodeType.ParallelAgent;
     },
     []
   );
@@ -47,17 +59,20 @@ export const DocumentNode = memo(function DocumentNode({ id, data, selected }: N
           data.linkedFileName && (
             <div className="flex items-center gap-1.5">
               <FileUp size={10} className="text-yellow-600 shrink-0" />
-              <span className="text-[10px] text-zinc-500 font-mono truncate">{truncate(data.linkedFileName, 30)}</span>
+              <span className="text-[10px] text-zinc-500 font-mono truncate">
+                {truncate(data.linkedFileName, LINKED_FILE_LABEL_MAX_LENGTH)}
+              </span>
             </div>
           )
         ) : (
           data.contentText && (() => {
             const lines = data.contentText.split("\n");
-            const shown = lines.slice(0, 3);
-            const hasMore = lines.length > 3 || shown.some((l) => l.length > 45);
+            const shown = lines.slice(0, INLINE_CONTENT_PREVIEW_LINE_COUNT);
+            const hasMore = lines.length > INLINE_CONTENT_PREVIEW_LINE_COUNT
+              || shown.some((line) => line.length > INLINE_CONTENT_PREVIEW_LINE_LENGTH);
             return (
-              <div className="text-xs text-zinc-500 font-mono whitespace-pre-wrap break-words">
-                {shown.map((line) => truncate(line, 45)).join("\n")}
+              <div className="text-xs text-zinc-500 font-mono whitespace-pre-wrap wrap-break-word">
+                {shown.map((line) => truncate(line, INLINE_CONTENT_PREVIEW_LINE_LENGTH)).join("\n")}
                 {hasMore && <span className="text-zinc-600"> ...</span>}
               </div>
             );

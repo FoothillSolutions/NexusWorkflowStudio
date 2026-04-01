@@ -1,9 +1,12 @@
 import throttle from "lodash.throttle";
-import type { WorkflowJSON, WorkflowNode, WorkflowEdge } from "@/types/workflow";
+import { WorkflowNodeType, type WorkflowJSON, type WorkflowNode, type WorkflowEdge } from "@/types/workflow";
 import { readJsonStorage, readStorageValue, removeStorageValue, writeJsonStorage, writeStorageValue } from "@/lib/browser-storage";
 import { parseWorkflowJsonOrThrow, readWorkflowJson } from "@/lib/workflow-validation";
 
 const STORAGE_KEY = "nexus-workflow-studio:last";
+
+/** Interval used to coalesce local persistence writes during active editing. */
+const THROTTLED_SAVE_INTERVAL_MS = 2000;
 
 // ── Strip transient React Flow properties from serialized JSON ───────────
 // These properties are runtime-only (measured, selected, dragging) or
@@ -14,7 +17,7 @@ function cleanNode(node: WorkflowNode): WorkflowNode {
   const { measured, selected, dragging, deletable, ...rest } = node;
 
   // Recursively strip sub-workflow embedded nodes/edges
-  if (rest.data?.type === "sub-workflow" && rest.data.subNodes) {
+  if (rest.data?.type === WorkflowNodeType.SubWorkflow && rest.data.subNodes) {
     return {
       ...rest,
       data: {
@@ -33,7 +36,7 @@ function cleanNodeForFingerprint(node: WorkflowNode): WorkflowNode {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { position, ...rest } = cleaned;
 
-  if (rest.data?.type === "sub-workflow" && rest.data.subNodes) {
+  if (rest.data?.type === WorkflowNodeType.SubWorkflow && rest.data.subNodes) {
     return {
       ...rest,
       data: {
@@ -134,7 +137,7 @@ export async function importWorkflow(file: File): Promise<WorkflowJSON> {
 }
 
 // ── Throttled save (2 second interval) ──────────────────────────────────────
-export const throttledSave = throttle(saveToLocalStorage, 2000, {
+export const throttledSave = throttle(saveToLocalStorage, THROTTLED_SAVE_INTERVAL_MS, {
   leading: false,
   trailing: true,
 });

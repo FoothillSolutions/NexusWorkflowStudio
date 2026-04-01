@@ -2,7 +2,7 @@ import type { Node, Edge, Viewport } from "@xyflow/react";
 
 export { SubAgentModel, SubAgentMemory, MODEL_DISPLAY_NAMES } from "@/nodes/agent/enums";
 import { SubAgentMemory } from "@/nodes/agent/enums";
-import type { NodeType } from "./node-types";
+import { WorkflowNodeType, type NodeType } from "./node-types";
 export {
   AGENT_LIKE_NODE_TYPES,
   ATTACHMENT_NODE_TYPES,
@@ -22,23 +22,23 @@ interface BaseNodeData extends Record<string, unknown> {
 }
 
 export interface StartNodeData extends BaseNodeData {
-  type: "start";
+  type: WorkflowNodeType.Start;
 }
 
 export interface PromptNodeData extends BaseNodeData {
-  type: "prompt";
+  type: WorkflowNodeType.Prompt;
   promptText: string;
   detectedVariables: string[];
 }
 
 export interface ScriptNodeData extends BaseNodeData {
-  type: "script";
+  type: WorkflowNodeType.Script;
   promptText: string;
   detectedVariables: string[];
 }
 
 export interface SubAgentNodeData extends BaseNodeData {
-  type: "agent";
+  type: WorkflowNodeType.Agent;
   description: string;
   promptText: string;
   detectedVariables: string[];
@@ -61,7 +61,7 @@ export interface ParallelAgentBranch {
 }
 
 export interface ParallelAgentNodeData extends BaseNodeData {
-  type: "parallel-agent";
+  type: WorkflowNodeType.ParallelAgent;
   sharedInstructions: string;
   branches: ParallelAgentBranch[];
 }
@@ -69,7 +69,7 @@ export interface ParallelAgentNodeData extends BaseNodeData {
 export type SubWorkflowMode = "same-context" | "agent";
 
 export interface SubWorkflowNodeData extends BaseNodeData {
-  type: "sub-workflow";
+  type: WorkflowNodeType.SubWorkflow;
   mode: SubWorkflowMode;
   subNodes: WorkflowNode[];
   subEdges: WorkflowEdge[];
@@ -84,7 +84,7 @@ export interface SubWorkflowNodeData extends BaseNodeData {
 }
 
 export interface SkillNodeData extends BaseNodeData {
-  type: "skill";
+  type: WorkflowNodeType.Skill;
   skillName: string;
   description: string;
   promptText: string;
@@ -97,7 +97,7 @@ export interface SkillNodeData extends BaseNodeData {
 export type DocumentContentMode = "inline" | "linked";
 
 export interface DocumentNodeData extends BaseNodeData {
-  type: "document";
+  type: WorkflowNodeType.Document;
   docName: string;
   docSubfolder: string;
   contentMode: DocumentContentMode;
@@ -106,14 +106,14 @@ export interface DocumentNodeData extends BaseNodeData {
   /** Inline content entered by the user */
   contentText: string;
   /** File name of the linked/uploaded file */
-  linkedFileName: string;
+  linkedFileName: string | null;
   /** Raw content of the linked/uploaded file */
-  linkedFileContent: string;
+  linkedFileContent: string | null;
   description: string;
 }
 
 export interface McpToolNodeData extends BaseNodeData {
-  type: "mcp-tool";
+  type: WorkflowNodeType.McpTool;
   toolName: string;
   paramsText: string;
 }
@@ -124,7 +124,7 @@ export interface IfElseBranch {
 }
 
 export interface IfElseNodeData extends BaseNodeData {
-  type: "if-else";
+  type: WorkflowNodeType.IfElse;
   evaluationTarget: string;
   branches: IfElseBranch[];
 }
@@ -135,7 +135,7 @@ export interface SwitchBranch {
 }
 
 export interface SwitchNodeData extends BaseNodeData {
-  type: "switch";
+  type: WorkflowNodeType.Switch;
   evaluationTarget: string;
   branches: SwitchBranch[];
 }
@@ -146,7 +146,7 @@ export interface AskUserOption {
 }
 
 export interface AskUserNodeData extends BaseNodeData {
-  type: "ask-user";
+  type: WorkflowNodeType.AskUser;
   questionText: string;
   multipleSelection: boolean;
   aiSuggestOptions: boolean;
@@ -154,7 +154,7 @@ export interface AskUserNodeData extends BaseNodeData {
 }
 
 export interface EndNodeData extends BaseNodeData {
-  type: "end";
+  type: WorkflowNodeType.End;
 }
 
 // Discriminated union

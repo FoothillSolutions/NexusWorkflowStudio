@@ -3,6 +3,7 @@ import type {
   WorkflowNode,
   WorkflowNodeData,
 } from "@/types/workflow";
+import { WorkflowNodeType } from "@/types/workflow";
 import type { SubWorkflowNodeData } from "@/nodes/sub-workflow/types";
 
 export function resolveParentNodes(
@@ -33,7 +34,7 @@ export function updateNestedSubWorkflowNodes(
   const [currentAncestorId, ...remainingPath] = ancestorPath;
 
   return nodes.map((node) => {
-    if (node.id !== currentAncestorId || node.data?.type !== "sub-workflow") {
+    if (node.id !== currentAncestorId || node.data?.type !== WorkflowNodeType.SubWorkflow) {
       return node;
     }
 
@@ -64,7 +65,7 @@ export function updateNestedSubWorkflowEdges(
   const [currentAncestorId, ...remainingPath] = ancestorPath;
 
   return nodes.map((node) => {
-    if (node.id !== currentAncestorId || node.data?.type !== "sub-workflow") {
+    if (node.id !== currentAncestorId || node.data?.type !== WorkflowNodeType.SubWorkflow) {
       return node;
     }
 

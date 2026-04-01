@@ -3,10 +3,11 @@ import { z } from "zod/v4";
 import { NodeCategory } from "@/nodes/shared/registry-types";
 import type { NodeRegistryEntry } from "@/nodes/shared/registry-types";
 import { NODE_ACCENT } from "@/lib/node-colors";
+import { WorkflowNodeType } from "@/types/workflow";
 import type { SwitchNodeData } from "./types";
 
 export const switchRegistryEntry: NodeRegistryEntry = {
-  type: "switch",
+  type: WorkflowNodeType.Switch,
   displayName: "Switch",
   description: "Multi-way branch",
   icon: ArrowRightLeft,
@@ -14,7 +15,7 @@ export const switchRegistryEntry: NodeRegistryEntry = {
   accentHex: NODE_ACCENT.switch,
   category: NodeCategory.ControlFlow,
   defaultData: (): SwitchNodeData => ({
-    type: "switch",
+    type: WorkflowNodeType.Switch,
     label: "Switch",
     name: "",
     evaluationTarget: "",

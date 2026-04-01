@@ -3,10 +3,11 @@ import { z } from "zod/v4";
 import { NodeCategory } from "@/nodes/shared/registry-types";
 import type { NodeRegistryEntry } from "@/nodes/shared/registry-types";
 import { NODE_ACCENT } from "@/lib/node-colors";
+import { WorkflowNodeType } from "@/types/workflow";
 import type { IfElseNodeData } from "./types";
 
 export const ifElseRegistryEntry: NodeRegistryEntry = {
-  type: "if-else",
+  type: WorkflowNodeType.IfElse,
   displayName: "If / Else",
   description: "Conditional branch",
   icon: GitFork,
@@ -14,7 +15,7 @@ export const ifElseRegistryEntry: NodeRegistryEntry = {
   accentHex: NODE_ACCENT["if-else"],
   category: NodeCategory.ControlFlow,
   defaultData: (): IfElseNodeData => ({
-    type: "if-else",
+    type: WorkflowNodeType.IfElse,
     label: "If / Else",
     name: "",
     evaluationTarget: "",

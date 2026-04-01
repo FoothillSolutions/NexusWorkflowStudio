@@ -1,10 +1,10 @@
-import type { NodeType, WorkflowNode, WorkflowEdge } from "@/types/workflow";
+import { WorkflowNodeType, type WorkflowNode, type WorkflowEdge } from "@/types/workflow";
 import type { SubAgentMemory } from "@/nodes/agent/enums";
 
 export type SubWorkflowMode = "same-context" | "agent";
 
 export interface SubWorkflowNodeData extends Record<string, unknown> {
-  type: Extract<NodeType, "sub-workflow">;
+  type: WorkflowNodeType.SubWorkflow;
   label: string;
   name: string;
   /** Execution mode — inline (same context) or delegated to a spawned agent */

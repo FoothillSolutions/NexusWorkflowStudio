@@ -4,6 +4,7 @@ import { NodeCategory } from "@/nodes/shared/registry-types";
 import type { NodeRegistryEntry } from "@/nodes/shared/registry-types";
 import { NodeSize } from "@/nodes/shared/node-size";
 import { NODE_ACCENT } from "@/lib/node-colors";
+import { WorkflowNodeType } from "@/types/workflow";
 import { SubAgentModel, SubAgentMemory } from "./types";
 import type { SubAgentNodeData } from "./types";
 
@@ -21,7 +22,7 @@ export const PRESET_COLORS = [
 ] as const;
 
 export const subAgentRegistryEntry: NodeRegistryEntry = {
-  type: "agent",
+  type: WorkflowNodeType.Agent,
   displayName: "Agent",
   description: "Delegate to an agent",
   icon: Bot,
@@ -30,7 +31,7 @@ export const subAgentRegistryEntry: NodeRegistryEntry = {
   category: NodeCategory.Basic,
   size: NodeSize.Large,
   defaultData: (): SubAgentNodeData => ({
-    type: "agent",
+    type: WorkflowNodeType.Agent,
     label: "Agent",
     name: "",
     description: "",

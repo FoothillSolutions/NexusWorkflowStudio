@@ -5,7 +5,7 @@
  * feature. Orchestrates per-node generator modules; all node-specific logic
  * lives in src/nodes/<type>/generator.ts.
  */
-import type { WorkflowEdge, WorkflowJSON, WorkflowNode } from "@/types/workflow";
+import { WorkflowNodeType, type WorkflowEdge, type WorkflowJSON, type WorkflowNode } from "@/types/workflow";
 import type { NodeGeneratorModule } from "@/nodes/shared/registry-types";
 import { mermaidId } from "@/nodes/shared/mermaid-utils";
 import { getDocumentRelativePath } from "@/nodes/document/utils";
@@ -68,9 +68,9 @@ function collectAgentFiles(
     if (
       edge.sourceHandle === "skill-out" &&
       reachableIds.has(edge.target) &&
-      (targetNode?.data.type === "agent" ||
-        targetNode?.data.type === "parallel-agent") &&
-      sourceNode?.data.type === "skill"
+      (targetNode?.data.type === WorkflowNodeType.Agent ||
+        targetNode?.data.type === WorkflowNodeType.ParallelAgent) &&
+      sourceNode?.data.type === WorkflowNodeType.Skill
     ) {
       if (!skillsByTarget.has(edge.target)) skillsByTarget.set(edge.target, []);
       skillsByTarget.get(edge.target)?.push(edge.source);
@@ -79,9 +79,9 @@ function collectAgentFiles(
     if (
       edge.sourceHandle === "doc-out" &&
       reachableIds.has(edge.target) &&
-      (targetNode?.data.type === "agent" ||
-        targetNode?.data.type === "parallel-agent") &&
-      sourceNode?.data.type === "document"
+      (targetNode?.data.type === WorkflowNodeType.Agent ||
+        targetNode?.data.type === WorkflowNodeType.ParallelAgent) &&
+      sourceNode?.data.type === WorkflowNodeType.Document
     ) {
       if (!docsByTarget.has(edge.target)) docsByTarget.set(edge.target, []);
       docsByTarget.get(edge.target)?.push(edge.source);
@@ -89,8 +89,8 @@ function collectAgentFiles(
 
     if (
       edge.targetHandle === "scripts" &&
-      targetNode?.data.type === "skill" &&
-      sourceNode?.data.type === "script"
+      targetNode?.data.type === WorkflowNodeType.Skill &&
+      sourceNode?.data.type === WorkflowNodeType.Script
     ) {
       if (!scriptsBySkill.has(edge.target)) scriptsBySkill.set(edge.target, []);
       scriptsBySkill.get(edge.target)?.push(edge.source);
@@ -102,12 +102,12 @@ function collectAgentFiles(
   const files: GeneratedFile[] = [];
 
   for (const node of reachable) {
-    if (node.data.type !== "agent") continue;
+    if (node.data.type !== WorkflowNodeType.Agent) continue;
 
     const skillIds = skillsByTarget.get(node.id) ?? [];
     const connectedSkillNames = skillIds.flatMap((skillId) => {
       const skillNode = allNodeById.get(skillId);
-      if (skillNode?.data.type !== "skill") return [];
+      if (skillNode?.data.type !== WorkflowNodeType.Skill) return [];
 
       const skillName = resolveSkillReferenceName(
         skillNode.data as import("@/nodes/skill/types").SkillNodeData,
@@ -118,7 +118,7 @@ function collectAgentFiles(
     const docIds = docsByTarget.get(node.id) ?? [];
     const connectedDocNames = docIds.flatMap((docId) => {
       const docNode = allNodeById.get(docId);
-      if (docNode?.data.type !== "document") return [];
+      if (docNode?.data.type !== WorkflowNodeType.Document) return [];
 
       const relativePath = getDocumentRelativePath(
         docNode.data as import("@/nodes/document/types").DocumentNodeData,
@@ -139,14 +139,14 @@ function collectAgentFiles(
 
   for (const skillId of connectedSkillIds) {
     const skillNode = allNodeById.get(skillId);
-    if (skillNode?.data.type !== "skill") continue;
+    if (skillNode?.data.type !== WorkflowNodeType.Skill) continue;
 
     const generator = NODE_GENERATORS.skill;
     const skillData = skillNode.data as import("@/nodes/skill/types").SkillNodeData;
     const skillName = resolveSkillReferenceName(skillData);
     const connectedScripts = (scriptsBySkill.get(skillId) ?? [])
       .map((scriptId) => allNodeById.get(scriptId))
-      .filter((node): node is WorkflowNode => !!node && node.data.type === "script")
+      .filter((node): node is WorkflowNode => !!node && node.data.type === WorkflowNodeType.Script)
       .map((node) => ({
         label: (node.data.label as string) || node.id,
         fileName: getSkillScriptFileName(node.data),
@@ -176,7 +176,7 @@ function collectAgentFiles(
 
   for (const docId of connectedDocIds) {
     const docNode = allNodeById.get(docId);
-    if (docNode?.data.type !== "document") continue;
+    if (docNode?.data.type !== WorkflowNodeType.Document) continue;
 
     const file = NODE_GENERATORS.document?.getDocFile?.(
       docNode.id,
@@ -187,9 +187,9 @@ function collectAgentFiles(
   }
 
   for (const node of reachable) {
-    if (node.data.type !== "sub-workflow") continue;
+    if (node.data.type !== WorkflowNodeType.SubWorkflow) continue;
 
-    const generator = NODE_GENERATORS["sub-workflow"] as NodeGeneratorModule & {
+    const generator = NODE_GENERATORS[WorkflowNodeType.SubWorkflow] as NodeGeneratorModule & {
       getSubWorkflowJSON?(id: string, data: WorkflowNode["data"]): WorkflowJSON | null;
     };
     const subWorkflowData = node.data as import("@/nodes/sub-workflow/types").SubWorkflowNodeData;
@@ -228,18 +228,18 @@ function buildCommandMarkdown(workflow: WorkflowJSON): string {
   let canonicalEndId: string | null = null;
 
   const dedupedNodes = nodes.filter((node) => {
-    if (node.data.type === "skill") return false;
-    if (node.data.type === "document") return false;
-    if (node.data.type === "script") return false;
+    if (node.data.type === WorkflowNodeType.Skill) return false;
+    if (node.data.type === WorkflowNodeType.Document) return false;
+    if (node.data.type === WorkflowNodeType.Script) return false;
 
-    if (node.data.type === "start" || node.data.type === "end") {
+    if (node.data.type === WorkflowNodeType.Start || node.data.type === WorkflowNodeType.End) {
       if (!seenTypes.has(node.data.type)) {
         seenTypes.add(node.data.type);
-        if (node.data.type === "end") canonicalEndId = node.id;
+        if (node.data.type === WorkflowNodeType.End) canonicalEndId = node.id;
         return true;
       }
 
-      if (node.data.type === "end" && canonicalEndId) {
+      if (node.data.type === WorkflowNodeType.End && canonicalEndId) {
         endNodeIdMap.set(node.id, canonicalEndId);
       }
       return false;
@@ -249,13 +249,13 @@ function buildCommandMarkdown(workflow: WorkflowJSON): string {
   });
 
   const skillNodeIds = new Set(
-    nodes.filter((node) => node.data.type === "skill").map((node) => node.id),
+    nodes.filter((node) => node.data.type === WorkflowNodeType.Skill).map((node) => node.id),
   );
   const documentNodeIds = new Set(
-    nodes.filter((node) => node.data.type === "document").map((node) => node.id),
+    nodes.filter((node) => node.data.type === WorkflowNodeType.Document).map((node) => node.id),
   );
   const scriptNodeIds = new Set(
-    nodes.filter((node) => node.data.type === "script").map((node) => node.id),
+    nodes.filter((node) => node.data.type === WorkflowNodeType.Script).map((node) => node.id),
   );
 
   const remappedEdges = edges
@@ -297,7 +297,7 @@ function buildCommandMarkdown(workflow: WorkflowJSON): string {
   const mermaidInner = edgeLines.length > 0 ? [...nodeLines, "", ...edgeLines] : nodeLines;
   const mermaidBlock = ["```mermaid", "flowchart TD", ...mermaidInner, "```"].join("\n");
 
-  const startNodeId = nodes.find((node) => node.data.type === "start")?.id ?? "start";
+  const startNodeId = nodes.find((node) => node.data.type === WorkflowNodeType.Start)?.id ?? WorkflowNodeType.Start;
   const executionGuide = `## Workflow Execution Guide
 Follow the Mermaid flowchart above to execute the workflow starting from \`${mermaidId(startNodeId)}\` node. Each node type has specific execution methods as described below.
 Split each flow path into a todo item using todowrite and todoread tools, and update the todo list correspondingly.

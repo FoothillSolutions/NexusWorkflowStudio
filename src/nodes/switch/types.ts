@@ -1,4 +1,4 @@
-import type { NodeType } from "@/types/workflow";
+import { WorkflowNodeType } from "@/types/workflow";
 
 export interface SwitchBranch {
   label: string;
@@ -6,7 +6,7 @@ export interface SwitchBranch {
 }
 
 export interface SwitchNodeData extends Record<string, unknown> {
-  type: Extract<NodeType, "switch">;
+  type: WorkflowNodeType.Switch;
   label: string;
   name: string;
   evaluationTarget: string;

@@ -1,4 +1,4 @@
-import type { NodeType } from "@/types/workflow";
+import { WorkflowNodeType } from "@/types/workflow";
 
 export interface IfElseBranch {
   label: string;
@@ -6,7 +6,7 @@ export interface IfElseBranch {
 }
 
 export interface IfElseNodeData extends Record<string, unknown> {
-  type: Extract<NodeType, "if-else">;
+  type: WorkflowNodeType.IfElse;
   label: string;
   name: string;
   evaluationTarget: string;

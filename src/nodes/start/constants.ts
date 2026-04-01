@@ -3,10 +3,11 @@ import { z } from "zod/v4";
 import { NodeCategory } from "@/nodes/shared/registry-types";
 import type { NodeRegistryEntry } from "@/nodes/shared/registry-types";
 import { NODE_ACCENT } from "@/lib/node-colors";
+import { WorkflowNodeType } from "@/types/workflow";
 import type { StartNodeData } from "./types";
 
 export const startRegistryEntry: NodeRegistryEntry = {
-  type: "start",
+  type: WorkflowNodeType.Start,
   displayName: "Start",
   description: "Workflow entry point",
   icon: Play,
@@ -14,7 +15,7 @@ export const startRegistryEntry: NodeRegistryEntry = {
   accentHex: NODE_ACCENT.start,
   category: NodeCategory.Basic,
   defaultData: (): StartNodeData => ({
-    type: "start",
+    type: WorkflowNodeType.Start,
     label: "Start",
     name: "",
   }),

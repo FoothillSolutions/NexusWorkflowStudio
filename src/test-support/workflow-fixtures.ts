@@ -1,14 +1,14 @@
 import { SubAgentMemory, SubAgentModel } from "@/nodes/agent/enums";
-import type { WorkflowEdge, WorkflowNode } from "@/types/workflow";
+import { WorkflowNodeType, type WorkflowEdge, type WorkflowNode } from "@/types/workflow";
 
 export function makeWorkflowNode(overrides: Partial<WorkflowNode> = {}): WorkflowNode {
   return {
     id: overrides.id ?? "node-1",
-    type: overrides.type ?? "prompt",
+    type: overrides.type ?? WorkflowNodeType.Prompt,
     position: overrides.position ?? { x: 0, y: 0 },
     data:
       overrides.data ??
-      ({ type: "prompt", label: "Prompt", name: overrides.id ?? "node-1" } as WorkflowNode["data"]),
+      ({ type: WorkflowNodeType.Prompt, label: "Prompt", name: overrides.id ?? "node-1" } as WorkflowNode["data"]),
     ...overrides,
   } as WorkflowNode;
 }
@@ -31,9 +31,9 @@ export function makeSubWorkflowNode(
 ): WorkflowNode {
   return makeWorkflowNode({
     id,
-    type: "sub-workflow",
+    type: WorkflowNodeType.SubWorkflow,
     data: {
-      type: "sub-workflow",
+      type: WorkflowNodeType.SubWorkflow,
       label: id,
       name: id,
       mode: "same-context",

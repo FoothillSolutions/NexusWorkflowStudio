@@ -4,10 +4,11 @@ import { NodeCategory } from "@/nodes/shared/registry-types";
 import type { NodeRegistryEntry } from "@/nodes/shared/registry-types";
 import { NodeSize } from "@/nodes/shared/node-size";
 import { NODE_ACCENT } from "@/lib/node-colors";
+import { WorkflowNodeType } from "@/types/workflow";
 import type { ScriptNodeData } from "./types";
 
 export const scriptRegistryEntry: NodeRegistryEntry = {
-  type: "script",
+  type: WorkflowNodeType.Script,
   displayName: "Script",
   description: "A custom script",
   icon: FileCode2,
@@ -16,7 +17,7 @@ export const scriptRegistryEntry: NodeRegistryEntry = {
   category: NodeCategory.Basic,
   size: NodeSize.Large,
   defaultData: (): ScriptNodeData => ({
-    type: "script",
+    type: WorkflowNodeType.Script,
     label: "script.ts",
     name: "",
     promptText: "export async function main() {\n  console.log(\"Hello from Bun\");\n}\n\nawait main();\n",

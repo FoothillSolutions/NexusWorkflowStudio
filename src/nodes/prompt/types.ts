@@ -1,6 +1,6 @@
-import type { NodeType } from "@/types/workflow";
+import { WorkflowNodeType } from "@/types/workflow";
 export interface PromptNodeData extends Record<string, unknown> {
-  type: Extract<NodeType, "prompt">;
+  type: WorkflowNodeType.Prompt;
   label: string;
   name: string;
   promptText: string;
