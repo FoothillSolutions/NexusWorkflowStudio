@@ -9,8 +9,6 @@ import type { Provider, Project } from "@/lib/opencode/types";
 
 type ConnectionStatus = "disconnected" | "connecting" | "connected" | "error";
 
-// ── Model group types (shared with useModels hook) ───────────────────────────
-
 export interface DynamicModel {
   value: string;
   displayName: string;
