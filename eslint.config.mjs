@@ -10,6 +10,33 @@ const eslintConfig = defineConfig([
       reportUnusedDisableDirectives: "error",
     },
     rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/store/library-store"],
+              message: "Use the canonical '@/store/library' entrypoint instead.",
+            },
+            {
+              group: ["@/store/opencode-store"],
+              message: "Use the canonical '@/store/opencode' entrypoint instead.",
+            },
+            {
+              group: ["@/store/workflow-gen-store"],
+              message: "Use the canonical '@/store/workflow-gen' entrypoint instead.",
+            },
+            {
+              group: ["@/store/workflow-store", "@/store/workflow-store-*"],
+              message: "Use the canonical '@/store/workflow' domain exports instead.",
+            },
+            {
+              group: ["@/store/prompt-gen-store", "@/store/prompt-gen-*"],
+              message: "Use the canonical '@/store/prompt-gen' domain exports instead.",
+            },
+          ],
+        },
+      ],
       // Allow underscore-prefixed unused vars (interface conformance convention)
       "@typescript-eslint/no-unused-vars": [
         "warn",
