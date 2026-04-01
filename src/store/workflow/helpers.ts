@@ -5,6 +5,7 @@ import type {
   WorkflowJSON,
   WorkflowNodeData,
 } from "@/types/workflow";
+import { WorkflowNodeType } from "@/types/workflow";
 import type { SubWorkflowNodeData } from "@/nodes/sub-workflow/types";
 import {
   stripFingerprintProperties,
@@ -26,10 +27,10 @@ export const SAVE_STATUS_UI = {
 export function createDefaultStartNode(): WorkflowNode {
   return {
     id: START_NODE_ID,
-    type: "start",
+    type: WorkflowNodeType.Start,
     position: { x: 80, y: 200 },
     data: {
-      type: "start",
+      type: WorkflowNodeType.Start,
       label: "Start",
       name: START_NODE_ID,
     } as WorkflowNodeData,
@@ -40,10 +41,10 @@ export function createDefaultStartNode(): WorkflowNode {
 export function createDefaultEndNode(): WorkflowNode {
   return {
     id: END_NODE_ID,
-    type: "end",
+    type: WorkflowNodeType.End,
     position: { x: 600, y: 200 },
     data: {
-      type: "end",
+      type: WorkflowNodeType.End,
       label: "END",
       name: END_NODE_ID,
     } as WorkflowNodeData,
@@ -81,12 +82,12 @@ export function deriveSaveStatus(
 }
 
 export function ensureStartNode(nodes: WorkflowNode[]): WorkflowNode[] {
-  const hasStart = nodes.some((node) => node.data?.type === "start");
+  const hasStart = nodes.some((node) => node.data?.type === WorkflowNodeType.Start);
   return hasStart ? nodes : [createDefaultStartNode(), ...nodes];
 }
 
 export function ensureEndNode(nodes: WorkflowNode[]): WorkflowNode[] {
-  const hasEnd = nodes.some((node) => node.data?.type === "end");
+  const hasEnd = nodes.some((node) => node.data?.type === WorkflowNodeType.End);
   return hasEnd ? nodes : [...nodes, createDefaultEndNode()];
 }
 
@@ -103,7 +104,7 @@ export function migrateLegacyPromptScripts(
   const migratedNodes = nodes.map((node) => {
     const data = node.data as WorkflowNodeData;
 
-    if (node.data?.type === "sub-workflow") {
+    if (node.data?.type === WorkflowNodeType.SubWorkflow) {
       const subWorkflowData = data as SubWorkflowNodeData;
       const migratedSub = migrateLegacyPromptScripts(
         subWorkflowData.subNodes ?? [],
@@ -120,13 +121,13 @@ export function migrateLegacyPromptScripts(
       };
     }
 
-    if (legacyScriptIds.has(node.id) && node.data?.type === "prompt") {
+    if (legacyScriptIds.has(node.id) && node.data?.type === WorkflowNodeType.Prompt) {
       return {
         ...node,
-        type: "script",
+        type: WorkflowNodeType.Script,
         data: {
           ...data,
-          type: "script",
+          type: WorkflowNodeType.Script,
         } as WorkflowNodeData,
       };
     }
@@ -153,7 +154,7 @@ export function stripLegacySkillProjectName(
   return nodes.map((node) => {
     const data = node.data as WorkflowNodeData;
 
-    if (node.data?.type === "sub-workflow") {
+    if (node.data?.type === WorkflowNodeType.SubWorkflow) {
       const subWorkflowData = data as SubWorkflowNodeData;
       const nextSubNodes = stripLegacySkillProjectName(
         subWorkflowData.subNodes ?? [],
@@ -168,7 +169,7 @@ export function stripLegacySkillProjectName(
       };
     }
 
-    if (node.data?.type !== "skill") return node;
+    if (node.data?.type !== WorkflowNodeType.Skill) return node;
 
     const { projectName: _projectName, ...skillData } = data as WorkflowNodeData & {
       projectName?: string;

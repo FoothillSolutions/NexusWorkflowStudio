@@ -10,12 +10,14 @@ import {
   type Viewport,
 } from "@xyflow/react";
 import { customAlphabet } from "nanoid";
-import type {
-  NodeType,
-  WorkflowNode,
-  WorkflowEdge,
-  WorkflowNodeData,
-  WorkflowJSON,
+import {
+  NON_DELETABLE_NODE_TYPES,
+  WorkflowNodeType,
+  type NodeType,
+  type WorkflowNode,
+  type WorkflowEdge,
+  type WorkflowNodeData,
+  type WorkflowJSON,
 } from "@/types/workflow";
 import type { SubWorkflowNodeData } from "@/nodes/sub-workflow/types";
 import { SubAgentModel, SubAgentMemory } from "@/nodes/agent/enums";
@@ -243,7 +245,7 @@ export const useWorkflowStore = create<WorkflowState>()(
 
   addNode: (type, position) => {
     // Only one Start node is allowed and it already exists by default
-    if (type === "start") return;
+    if (type === WorkflowNodeType.Start) return;
     const newNode = createNodeFromType(type, position) as WorkflowNode;
     set({ nodes: [...get().nodes, newNode] });
   },
@@ -261,7 +263,7 @@ export const useWorkflowStore = create<WorkflowState>()(
   deleteNode: (nodeId) => {
     // The Start node is protected and cannot be deleted
     const target = get().nodes.find((n) => n.id === nodeId);
-    if (!target || target.data?.type === "start") return;
+    if (!target || NON_DELETABLE_NODE_TYPES.has(target.data?.type ?? WorkflowNodeType.Start)) return;
     set({
       nodes: get().nodes.filter((n) => n.id !== nodeId),
       edges: get().edges.filter(
@@ -287,7 +289,7 @@ export const useWorkflowStore = create<WorkflowState>()(
         nodes:
           ancestorPath.length === 0
             ? state.nodes.map((node) => {
-              if (node.id !== state.activeSubWorkflowNodeId || node.data?.type !== "sub-workflow") return node;
+              if (node.id !== state.activeSubWorkflowNodeId || node.data?.type !== WorkflowNodeType.SubWorkflow) return node;
               const data = node.data as SubWorkflowNodeData;
               return {
                 ...node,
@@ -327,7 +329,7 @@ export const useWorkflowStore = create<WorkflowState>()(
     if (target?.type === "node") {
       const nodePool = target.scope === "subworkflow" ? get().subWorkflowNodes : get().nodes;
       const node = nodePool.find((n) => n.id === target.id);
-      if (node?.data?.type === "start") return; // Start node is undeletable
+      if (node && NON_DELETABLE_NODE_TYPES.has(node.data?.type ?? WorkflowNodeType.Start)) return;
     }
     set({ deleteTarget: target });
   },
@@ -355,7 +357,7 @@ export const useWorkflowStore = create<WorkflowState>()(
 
   duplicateNode: (nodeId) => {
     const node = get().nodes.find((n) => n.id === nodeId);
-    if (!node || node.data?.type === "start") return;
+    if (!node || NON_DELETABLE_NODE_TYPES.has(node.data?.type ?? WorkflowNodeType.Start)) return;
     const newId = `${node.data.type}-${nanoid(8)}`;
     const newNode: WorkflowNode = {
       ...node,
@@ -378,7 +380,7 @@ export const useWorkflowStore = create<WorkflowState>()(
 
   duplicateSelectedNodes: () => {
     const toDuplicate = get().nodes.filter(
-      (n) => n.selected && n.data?.type !== "start"
+      (n) => n.selected && !NON_DELETABLE_NODE_TYPES.has(n.data?.type ?? WorkflowNodeType.Start)
     );
     if (toDuplicate.length === 0) return;
 
@@ -420,7 +422,7 @@ export const useWorkflowStore = create<WorkflowState>()(
 
   deleteSelectedNodes: () => {
     const selectedIds = get().nodes
-      .filter((n) => n.selected && n.data?.type !== "start")
+      .filter((n) => n.selected && !NON_DELETABLE_NODE_TYPES.has(n.data?.type ?? WorkflowNodeType.Start))
       .map((n) => n.id);
     if (selectedIds.length === 0) return;
     set({
@@ -549,7 +551,7 @@ export const useWorkflowStore = create<WorkflowState>()(
   deleteSubWorkflowNode: (nodeId) => {
     const state = get();
     const target = state.subWorkflowNodes.find((node) => node.id === nodeId);
-    if (!target || target.data?.type === "start") return;
+    if (!target || NON_DELETABLE_NODE_TYPES.has(target.data?.type ?? WorkflowNodeType.Start)) return;
 
     const nextNodes = state.subWorkflowNodes.filter((node) => node.id !== nodeId);
     const nextEdges = state.subWorkflowEdges.filter(
@@ -571,7 +573,7 @@ export const useWorkflowStore = create<WorkflowState>()(
   deleteSelectedSubWorkflowNodes: () => {
     const state = get();
     const selectedIds = state.subWorkflowNodes
-      .filter((node) => node.selected && node.data?.type !== "start")
+      .filter((node) => node.selected && !NON_DELETABLE_NODE_TYPES.has(node.data?.type ?? WorkflowNodeType.Start))
       .map((node) => node.id);
     if (selectedIds.length === 0) return;
 
@@ -638,7 +640,7 @@ export const useWorkflowStore = create<WorkflowState>()(
 
   groupIntoSubWorkflow: (nodeIds) => {
     const state = get();
-    const selectedNodes = state.nodes.filter((n) => nodeIds.includes(n.id) && n.data?.type !== "start");
+    const selectedNodes = state.nodes.filter((n) => nodeIds.includes(n.id) && !NON_DELETABLE_NODE_TYPES.has(n.data?.type ?? WorkflowNodeType.Start));
     if (selectedNodes.length === 0) return;
 
     const selectedIdSet = new Set(selectedNodes.map((n) => n.id));
@@ -667,16 +669,16 @@ export const useWorkflowStore = create<WorkflowState>()(
 
     const subStartNode: WorkflowNode = {
       id: subStartId,
-      type: "start",
-      position: { x: minX - 200, y: midY },
-      data: { type: "start", label: "Start", name: subStartId } as WorkflowNodeData,
+      type: WorkflowNodeType.Start,
+      position: { x: 80, y: 200 },
+      data: { type: WorkflowNodeType.Start, label: "Start", name: subStartId } as WorkflowNodeData,
       deletable: false,
     };
     const subEndNode: WorkflowNode = {
       id: subEndId,
-      type: "end",
+      type: WorkflowNodeType.End,
       position: { x: maxX + 200, y: midY },
-      data: { type: "end", label: "End", name: subEndId } as WorkflowNodeData,
+      data: { type: WorkflowNodeType.End, label: "End", name: subEndId } as WorkflowNodeData,
     };
 
     // Normalize positions of moved nodes relative to sub-workflow origin
@@ -730,11 +732,11 @@ export const useWorkflowStore = create<WorkflowState>()(
     const subWorkflowId = `sub-workflow-${nanoid(8)}`;
     const subWorkflowNode: WorkflowNode = {
       id: subWorkflowId,
-      type: "sub-workflow",
+      type: WorkflowNodeType.SubWorkflow,
       position: { x: cx, y: cy },
       selected: false,
       data: {
-        type: "sub-workflow",
+        type: WorkflowNodeType.SubWorkflow,
         label: "Sub Workflow",
         name: subWorkflowId,
         mode: "same-context",
@@ -821,7 +823,7 @@ export const useWorkflowStore = create<WorkflowState>()(
     const normalizedNodes = stripLegacySkillProjectName(migrated.nodes);
     const nodes = ensureEndNode(
       ensureStartNode(normalizedNodes).map((n) =>
-        n.data?.type === "start" ? { ...n, deletable: false } : n
+        n.data?.type === WorkflowNodeType.Start ? { ...n, deletable: false } : n
       ) as WorkflowNode[]
     );
     const edges = migrated.edges.map((e) => ({ ...e, type: "deletable" }));

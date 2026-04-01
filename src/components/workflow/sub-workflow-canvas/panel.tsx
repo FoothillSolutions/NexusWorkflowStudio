@@ -14,7 +14,14 @@ import {
 import "@xyflow/react/dist/style.css";
 import { customAlphabet } from "nanoid";
 import { useWorkflowStore } from "@/store/workflow";
-import type { NodeType, WorkflowNode, WorkflowEdge, WorkflowNodeData } from "@/types/workflow";
+import {
+  NON_DELETABLE_NODE_TYPES,
+  WorkflowNodeType,
+  type NodeType,
+  type WorkflowNode,
+  type WorkflowEdge,
+  type WorkflowNodeData,
+} from "@/types/workflow";
 import type { LibraryItemEntry } from "@/lib/library";
 import { createNodeFromType } from "@/lib/node-registry";
 import type { SubWorkflowNodeData } from "@/nodes/sub-workflow/types";
@@ -266,7 +273,7 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
   // Node CRUD helpers
   const addSubNode = useCallback(
     (type: NodeType, position: { x: number; y: number }) => {
-      if (type === "start") return;
+      if (type === WorkflowNodeType.Start) return;
       const newNode = createNodeFromType(type, position) as WorkflowNode;
       setSubNodes((prev) => {
         const next = [...prev, newNode];
@@ -281,7 +288,7 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
     (id: string) => {
       setSubNodes((prev) => {
         const node = prev.find((n) => n.id === id);
-        if (!node || node.data?.type === "start") return prev;
+        if (!node || NON_DELETABLE_NODE_TYPES.has(node.data?.type ?? WorkflowNodeType.Start)) return prev;
         const newId = `${node.data.type}-${nanoid(8)}`;
         const dup: WorkflowNode = {
           ...node,
@@ -300,7 +307,7 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
 
   const duplicateSelectedSubNodes = useCallback(() => {
     setSubNodes((prev) => {
-      const toDup = prev.filter((n) => n.selected && n.data?.type !== "start");
+      const toDup = prev.filter((n) => n.selected && !NON_DELETABLE_NODE_TYPES.has(n.data?.type ?? WorkflowNodeType.Start));
       if (toDup.length === 0) return prev;
       const idMap = new Map<string, string>();
       const newNodes = toDup.map((node) => {
@@ -394,10 +401,10 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
 
   const getHoveredSubWorkflowId = useCallback(
     (draggedNode: WorkflowNode) => {
-      if (draggedNode.data?.type === "start") return null;
+      if (draggedNode.data?.type === WorkflowNodeType.Start) return null;
 
       const targetNode = (getIntersectingNodes(draggedNode, true) as WorkflowNode[])
-        .find((node) => node.id !== draggedNode.id && node.data?.type === "sub-workflow");
+        .find((node) => node.id !== draggedNode.id && node.data?.type === WorkflowNodeType.SubWorkflow);
 
       return targetNode?.id ?? null;
     },
@@ -412,7 +419,7 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
 
   const handleLoadLibraryItem = useCallback(
     (item: LibraryItemEntry) => {
-      if (item.nodeType === "start") {
+      if (item.nodeType === WorkflowNodeType.Start) {
         toast.error("Start nodes can’t be added inside a subworkflow");
         return;
       }
@@ -426,7 +433,7 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
         ...newNode.data,
         ...item.nodeData,
         name: newNode.id,
-        ...(item.nodeType === "sub-workflow"
+        ...(item.nodeType === WorkflowNodeType.SubWorkflow
           ? normalizeSubWorkflowContents(item.nodeData as Partial<SubWorkflowNodeData>)
           : {}),
       } as WorkflowNodeData;
@@ -466,7 +473,7 @@ function SubWorkflowCanvasInner({ nodeId }: SubWorkflowCanvasInnerProps) {
         scope: "subworkflow",
         count:
           target.type === "selection"
-            ? subNodesRef.current.filter((node) => node.selected && node.data?.type !== "start").length
+            ? subNodesRef.current.filter((node) => node.selected && !NON_DELETABLE_NODE_TYPES.has(node.data?.type ?? WorkflowNodeType.Start)).length
             : undefined,
       });
     },
