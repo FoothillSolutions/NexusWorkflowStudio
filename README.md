@@ -22,6 +22,7 @@ Nexus is a visual workflow editor for designing, composing, and exporting AI wor
 
 - Save workflows locally and reload them later
 - Save reusable node configurations to the library
+- Browse and import pre-built agents, skills, and prompts from marketplace repositories
 - Import and export workflow JSON files
 - Generate runnable workflow artifacts for `OpenCode`, `PI`, and `Claude Code`
 - Export generated files as a ZIP or write them directly into a target folder
@@ -215,6 +216,77 @@ maps to:
 - `$3 = 10`
 
 These positional values can then be passed through agent parameter mappings inside the workflow.
+
+## Marketplace
+
+Nexus can pull reusable agents, skills, and prompts from Git-hosted marketplace repositories. Marketplace items appear as read-only entries in the library panel.
+
+### Quick setup
+
+Set the `NEXUS_MARKETPLACES` environment variable to a comma-separated list of Git URLs or local paths:
+
+```bash
+NEXUS_MARKETPLACES=https://github.com/org/marketplace-repo,/path/to/local/marketplace
+```
+
+To pin a specific branch or tag, append `#ref`:
+
+```bash
+NEXUS_MARKETPLACES=https://github.com/org/marketplace-repo#v2.0
+```
+
+### Alternative: JSON config file
+
+For advanced configuration (explicit names, multiple refs), create a `nexus-marketplaces.json` file in the project root or point to one via `NEXUS_MARKETPLACES_FILE`:
+
+```json
+[
+  { "name": "my-marketplace", "source": "https://github.com/org/repo", "ref": "main" }
+]
+```
+
+### Marketplace repository structure
+
+Each marketplace repo must contain a `.claude-plugin/marketplace.json` manifest:
+
+```json
+{
+  "name": "My Marketplace",
+  "plugins": [
+    { "name": "my-plugin", "source": "./plugins/my-plugin" }
+  ]
+}
+```
+
+Each plugin directory can contain:
+
+- `agents/*.md` — Agent definitions with YAML frontmatter
+- `skills/*/SKILL.md` — Skill definitions
+- `commands/*.md` — Prompt templates
+
+### Refreshing
+
+Click the refresh button in the library panel header to pull the latest from all configured marketplaces.
+
+#### Auto-refresh
+
+Nexus refreshes marketplace data automatically on a server-side timer. The default interval is **1 hour**. Configure via `NEXUS_MARKETPLACE_REFRESH_INTERVAL`:
+
+```bash
+# Every 30 minutes
+NEXUS_MARKETPLACE_REFRESH_INTERVAL=30m
+
+# Every 90 seconds
+NEXUS_MARKETPLACE_REFRESH_INTERVAL=90s
+
+# Raw milliseconds also work
+NEXUS_MARKETPLACE_REFRESH_INTERVAL=600000
+
+# Disable auto-refresh entirely
+NEXUS_MARKETPLACE_REFRESH_INTERVAL=0
+```
+
+The timer starts after the initial refresh on server startup completes. Manual refreshes (via the UI button or `POST /api/marketplaces`) reset the countdown, so a refresh never fires redundantly right after a manual one.
 
 ## Recommended workflow authoring flow
 

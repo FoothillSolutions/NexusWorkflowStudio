@@ -53,7 +53,14 @@ EXPOSE 3000
 
 COPY --from=builder --chown=bun:bun /app/public ./public
 
+# Install git for marketplace clone/pull operations at runtime.
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN mkdir .next && chown bun:bun .next
+
+# Pre-create marketplace cache directory with correct ownership.
+RUN mkdir -p /tmp/nexus-marketplaces && chown bun:bun /tmp/nexus-marketplaces
 
 # Automatically leverage output traces to reduce image size.
 # https://nextjs.org/docs/advanced-features/output-file-tracing
