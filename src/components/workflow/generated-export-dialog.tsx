@@ -13,12 +13,10 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   ArrowRight,
-  Bot,
   Boxes,
   Check,
   Download,
   FolderOpen,
-  FolderTree,
   Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -57,7 +55,7 @@ interface GeneratedExportDialogProps {
 
 const TARGET_VISUALS = {
   opencode: {
-    Icon: FolderTree,
+    Icon: Boxes,
     accentClass: "border-sky-500/25 bg-sky-500/10 text-sky-300",
     activeClass: "border-sky-500/50 bg-sky-500/12 text-sky-200",
     badgeClass: "bg-sky-500/10 text-sky-300 border-sky-500/20",
@@ -69,7 +67,7 @@ const TARGET_VISUALS = {
     badgeClass: "bg-violet-500/10 text-violet-300 border-violet-500/20",
   },
   "claude-code": {
-    Icon: Bot,
+    Icon: Boxes,
     accentClass: "border-amber-500/25 bg-amber-500/10 text-amber-300",
     activeClass: "border-amber-500/50 bg-amber-500/12 text-amber-200",
     badgeClass: "bg-amber-500/10 text-amber-300 border-amber-500/20",
@@ -100,6 +98,8 @@ export default function GeneratedExportDialog({
     () => getGenerationTarget(target ?? DEFAULT_GENERATION_TARGET),
     [target],
   );
+  const selectedTargetVisuals = TARGET_VISUALS[target ?? DEFAULT_GENERATION_TARGET];
+  const SelectedTargetIcon = selectedTargetVisuals.Icon;
   const isTargetFolderSelected = directoryHandle?.name === selectedTarget.rootDir;
 
   const handlePickDirectory = async () => {
@@ -173,7 +173,7 @@ export default function GeneratedExportDialog({
         <DialogHeader className="gap-3 border-b border-zinc-800 px-4 py-5 pr-12 sm:px-6 sm:py-6 sm:pr-14">
           <div className="flex items-start gap-4">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-300 shadow-sm shadow-emerald-950/30">
-              <FolderTree className="h-5 w-5" />
+              <SelectedTargetIcon className="h-5 w-5" />
             </div>
             <div className="space-y-1">
               <DialogTitle className="text-xl">Generate workflow files</DialogTitle>
