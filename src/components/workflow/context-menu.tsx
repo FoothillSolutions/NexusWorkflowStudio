@@ -2,15 +2,15 @@
 
 import { useEffect, useRef } from "react";
 import { Clipboard, Copy, Trash2, BookmarkPlus, GitBranch } from "lucide-react";
-import type { NodeType } from "@/types/workflow";
+import {
+  LIBRARY_SAVEABLE_NODE_TYPES,
+  type NodeType,
+} from "@/types/workflow";
 
 export type ContextMenuTarget =
   | { kind: "node"; nodeId: string; nodeType: NodeType; isDeletable: boolean; isDuplicatable: boolean }
   | { kind: "selection" }
   | { kind: "pane" };
-
-/** Node types that can be saved to the library */
-const SAVEABLE_TYPES = new Set<NodeType>(["agent", "skill", "document", "prompt", "script"]);
 
 interface ContextMenuProps {
   x: number;
@@ -65,7 +65,7 @@ export function ContextMenu({
 
   const style: React.CSSProperties = { position: "fixed", left: x, top: y, zIndex: 1000 };
 
-  // ── What actions are available ──────────────────────────────────────────
+  // Available Actions
   const isNode = target.kind === "node";
   const isSelection = target.kind === "selection";
   const multiSelected = selectedCount > 1;
@@ -75,7 +75,7 @@ export function ContextMenu({
   const canCopy = isNode && nodeTarget!.isDuplicatable && !!onCopy;
   const canDuplicate = isNode && nodeTarget!.isDuplicatable && !!onDuplicate;
   const canDelete    = isNode && nodeTarget!.isDeletable  && !!onDelete;
-  const canSaveToLib = isNode && SAVEABLE_TYPES.has(nodeTarget!.nodeType) && !!onSaveToLibrary;
+  const canSaveToLib = isNode && LIBRARY_SAVEABLE_NODE_TYPES.has(nodeTarget!.nodeType) && !!onSaveToLibrary;
 
   // Multi-select / selection actions (shown when selection box right-clicked OR on a node that's part of a multi-select)
   const showSelectionActions = (isSelection || (isNode && multiSelected)) && selectedCount > 1;
