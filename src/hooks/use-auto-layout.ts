@@ -1,7 +1,14 @@
 import { useCallback } from "react";
 import Dagre from "@dagrejs/dagre";
 import { useReactFlow } from "@xyflow/react";
-import type { NodeType, WorkflowNode, WorkflowEdge } from "@/types/workflow";
+import {
+  AGENT_LIKE_NODE_TYPES,
+  ATTACHMENT_NODE_TYPES,
+  WorkflowNodeType,
+  type NodeType,
+  type WorkflowNode,
+  type WorkflowEdge,
+} from "@/types/workflow";
 import { NODE_REGISTRY } from "@/lib/node-registry";
 import { NodeSize, NODE_SIZE_DIMENSIONS } from "@/nodes/shared/node-size";
 
@@ -55,14 +62,14 @@ function fixBranchOrdering(
   for (const node of nodes) {
     const d = nodeDataMap.get(node.id);
     if (!d) continue;
-    const nodeType = d.type as string;
+    const nodeType = d.type as NodeType;
 
     const branchEdges = outgoing.get(node.id);
     if (!branchEdges || branchEdges.length < 2) continue;
 
     let orderedTargetIds: string[] | null = null;
 
-    if (nodeType === "if-else") {
+    if (nodeType === WorkflowNodeType.IfElse) {
       // Sort edges by handle order: "true" first, "false" second
       const sorted = [...branchEdges]
         .filter((e) => e.sourceHandle === "true" || e.sourceHandle === "false")
@@ -70,7 +77,7 @@ function fixBranchOrdering(
       if (sorted.length >= 2) {
         orderedTargetIds = sorted.map((e) => e.target);
       }
-    } else if (nodeType === "switch") {
+    } else if (nodeType === WorkflowNodeType.Switch) {
       const branches = d.branches as Array<{ label: string }> | undefined;
       if (branches && branches.length >= 2) {
         // Build label → edge target lookup
@@ -86,7 +93,7 @@ function fixBranchOrdering(
         }
         if (ordered.length >= 2) orderedTargetIds = ordered;
       }
-    } else if (nodeType === "parallel-agent") {
+    } else if (nodeType === WorkflowNodeType.ParallelAgent) {
       const branches = d.branches as Array<{ label: string }> | undefined;
       if (branches && branches.length >= 2) {
         const ordered: string[] = [];
@@ -96,7 +103,7 @@ function fixBranchOrdering(
         }
         if (ordered.length >= 2) orderedTargetIds = ordered;
       }
-    } else if (nodeType === "ask-user") {
+    } else if (nodeType === WorkflowNodeType.AskUser) {
       // Single-select mode (not multi-select, not AI-suggested): each option
       // has its own handle "option-0", "option-1", etc.
       const multiSelect = d.multipleSelection as boolean | undefined;
@@ -176,8 +183,6 @@ function collectSubtree(
 
 // Attachment layout constants
 
-/** Types that are positioned relative to their parent agent-like node, not by Dagre. */
-const ATTACHMENT_TYPES = new Set<string>(["skill", "document"]);
 
 /** Script nodes wired into a skill are also attachment-like for layout. */
 const SCRIPT_ATTACHMENT_HANDLE = "scripts";
@@ -218,8 +223,8 @@ export function useAutoLayout({ getNodes, getEdges, setNodes, onComplete }: Auto
       const targetNode = currentNodes.find((node) => node.id === edge.target);
       if (
         edge.targetHandle === SCRIPT_ATTACHMENT_HANDLE
-        && sourceNode?.data?.type === "script"
-        && targetNode?.data?.type === "skill"
+        && sourceNode?.data?.type === WorkflowNodeType.Script
+        && targetNode?.data?.type === WorkflowNodeType.Skill
       ) {
         if (claimedScriptAttachments.has(edge.source)) continue;
         claimedScriptAttachments.add(edge.source);
@@ -238,7 +243,7 @@ export function useAutoLayout({ getNodes, getEdges, setNodes, onComplete }: Auto
     for (const node of currentNodes) {
       const d = node.data as Record<string, unknown>;
       nodeDataMap.set(node.id, d);
-       if (ATTACHMENT_TYPES.has(d.type as string) || scriptAttachmentIds.has(node.id)) {
+       if (ATTACHMENT_NODE_TYPES.has(d.type as NodeType) || scriptAttachmentIds.has(node.id)) {
         attachmentNodes.push(node);
       } else {
         flowNodes.push(node);
@@ -257,10 +262,10 @@ export function useAutoLayout({ getNodes, getEdges, setNodes, onComplete }: Auto
       const targetData = nodeDataMap.get(edge.target);
       if (!sourceData || !targetData) continue;
 
-      const srcType = sourceData.type as string;
-      const tgtType = targetData.type as string;
+      const srcType = sourceData.type as NodeType;
+      const tgtType = targetData.type as NodeType;
 
-      if (ATTACHMENT_TYPES.has(srcType) && (tgtType === "agent" || tgtType === "parallel-agent")) {
+      if (ATTACHMENT_NODE_TYPES.has(srcType) && AGENT_LIKE_NODE_TYPES.has(tgtType)) {
         // Skip if this attachment was already claimed by another agent
         if (claimedAttachments.has(edge.source)) continue;
         claimedAttachments.add(edge.source);
@@ -278,9 +283,9 @@ export function useAutoLayout({ getNodes, getEdges, setNodes, onComplete }: Auto
      // ── Filter edges: only include flow edges for Dagre ──────────────
     const flowEdges = currentEdges.filter(edge => {
       const sourceData = nodeDataMap.get(edge.source);
-       if ((sourceData && ATTACHMENT_TYPES.has(sourceData.type as string)) || scriptAttachmentIds.has(edge.source)) return false;
+       if ((sourceData && ATTACHMENT_NODE_TYPES.has(sourceData.type as NodeType)) || scriptAttachmentIds.has(edge.source)) return false;
       const targetData = nodeDataMap.get(edge.target);
-       return !((targetData && ATTACHMENT_TYPES.has(targetData.type as string))
+       return !((targetData && ATTACHMENT_NODE_TYPES.has(targetData.type as NodeType))
          || scriptAttachmentIds.has(edge.target)
          || edge.targetHandle === SCRIPT_ATTACHMENT_HANDLE);
     });
@@ -370,7 +375,7 @@ export function useAutoLayout({ getNodes, getEdges, setNodes, onComplete }: Auto
       const agentPos = targetPositions[agentId];
       if (!agentPos) continue;
 
-      const agentType = (nodeDataMap.get(agentId)?.type as NodeType | undefined) ?? ("agent" as NodeType);
+      const agentType = (nodeDataMap.get(agentId)?.type as NodeType | undefined) ?? WorkflowNodeType.Agent;
       const agentEntry = NODE_REGISTRY[agentType];
       const agentDim = NODE_SIZE_DIMENSIONS[agentEntry?.size ?? NodeSize.Large] ?? defaultDim;
       const attachDim = { width: maxAttachmentWidth, height: Math.max(skillDim.height, documentDim.height) };
@@ -383,16 +388,16 @@ export function useAutoLayout({ getNodes, getEdges, setNodes, onComplete }: Auto
 
       // Sort: skills first, then documents
       const sorted = [...attachments].sort((a, b) => {
-        const aType = (a.data as Record<string, unknown>).type as string;
-        const bType = (b.data as Record<string, unknown>).type as string;
+        const aType = (a.data as Record<string, unknown>).type as NodeType;
+        const bType = (b.data as Record<string, unknown>).type as NodeType;
         if (aType === bType) return 0;
-        return aType === "skill" ? -1 : 1;
+        return aType === WorkflowNodeType.Skill ? -1 : 1;
       });
 
       // Stack attachments and any script prompts under the owning skill.
       sorted.forEach((node) => {
-        const nodeType = (node.data as Record<string, unknown>).type as string;
-        const currentDim = nodeType === "skill" ? skillDim : documentDim;
+        const nodeType = (node.data as Record<string, unknown>).type as NodeType;
+        const currentDim = nodeType === WorkflowNodeType.Skill ? skillDim : documentDim;
         const nodePosition = {
           x: attachX,
           y: cursorY,
@@ -402,7 +407,7 @@ export function useAutoLayout({ getNodes, getEdges, setNodes, onComplete }: Auto
 
         let clusterBottom = nodePosition.y + currentDim.height;
 
-        if (nodeType === "skill") {
+        if (nodeType === WorkflowNodeType.Skill) {
           const scripts = skillScriptAttachments.get(node.id) ?? [];
           if (scripts.length > 0) {
             const scriptX = nodePosition.x - scriptDim.width - ATTACHMENT_X_GAP;
