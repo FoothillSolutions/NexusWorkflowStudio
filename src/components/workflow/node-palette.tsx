@@ -1,6 +1,6 @@
 "use client";
 
-import type { ComponentType, DragEvent } from "react";
+import { forwardRef, type ButtonHTMLAttributes, type ComponentType, type DragEvent } from "react";
 import { useWorkflowStore } from "@/store/workflow";
 import { BASIC_NODES, CONTROL_FLOW_NODES, type NodeRegistryEntry } from "@/lib/node-registry";
 import {
@@ -54,25 +54,31 @@ const TOGGLE_BUTTON_CLASS = buildWorkflowIconToggleButtonClass(TEXT_MUTED);
 
 type ComingSoonItem = (typeof COMING_SOON_BASIC)[number] | (typeof COMING_SOON_CONTROL)[number];
 
-interface HelpIconButtonProps {
+interface HelpIconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   ariaLabel: string;
   compact?: boolean;
 }
 
-function HelpIconButton({ ariaLabel, compact = false }: HelpIconButtonProps) {
+const HelpIconButton = forwardRef<HTMLButtonElement, HelpIconButtonProps>(function HelpIconButton(
+  { ariaLabel, compact = false, className, type = "button", ...props },
+  ref,
+) {
   return (
     <button
-      type="button"
+      ref={ref}
+      type={type}
       className={cn(
-        "inline-flex items-center justify-center rounded-full border border-zinc-700/70 bg-zinc-950/70 text-zinc-500 transition-colors hover:border-zinc-600/80 hover:text-zinc-200",
+        "inline-flex items-center justify-center rounded-full border border-zinc-700/70 bg-zinc-950/70 text-zinc-500 transition-colors hover:border-zinc-600/80 hover:bg-zinc-900/90 hover:text-zinc-200 focus-visible:border-zinc-500/80 focus-visible:ring-2 focus-visible:ring-zinc-500/30 focus-visible:outline-none",
         compact ? "h-5 w-5" : "h-6 w-6",
+        className,
       )}
       aria-label={ariaLabel}
+      {...props}
     >
       <CircleHelp size={compact ? 11 : 12} />
     </button>
   );
-}
+});
 
 interface PaletteCardProps {
   title: string;
@@ -163,9 +169,7 @@ function CompactHelp({
         </span>
         <Tooltip>
           <TooltipTrigger asChild>
-            <span className="shrink-0">
-              <HelpIconButton ariaLabel={`${label} help`} compact />
-            </span>
+            <HelpIconButton ariaLabel={`${label} help`} compact className="shrink-0" />
           </TooltipTrigger>
           <TooltipContent
             side="bottom"
@@ -294,13 +298,23 @@ export default function NodePalette() {
               <TabsList className="grid w-full grid-cols-2 rounded-2xl border border-zinc-800/80 bg-zinc-950/80 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]">
                 <TabsTrigger
                   value="basic"
-                  className={`flex-1 rounded-xl px-2.5 py-1.5 data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100 data-[state=active]:shadow-[0_8px_18px_rgba(0,0,0,0.22)] ${TEXT_SUBTLE} cursor-pointer text-[11px] font-medium`}
+                  className={cn(
+                    "flex-1 rounded-xl border border-transparent px-2.5 py-1.5 text-[11px] font-medium cursor-pointer transition-all duration-200",
+                    "data-[state=active]:border-white/6 data-[state=active]:bg-linear-to-b data-[state=active]:from-zinc-800/95 data-[state=active]:to-zinc-900/95 data-[state=active]:text-zinc-50 data-[state=active]:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_10px_24px_rgba(0,0,0,0.18)]",
+                    "data-[state=inactive]:bg-transparent data-[state=inactive]:text-zinc-500 hover:data-[state=inactive]:bg-zinc-900/70 hover:data-[state=inactive]:text-zinc-300",
+                    TEXT_SUBTLE,
+                  )}
                 >
                   Basic
                 </TabsTrigger>
                 <TabsTrigger
                   value="control"
-                  className={`flex-1 rounded-xl px-2.5 py-1.5 data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100 data-[state=active]:shadow-[0_8px_18px_rgba(0,0,0,0.22)] ${TEXT_SUBTLE} cursor-pointer text-[11px] font-medium`}
+                  className={cn(
+                    "flex-1 rounded-xl border border-transparent px-2.5 py-1.5 text-[11px] font-medium cursor-pointer transition-all duration-200",
+                    "data-[state=active]:border-white/6 data-[state=active]:bg-linear-to-b data-[state=active]:from-zinc-800/95 data-[state=active]:to-zinc-900/95 data-[state=active]:text-zinc-50 data-[state=active]:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_10px_24px_rgba(0,0,0,0.18)]",
+                    "data-[state=inactive]:bg-transparent data-[state=inactive]:text-zinc-500 hover:data-[state=inactive]:bg-zinc-900/70 hover:data-[state=inactive]:text-zinc-300",
+                    TEXT_SUBTLE,
+                  )}
                 >
                   Control
                 </TabsTrigger>
