@@ -36,6 +36,7 @@ import {
   FileText,
   RefreshCw,
   Store,
+  Package,
 } from "lucide-react";
 import {
   BORDER_MUTED,
@@ -273,16 +274,29 @@ function NodePreview({ item }: { item: LibraryItemEntry }) {
   );
 }
 
-// ── Marketplace source badge ─────────────────────────────────────────────────
+// ── Marketplace source badges ────────────────────────────────────────────────
 function MarketplaceSourceBadge({ pluginName, marketplaceName }: { pluginName: string; marketplaceName: string }) {
+  const isNexus = pluginName === "_nexus";
+
   return (
-    <span
-      className="inline-flex items-center gap-1 rounded-full border border-violet-500/25 bg-violet-500/10 px-2 py-0.5 text-[10px] font-medium text-violet-300"
-      title={`From marketplace: ${marketplaceName}`}
-    >
-      <Store size={9} />
-      {pluginName}
-    </span>
+    <>
+      <span
+        className="inline-flex items-center gap-1 rounded-full border border-violet-500/25 bg-violet-500/10 px-2 py-0.5 text-[10px] font-medium text-violet-300"
+        title={`Marketplace: ${marketplaceName}`}
+      >
+        <Store size={9} />
+        {marketplaceName}
+      </span>
+      {!isNexus && (
+        <span
+          className="inline-flex items-center gap-1 rounded-full border border-fuchsia-500/25 bg-fuchsia-500/10 px-2 py-0.5 text-[10px] font-medium text-fuchsia-300"
+          title={`Plugin: ${pluginName}`}
+        >
+          <Package size={9} />
+          {pluginName}
+        </span>
+      )}
+    </>
   );
 }
 
@@ -530,7 +544,7 @@ function LibraryItemCard({
           )}
         </div>
 
-        <div className="mt-2.5 flex items-center gap-2">
+        <div className="mt-2.5 flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => onLoad(item)}
