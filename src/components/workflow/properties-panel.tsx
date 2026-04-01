@@ -9,6 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { X, Trash2, SlidersHorizontal } from "lucide-react";
 import { useWorkflowStore } from "@/store/workflow";
 import { useSavedWorkflowsStore } from "@/store/library";
+import { WorkflowNodeType } from "@/types/workflow";
 import {
   TEXT_MUTED,
   TEXT_PRIMARY,
@@ -228,7 +229,7 @@ export default function PropertiesPanel() {
             </div>
           </section>
 
-          {nodeType !== "start" && (
+          {nodeType !== WorkflowNodeType.Start && (
             <section className={`${PANEL_SURFACE_CLASS} p-3`}>
               <SectionIntro
                 eyebrow="Danger zone"
