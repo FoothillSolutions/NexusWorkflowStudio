@@ -885,7 +885,7 @@ export default function LibraryPanel({ onLoadWorkflow, onLoadItem }: LibraryPane
 
         {/* ── Content ── */}
         <div className="flex min-h-0 flex-1">
-          <ScrollArea className="flex-1 min-h-0 w-full" viewportClassName="overscroll-contain">
+          <ScrollArea className="flex-1 min-h-0 w-full" viewportClassName="overscroll-contain [&>div]:!block">
             <div className="space-y-3 p-3.5">
             {!hasItems && <EmptyState category={activeCategory} />}
 
