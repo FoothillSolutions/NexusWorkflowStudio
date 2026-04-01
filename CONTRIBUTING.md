@@ -26,6 +26,11 @@ bun run dev
 | `bun run start` | Start the production server |
 | `bun run lint` | Run ESLint |
 | `bun run typecheck` | Run TypeScript type checking |
+| `bun run test` | Run the full test suite |
+| `bun run test:store` | Run store-domain tests |
+| `bun run test:lib` | Run shared library tests |
+| `bun run test:nodes` | Run node-module tests |
+| `bun run check` | Run typecheck, lint, and tests together |
 
 ## Architecture Overview
 
@@ -107,6 +112,42 @@ After creating the module, register it in:
 4. Ensure `bun run build` succeeds
 5. Update documentation if you've changed public APIs
 6. Submit a PR with a clear description of the change
+
+## Testing Conventions
+
+Use a **hybrid test layout** so tests stay close to the domain they protect without scattering shared store coverage across the repo.
+
+### Recommended structure
+
+- **`src/store/__tests__/`** — keep store tests centralized and grouped by domain barrel:
+  - `workflow/`
+  - `prompt-gen/`
+  - `workflow-gen/`
+  - `opencode/`
+  - `library/` (when library-specific store tests are added)
+  - `compat/` for legacy shim/backward-compatibility coverage only
+- **`src/nodes/<node-type>/__tests__/`** — colocate tests with the node module they validate
+- **`src/lib/__tests__/`** — keep cross-cutting utility tests here until a lib subfolder becomes large enough to justify its own `__tests__/` folder
+
+### Placement rules
+
+1. **Test the public domain where teammates will look first.**
+   - Example: store helper tests should live under `src/store/__tests__/workflow/`, not under a legacy shim path.
+2. **Keep compatibility tests separate from feature tests.**
+   - Shim/export parity belongs in `src/store/__tests__/compat/` because it spans multiple domains.
+3. **Colocate feature-specific tests when the feature owns the logic.**
+   - Node-specific parsing, utils, generators, and field logic belong next to that node.
+4. **Prefer folder-level grouping over filename prefixes once a domain has multiple tests.**
+   - `workflow/helpers.test.ts` and `workflow/subworkflow.test.ts` scale better than flat names like `workflow-store-helpers.test.ts`.
+5. **Mirror canonical exports, not deprecated shims.**
+   - New tests should import from canonical entrypoints such as `@/store/workflow`, `@/store/prompt-gen`, `@/store/opencode`, and `@/store/library`.
+
+### Extendability guidance
+
+- When a domain grows past a few tests, add a subfolder instead of inventing longer filenames.
+- Keep one test file focused on one primary module or behavior.
+- Add regression tests for extracted helpers before removing compatibility shims or moving files.
+- If UI tests are introduced later, colocate them under the feature directory instead of expanding `src/store/__tests__/` for component behavior.
 
 ## Code Style
 
