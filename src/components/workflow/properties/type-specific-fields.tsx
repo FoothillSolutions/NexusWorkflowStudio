@@ -1,5 +1,8 @@
 "use client";
-import type { NodeType } from "@/types/workflow";
+import {
+  WorkflowNodeType,
+  type NodeType,
+} from "@/types/workflow";
 import type { FormRegister, FormControl, FormSetValue, FormErrors } from "@/nodes/shared/form-types";
 import { Fields as PromptFields }       from "@/nodes/prompt/fields";
 import { Fields as ScriptFields }       from "@/nodes/script/fields";
@@ -24,19 +27,19 @@ interface TypeSpecificFieldsProps {
 
 export function TypeSpecificFields({ nodeType, register, control, setValue, selectedNodeId }: TypeSpecificFieldsProps) {
   switch (nodeType) {
-    case "prompt":         return <PromptFields control={control} setValue={setValue} nodeId={selectedNodeId} />;
-    case "script":         return <ScriptFields control={control} setValue={setValue} nodeId={selectedNodeId} />;
-    case "agent":          return <SubAgentFields control={control} setValue={setValue} nodeId={selectedNodeId} />;
-    case "parallel-agent": return <ParallelAgentFields register={register} control={control} nodeId={selectedNodeId} />;
-    case "sub-workflow":   return <SubWorkflowFields control={control} setValue={setValue} nodeId={selectedNodeId} />;
-    case "skill":          return <SkillFields register={register} control={control} setValue={setValue} nodeId={selectedNodeId} />;
-    case "document":       return <DocumentFields register={register} control={control} setValue={setValue} />;
-    case "mcp-tool":       return <McpToolFields register={register} />;
-    case "if-else":        return <IfElseFields register={register} control={control} />;
-    case "switch":         return <SwitchFields register={register} control={control} />;
-    case "ask-user":       return <AskUserFields register={register} control={control} setValue={setValue} />;
-    case "start":
-    case "end":
+    case WorkflowNodeType.Prompt:         return <PromptFields control={control} setValue={setValue} nodeId={selectedNodeId} />;
+    case WorkflowNodeType.Script:         return <ScriptFields control={control} setValue={setValue} nodeId={selectedNodeId} />;
+    case WorkflowNodeType.Agent:          return <SubAgentFields control={control} setValue={setValue} nodeId={selectedNodeId} />;
+    case WorkflowNodeType.ParallelAgent:  return <ParallelAgentFields register={register} control={control} nodeId={selectedNodeId} />;
+    case WorkflowNodeType.SubWorkflow:    return <SubWorkflowFields control={control} setValue={setValue} nodeId={selectedNodeId} />;
+    case WorkflowNodeType.Skill:          return <SkillFields register={register} control={control} setValue={setValue} nodeId={selectedNodeId} />;
+    case WorkflowNodeType.Document:       return <DocumentFields register={register} control={control} setValue={setValue} />;
+    case WorkflowNodeType.McpTool:        return <McpToolFields register={register} />;
+    case WorkflowNodeType.IfElse:         return <IfElseFields register={register} control={control} />;
+    case WorkflowNodeType.Switch:         return <SwitchFields register={register} control={control} />;
+    case WorkflowNodeType.AskUser:        return <AskUserFields register={register} control={control} setValue={setValue} />;
+    case WorkflowNodeType.Start:
+    case WorkflowNodeType.End:
     default:               return null;
   }
 }
