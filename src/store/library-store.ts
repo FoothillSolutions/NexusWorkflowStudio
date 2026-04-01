@@ -15,7 +15,7 @@ import {
 } from "@/lib/library";
 import type { WorkflowJSON, WorkflowNodeData } from "@/types/workflow";
 import type { MarketplaceLibraryItem, MarketplaceWorkflowEntry } from "@/lib/marketplace/types";
-import { useWorkflowStore } from "@/store/workflow-store";
+import { useWorkflowStore } from "@/store/workflow";
 
 const nanoid = customAlphabet("abcdefghijklmnopqrstuvwxyz0123456789", 12);
 

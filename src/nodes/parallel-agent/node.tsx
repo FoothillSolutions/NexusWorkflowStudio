@@ -6,7 +6,7 @@ import { FileText, Network, Users, Zap } from "lucide-react";
 import { BaseNode, NodeSize } from "@/nodes/shared/base-node";
 import { HANDLE_CLASS } from "@/lib/theme";
 import { NODE_ACCENT } from "@/lib/node-colors";
-import { useWorkflowStore } from "@/store/workflow-store";
+import { useWorkflowStore } from "@/store/workflow";
 import type { ParallelAgentNodeData } from "@/types/workflow";
 import { parallelAgentRegistryEntry } from "./constants";
 

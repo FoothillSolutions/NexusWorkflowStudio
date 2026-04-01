@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { ReactFlowProvider } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { useWorkflowStore } from "@/store/workflow-store";
+import { useWorkflowStore } from "@/store/workflow";
 import { useSavedWorkflowsStore } from "@/store/library-store";
 import { throttledSave, exportWorkflow, stripTransientProperties } from "@/lib/persistence";
 import { isModKey } from "@/lib/platform";

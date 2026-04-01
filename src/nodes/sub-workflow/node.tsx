@@ -7,7 +7,7 @@ import { Layers, Cpu, Thermometer, Wrench, Bot, Workflow, ArrowUpRight } from "l
 import { SubAgentModel, MODEL_DISPLAY_NAMES } from "@/nodes/agent/enums";
 import { subWorkflowRegistryEntry } from "./constants";
 import type { SubWorkflowNodeData } from "./types";
-import { useWorkflowStore } from "@/store/workflow-store";
+import { useWorkflowStore } from "@/store/workflow";
 
 const truncate = (str: string, n: number) => str?.length > n ? str.slice(0, n) + "..." : str;
 const HOVER_OPEN_DELAY_MS = 450;

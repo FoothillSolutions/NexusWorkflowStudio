@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { useWorkflowStore } from "@/store/workflow-store";
+import { useWorkflowStore } from "@/store/workflow";
 
 export function useSelectedWorkflowNode() {
   const selectedNodeId = useWorkflowStore((state) => state.selectedNodeId);

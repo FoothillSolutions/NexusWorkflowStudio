@@ -9,7 +9,7 @@ import {
   type EdgeProps,
 } from "@xyflow/react";
 import { Trash2 } from "lucide-react";
-import { useWorkflowStore } from "@/store/workflow-store";
+import { useWorkflowStore } from "@/store/workflow";
 import { CANVAS_EDGE_STROKE } from "@/lib/theme";
 
 export const DeletableEdge = memo(function DeletableEdge({

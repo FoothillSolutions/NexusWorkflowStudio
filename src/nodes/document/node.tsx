@@ -7,7 +7,7 @@ import { NODE_ACCENT } from "@/lib/node-colors";
 import { FileText, FileUp, Zap } from "lucide-react";
 import { documentRegistryEntry } from "./constants";
 import type { DocumentNodeData } from "./types";
-import { useWorkflowStore } from "@/store/workflow-store";
+import { useWorkflowStore } from "@/store/workflow";
 import { getDocumentDisplayPath } from "./utils";
 
 const truncate = (str: string, n: number) => (str?.length ?? 0) > n ? str.slice(0, n) + "..." : str;

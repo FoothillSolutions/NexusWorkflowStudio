@@ -1,7 +1,7 @@
 "use client";
 
 import type { DragEvent } from "react";
-import { useWorkflowStore } from "@/store/workflow-store";
+import { useWorkflowStore } from "@/store/workflow";
 import { BASIC_NODES, CONTROL_FLOW_NODES, type NodeRegistryEntry } from "@/lib/node-registry";
 import {
   Menu,

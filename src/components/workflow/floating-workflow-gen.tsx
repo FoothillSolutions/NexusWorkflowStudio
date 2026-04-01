@@ -26,7 +26,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import UnsavedChangesDialog from "./unsaved-changes-dialog";
 import { useWorkflowGenStore } from "@/store/workflow-gen-store";
 import { useOpenCodeStore } from "@/store/opencode-store";
-import { useWorkflowStore } from "@/store/workflow-store";
+import { useWorkflowStore } from "@/store/workflow";
 import { useModels } from "@/hooks/use-models";
 import { ModelSelect } from "@/nodes/shared/model-select";
 import { toast } from "sonner";

@@ -25,7 +25,7 @@ import {
 } from "@/lib/theme";
 import { NODE_REGISTRY, NODE_TYPE_COMPONENTS } from "@/lib/node-registry";
 import { DeletableEdge } from "@/components/edges/deletable-edge";
-import type { CanvasMode, EdgeStyle } from "@/store/workflow-store-types";
+import type { CanvasMode, EdgeStyle } from "@/store/workflow";
 
 const EDGE_TYPE_COMPONENTS: EdgeTypes = { deletable: DeletableEdge };
 const MIN_CANVAS_ZOOM = 0.1;

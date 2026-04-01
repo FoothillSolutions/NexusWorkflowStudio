@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useSavedWorkflowsStore } from "@/store/library-store";
-import { useWorkflowStore } from "@/store/workflow-store";
+import { useWorkflowStore } from "@/store/workflow";
 import type { SavedWorkflowEntry, LibraryItemEntry, LibraryCategory } from "@/lib/library";
 import { LIBRARY_CATEGORIES } from "@/lib/library";
 import type { MarketplaceLibraryItem, MarketplaceWorkflowEntry } from "@/lib/marketplace/types";

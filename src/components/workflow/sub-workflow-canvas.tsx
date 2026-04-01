@@ -13,7 +13,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { customAlphabet } from "nanoid";
-import { useWorkflowStore } from "@/store/workflow-store";
+import { useWorkflowStore } from "@/store/workflow";
 import type { NodeType, WorkflowNode, WorkflowEdge, WorkflowNodeData } from "@/types/workflow";
 import type { LibraryItemEntry } from "@/lib/library";
 import { Button } from "@/components/ui/button";

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { useReactFlow } from "@xyflow/react";
-import { useWorkflowStore } from "@/store/workflow-store";
+import { useWorkflowStore } from "@/store/workflow";
 import { useDragTracking } from "@/hooks/use-drag-tracking";
 import { useAutoLayout } from "@/hooks/use-auto-layout";
 import { useCanvasInteractions } from "@/hooks/use-canvas-interactions";

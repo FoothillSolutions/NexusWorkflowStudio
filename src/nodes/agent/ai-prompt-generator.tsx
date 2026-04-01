@@ -4,8 +4,7 @@ import { useEffect, useRef } from "react";
 import { Sparkles, PenLine, ExternalLink, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useOpenCodeStore } from "@/store/opencode-store";
-import { usePromptGenStore } from "@/store/prompt-gen-store";
-import type { PromptGenNodeType } from "@/store/prompt-gen-store";
+import { usePromptGenStore, type PromptGenNodeType } from "@/store/prompt-gen";
 import type { FormSetValue } from "@/nodes/shared/form-types";
 import { PromptGenBody } from "./prompt-gen-body";
 
@@ -78,7 +77,7 @@ export function AiPromptGenerator({ setValue, currentPrompt, nodeId, nodeType = 
   // If active and docked, render the full panel inline
   if (isActiveForThisNode && !floating) {
     return (
-      <div ref={panelRef} className="rounded-xl border border-violet-800/30 bg-gradient-to-b from-violet-950/30 to-zinc-900/50 overflow-hidden transition-all duration-300 ease-in-out">
+        <div ref={panelRef} className="rounded-xl border border-violet-800/30 bg-linear-to-b from-violet-950/30 to-zinc-900/50 overflow-hidden transition-all duration-300 ease-in-out">
         {/* Header */}
         <div className={cn(
           "flex items-center justify-between px-3.5 py-2 border-b shrink-0",

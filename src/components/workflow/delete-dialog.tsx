@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import { useWorkflowStore } from "@/store/workflow-store";
+import { useWorkflowStore } from "@/store/workflow";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 export default function DeleteDialog() {

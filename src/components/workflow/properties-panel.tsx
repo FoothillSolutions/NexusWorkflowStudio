@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { X, Trash2, SlidersHorizontal } from "lucide-react";
-import { useWorkflowStore } from "@/store/workflow-store";
+import { useWorkflowStore } from "@/store/workflow";
 import { useSavedWorkflowsStore } from "@/store/library-store";
 import {
   TEXT_MUTED,

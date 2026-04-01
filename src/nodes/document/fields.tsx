@@ -5,7 +5,7 @@ import { useWatch } from "react-hook-form";
 import { FullscreenMarkdownEditor } from "@/components/ui/fullscreen-markdown-editor";
 import { toast } from "sonner";
 import type { FormControl, FormSetValue, FormRegister } from "@/nodes/shared/form-types";
-import { useWorkflowStore } from "@/store/workflow-store";
+import { useWorkflowStore } from "@/store/workflow";
 import {
   DOC_NAME_REGEX,
   DOC_SUBFOLDER_REGEX,

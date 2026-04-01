@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useReactFlow } from "@xyflow/react";
-import { useWorkflowStore } from "@/store/workflow-store";
-import type { CanvasMode } from "@/store/workflow-store-types";
+import { useWorkflowStore, type CanvasMode } from "@/store/workflow";
 import { useSavedWorkflowsStore } from "@/store/library-store";
 import type { NodeType, WorkflowNode } from "@/types/workflow";
 import { isModKey } from "@/lib/platform";

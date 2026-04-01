@@ -9,7 +9,7 @@ import { NODE_ACCENT } from "@/lib/node-colors";
 import { Braces, DollarSign, TerminalSquare } from "lucide-react";
 import { scriptRegistryEntry } from "./constants";
 import type { ScriptNodeData } from "./types";
-import { useWorkflowStore } from "@/store/workflow-store";
+import { useWorkflowStore } from "@/store/workflow";
 
 const truncate = (str: string, n: number) => str?.length > n ? str.slice(0, n) + "..." : str;
 

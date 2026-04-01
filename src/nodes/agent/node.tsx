@@ -10,7 +10,7 @@ import { subAgentRegistryEntry } from "./constants";
 import { SubAgentModel } from "./types";
 import type { SubAgentNodeData } from "./types";
 import { MODEL_DISPLAY_NAMES } from "./enums";
-import { useWorkflowStore } from "@/store/workflow-store";
+import { useWorkflowStore } from "@/store/workflow";
 
 const truncate = (str: string, n: number) => str?.length > n ? str.slice(0, n) + "..." : str;
 

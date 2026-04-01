@@ -6,8 +6,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useWorkflowStore } from "@/store/workflow-store";
-import { usePromptGenStore } from "@/store/prompt-gen-store";
+import { useWorkflowStore } from "@/store/workflow";
+import { usePromptGenStore } from "@/store/prompt-gen";
 import { PromptGenBody } from "@/nodes/agent/prompt-gen-body";
 
 // ── Component ────────────────────────────────────────────────────────────────

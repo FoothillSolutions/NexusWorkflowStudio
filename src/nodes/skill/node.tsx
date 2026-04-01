@@ -8,7 +8,7 @@ import { NODE_ACCENT } from "@/lib/node-colors";
 import { Braces, DollarSign, FileCode2, Link2, Sparkles, Zap } from "lucide-react";
 import { skillRegistryEntry } from "./constants";
 import type { SkillNodeData } from "./types";
-import { useWorkflowStore } from "@/store/workflow-store";
+import { useWorkflowStore } from "@/store/workflow";
 
 const truncate = (str: string, n: number) => (str?.length ?? 0) > n ? str.slice(0, n) + "..." : str;
 

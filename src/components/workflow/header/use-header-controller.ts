@@ -10,7 +10,7 @@ import {
 import { useSavedWorkflowsStore } from "@/store/library-store";
 import { useOpenCodeStore } from "@/store/opencode-store";
 import { useWorkflowGenStore } from "@/store/workflow-gen-store";
-import { useWorkflowStore } from "@/store/workflow-store";
+import { useWorkflowStore } from "@/store/workflow";
 import { toast } from "sonner";
 import type { WorkflowJSON } from "@/types/workflow";
 

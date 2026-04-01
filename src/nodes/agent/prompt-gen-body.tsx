@@ -20,8 +20,8 @@ import { useOpenCodeStore } from "@/store/opencode-store";
 import {
   usePromptGenStore,
   type PromptGenTemplateFields,
-} from "@/store/prompt-gen-store";
-import { useWorkflowStore } from "@/store/workflow-store";
+} from "@/store/prompt-gen";
+import { useWorkflowStore } from "@/store/workflow";
 import {
   getConnectedNodeContext,
   getConnectedResourceNames,
