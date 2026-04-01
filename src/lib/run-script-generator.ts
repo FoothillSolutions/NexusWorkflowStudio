@@ -14,7 +14,7 @@ function buildBashScript(name: string, bin: string, addDirFlag: string): string 
 REPO_DIR="$(pwd)"
 SCRIPT_DIR="$(cd "$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
-exec ${bin} ${addDirFlag} "$REPO_DIR" "/${name}" "$@"
+echo "/${name}" | ${bin} ${addDirFlag} "$REPO_DIR" "$@"
 `;
 }
 
