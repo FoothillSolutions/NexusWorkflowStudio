@@ -80,7 +80,7 @@ export default function LibraryPanel(props: LibraryPanelProps) {
                 </Badge>
               </div>
               <p className="mt-1 text-xs text-zinc-500">
-                Browse saved workflows and reusable components
+                Browse available and saved components
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-1">
