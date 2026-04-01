@@ -3,7 +3,7 @@
 import { useCallback } from "react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useWorkflowGenStore } from "@/store/workflow-gen-store";
+import { useWorkflowGenStore } from "@/store/workflow-gen";
 import {
   BG_SURFACE,
   BORDER_NODE,
