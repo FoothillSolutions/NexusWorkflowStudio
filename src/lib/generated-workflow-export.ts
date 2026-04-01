@@ -105,6 +105,16 @@ export async function writeGeneratedFilesToDirectory(
   }
 }
 
+function partitionByRoot(
+  files: GeneratedFile[],
+  target: GenerationTargetId,
+): { rootFiles: GeneratedFile[]; targetFiles: GeneratedFile[] } {
+  const prefix = `${getGenerationTarget(target).rootDir}/`;
+  const rootFiles = files.filter((f) => !f.path.startsWith(prefix));
+  const targetFiles = files.filter((f) => f.path.startsWith(prefix));
+  return { rootFiles, targetFiles };
+}
+
 function stripTargetRootFromFiles(
   files: GeneratedFile[],
   target: GenerationTargetId,
@@ -139,9 +149,10 @@ export async function exportGeneratedWorkflowToDirectory(
   target: GenerationTargetId,
 ): Promise<GeneratedFile[]> {
   const files = generateWorkflowFiles(workflow, target);
+  const { rootFiles, targetFiles } = partitionByRoot(files, target);
   const destination = await resolveExportDirectory(root, target);
-  const filesToWrite = stripTargetRootFromFiles(files, target);
-  await writeGeneratedFilesToDirectory(destination, filesToWrite);
+  await writeGeneratedFilesToDirectory(destination, stripTargetRootFromFiles(targetFiles, target));
+  await writeGeneratedFilesToDirectory(root, rootFiles);
   return files;
 }
 
