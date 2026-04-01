@@ -5,7 +5,7 @@ import { useSavedWorkflowsStore } from "@/store/library-store";
 import { useWorkflowStore } from "@/store/workflow-store";
 import type { SavedWorkflowEntry, LibraryItemEntry, LibraryCategory } from "@/lib/library";
 import { LIBRARY_CATEGORIES } from "@/lib/library";
-import type { MarketplaceLibraryItem } from "@/lib/marketplace/types";
+import type { MarketplaceLibraryItem, MarketplaceWorkflowEntry } from "@/lib/marketplace/types";
 import type { NodeType, WorkflowNodeData } from "@/types/workflow";
 import { NODE_REGISTRY } from "@/lib/node-registry";
 import { NODE_ACCENT } from "@/lib/node-colors";
@@ -292,11 +292,15 @@ function WorkflowCard({
   onLoad,
   onUpdate,
   onDelete,
+  readonly = false,
+  marketplaceInfo,
 }: {
   entry: SavedWorkflowEntry;
   onLoad: (id: string) => void;
   onUpdate: (id: string) => void;
   onDelete: (id: string) => void;
+  readonly?: boolean;
+  marketplaceInfo?: { marketplaceName: string; pluginName: string };
 }) {
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(entry.name);
@@ -361,7 +365,7 @@ function WorkflowCard({
               <button
                 type="button"
                 className={`min-w-0 max-w-full truncate text-left text-sm font-semibold ${TEXT_SECONDARY} transition-colors hover:text-zinc-100`}
-                onDoubleClick={startRenaming}
+                onDoubleClick={readonly ? undefined : startRenaming}
                 onClick={() => onLoad(entry.id)}
                 title="Open workflow"
               >
@@ -373,13 +377,18 @@ function WorkflowCard({
               <span className={META_BADGE_CLASS}>Updated {timeAgo}</span>
               <span className={META_BADGE_CLASS}>{entry.nodeCount} nodes</span>
               <span className={META_BADGE_CLASS}>{entry.edgeCount} edges</span>
+              {marketplaceInfo && (
+                <MarketplaceSourceBadge pluginName={marketplaceInfo.pluginName} marketplaceName={marketplaceInfo.marketplaceName} />
+              )}
             </div>
           </div>
 
-          <div className="flex items-center gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
-            <CardIconButton icon={Pencil} label="Rename workflow" onClick={startRenaming} />
-            <CardIconButton icon={Trash2} label="Delete workflow" onClick={() => onDelete(entry.id)} tone="danger" />
-          </div>
+          {!readonly && (
+            <div className="flex items-center gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
+              <CardIconButton icon={Pencil} label="Rename workflow" onClick={startRenaming} />
+              <CardIconButton icon={Trash2} label="Delete workflow" onClick={() => onDelete(entry.id)} tone="danger" />
+            </div>
+          )}
         </div>
 
         <div className="mt-3 flex items-center gap-2">
@@ -392,15 +401,17 @@ function WorkflowCard({
             <FolderOpen size={12} />
             Open
           </button>
-          <button
-            type="button"
-            onClick={() => onUpdate(entry.id)}
-            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-zinc-700/70 bg-zinc-950/70 px-3 text-xs font-medium text-zinc-300 transition-colors hover:border-emerald-500/30 hover:bg-emerald-500/10 hover:text-emerald-200"
-            title="Overwrite with current workflow"
-          >
-            <Save size={12} />
-            Update
-          </button>
+          {!readonly && (
+            <button
+              type="button"
+              onClick={() => onUpdate(entry.id)}
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-zinc-700/70 bg-zinc-950/70 px-3 text-xs font-medium text-zinc-300 transition-colors hover:border-emerald-500/30 hover:bg-emerald-500/10 hover:text-emerald-200"
+              title="Overwrite with current workflow"
+            >
+              <Save size={12} />
+              Update
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -570,6 +581,7 @@ export default function LibraryPanel({ onLoadWorkflow, onLoadItem }: LibraryPane
     entries,
     libraryItems,
     marketplaceItems,
+    marketplaceWorkflows,
     marketplaceRefreshing,
     activeCategory,
     sidebarOpen,
@@ -603,6 +615,20 @@ export default function LibraryPanel({ onLoadWorkflow, onLoadItem }: LibraryPane
       }
     },
     [load, loadWorkflow, onLoadWorkflow]
+  );
+
+  const handleLoadMarketplaceWorkflow = useCallback(
+    (mpWf: MarketplaceWorkflowEntry) => {
+      if (onLoadWorkflow) {
+        onLoadWorkflow(mpWf.workflow, mpWf.id);
+      } else {
+        loadWorkflow(mpWf.workflow, { savedToLibrary: false });
+      }
+      useSavedWorkflowsStore.getState().clearActiveId();
+      window.dispatchEvent(new CustomEvent("nexus:fit-view"));
+      toast.success("Marketplace workflow loaded");
+    },
+    [loadWorkflow, onLoadWorkflow],
   );
 
   const handleLoadItem = useCallback(
@@ -677,6 +703,13 @@ export default function LibraryPanel({ onLoadWorkflow, onLoadItem }: LibraryPane
     );
   }, [entries, activeCategory, searchQuery]);
 
+  const filteredMarketplaceWorkflows = useMemo(() => {
+    if (activeCategory !== "all" && activeCategory !== "workflow") return [];
+    return marketplaceWorkflows.filter((e) =>
+      !searchQuery || e.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [marketplaceWorkflows, activeCategory, searchQuery]);
+
   const allItems = useMemo(
     () => [...libraryItems, ...(marketplaceItems as unknown as LibraryItemEntry[])],
     [libraryItems, marketplaceItems],
@@ -699,14 +732,17 @@ export default function LibraryPanel({ onLoadWorkflow, onLoadItem }: LibraryPane
 
   // Count per category
   const categoryCounts = useMemo(() => {
-    const counts: Record<string, number> = { all: entries.length + allItems.length, workflow: entries.length };
+    const counts: Record<string, number> = {
+      all: entries.length + allItems.length + marketplaceWorkflows.length,
+      workflow: entries.length + marketplaceWorkflows.length,
+    };
     for (const item of allItems) {
       counts[item.category] = (counts[item.category] ?? 0) + 1;
     }
     return counts;
-  }, [entries, allItems]);
+  }, [entries, allItems, marketplaceWorkflows]);
 
-  const hasItems = filteredWorkflows.length > 0 || filteredItems.length > 0;
+  const hasItems = filteredWorkflows.length > 0 || filteredMarketplaceWorkflows.length > 0 || filteredItems.length > 0;
   const activeCategoryLabel = LIBRARY_CATEGORIES.find((category) => category.value === activeCategory)?.label ?? "All";
   return (
     <>
@@ -840,10 +876,10 @@ export default function LibraryPanel({ onLoadWorkflow, onLoadItem }: LibraryPane
             {!hasItems && <EmptyState category={activeCategory} />}
 
             {/* Workflows section */}
-            {filteredWorkflows.length > 0 && (
+            {(filteredWorkflows.length > 0 || filteredMarketplaceWorkflows.length > 0) && (
               <>
                 {activeCategory === "all" && (
-                  <SectionHeader icon={Layers} label="Workflows" count={filteredWorkflows.length} accentClass="text-blue-300" />
+                  <SectionHeader icon={Layers} label="Workflows" count={filteredWorkflows.length + filteredMarketplaceWorkflows.length} accentClass="text-blue-300" />
                 )}
                 {filteredWorkflows.map((entry) => (
                   <WorkflowCard
@@ -852,6 +888,28 @@ export default function LibraryPanel({ onLoadWorkflow, onLoadItem }: LibraryPane
                     onLoad={handleLoad}
                     onUpdate={handleUpdate}
                     onDelete={handleDeleteWorkflow}
+                  />
+                ))}
+                {filteredMarketplaceWorkflows.map((mpWf) => (
+                  <WorkflowCard
+                    key={mpWf.id}
+                    entry={{
+                      id: mpWf.id,
+                      name: mpWf.name,
+                      savedAt: mpWf.savedAt,
+                      updatedAt: mpWf.updatedAt,
+                      nodeCount: mpWf.nodeCount,
+                      edgeCount: mpWf.edgeCount,
+                      workflow: mpWf.workflow,
+                    }}
+                    onLoad={() => handleLoadMarketplaceWorkflow(mpWf)}
+                    onUpdate={() => {}}
+                    onDelete={() => {}}
+                    readonly
+                    marketplaceInfo={{
+                      marketplaceName: mpWf.marketplaceName,
+                      pluginName: mpWf.pluginName,
+                    }}
                   />
                 ))}
               </>

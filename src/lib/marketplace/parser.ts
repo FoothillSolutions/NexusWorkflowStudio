@@ -4,10 +4,13 @@ import yaml from "js-yaml";
 import type {
   MarketplaceJson,
   MarketplaceLibraryItem,
+  MarketplaceWorkflowEntry,
   AgentNodePayload,
   SkillNodePayload,
   PromptNodePayload,
 } from "./types";
+import type { WorkflowJSON } from "@/types/workflow";
+import { workflowJsonSchema } from "@/lib/workflow-schema";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -242,11 +245,12 @@ function parsePlugin(
 export function parseMarketplace(
   marketplaceDir: string,
   marketplaceName: string,
-): MarketplaceLibraryItem[] {
+  nexusFolder = "nexus",
+): { items: MarketplaceLibraryItem[]; workflows: MarketplaceWorkflowEntry[] } {
   const manifestPath = join(marketplaceDir, ".claude-plugin", "marketplace.json");
   if (!existsSync(manifestPath)) {
     console.warn(`[marketplace] No .claude-plugin/marketplace.json in ${marketplaceDir}`);
-    return [];
+    return { items: [], workflows: [] };
   }
 
   let manifest: MarketplaceJson;
@@ -254,12 +258,13 @@ export function parseMarketplace(
     manifest = JSON.parse(readFileSync(manifestPath, "utf-8")) as MarketplaceJson;
   } catch (err) {
     console.error(`[marketplace] Failed to parse marketplace.json in ${marketplaceDir}:`, err);
-    return [];
+    return { items: [], workflows: [] };
   }
 
   const pluginRoot = manifest.metadata?.pluginRoot ?? ".";
   const refreshedAt = new Date().toISOString();
   const items: MarketplaceLibraryItem[] = [];
+  const workflows: MarketplaceWorkflowEntry[] = [];
 
   for (const pluginDef of manifest.plugins) {
     // Only process relative-path (string) sources
@@ -286,5 +291,39 @@ export function parseMarketplace(
     }
   }
 
-  return items;
+  // nexus/*.json — pre-built workflows at marketplace root
+  const nexusDir = join(marketplaceDir, nexusFolder);
+  if (existsSync(nexusDir)) {
+    for (const file of readdirSync(nexusDir)) {
+      if (!file.endsWith(".json")) continue;
+      try {
+        const raw = readFileSync(join(nexusDir, file), "utf-8");
+        const parsed = JSON.parse(raw);
+        const result = workflowJsonSchema.safeParse(parsed);
+        if (!result.success) {
+          console.warn(`[marketplace] Invalid workflow JSON ${file} in ${nexusDir}:`, result.error);
+          continue;
+        }
+        const wf = result.data as unknown as WorkflowJSON;
+        const baseName = file.replace(/\.json$/i, "");
+        workflows.push({
+          id: makeId(marketplaceName, "_nexus", "workflow", baseName),
+          name: wf.name || baseName,
+          savedAt: refreshedAt,
+          updatedAt: refreshedAt,
+          nodeCount: wf.nodes.length,
+          edgeCount: wf.edges.length,
+          workflow: wf,
+          description: undefined,
+          marketplaceName,
+          pluginName: "_nexus",
+          readonly: true,
+        });
+      } catch (err) {
+        console.warn(`[marketplace] Failed to parse workflow ${file} in ${nexusDir}:`, err);
+      }
+    }
+  }
+
+  return { items, workflows };
 }

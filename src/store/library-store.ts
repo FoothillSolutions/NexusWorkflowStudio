@@ -14,7 +14,7 @@ import {
   renameLibraryItem,
 } from "@/lib/library";
 import type { WorkflowJSON, WorkflowNodeData } from "@/types/workflow";
-import type { MarketplaceLibraryItem } from "@/lib/marketplace/types";
+import type { MarketplaceLibraryItem, MarketplaceWorkflowEntry } from "@/lib/marketplace/types";
 import { useWorkflowStore } from "@/store/workflow-store";
 
 const nanoid = customAlphabet("abcdefghijklmnopqrstuvwxyz0123456789", 12);
@@ -25,6 +25,7 @@ interface SavedWorkflowsState {
   entries: SavedWorkflowEntry[];
   libraryItems: LibraryItemEntry[];
   marketplaceItems: MarketplaceLibraryItem[];
+  marketplaceWorkflows: MarketplaceWorkflowEntry[];
   marketplaceRefreshing: boolean;
   marketplaceError: string | null;
   activeCategory: LibraryCategory | "all";
@@ -53,6 +54,7 @@ export const useSavedWorkflowsStore = create<SavedWorkflowsState>((set, get) => 
   entries: [],
   libraryItems: [],
   marketplaceItems: [],
+  marketplaceWorkflows: [],
   marketplaceRefreshing: false,
   marketplaceError: null,
   activeCategory: "all",
@@ -150,10 +152,12 @@ export const useSavedWorkflowsStore = create<SavedWorkflowsState>((set, get) => 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = (await res.json()) as {
         items: MarketplaceLibraryItem[];
+        workflows: MarketplaceWorkflowEntry[];
         isRefreshing: boolean;
       };
       set({
         marketplaceItems: data.items,
+        marketplaceWorkflows: data.workflows ?? [],
         marketplaceRefreshing: data.isRefreshing,
         marketplaceError: null,
       });

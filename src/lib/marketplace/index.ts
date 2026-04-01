@@ -6,6 +6,7 @@ import { parseMarketplace } from "./parser";
 import type {
   MarketplaceJson,
   MarketplaceLibraryItem,
+  MarketplaceWorkflowEntry,
   MarketplaceState,
   MarketplaceSourceConfig,
 } from "./types";
@@ -14,6 +15,7 @@ import type {
 
 interface CacheEntry {
   items: MarketplaceLibraryItem[];
+  workflows: MarketplaceWorkflowEntry[];
   state: MarketplaceState;
 }
 
@@ -45,6 +47,7 @@ async function refreshOne(config: MarketplaceSourceConfig): Promise<void> {
   // Mark pending using the config slug (preserve stale items)
   cache.set(config.name, {
     items: cache.get(config.name)?.items ?? [],
+    workflows: cache.get(config.name)?.workflows ?? [],
     state: {
       name: config.name,
       source: config.source,
@@ -68,22 +71,23 @@ async function refreshOne(config: MarketplaceSourceConfig): Promise<void> {
       cache.delete(config.name);
     }
 
-    const items = parseMarketplace(localDir, canonicalName);
+    const { items, workflows } = parseMarketplace(localDir, canonicalName, config.nexusFolder);
 
     cache.set(canonicalName, {
       items,
+      workflows,
       state: {
         name: canonicalName,
         source: config.source,
         status: "ok",
-        itemCount: items.length,
+        itemCount: items.length + workflows.length,
         lastRefreshed: new Date().toISOString(),
         error: null,
       },
     });
 
     console.info(
-      `[marketplace] "${canonicalName}" refreshed: ${items.length} items`,
+      `[marketplace] "${canonicalName}" refreshed: ${items.length} items, ${workflows.length} workflows`,
     );
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);
@@ -91,11 +95,12 @@ async function refreshOne(config: MarketplaceSourceConfig): Promise<void> {
 
     cache.set(config.name, {
       items: cache.get(config.name)?.items ?? [],
+      workflows: cache.get(config.name)?.workflows ?? [],
       state: {
         name: config.name,
         source: config.source,
         status: "error",
-        itemCount: cache.get(config.name)?.items.length ?? 0,
+        itemCount: (cache.get(config.name)?.items.length ?? 0) + (cache.get(config.name)?.workflows.length ?? 0),
         lastRefreshed: cache.get(config.name)?.state.lastRefreshed ?? null,
         error: errorMsg,
       },
@@ -133,6 +138,15 @@ export function getAllMarketplaceItems(): MarketplaceLibraryItem[] {
   const all: MarketplaceLibraryItem[] = [];
   for (const { items } of cache.values()) {
     all.push(...items);
+  }
+  return all;
+}
+
+/** Returns all marketplace workflows from all configured marketplaces. */
+export function getAllMarketplaceWorkflows(): MarketplaceWorkflowEntry[] {
+  const all: MarketplaceWorkflowEntry[] = [];
+  for (const { workflows } of cache.values()) {
+    all.push(...workflows);
   }
   return all;
 }

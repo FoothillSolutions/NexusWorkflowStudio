@@ -1,5 +1,5 @@
 import type { LibraryCategory } from "@/lib/library";
-import type { NodeType } from "@/types/workflow";
+import type { NodeType, WorkflowJSON } from "@/types/workflow";
 
 // ── Server config ─────────────────────────────────────────────────────────────
 
@@ -10,6 +10,8 @@ export interface MarketplaceSourceConfig {
   source: string;
   /** Optional Git ref (branch, tag, SHA) to checkout */
   ref?: string;
+  /** Folder name for Nexus workflow JSON files (default: "nexus"). Only settable via JSON config. */
+  nexusFolder?: string;
 }
 
 // ── marketplace.json schema ───────────────────────────────────────────────────
@@ -109,6 +111,26 @@ export interface MarketplaceLibraryItem {
   nodeData: AgentNodePayload | SkillNodePayload | PromptNodePayload;
   description?: string;
   /** Marketplace config name this item came from */
+  marketplaceName: string;
+  /** Plugin name within the marketplace */
+  pluginName: string;
+  /** Prevents rename/delete in UI */
+  readonly: true;
+}
+
+// ── Parsed marketplace workflow ───────────────────────────────────────────
+
+export interface MarketplaceWorkflowEntry {
+  /** Stable ID: `mp:<marketplace>:<plugin>:workflow:<name>` */
+  id: string;
+  name: string;
+  savedAt: string;
+  updatedAt: string;
+  nodeCount: number;
+  edgeCount: number;
+  workflow: WorkflowJSON;
+  description?: string;
+  /** Marketplace config name this workflow came from */
   marketplaceName: string;
   /** Plugin name within the marketplace */
   pluginName: string;
