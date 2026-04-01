@@ -1,6 +1,6 @@
 "use client";
 
-import type { DragEvent } from "react";
+import type { ComponentType, DragEvent } from "react";
 import { useWorkflowStore } from "@/store/workflow";
 import { BASIC_NODES, CONTROL_FLOW_NODES, type NodeRegistryEntry } from "@/lib/node-registry";
 import {
@@ -32,6 +32,7 @@ import {
   buildWorkflowPanelShellClass,
 } from "./panel-primitives";
 import { cn } from "@/lib/utils";
+import type { NodeType } from "@/types/workflow";
 
 /** Node types that are disabled / coming soon */
 const COMING_SOON_TYPES = new Set(["mcp-tool"]);
@@ -53,6 +54,100 @@ const TOGGLE_BUTTON_CLASS = buildWorkflowIconToggleButtonClass(TEXT_MUTED);
 
 type ComingSoonItem = (typeof COMING_SOON_BASIC)[number] | (typeof COMING_SOON_CONTROL)[number];
 
+interface HelpIconButtonProps {
+  ariaLabel: string;
+  compact?: boolean;
+}
+
+function HelpIconButton({ ariaLabel, compact = false }: HelpIconButtonProps) {
+  return (
+    <button
+      type="button"
+      className={cn(
+        "inline-flex items-center justify-center rounded-full border border-zinc-700/70 bg-zinc-950/70 text-zinc-500 transition-colors hover:border-zinc-600/80 hover:text-zinc-200",
+        compact ? "h-5 w-5" : "h-6 w-6",
+      )}
+      aria-label={ariaLabel}
+    >
+      <CircleHelp size={compact ? 11 : 12} />
+    </button>
+  );
+}
+
+interface PaletteCardProps {
+  title: string;
+  description: string;
+  accentHex: string;
+  icon: ComponentType<{ size?: number; style?: React.CSSProperties; className?: string }>;
+  isComingSoon?: boolean;
+  draggable?: boolean;
+  onDragStart?: (event: DragEvent<HTMLDivElement>) => void;
+  onDragEnd?: () => void;
+}
+
+function PaletteCard({
+  title,
+  description,
+  accentHex,
+  icon: Icon,
+  isComingSoon = false,
+  draggable = false,
+  onDragStart,
+  onDragEnd,
+}: PaletteCardProps) {
+  return (
+    <div
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      className={cn(
+        "group relative flex items-center gap-2.5 overflow-hidden rounded-2xl border p-2.5 transition-all duration-200",
+        isComingSoon
+          ? "cursor-not-allowed select-none border-zinc-700/35 bg-zinc-900/45 opacity-60"
+          : `${BORDER_MUTED} cursor-grab bg-zinc-900/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] hover:-translate-y-0.5 hover:border-zinc-600/80 hover:bg-zinc-900/85 hover:shadow-[0_12px_28px_rgba(0,0,0,0.2)] active:cursor-grabbing`,
+      )}
+    >
+      <div
+        className={cn(
+          "pointer-events-none absolute inset-x-0 top-0 h-16 transition-opacity duration-200",
+          isComingSoon ? "opacity-100" : "opacity-0 group-hover:opacity-100",
+        )}
+        style={{ background: `linear-gradient(180deg, ${accentHex}${isComingSoon ? "14" : "22"} 0%, transparent 100%)` }}
+      />
+
+      <div
+        className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/5"
+        style={{ backgroundColor: `${accentHex}${isComingSoon ? "10" : "20"}` }}
+      >
+        <Icon size={16} style={{ color: accentHex }} className={isComingSoon ? "opacity-60" : undefined} />
+      </div>
+
+      <div className="relative min-w-0 flex-1 space-y-0.5">
+        <div
+          className={cn(
+            "truncate text-[13px] font-semibold",
+            isComingSoon ? TEXT_SUBTLE : `${TEXT_SECONDARY} group-hover:text-white`,
+          )}
+        >
+          {title}
+        </div>
+        <div className={cn("line-clamp-1 text-[11px] leading-4", TEXT_SUBTLE)}>{description}</div>
+      </div>
+
+      {isComingSoon ? (
+        <span className="relative shrink-0 rounded-full border border-zinc-600/50 bg-zinc-950/80 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-zinc-400">
+          Soon
+        </span>
+      ) : (
+        <div className="relative flex shrink-0 items-center gap-1 rounded-full border border-zinc-700/60 bg-zinc-950/75 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.14em] text-zinc-500 opacity-0 transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100">
+          <Grip size={10} />
+          Drag
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CompactHelp({
   label,
   description,
@@ -68,13 +163,9 @@ function CompactHelp({
         </span>
         <Tooltip>
           <TooltipTrigger asChild>
-            <button
-              type="button"
-              className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-zinc-700/70 bg-zinc-950/70 text-zinc-500 transition-colors hover:border-zinc-600/80 hover:text-zinc-200"
-              aria-label={`${label} help`}
-            >
-              <CircleHelp size={11} />
-            </button>
+            <span className="shrink-0">
+              <HelpIconButton ariaLabel={`${label} help`} compact />
+            </span>
           </TooltipTrigger>
           <TooltipContent
             side="bottom"
@@ -98,11 +189,11 @@ export default function NodePalette() {
   const basicNodes = BASIC_NODES.filter((n) => n.type !== "start");
   const controlNodes = CONTROL_FLOW_NODES;
 
-  const onDragStart = (event: DragEvent, nodeType: string) => {
+  const onDragStart = (event: DragEvent, nodeType: NodeType) => {
     event.dataTransfer.setData("application/reactflow", nodeType);
     event.dataTransfer.setData("text/plain", nodeType);
     event.dataTransfer.effectAllowed = "move";
-    setCurrentDraggedNodeType(nodeType as import("@/types/workflow").NodeType);
+    setCurrentDraggedNodeType(nodeType);
   };
 
   const onDragEnd = () => {
@@ -114,63 +205,17 @@ export default function NodePalette() {
     const isComingSoon = COMING_SOON_TYPES.has(node.type);
 
     return (
-      <div
+      <PaletteCard
         key={node.type}
+        title={node.displayName}
+        description={node.description}
+        accentHex={node.accentHex}
+        icon={Icon}
+        isComingSoon={isComingSoon}
         draggable={!isComingSoon}
-        onDragStart={isComingSoon ? undefined : (e) => onDragStart(e, node.type)}
+        onDragStart={isComingSoon ? undefined : (event) => onDragStart(event, node.type)}
         onDragEnd={isComingSoon ? undefined : onDragEnd}
-        className={cn(
-          "group relative flex items-center gap-2.5 overflow-hidden rounded-2xl border p-2.5 transition-all duration-200",
-          isComingSoon
-            ? "cursor-not-allowed select-none border-zinc-700/35 bg-zinc-900/45 opacity-60"
-            : `${BORDER_MUTED} cursor-grab bg-zinc-900/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] hover:-translate-y-0.5 hover:border-zinc-600/80 hover:bg-zinc-900/85 hover:shadow-[0_12px_28px_rgba(0,0,0,0.2)] active:cursor-grabbing`,
-        )}
-      >
-        <div
-          className={cn(
-            "pointer-events-none absolute inset-x-0 top-0 h-16 transition-opacity duration-200",
-            isComingSoon ? "opacity-100" : "opacity-0 group-hover:opacity-100",
-          )}
-          style={{ background: `linear-gradient(180deg, ${node.accentHex}${isComingSoon ? "14" : "22"} 0%, transparent 100%)` }}
-        />
-
-        <div
-          className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/5"
-          style={{ backgroundColor: `${node.accentHex}${isComingSoon ? "10" : "20"}` }}
-        >
-          <Icon size={16} style={{ color: node.accentHex }} className={isComingSoon ? "opacity-60" : ""} />
-        </div>
-
-        <div className="relative min-w-0 flex-1 space-y-0.5">
-          <div className={cn(
-            "truncate text-[13px] font-semibold",
-            isComingSoon
-              ? TEXT_SUBTLE
-              : `${TEXT_SECONDARY} group-hover:text-white`,
-          )}>
-            {node.displayName}
-          </div>
-          <div className={cn(
-            "line-clamp-1 text-[11px] leading-4",
-            TEXT_SUBTLE,
-          )}>
-            {node.description}
-          </div>
-        </div>
-
-        {isComingSoon && (
-          <span className="relative shrink-0 rounded-full border border-zinc-600/50 bg-zinc-950/80 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-zinc-400">
-            Soon
-          </span>
-        )}
-
-        {!isComingSoon && (
-          <div className="relative flex shrink-0 items-center gap-1 rounded-full border border-zinc-700/60 bg-zinc-950/75 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.14em] text-zinc-500 opacity-0 transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100">
-            <Grip size={10} />
-            Drag
-          </div>
-        )}
-      </div>
+      />
     );
   };
 
@@ -178,35 +223,14 @@ export default function NodePalette() {
     const Icon = item.icon;
 
     return (
-      <div
+      <PaletteCard
         key={item.key}
-        className="relative flex items-center gap-2.5 overflow-hidden rounded-2xl border border-zinc-700/35 bg-zinc-900/45 p-2.5 opacity-60 cursor-not-allowed select-none transition-all duration-200"
-      >
-        <div
-          className="pointer-events-none absolute inset-x-0 top-0 h-16"
-          style={{ background: `linear-gradient(180deg, ${item.hex}14 0%, transparent 100%)` }}
-        />
-
-        <div
-          className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/5"
-          style={{ backgroundColor: `${item.hex}10` }}
-        >
-          <Icon size={16} style={{ color: item.hex }} className="opacity-60" />
-        </div>
-
-        <div className="relative min-w-0 flex-1 space-y-0.5">
-          <div className={`text-[13px] font-semibold ${TEXT_SUBTLE} truncate`}>
-            {item.label}
-          </div>
-          <div className={`text-[11px] leading-4 ${TEXT_SUBTLE} line-clamp-1`}>
-            {item.description}
-          </div>
-        </div>
-
-        <span className="relative shrink-0 rounded-full border border-zinc-600/50 bg-zinc-950/80 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-zinc-400">
-          Soon
-        </span>
-      </div>
+        title={item.label}
+        description={item.description}
+        accentHex={item.hex}
+        icon={Icon}
+        isComingSoon
+      />
     );
   };
 
@@ -248,13 +272,7 @@ export default function NodePalette() {
             <div className="flex items-center gap-1.5">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-zinc-700/70 bg-zinc-950/70 text-zinc-500 transition-colors hover:border-zinc-600/80 hover:text-zinc-200"
-                    aria-label="Nodes panel help"
-                  >
-                    <CircleHelp size={12} />
-                  </button>
+                    <HelpIconButton ariaLabel="Nodes panel help" />
                 </TooltipTrigger>
                 <TooltipContent
                   side="bottom"
