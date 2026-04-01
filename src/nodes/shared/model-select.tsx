@@ -32,7 +32,7 @@ function CostBadge({ cost }: { cost: number | undefined }) {
 // ── ModelSelect ─────────────────────────────────────────────────────────────
 
 interface ModelSelectProps {
-  value: string;
+  value: string | null;
   onChange: (value: string) => void;
   /** When true, hides the "Inherit from workflow" option (useful outside node context). */
   hideInherit?: boolean;
@@ -122,7 +122,7 @@ export function ModelSelect({ value, onChange, hideInherit }: ModelSelectProps) 
   }, [open, updateDropdownPosition]);
 
   // Resolve display name — prefer API data, fall back to static map, then raw value
-  const resolveDisplayName = (modelValue: string): string => {
+  const resolveDisplayName = (modelValue: string | null): string => {
     if (!modelValue) return MODEL_DISPLAY_NAMES[SubAgentModel.Inherit];
     if (modelValue === SubAgentModel.Inherit) {
       return MODEL_DISPLAY_NAMES[SubAgentModel.Inherit];
@@ -175,7 +175,7 @@ export function ModelSelect({ value, onChange, hideInherit }: ModelSelectProps) 
         ) : null}
         <span className="truncate text-left flex-1">{displayName}</span>
         {!isDisabled && value !== SubAgentModel.Inherit && (
-          <CostBadge cost={MODEL_COST_MULTIPLIER[value]} />
+          <CostBadge cost={value ? MODEL_COST_MULTIPLIER[value] : undefined} />
         )}
         {isDisabled ? (
           <span className="text-[10px] text-zinc-500 font-medium shrink-0">Not connected</span>

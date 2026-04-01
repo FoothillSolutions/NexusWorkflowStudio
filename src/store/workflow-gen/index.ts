@@ -33,7 +33,7 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
   collapsed: false,
   status: "idle",
   prompt: "",
-  selectedModel: "",
+  selectedModel: null,
   streamedText: "",
   parsedNodeCount: 0,
   parsedEdgeCount: 0,
