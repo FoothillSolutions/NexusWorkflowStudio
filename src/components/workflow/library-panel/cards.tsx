@@ -2,14 +2,17 @@ import { useCallback, useEffect, useRef, useState, type ElementType } from "reac
 import {
   Check,
   FolderOpen,
+  Package,
   Pencil,
   Save,
+  Store,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { NODE_REGISTRY } from "@/lib/node-registry";
 import { useSavedWorkflowsStore } from "@/store/library";
-import { LIBRARY_CATEGORIES, type LibraryItemEntry, type SavedWorkflowEntry } from "@/lib/library";
+import { LIBRARY_CATEGORIES, type SavedWorkflowEntry } from "@/lib/library";
 import { TEXT_MUTED, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_SUBTLE } from "@/lib/theme";
 import {
   CARD_CLASS,
@@ -21,7 +24,7 @@ import {
   cardIconButtonClass,
   formatTimeAgo,
 } from "./constants";
-import type { LibraryPanelCategory } from "./types";
+import type { LibraryPanelCategory, LibraryPanelItem } from "./types";
 import { NodePreview, WorkflowMiniMap } from "./previews";
 
 interface InlineRenameState {
@@ -160,16 +163,51 @@ export function SectionHeader({
   );
 }
 
+function MarketplaceSourceBadge({
+  pluginName,
+  marketplaceName,
+}: {
+  pluginName: string;
+  marketplaceName: string;
+}) {
+  const isNexusPlugin = pluginName === "_nexus";
+
+  return (
+    <>
+      <span
+        className="inline-flex items-center gap-1 rounded-full border border-violet-500/25 bg-violet-500/10 px-2 py-0.5 text-[10px] font-medium text-violet-300"
+        title={`Marketplace: ${marketplaceName}`}
+      >
+        <Store size={9} />
+        {marketplaceName}
+      </span>
+      {!isNexusPlugin && (
+        <span
+          className="inline-flex items-center gap-1 rounded-full border border-fuchsia-500/25 bg-fuchsia-500/10 px-2 py-0.5 text-[10px] font-medium text-fuchsia-300"
+          title={`Plugin: ${pluginName}`}
+        >
+          <Package size={9} />
+          {pluginName}
+        </span>
+      )}
+    </>
+  );
+}
+
 export function WorkflowCard({
   entry,
   onLoad,
   onUpdate,
   onDelete,
+  readonly = false,
+  marketplaceInfo,
 }: {
   entry: SavedWorkflowEntry;
   onLoad: (id: string) => void;
   onUpdate: (id: string) => void;
   onDelete: (id: string) => void;
+  readonly?: boolean;
+  marketplaceInfo?: { marketplaceName: string; pluginName: string };
 }) {
   const rename = useSavedWorkflowsStore((state) => state.rename);
   const {
@@ -211,7 +249,7 @@ export function WorkflowCard({
               <button
                 type="button"
                 className={`min-w-0 max-w-full truncate text-left text-sm font-semibold ${TEXT_SECONDARY} transition-colors hover:text-zinc-100`}
-                onDoubleClick={startRenaming}
+                onDoubleClick={readonly ? undefined : startRenaming}
                 onClick={() => onLoad(entry.id)}
                 title="Open workflow"
               >
@@ -223,13 +261,21 @@ export function WorkflowCard({
               <span className={META_BADGE_CLASS}>Updated {timeAgo}</span>
               <span className={META_BADGE_CLASS}>{entry.nodeCount} nodes</span>
               <span className={META_BADGE_CLASS}>{entry.edgeCount} edges</span>
+              {marketplaceInfo && (
+                <MarketplaceSourceBadge
+                  pluginName={marketplaceInfo.pluginName}
+                  marketplaceName={marketplaceInfo.marketplaceName}
+                />
+              )}
             </div>
           </div>
 
-          <div className="flex items-center gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
-            <CardIconButton icon={Pencil} label="Rename workflow" onClick={startRenaming} />
-            <CardIconButton icon={Trash2} label="Delete workflow" onClick={() => onDelete(entry.id)} tone="danger" />
-          </div>
+          {!readonly && (
+            <div className="flex items-center gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
+              <CardIconButton icon={Pencil} label="Rename workflow" onClick={startRenaming} />
+              <CardIconButton icon={Trash2} label="Delete workflow" onClick={() => onDelete(entry.id)} tone="danger" />
+            </div>
+          )}
         </div>
 
         <div className="mt-3 flex items-center gap-2">
@@ -242,15 +288,17 @@ export function WorkflowCard({
             <FolderOpen size={12} />
             Open
           </button>
-          <button
-            type="button"
-            onClick={() => onUpdate(entry.id)}
-            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-zinc-700/70 bg-zinc-950/70 px-3 text-xs font-medium text-zinc-300 transition-colors hover:border-emerald-500/30 hover:bg-emerald-500/10 hover:text-emerald-200"
-            title="Overwrite with current workflow"
-          >
-            <Save size={12} />
-            Update
-          </button>
+          {!readonly && (
+            <button
+              type="button"
+              onClick={() => onUpdate(entry.id)}
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-zinc-700/70 bg-zinc-950/70 px-3 text-xs font-medium text-zinc-300 transition-colors hover:border-emerald-500/30 hover:bg-emerald-500/10 hover:text-emerald-200"
+              title="Overwrite with current workflow"
+            >
+              <Save size={12} />
+              Update
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -261,12 +309,18 @@ export function LibraryItemCard({
   item,
   onLoad,
   onDelete,
+  readonly = false,
+  marketplaceInfo,
 }: {
-  item: LibraryItemEntry;
-  onLoad: (item: LibraryItemEntry) => void;
+  item: LibraryPanelItem;
+  onLoad: (item: LibraryPanelItem) => void;
   onDelete: (id: string) => void;
+  readonly?: boolean;
+  marketplaceInfo?: { marketplaceName: string; pluginName: string };
 }) {
   const renameLibraryItem = useSavedWorkflowsStore((state) => state.renameLibraryItem);
+  const registryEntry = NODE_REGISTRY[item.nodeType];
+  const accentHex = registryEntry?.accentHex ?? "#52525b";
   const {
     isRenaming,
     renameValue,
@@ -286,6 +340,10 @@ export function LibraryItemCard({
     <div className={CARD_CLASS}>
       <button type="button" className="block w-full p-2 text-left" onClick={() => onLoad(item)}>
         <div className="relative overflow-hidden rounded-xl border border-zinc-800/70 bg-zinc-950/90">
+          <div
+            className="pointer-events-none absolute inset-0 opacity-20"
+            style={{ background: `radial-gradient(circle at top, ${accentHex} 0%, transparent 65%)` }}
+          />
           <NodePreview item={item} />
         </div>
       </button>
@@ -306,7 +364,7 @@ export function LibraryItemCard({
                 <button
                   type="button"
                   className={`min-w-0 max-w-full truncate text-left text-sm font-semibold ${TEXT_SECONDARY} transition-colors hover:text-zinc-100`}
-                  onDoubleClick={startRenaming}
+                  onDoubleClick={readonly ? undefined : startRenaming}
                   onClick={() => onLoad(item)}
                   title="Add item to canvas"
                 >
@@ -322,14 +380,22 @@ export function LibraryItemCard({
             )}
 
             <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-zinc-500">
-              <span>Updated {timeAgo}</span>
+              <span className={META_BADGE_CLASS}>Updated {timeAgo}</span>
+              {marketplaceInfo && (
+                <MarketplaceSourceBadge
+                  pluginName={marketplaceInfo.pluginName}
+                  marketplaceName={marketplaceInfo.marketplaceName}
+                />
+              )}
             </div>
           </div>
 
-          <div className="flex items-center gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
-            <CardIconButton icon={Pencil} label="Rename item" onClick={startRenaming} />
-            <CardIconButton icon={Trash2} label="Delete item" onClick={() => onDelete(item.id)} tone="danger" />
-          </div>
+          {!readonly && (
+            <div className="flex items-center gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
+              <CardIconButton icon={Pencil} label="Rename item" onClick={startRenaming} />
+              <CardIconButton icon={Trash2} label="Delete item" onClick={() => onDelete(item.id)} tone="danger" />
+            </div>
+          )}
         </div>
 
         <div className="mt-2.5 flex items-center gap-2">

@@ -10,7 +10,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Folders, LayoutGrid, Layers, Search, X } from "lucide-react";
+import { Folders, LayoutGrid, Layers, RefreshCw, Search, X } from "lucide-react";
 import { LIBRARY_CATEGORIES } from "@/lib/library";
 import { TEXT_MUTED, TEXT_SUBTLE } from "@/lib/theme";
 import {
@@ -33,13 +33,17 @@ export default function LibraryPanel(props: LibraryPanelProps) {
     dismissDeleteDialog,
     executeDelete,
     filteredItems,
+    filteredMarketplaceWorkflows,
     filteredWorkflows,
     handleLoadItem,
+    handleLoadMarketplaceWorkflow,
     handleLoadWorkflow,
     handleUpdateWorkflow,
     hasItems,
+    marketplaceRefreshing,
     requestLibraryItemDelete,
     requestWorkflowDelete,
+    refreshMarketplaces,
     searchQuery,
     setActiveCategory,
     setSearchQuery,
@@ -79,14 +83,26 @@ export default function LibraryPanel(props: LibraryPanelProps) {
                 Browse saved workflows and reusable components
               </p>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={closeSidebar}
-              className={`h-8 w-8 shrink-0 rounded-lg ${TEXT_MUTED} transition-colors hover:bg-zinc-800/80 hover:text-zinc-100`}
-            >
-              <X size={14} />
-            </Button>
+            <div className="flex shrink-0 items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => refreshMarketplaces()}
+                disabled={marketplaceRefreshing}
+                className={`h-8 w-8 rounded-lg ${TEXT_MUTED} transition-colors hover:bg-zinc-800/80 hover:text-zinc-100`}
+                title="Refresh marketplace items"
+              >
+                <RefreshCw size={14} className={marketplaceRefreshing ? "animate-spin" : ""} />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={closeSidebar}
+                className={`h-8 w-8 rounded-lg ${TEXT_MUTED} transition-colors hover:bg-zinc-800/80 hover:text-zinc-100`}
+              >
+                <X size={14} />
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -170,17 +186,17 @@ export default function LibraryPanel(props: LibraryPanelProps) {
         <div className="mx-3 border-t border-zinc-800/70" />
 
         <div className="flex min-h-0 flex-1">
-          <ScrollArea className="min-h-0 w-full flex-1" viewportClassName="overscroll-contain">
+          <ScrollArea className="min-h-0 w-full flex-1" viewportClassName="overscroll-contain [&>div]:!block">
             <div className="space-y-3 p-3.5">
               {!hasItems && <EmptyState category={activeCategory} />}
 
-              {filteredWorkflows.length > 0 && (
+              {(filteredWorkflows.length > 0 || filteredMarketplaceWorkflows.length > 0) && (
                 <>
                   {activeCategory === "all" && (
                     <SectionHeader
                       icon={Layers}
                       label="Workflows"
-                      count={filteredWorkflows.length}
+                      count={filteredWorkflows.length + filteredMarketplaceWorkflows.length}
                       accentClass="text-blue-300"
                     />
                   )}
@@ -193,12 +209,35 @@ export default function LibraryPanel(props: LibraryPanelProps) {
                       onDelete={requestWorkflowDelete}
                     />
                   ))}
+                  {filteredMarketplaceWorkflows.map((workflow) => (
+                    <WorkflowCard
+                      key={workflow.id}
+                      entry={{
+                        id: workflow.id,
+                        name: workflow.name,
+                        savedAt: workflow.savedAt,
+                        updatedAt: workflow.updatedAt,
+                        nodeCount: workflow.nodeCount,
+                        edgeCount: workflow.edgeCount,
+                        workflow: workflow.workflow,
+                      }}
+                      onLoad={() => handleLoadMarketplaceWorkflow(workflow)}
+                      onUpdate={() => {}}
+                      onDelete={() => {}}
+                      readonly
+                      marketplaceInfo={{
+                        marketplaceName: workflow.marketplaceName,
+                        pluginName: workflow.pluginName,
+                      }}
+                    />
+                  ))}
                 </>
               )}
 
               {filteredItems.length > 0 && (
                 <>
-                  {activeCategory === "all" && filteredWorkflows.length > 0 && (
+                  {activeCategory === "all" &&
+                    (filteredWorkflows.length > 0 || filteredMarketplaceWorkflows.length > 0) && (
                     <div className="mx-1 border-t border-zinc-800/70 pt-1" />
                   )}
                   {activeCategory === "all" && (
@@ -209,14 +248,27 @@ export default function LibraryPanel(props: LibraryPanelProps) {
                       accentClass="text-violet-300"
                     />
                   )}
-                  {filteredItems.map((item) => (
-                    <LibraryItemCard
-                      key={item.id}
-                      item={item}
-                      onLoad={handleLoadItem}
-                      onDelete={requestLibraryItemDelete}
-                    />
-                  ))}
+                  {filteredItems.map((item) => {
+                    const marketplaceItem = "readonly" in item && item.readonly ? item : null;
+
+                    return (
+                      <LibraryItemCard
+                        key={item.id}
+                        item={item}
+                        onLoad={handleLoadItem}
+                        onDelete={requestLibraryItemDelete}
+                        readonly={!!marketplaceItem}
+                        marketplaceInfo={
+                          marketplaceItem
+                            ? {
+                                marketplaceName: marketplaceItem.marketplaceName,
+                                pluginName: marketplaceItem.pluginName,
+                              }
+                            : undefined
+                        }
+                      />
+                    );
+                  })}
                 </>
               )}
             </div>

@@ -1,7 +1,12 @@
 import { BG_CANVAS_HEX, TEXT_SUBTLE } from "@/lib/theme";
 import { NODE_REGISTRY } from "@/lib/node-registry";
 import type { NodeType } from "@/types/workflow";
-import type { LibraryItemEntry, SavedWorkflowEntry } from "@/lib/library";
+import type { SavedWorkflowEntry } from "@/lib/library";
+
+interface PreviewLibraryItem {
+  name: string;
+  nodeType: NodeType;
+}
 
 export function WorkflowMiniMap({ entry }: { entry: SavedWorkflowEntry }) {
   const nodes = entry.workflow.nodes;
@@ -95,7 +100,7 @@ export function WorkflowMiniMap({ entry }: { entry: SavedWorkflowEntry }) {
   );
 }
 
-export function NodePreview({ item }: { item: LibraryItemEntry }) {
+export function NodePreview({ item }: { item: PreviewLibraryItem }) {
   const registryEntry = NODE_REGISTRY[item.nodeType];
   const Icon = registryEntry?.icon;
   const accentHex = registryEntry?.accentHex ?? "#52525b";

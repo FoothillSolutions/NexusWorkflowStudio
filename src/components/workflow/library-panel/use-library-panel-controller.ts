@@ -2,12 +2,14 @@ import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useSavedWorkflowsStore } from "@/store/library";
 import { useWorkflowStore } from "@/store/workflow";
+import type { LibraryItemEntry } from "@/lib/library";
+import type { MarketplaceWorkflowEntry } from "@/lib/marketplace/types";
 import { normalizeSubWorkflowContents } from "@/nodes/sub-workflow/constants";
 import type { SubWorkflowNodeData } from "@/nodes/sub-workflow/types";
 import type { WorkflowNodeData } from "@/types/workflow";
-import type { LibraryItemEntry } from "@/lib/library";
 import { getLibraryCategoryLabel } from "./constants";
 import type {
+  LibraryPanelItem,
   LibraryPanelController,
   LibraryPanelProps,
   PendingDelete,
@@ -19,6 +21,9 @@ export function useLibraryPanelController({
 }: LibraryPanelProps): LibraryPanelController {
   const entries = useSavedWorkflowsStore((state) => state.entries);
   const libraryItems = useSavedWorkflowsStore((state) => state.libraryItems);
+  const marketplaceItems = useSavedWorkflowsStore((state) => state.marketplaceItems);
+  const marketplaceWorkflows = useSavedWorkflowsStore((state) => state.marketplaceWorkflows);
+  const marketplaceRefreshing = useSavedWorkflowsStore((state) => state.marketplaceRefreshing);
   const activeCategory = useSavedWorkflowsStore((state) => state.activeCategory);
   const sidebarOpen = useSavedWorkflowsStore((state) => state.sidebarOpen);
   const closeSidebar = useSavedWorkflowsStore((state) => state.closeSidebar);
@@ -26,6 +31,7 @@ export function useLibraryPanelController({
   const load = useSavedWorkflowsStore((state) => state.load);
   const removeLibraryItem = useSavedWorkflowsStore((state) => state.removeLibraryItem);
   const setActiveCategory = useSavedWorkflowsStore((state) => state.setActiveCategory);
+  const refreshMarketplaces = useSavedWorkflowsStore((state) => state.refreshMarketplaces);
 
   const getWorkflowJSON = useWorkflowStore((state) => state.getWorkflowJSON);
   const loadWorkflow = useWorkflowStore((state) => state.loadWorkflow);
@@ -54,10 +60,25 @@ export function useLibraryPanelController({
     [load, loadWorkflow, onLoadWorkflow],
   );
 
+  const handleLoadMarketplaceWorkflow = useCallback(
+    (workflowEntry: MarketplaceWorkflowEntry) => {
+      if (onLoadWorkflow) {
+        onLoadWorkflow(workflowEntry.workflow, workflowEntry.id);
+      } else {
+        loadWorkflow(workflowEntry.workflow, { savedToLibrary: false });
+      }
+
+      useSavedWorkflowsStore.getState().clearActiveId();
+      window.dispatchEvent(new CustomEvent("nexus:fit-view"));
+      toast.success("Marketplace workflow loaded");
+    },
+    [loadWorkflow, onLoadWorkflow],
+  );
+
   const handleLoadItem = useCallback(
-    (item: LibraryItemEntry) => {
+    (item: LibraryPanelItem) => {
       if (onLoadItem) {
-        onLoadItem(item);
+        onLoadItem(item as LibraryItemEntry);
         return;
       }
 
@@ -127,6 +148,11 @@ export function useLibraryPanelController({
 
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
 
+  const allItems = useMemo(
+    () => [...libraryItems, ...marketplaceItems] as LibraryPanelItem[],
+    [libraryItems, marketplaceItems],
+  );
+
   const filteredWorkflows = useMemo(() => {
     if (activeCategory !== "all" && activeCategory !== "workflow") return [];
 
@@ -136,8 +162,17 @@ export function useLibraryPanelController({
     );
   }, [activeCategory, entries, normalizedSearchQuery]);
 
+  const filteredMarketplaceWorkflows = useMemo(() => {
+    if (activeCategory !== "all" && activeCategory !== "workflow") return [];
+
+    return marketplaceWorkflows.filter(
+      (entry) =>
+        !normalizedSearchQuery || entry.name.toLowerCase().includes(normalizedSearchQuery),
+    );
+  }, [activeCategory, marketplaceWorkflows, normalizedSearchQuery]);
+
   const filteredItems = useMemo(() => {
-    let items = libraryItems;
+    let items = allItems;
 
     if (activeCategory !== "all") {
       items = items.filter((item) => item.category === activeCategory);
@@ -150,39 +185,48 @@ export function useLibraryPanelController({
         item.name.toLowerCase().includes(normalizedSearchQuery) ||
         item.description?.toLowerCase().includes(normalizedSearchQuery),
     );
-  }, [activeCategory, libraryItems, normalizedSearchQuery]);
+  }, [activeCategory, allItems, normalizedSearchQuery]);
 
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = {
-      all: entries.length + libraryItems.length,
-      workflow: entries.length,
+      all: entries.length + allItems.length + marketplaceWorkflows.length,
+      workflow: entries.length + marketplaceWorkflows.length,
     };
 
-    for (const item of libraryItems) {
+    for (const item of allItems) {
       counts[item.category] = (counts[item.category] ?? 0) + 1;
     }
 
     return counts;
-  }, [entries.length, libraryItems]);
+  }, [entries.length, allItems, marketplaceWorkflows.length]);
 
   return {
     entries,
     libraryItems,
+    marketplaceItems,
+    marketplaceWorkflows,
     activeCategory,
     activeCategoryLabel: getLibraryCategoryLabel(activeCategory),
     sidebarOpen,
+    marketplaceRefreshing,
     searchQuery,
     setSearchQuery,
     filteredWorkflows,
+    filteredMarketplaceWorkflows,
     filteredItems,
     categoryCounts,
-    hasItems: filteredWorkflows.length > 0 || filteredItems.length > 0,
+    hasItems:
+      filteredWorkflows.length > 0 ||
+      filteredMarketplaceWorkflows.length > 0 ||
+      filteredItems.length > 0,
     confirmDelete,
     closeSidebar,
     setActiveCategory,
+    refreshMarketplaces,
     dismissDeleteDialog,
     executeDelete,
     handleLoadWorkflow,
+    handleLoadMarketplaceWorkflow,
     handleLoadItem,
     handleUpdateWorkflow,
     requestWorkflowDelete,
