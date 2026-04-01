@@ -121,7 +121,7 @@ export function FullscreenMarkdownEditor({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="!max-w-[90vw] !w-[90vw] !max-h-[90vh] !h-[90vh] bg-zinc-900 border-zinc-700/50 flex flex-col gap-0 p-0 rounded-2xl"
+        className="max-w-[90vw]! w-[90vw]! max-h-[90vh]! h-[90vh]! select-text bg-zinc-900 border-zinc-700/50 flex flex-col gap-0 p-0 rounded-2xl"
         showCloseButton={false}
       >
         {/* Header */}
@@ -163,7 +163,7 @@ export function FullscreenMarkdownEditor({
         </DialogHeader>
 
         {/* Body */}
-        <div className="nexus-md-editor flex-1 min-h-0 overflow-hidden fullscreen-md-editor" data-color-mode="dark">
+        <div className="nexus-md-editor fullscreen-md-editor flex-1 min-h-0 overflow-hidden select-text" data-color-mode="dark">
           {viewMode === "edit" && (
             <div className="h-full">
               <MDEditor
@@ -207,7 +207,7 @@ export function FullscreenMarkdownEditor({
                 />
               </div>
               {/* Preview pane */}
-              <div className="flex-1 min-w-0 h-full overflow-auto p-5 bg-zinc-950/50">
+              <div ref={previewPaneRef} className="flex-1 min-w-0 h-full overflow-auto p-5 bg-zinc-950/50 select-text">
                 <MarkdownPreview
                   source={draft}
                   style={{ background: "transparent" }}
@@ -217,7 +217,7 @@ export function FullscreenMarkdownEditor({
           )}
 
           {viewMode === "preview" && (
-            <div className="h-full overflow-auto p-6 bg-zinc-950/50">
+            <div className="h-full overflow-auto p-6 bg-zinc-950/50 select-text">
               <MarkdownPreview
                 source={draft}
                 style={{ background: "transparent" }}

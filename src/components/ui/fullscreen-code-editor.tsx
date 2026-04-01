@@ -67,7 +67,7 @@ export function FullscreenCodeEditor({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-[90vw]! w-[90vw]! max-h-[90vh]! h-[90vh]! bg-zinc-900 border-zinc-700/50 flex flex-col gap-0 p-0 rounded-2xl"
+        className="max-w-[90vw]! w-[90vw]! max-h-[90vh]! h-[90vh]! select-text bg-zinc-900 border-zinc-700/50 flex flex-col gap-0 p-0 rounded-2xl"
         showCloseButton={false}
       >
         <DialogHeader className="flex flex-row items-center justify-between px-5 py-3 border-b border-zinc-700/50 shrink-0">
