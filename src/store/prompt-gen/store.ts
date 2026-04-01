@@ -4,7 +4,7 @@
 // Sessions are disposed when loading/resetting workflows.
 
 import { create } from "zustand";
-import { useOpenCodeStore } from "../opencode-store";
+import { useOpenCodeStore } from "../opencode";
 import { useWorkflowStore } from "../workflow";
 import {
   buildEditUserMessage,

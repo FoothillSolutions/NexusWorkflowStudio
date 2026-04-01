@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import { useOpenCodeStore } from "@/store/opencode-store";
-import type { ModelGroup, DynamicModel } from "@/store/opencode-store";
+import { useOpenCodeStore } from "@/store/opencode";
+import type { ModelGroup, DynamicModel } from "@/store/opencode";
 
 // Re-export types so existing imports from hooks still work
 export type { ModelGroup, DynamicModel };

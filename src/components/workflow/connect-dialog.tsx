@@ -21,7 +21,7 @@ import {
   Unplug,
   Copy,
 } from "lucide-react";
-import { useOpenCodeStore } from "@/store/opencode-store";
+import { useOpenCodeStore } from "@/store/opencode";
 import { toast } from "sonner";
 
 interface ConnectDialogProps {

@@ -1,7 +1,7 @@
 // ─── AI Example Prompts Generator ────────────────────────────────────────────
 // Fetches AI-generated example workflow prompts using the connected model.
 
-import { useOpenCodeStore } from "../opencode-store";
+import { useOpenCodeStore } from "../opencode";
 import type { StoreGet, StoreSet } from "./types";
 
 /** Fetch AI-generated example prompts using the connected model. */

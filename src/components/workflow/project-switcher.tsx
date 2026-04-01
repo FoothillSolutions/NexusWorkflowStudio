@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useOpenCodeStore } from "@/store/opencode-store";
+import { useOpenCodeStore } from "@/store/opencode";
 import {
   loadCustomProjectDirs,
   addCustomProjectDir,
@@ -29,7 +29,7 @@ import {
 import { toast } from "sonner";
 import { TEXT_MUTED } from "@/lib/theme";
 import type { Project } from "@/lib/opencode/types";
-import { useWorkflowGenStore } from "@/store/workflow-gen-store";
+import { useWorkflowGenStore } from "@/store/workflow-gen";
 
 /* ── Helpers ──────────────────────────────────────────────────────────────── */
 

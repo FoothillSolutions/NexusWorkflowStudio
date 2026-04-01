@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { Sparkles, PenLine, ExternalLink, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useOpenCodeStore } from "@/store/opencode-store";
+import { useOpenCodeStore } from "@/store/opencode";
 import { usePromptGenStore, type PromptGenNodeType } from "@/store/prompt-gen";
 import type { FormSetValue } from "@/nodes/shared/form-types";
 import { PromptGenBody } from "./prompt-gen-body";

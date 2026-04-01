@@ -44,7 +44,7 @@ import {
   supportsDirectoryExport,
 } from "@/lib/generated-workflow-export";
 import { IS_MAC } from "@/lib/platform";
-import { useOpenCodeStore } from "@/store/opencode-store";
+import { useOpenCodeStore } from "@/store/opencode";
 import type { WorkflowJSON } from "@/types/workflow";
 
 interface GeneratedExportDialogProps {

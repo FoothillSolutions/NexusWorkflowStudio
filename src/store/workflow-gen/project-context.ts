@@ -1,7 +1,7 @@
 // ─── Project Context ─────────────────────────────────────────────────────────
 // Fetches the project folder's file tree to provide context for AI generation.
 
-import { useOpenCodeStore } from "../opencode-store";
+import { useOpenCodeStore } from "../opencode";
 import type { StoreGet, StoreSet } from "./types";
 
 /** Recursively fetch a project file tree and format it as an indented string. */

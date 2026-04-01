@@ -14,8 +14,8 @@
 //   - workflow-generator.ts → Core generate() logic + canvas updates
 
 import { create } from "zustand";
-import { useOpenCodeStore } from "../opencode-store";
-import { useWorkflowStore } from "../workflow-store";
+import { useOpenCodeStore } from "../opencode";
+import { useWorkflowStore } from "../workflow";
 import type { WorkflowGenState } from "./types";
 import { fetchProjectContext } from "./project-context";
 import { fetchAiExamples } from "./examples-generator";
