@@ -115,7 +115,7 @@ export default function PropertiesPanel() {
 
   return (
     <div
-      className={`${PANEL_SHELL_CLASS} animate-in slide-in-from-top-4 fade-in-0 duration-200`}
+      className={`${PANEL_SHELL_CLASS} select-text animate-in slide-in-from-top-4 fade-in-0 duration-200`}
       style={{ width: "min(380px, calc(100vw - 32px))", height: activeSubWorkflowNodeId ? "calc(100% - 32px)" : "calc(100vh - 112px)" }}
     >
       {/* Header */}
@@ -143,8 +143,8 @@ export default function PropertiesPanel() {
       </div>
 
       {/* Content */}
-      <ScrollArea className="flex-1 min-h-0 w-full" viewportClassName="min-h-0">
-        <form className="space-y-3 p-3 pb-4" onSubmit={(e) => e.preventDefault()}>
+      <ScrollArea className="flex-1 min-h-0 w-full" viewportClassName="min-h-0 select-text">
+        <form className="space-y-3 p-3 pb-4 select-text" onSubmit={(e) => e.preventDefault()}>
           <section className={`${PANEL_SURFACE_CLASS} relative overflow-hidden p-3`}>
             <div
               className="pointer-events-none absolute inset-x-0 top-0 h-20 opacity-100"
