@@ -81,6 +81,10 @@ function normalizeLibraryItem(entry: LibraryItemEntry): LibraryItemEntry {
   };
 }
 
+function isSupportedLibraryItem(entry: LibraryItemEntry): boolean {
+  return nodeTypeToCategory(entry.nodeType) === entry.category;
+}
+
 // Helpers
 
 function readCollection(): SavedWorkflowEntry[] {
@@ -204,7 +208,14 @@ function writeLibrary(entries: LibraryItemEntry[]): void {
 
 /** Get all library items. */
 export function getAllLibraryItems(): LibraryItemEntry[] {
-  return readLibrary().map(normalizeLibraryItem);
+  const entries = readLibrary();
+  const supportedEntries = entries.filter(isSupportedLibraryItem).map(normalizeLibraryItem);
+
+  if (supportedEntries.length !== entries.length) {
+    writeLibrary(supportedEntries);
+  }
+
+  return supportedEntries;
 }
 
 /** Extract a short description from node data. */
