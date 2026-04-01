@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useWorkflowStore } from "@/store/workflow";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { NON_DELETABLE_NODE_TYPES, WorkflowNodeType } from "@/types/workflow";
 
 export default function DeleteDialog() {
   const deleteTarget = useWorkflowStore((s) => s.deleteTarget);
@@ -14,8 +15,8 @@ export default function DeleteDialog() {
     s.deleteTarget?.type === "selection"
       ? s.deleteTarget.count ?? (
         s.deleteTarget.scope === "subworkflow"
-          ? s.subWorkflowNodes.filter((n) => n.selected && n.data?.type !== "start").length
-          : s.nodes.filter((n) => n.selected && n.data?.type !== "start").length
+          ? s.subWorkflowNodes.filter((node) => node.selected && !NON_DELETABLE_NODE_TYPES.has(node.data?.type ?? WorkflowNodeType.Start)).length
+          : s.nodes.filter((node) => node.selected && !NON_DELETABLE_NODE_TYPES.has(node.data?.type ?? WorkflowNodeType.Start)).length
       )
       : 0
   );
