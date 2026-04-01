@@ -2,25 +2,17 @@ import type { Node, Edge, Viewport } from "@xyflow/react";
 
 export { SubAgentModel, SubAgentMemory, MODEL_DISPLAY_NAMES } from "@/nodes/agent/enums";
 import { SubAgentMemory } from "@/nodes/agent/enums";
-
-// Node Types
-export const NODE_TYPES = [
-  "start",
-  "prompt",
-  "script",
-  "agent",
-  "parallel-agent",
-  "sub-workflow",
-  "skill",
-  "document",
-  "mcp-tool",
-  "if-else",
-  "switch",
-  "ask-user",
-  "end",
-] as const;
-
-export type NodeType = (typeof NODE_TYPES)[number];
+import type { NodeType } from "./node-types";
+export {
+  AGENT_LIKE_NODE_TYPES,
+  ATTACHMENT_NODE_TYPES,
+  BRANCHING_NODE_TYPES,
+  LIBRARY_SAVEABLE_NODE_TYPES,
+  NODE_TYPES,
+  NON_DELETABLE_NODE_TYPES,
+  WorkflowNodeType,
+} from "./node-types";
+export type { NodeType } from "./node-types";
 
 // Per-type data payloads
 interface BaseNodeData extends Record<string, unknown> {
