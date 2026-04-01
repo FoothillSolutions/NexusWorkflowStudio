@@ -3,7 +3,6 @@ import { temporal } from "zundo";
 import {
   applyNodeChanges,
   applyEdgeChanges,
-  addEdge,
   type OnNodesChange,
   type OnEdgesChange,
   type OnConnect,
@@ -24,6 +23,7 @@ import { SubAgentModel, SubAgentMemory } from "@/nodes/agent/enums";
 import { createNodeFromType } from "@/lib/node-registry";
 import { usePromptGenStore } from "@/store/prompt-gen";
 import { moveNodeIntoSubWorkflowContext } from "@/lib/subworkflow-transfer";
+import { normalizeWorkflowConnection } from "@/lib/workflow-connections";
 import type { CanvasMode, DeleteTarget, EdgeStyle } from "./types";
 import {
   buildWorkflowJson,
@@ -174,70 +174,13 @@ export const useWorkflowStore = create<WorkflowState>()(
     set({ edges: applyEdgeChanges(changes, get().edges) });
   },
   onConnect: (connection) => {
-    // Prevent self-loops
-    if (connection.source === connection.target) return;
-
-    const currentNodes = get().nodes;
-    const sourceNode = currentNodes.find((n) => n.id === connection.source);
-    const targetNode = currentNodes.find((n) => n.id === connection.target);
-
-    // Script nodes can ONLY connect to skill nodes (as source)
-    if (sourceNode?.data?.type === "script") {
-      if (targetNode?.data?.type !== "skill") return;
-      const scriptConnection = { ...connection, sourceHandle: "script-out", targetHandle: "scripts", type: "deletable" };
-      set({ edges: addEdge(scriptConnection, get().edges) });
-      return;
-    }
-
-    // Skill nodes can ONLY connect to agent-like nodes (as source)
-    if (sourceNode?.data?.type === "skill") {
-      if (targetNode?.data?.type !== "agent" && targetNode?.data?.type !== "parallel-agent") return;
-      // Force the target handle to be the dedicated "skills" handle
-      const skillConnection = { ...connection, targetHandle: "skills", type: "deletable" };
-      // Multiple skills allowed — no dedup on this handle
-      set({ edges: addEdge(skillConnection, get().edges) });
-      return;
-    }
-
-    // Document nodes can ONLY connect to agent-like nodes (as source)
-    if (sourceNode?.data?.type === "document") {
-      if (targetNode?.data?.type !== "agent" && targetNode?.data?.type !== "parallel-agent") return;
-      // Force the target handle to be the dedicated "docs" handle
-      const docConnection = { ...connection, targetHandle: "docs", type: "deletable" };
-      // Multiple docs allowed — no dedup on this handle
-      set({ edges: addEdge(docConnection, get().edges) });
-      return;
-    }
-
-    // No node except a script node can connect TO a skill script handle
-    if (targetNode?.data?.type === "skill") {
-      return;
-    }
-
-    // No node can connect TO a document node
-    if (targetNode?.data?.type === "document") return;
-
-    // The "skills" target handle only accepts skill nodes — block everything else
-    if (connection.targetHandle === "skills") return;
-
-    // The "docs" target handle only accepts document nodes — block everything else
-    if (connection.targetHandle === "docs") return;
-
-    // The "scripts" target handle only accepts prompt nodes attached to skills
-    if (connection.targetHandle === "scripts") return;
-
-    // Parallel-agent branch outputs can only target external agent nodes
-    if (sourceNode?.data?.type === "parallel-agent" && connection.sourceHandle?.startsWith("branch-")) {
-      if (targetNode?.data?.type !== "agent") return;
-    }
-
-    // Each source handle may only connect to one target at a time.
-    // Remove any existing edge from the same source handle before adding the new one.
-    const filtered = get().edges.filter(
-      (e) =>
-        !(e.source === connection.source && e.sourceHandle === connection.sourceHandle)
-    );
-    set({ edges: addEdge({ ...connection, type: "deletable" }, filtered) });
+    const nextEdges = normalizeWorkflowConnection({
+      connection,
+      nodes: get().nodes,
+      edges: get().edges,
+    });
+    if (!nextEdges) return;
+    set({ edges: nextEdges });
   },
 
   // Actions
