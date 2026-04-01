@@ -17,7 +17,7 @@ export interface WorkflowGenState {
   /** The user's natural-language prompt */
   prompt: string;
   /** Selected model (providerId/modelId) */
-  selectedModel: string;
+  selectedModel: string | null;
   /** Streamed raw text so far */
   streamedText: string;
   /** Number of nodes parsed so far (for progress display) */
@@ -64,7 +64,7 @@ export interface WorkflowGenState {
   toggleCollapsed: () => void;
   close: () => void;
   setPrompt: (prompt: string) => void;
-  setSelectedModel: (model: string) => void;
+  setSelectedModel: (model: string | null) => void;
   setUseProjectContext: (use: boolean) => void;
   /** Fetch the project folder's file tree for context */
   fetchProjectContext: () => Promise<void>;
@@ -93,9 +93,12 @@ export type StoreSet = {
 
 // ── Utilities ────────────────────────────────────────────────────────────────
 
+/** Rough heuristic used to estimate tokens from plain-text character length. */
+const APPROXIMATE_CHARS_PER_TOKEN = 4;
+
 /** Estimate token count from text length (rough ~4 chars per token). */
 export function estimateTokens(text: string): number {
   if (!text) return 0;
-  return Math.ceil(text.length / 4);
+  return Math.ceil(text.length / APPROXIMATE_CHARS_PER_TOKEN);
 }
 

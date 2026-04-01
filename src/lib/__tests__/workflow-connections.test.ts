@@ -84,8 +84,8 @@ describe("workflow connections", () => {
         contentMode: "inline",
         fileExtension: "md",
         contentText: "",
-        linkedFileName: "",
-        linkedFileContent: "",
+        linkedFileName: null,
+        linkedFileContent: null,
         description: "",
       },
     });
@@ -120,8 +120,8 @@ describe("workflow connections", () => {
         contentMode: "inline",
         fileExtension: "md",
         contentText: "",
-        linkedFileName: "",
-        linkedFileContent: "",
+        linkedFileName: null,
+        linkedFileContent: null,
         description: "",
       },
     });

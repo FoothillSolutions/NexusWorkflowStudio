@@ -16,6 +16,7 @@ import {
 import { DocumentContentSection } from "./fields/document-content-section";
 import { DocumentIdentitySection } from "./fields/document-identity-section";
 import { PlainTextEditorDialog } from "./fields/plain-text-editor-dialog";
+import type { DocumentContentMode, DocumentNodeData } from "./types";
 
 const ALLOWED_EXTENSIONS = ["md", "txt", "json", "yaml", "yml"] as const;
 
@@ -29,10 +30,10 @@ interface DocumentFieldsProps {
 export function Fields({ control, setValue }: DocumentFieldsProps) {
   const docName: string = useWatch({ control, name: "docName" }) ?? "";
   const docSubfolder: string = useWatch({ control, name: "docSubfolder" }) ?? "";
-  const contentMode: string = useWatch({ control, name: "contentMode" }) ?? "inline";
-  const fileExtension: string = useWatch({ control, name: "fileExtension" }) ?? "md";
+  const contentMode: DocumentContentMode = useWatch({ control, name: "contentMode" }) ?? "inline";
+  const fileExtension: DocumentNodeData["fileExtension"] = useWatch({ control, name: "fileExtension" }) ?? "md";
   const contentText: string = useWatch({ control, name: "contentText" }) ?? "";
-  const linkedFileName: string = useWatch({ control, name: "linkedFileName" }) ?? "";
+  const linkedFileName: string | null = useWatch({ control, name: "linkedFileName" }) ?? null;
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [isCreatingSubfolder, setIsCreatingSubfolder] = useState(false);
@@ -55,7 +56,7 @@ export function Fields({ control, setValue }: DocumentFieldsProps) {
     return [...folders].sort((a, b) => a.localeCompare(b));
   }, [docSubfolder, sharedSubfolders]);
   const outputPathPreview = useMemo(
-    () => `docs/${getDocumentDisplayPath({ docName, docSubfolder, fileExtension: fileExtension as "md" | "txt" | "json" | "yaml" })}`,
+    () => `docs/${getDocumentDisplayPath({ docName, docSubfolder, fileExtension })}`,
     [docName, docSubfolder, fileExtension],
   );
 
@@ -90,8 +91,8 @@ export function Fields({ control, setValue }: DocumentFieldsProps) {
   );
 
   const clearLinkedFile = useCallback(() => {
-    setValue("linkedFileName" as never, "" as never, { shouldDirty: true });
-    setValue("linkedFileContent" as never, "" as never, { shouldDirty: true });
+    setValue("linkedFileName" as never, null as never, { shouldDirty: true });
+    setValue("linkedFileContent" as never, null as never, { shouldDirty: true });
   }, [setValue]);
 
   const handleEditorSave = useCallback(

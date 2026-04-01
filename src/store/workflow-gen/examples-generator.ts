@@ -3,6 +3,10 @@
 
 import { useOpenCodeStore } from "../opencode";
 import type { StoreGet, StoreSet } from "./types";
+import { parseSelectedModel } from "./model-utils";
+
+/** Number of AI examples requested for the floating workflow generator panel. */
+const AI_EXAMPLE_REQUEST_COUNT = 5;
 
 /** Fetch AI-generated example prompts using the connected model. */
 export async function fetchAiExamples(
@@ -35,9 +39,13 @@ export async function fetchAiExamples(
       set({ _examplesSessionId: sid });
     }
 
-    const slashIdx = selectedModel.indexOf("/");
-    const providerId = slashIdx > 0 ? selectedModel.slice(0, slashIdx) : "";
-    const modelId = slashIdx > 0 ? selectedModel.slice(slashIdx + 1) : selectedModel;
+    const parsedModel = parseSelectedModel(selectedModel);
+    if (!parsedModel) {
+      set({ aiExamplesStatus: "idle", _examplesAbortController: null });
+      return;
+    }
+
+    const { providerId, modelId } = parsedModel;
 
     // Send prompt async
     const { useProjectContext, projectContext } = get();
@@ -46,7 +54,7 @@ export async function fetchAiExamples(
       : "";
 
     await client.messages.sendAsync(sid, {
-      parts: [{ type: "text", text: `Generate 5 creative and diverse workflow prompt ideas that a user might want to build. Each should involve multiple node types (agents, if-else, switch, ask-user, skills, documents, sub-workflows). Return ONLY a JSON array of 5 strings, no explanation. Example format: [\"prompt 1\", \"prompt 2\", ...]${projectHint}` }],
+      parts: [{ type: "text", text: `Generate ${AI_EXAMPLE_REQUEST_COUNT} creative and diverse workflow prompt ideas that a user might want to build. Each should involve multiple node types (agents, if-else, switch, ask-user, skills, documents, sub-workflows). Return ONLY a JSON array of ${AI_EXAMPLE_REQUEST_COUNT} strings, no explanation. Example format: [\"prompt 1\", \"prompt 2\", ...]${projectHint}` }],
       model: { providerID: providerId, modelID: modelId },
       system: "You output ONLY valid JSON arrays of strings. No markdown, no code fences, no explanation. Just the JSON array.",
     }, { signal: abortController.signal });

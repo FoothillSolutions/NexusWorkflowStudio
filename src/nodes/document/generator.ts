@@ -10,7 +10,9 @@ import type { DocumentNodeData } from "./types";
 import { getDocumentRelativePath } from "./utils";
 
 function buildDocFile(d: DocumentNodeData): string {
-  const content = d.contentMode === "linked" ? d.linkedFileContent?.trim() || "" : d.contentText?.trim() || "";
+  const content = d.contentMode === "linked"
+    ? d.linkedFileContent?.trim() || ""
+    : d.contentText?.trim() || "";
   return content + "\n";
 }
 
@@ -36,7 +38,7 @@ export const generator: NodeGeneratorModule & {
       `- **Subfolder:** ${d.docSubfolder || "_root docs_"}`,
       `- **Path:** ${relativePath ? `docs/${relativePath}` : "_not set_"}`,
       `- **Type:** ${d.fileExtension || "md"}`,
-      `- **Source:** ${d.contentMode === "linked" ? `linked (${d.linkedFileName || "none"})` : "inline"}`,
+      `- **Source:** ${d.contentMode === "linked" ? `linked (${d.linkedFileName ?? "none"})` : "inline"}`,
     ].join("\n");
   },
 

@@ -13,7 +13,7 @@ interface DocumentContentSectionProps {
   control: FormControl;
   contentMode: string;
   contentText: string;
-  linkedFileName: string;
+  linkedFileName: string | null;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   onOpenEditor: () => void;
   onFileUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
