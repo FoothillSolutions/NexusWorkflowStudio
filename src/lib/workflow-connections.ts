@@ -6,6 +6,8 @@ import {
   type WorkflowEdge,
   type WorkflowNode,
 } from "@/types/workflow";
+import { findSwitchBranchIndexByHandle, getSwitchBranchHandleId } from "@/nodes/switch/branches";
+import type { SwitchNodeData } from "@/nodes/switch/types";
 
 export const WORKFLOW_EDGE_TYPE = "deletable" as const;
 export const SCRIPT_SOURCE_HANDLE = "script-out";
@@ -35,12 +37,26 @@ export function normalizeWorkflowConnection({
 
   const sourceType = findNodeType(nodes, connection.source);
   const targetType = findNodeType(nodes, connection.target);
+  let normalizedConnection = connection;
+
+  if (sourceType === WorkflowNodeType.Switch) {
+    const sourceNode = nodes.find((node) => node.id === connection.source);
+    const branches = (sourceNode?.data as SwitchNodeData | undefined)?.branches;
+    const branchIndex = branches ? findSwitchBranchIndexByHandle(branches, connection.sourceHandle) : -1;
+
+    if (branches && branchIndex !== -1) {
+      normalizedConnection = {
+        ...connection,
+        sourceHandle: getSwitchBranchHandleId(branches[branchIndex], branchIndex, branches.length),
+      };
+    }
+  }
 
   if (sourceType === WorkflowNodeType.Script) {
     if (targetType !== WorkflowNodeType.Skill) return null;
     return addEdge(
       {
-        ...connection,
+        ...normalizedConnection,
         sourceHandle: SCRIPT_SOURCE_HANDLE,
         targetHandle: SCRIPT_TARGET_HANDLE,
         type: WORKFLOW_EDGE_TYPE,
@@ -53,7 +69,7 @@ export function normalizeWorkflowConnection({
     if (!targetType || !AGENT_LIKE_NODE_TYPES.has(targetType)) return null;
     return addEdge(
       {
-        ...connection,
+        ...normalizedConnection,
         targetHandle: SKILL_TARGET_HANDLE,
         type: WORKFLOW_EDGE_TYPE,
       },
@@ -65,7 +81,7 @@ export function normalizeWorkflowConnection({
     if (!targetType || !AGENT_LIKE_NODE_TYPES.has(targetType)) return null;
     return addEdge(
       {
-        ...connection,
+        ...normalizedConnection,
         targetHandle: DOCUMENT_TARGET_HANDLE,
         type: WORKFLOW_EDGE_TYPE,
       },
@@ -87,16 +103,16 @@ export function normalizeWorkflowConnection({
 
   if (
     sourceType === WorkflowNodeType.ParallelAgent
-    && connection.sourceHandle?.startsWith("branch-")
+    && normalizedConnection.sourceHandle?.startsWith("branch-")
     && targetType !== WorkflowNodeType.Agent
   ) {
     return null;
   }
 
   const filteredEdges = edges.filter(
-    (edge) => !(edge.source === connection.source && edge.sourceHandle === connection.sourceHandle),
+    (edge) => !(edge.source === normalizedConnection.source && edge.sourceHandle === normalizedConnection.sourceHandle),
   );
 
-  return addEdge({ ...connection, type: WORKFLOW_EDGE_TYPE }, filteredEdges);
+  return addEdge({ ...normalizedConnection, type: WORKFLOW_EDGE_TYPE }, filteredEdges);
 }
 

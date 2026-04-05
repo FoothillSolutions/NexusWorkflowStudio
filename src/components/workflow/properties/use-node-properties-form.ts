@@ -5,6 +5,18 @@ import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { NodeType, WorkflowNodeData } from "@/types/workflow";
 import { nodeSchemaMap, NODE_REGISTRY } from "@/lib/node-registry";
+import { WorkflowNodeType } from "@/types/workflow";
+import { normalizeSwitchBranches } from "@/nodes/switch/branches";
+
+function normalizeNodeFormData(data: WorkflowNodeData | undefined) {
+  if (!data) return undefined;
+  if (data.type !== WorkflowNodeType.Switch) return data as Record<string, unknown>;
+
+  return {
+    ...data,
+    branches: normalizeSwitchBranches(data.branches),
+  } as Record<string, unknown>;
+}
 
 interface UseNodePropertiesFormOptions {
   selectedNodeId: string | null;
@@ -35,15 +47,25 @@ export function useNodePropertiesForm({
 
   const watchedValues = useWatch({ control: form.control });
   const readyNodeIdRef = useRef<string | null>(null);
+  const previousSelectedNodeIdRef = useRef<string | null>(null);
 
   useEffect(() => {
+    const previousSelectedNodeId = previousSelectedNodeIdRef.current;
+    const selectedNodeChanged = previousSelectedNodeId !== selectedNodeId;
     readyNodeIdRef.current = null;
 
     if (nodeData && registryEntry) {
       const defaults = registryEntry.defaultData() as Record<string, unknown>;
-      const merged = { ...defaults, ...nodeData } as Record<string, unknown>;
-      form.reset(merged);
+      const normalizedNodeData = normalizeNodeFormData(nodeData);
+      const merged = { ...defaults, ...normalizedNodeData } as Record<string, unknown>;
+      const nextSignature = JSON.stringify(merged);
+      const currentSignature = JSON.stringify(form.getValues());
+      if (selectedNodeChanged || currentSignature !== nextSignature) {
+        form.reset(merged);
+      }
     }
+
+    previousSelectedNodeIdRef.current = selectedNodeId ?? null;
 
     const nextReadyNodeId = selectedNodeId ?? null;
     const handle = requestAnimationFrame(() => {

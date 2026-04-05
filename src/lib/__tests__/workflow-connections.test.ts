@@ -10,6 +10,7 @@ import {
   SKILL_TARGET_HANDLE,
   normalizeWorkflowConnection,
 } from "../workflow-connections";
+import { createSwitchBranch } from "@/nodes/switch/branches";
 
 function connect(
   connection: Partial<Connection>,
@@ -197,6 +198,46 @@ describe("workflow connections", () => {
     expect(
       connect({ source: "parallel-1", target: "agent-1", sourceHandle: "branch-0" }, [parallelAgent, agent]),
     ).toHaveLength(1);
+  });
+
+  it("canonicalizes switch branch handles to the stable branch handle id", () => {
+    const branches = [
+      createSwitchBranch({ id: "switch-branch-case-1", label: "Pending", condition: "" }),
+      createSwitchBranch({ id: "switch-branch-default", label: "default", condition: "Other cases" }),
+    ];
+    const switchNode = makeWorkflowNode({
+      id: "switch-1",
+      type: WorkflowNodeType.Switch,
+      data: {
+        type: WorkflowNodeType.Switch,
+        label: "Switch",
+        name: "switch-1",
+        evaluationTarget: "status",
+        branches,
+      },
+    });
+    const endA = makeWorkflowNode({
+      id: "end-a",
+      type: WorkflowNodeType.End,
+      data: { type: WorkflowNodeType.End, label: "End A", name: "end-a" },
+    });
+    const endB = makeWorkflowNode({
+      id: "end-b",
+      type: WorkflowNodeType.End,
+      data: { type: WorkflowNodeType.End, label: "End B", name: "end-b" },
+    });
+
+    const next = connect(
+      { source: "switch-1", target: "end-b", sourceHandle: "Pending" },
+      [switchNode, endA, endB],
+      [makeWorkflowEdge({ id: "edge-1", source: "switch-1", target: "end-a", sourceHandle: "switch-branch-case-1" })],
+    );
+
+    expect(next).toHaveLength(1);
+    expect(next?.[0]).toMatchObject({
+      sourceHandle: "switch-branch-case-1",
+      target: "end-b",
+    });
   });
 });
 

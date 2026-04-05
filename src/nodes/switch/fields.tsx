@@ -10,6 +10,7 @@ import { Plus, X } from "lucide-react";
 import { NODE_ACCENT, BRANCH_DEFAULT } from "@/lib/node-colors";
 import type { FormRegister, FormControl } from "@/nodes/shared/form-types";
 import { RequiredIndicator } from "@/nodes/shared/required-indicator";
+import { createSwitchBranch } from "./branches";
 
 interface SwitchFieldsProps {
   register: FormRegister;
@@ -27,7 +28,7 @@ export function Fields({ register, control }: SwitchFieldsProps) {
 
   const handleAddBranch = () => {
     // Insert before the default branch (last item)
-    insert(editableCount, { label: `Case ${editableCount + 1}`, condition: "" } as never);
+    insert(editableCount, createSwitchBranch({ label: `Case ${editableCount + 1}`, condition: "" }) as never);
   };
 
   return (

@@ -14,6 +14,7 @@ import { generator as switchGen } from "@/nodes/switch/generator";
 import { generator as askUserGen } from "@/nodes/ask-user/generator";
 import type { NodeGeneratorModule } from "@/nodes/shared/registry-types";
 import { mermaidId, mermaidLabel } from "@/nodes/shared/mermaid-utils";
+import { getSwitchBranchLabelFromHandle } from "@/nodes/switch/branches";
 
 export interface GeneratedFile {
   path: string;
@@ -97,6 +98,17 @@ export function mermaidEdge(
         const branch = d.branches?.[idx];
         if (branch?.label) {
           raw = branch.label;
+        }
+      }
+    }
+
+    if (nodeById) {
+      const srcNode = nodeById.get(edge.source);
+      if (srcNode?.data?.type === WorkflowNodeType.Switch) {
+        const d = srcNode.data as import("@/types/workflow").SwitchNodeData;
+        const switchLabel = getSwitchBranchLabelFromHandle(d.branches ?? [], raw);
+        if (switchLabel) {
+          raw = switchLabel;
         }
       }
     }

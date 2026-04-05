@@ -5,6 +5,7 @@ import type { NodeRegistryEntry } from "@/nodes/shared/registry-types";
 import { NODE_ACCENT } from "@/lib/node-colors";
 import { WorkflowNodeType } from "@/types/workflow";
 import type { SwitchNodeData } from "./types";
+import { createDefaultSwitchBranches } from "./branches";
 
 export const switchRegistryEntry: NodeRegistryEntry = {
   type: WorkflowNodeType.Switch,
@@ -19,11 +20,7 @@ export const switchRegistryEntry: NodeRegistryEntry = {
     label: "Switch",
     name: "",
     evaluationTarget: "",
-    branches: [
-      { label: "Case 1", condition: "" },
-      { label: "Case 2", condition: "" },
-      { label: "default", condition: "Other cases" },
-    ],
+    branches: createDefaultSwitchBranches(),
   }),
 };
 

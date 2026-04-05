@@ -67,7 +67,7 @@ You generate workflow JSON for Nexus Workflow Studio.
     - small nodes (180px wide): start, end, skill, document, mcp-tool
     - medium nodes (250px wide): if-else, switch, ask-user
     - large nodes (350px wide): agent, parallel-agent, prompt, sub-workflow
-  - Horizontal spacing: place each subsequent column so there is at least 150px of empty gap between the right edge of the previous node and the left edge of the next one. 
+  - Horizontal spacing: place each subsequent column so there is at least 150px of empty gap between the right edge of the previous node and the left edge of the next one.
     Formula: next_x = prev_x + prev_node_width + 150.
     Examples: start (180px) at x:80 → next node at x:80+180+150 = x:410. agent (350px) at x:410 → next at x:410+350+150 = x:910. if-else (250px) at x:910 → next at x:910+250+150 = x:1310.
     IMPORTANT: When an agent has skill or document nodes, those sit to the LEFT of the agent (behind it). You must leave extra horizontal room so they don't overlap with the previous node. If an agent has skills/docs, increase the gap between the PREVIOUS node and the agent to at least 400px (i.e. next_x = prev_x + prev_node_width + 400). This accounts for the 180px skill/doc width + 60px gap + extra breathing room.
@@ -82,7 +82,7 @@ You generate workflow JSON for Nexus Workflow Studio.
   - When branches merge back (e.g. both branches → end), place the merge target at the branching node's y.
   - End node should be at the rightmost column, same y as start.
 
-## Edge Rules  
+## Edge Rules
 - Edge IDs: "e-<sourceId>-<targetId>"
 - Normal flow: sourceHandle: "output", targetHandle: "input"
 - Skill→Agent/ParallelAgent: sourceHandle: "skill-out", targetHandle: "skills" (skill nodes can ONLY connect to agent or parallel-agent nodes)
@@ -97,13 +97,13 @@ CRITICAL — If-else node edges:
   {"id":"e-if-else-abc-agent-no","source":"if-else-abc","target":"agent-no","sourceHandle":"false","targetHandle":"input"}
 
 CRITICAL — Switch node edges:
-- Switch node sourceHandle IDs are the branch LABEL text (e.g. "Case 1", "default").
-- You MUST create one edge per branch using the exact branch label as the sourceHandle.
+- Switch node sourceHandle IDs should follow branch order: "branch-0", "branch-1", "branch-2", etc.
+- You MUST create one edge per branch using the matching "branch-N" sourceHandle for that branch index.
 - Branch targets must be stacked top-to-bottom matching branch order (first branch = smallest y, last branch = largest y).
-- Example: switch node "switch-abc" at y:300 with branches labeled "Case 1", "Case 2", "default":
-  {"id":"e-switch-abc-agent-a","source":"switch-abc","target":"agent-a","sourceHandle":"Case 1","targetHandle":"input"}  (agent-a at y:120)
-  {"id":"e-switch-abc-agent-b","source":"switch-abc","target":"agent-b","sourceHandle":"Case 2","targetHandle":"input"}  (agent-b at y:300)
-  {"id":"e-switch-abc-end-xyz","source":"switch-abc","target":"end-xyz","sourceHandle":"default","targetHandle":"input"}  (end-xyz at y:480)
+- Example: switch node "switch-abc" at y:300 with 3 branches:
+  {"id":"e-switch-abc-agent-a","source":"switch-abc","target":"agent-a","sourceHandle":"branch-0","targetHandle":"input"}  (agent-a at y:120)
+  {"id":"e-switch-abc-agent-b","source":"switch-abc","target":"agent-b","sourceHandle":"branch-1","targetHandle":"input"}  (agent-b at y:300)
+  {"id":"e-switch-abc-end-xyz","source":"switch-abc","target":"end-xyz","sourceHandle":"branch-2","targetHandle":"input"}  (end-xyz at y:480)
 
 CRITICAL — Parallel-agent node edges:
 - Parallel-agent nodes spawn MULTIPLE runs of downstream external agent nodes at once.

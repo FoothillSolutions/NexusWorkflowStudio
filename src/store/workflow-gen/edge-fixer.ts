@@ -5,6 +5,7 @@
 
 import { WorkflowNodeType, type NodeType } from "@/types/workflow";
 import type { WorkflowEdge } from "@/types/workflow";
+import { findSwitchBranchIndexByHandle, getSwitchBranchHandleId } from "@/nodes/switch/branches";
 
 /** Branch index used for the truthy output of an if/else node. */
 const IF_ELSE_TRUE_BRANCH_INDEX = 0;
@@ -18,7 +19,7 @@ const DECIMAL_RADIX = 10;
 /** Node metadata needed for edge handle fixing. */
 export interface NodeBranchInfo {
   type: NodeType;
-  branches?: Array<{ label: string }>;
+  branches?: Array<{ id?: string; label: string }>;
   options?: Array<{ label: string }>;
   multipleSelection?: boolean;
   aiSuggestOptions?: boolean;
@@ -45,12 +46,14 @@ export function fixEdgeHandles(
     }
 
     if (sourceInfo.type === WorkflowNodeType.Switch && sourceInfo.branches) {
-      const branchMatch = handle?.match(/^branch-(\d+)$/);
-      if (branchMatch) {
-        const idx = Number.parseInt(branchMatch[1], DECIMAL_RADIX);
-        if (idx < sourceInfo.branches.length) {
-          return { ...edge, sourceHandle: sourceInfo.branches[idx].label, type: "deletable" } as unknown as WorkflowEdge;
-        }
+      const switchBranches = sourceInfo.branches as Array<{ id?: string; label: string }>;
+      const idx = findSwitchBranchIndexByHandle(switchBranches, handle);
+      if (idx !== -1) {
+        return {
+          ...edge,
+          sourceHandle: getSwitchBranchHandleId(switchBranches[idx], idx, switchBranches.length),
+          type: "deletable",
+        } as unknown as WorkflowEdge;
       }
     }
 

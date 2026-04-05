@@ -130,6 +130,7 @@ export interface IfElseNodeData extends BaseNodeData {
 }
 
 export interface SwitchBranch {
+  id?: string;
   label: string;
   condition: string;
 }

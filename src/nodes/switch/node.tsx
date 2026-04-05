@@ -5,14 +5,16 @@ import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import { BaseNode } from "@/nodes/shared/base-node";
 import { switchRegistryEntry } from "./constants";
 import type { SwitchNodeData, SwitchBranch } from "./types";
+import {
+  createDefaultSwitchBranches,
+  getSwitchBranchHandleAliases,
+  getSwitchBranchHandleId,
+  isDefaultSwitchBranch,
+} from "./branches";
 
 export const SwitchNode = memo(function SwitchNode({ id, data, selected }: NodeProps<Node<SwitchNodeData>>) {
   const { icon, accentHex, displayName } = switchRegistryEntry;
-  const branches: SwitchBranch[] = data.branches ?? [
-    { label: "Case 1", condition: "" },
-    { label: "Case 2", condition: "" },
-    { label: "default", condition: "Other cases" },
-  ];
+  const branches: SwitchBranch[] = data.branches ?? createDefaultSwitchBranches();
 
   return (
     <BaseNode
@@ -33,8 +35,9 @@ export const SwitchNode = memo(function SwitchNode({ id, data, selected }: NodeP
       {/* Branch blocks */}
       <div className="flex flex-col gap-1.5">
         {branches.map((branch, i) => {
-          const isDefault = branch.label === "default";
-          const handleId = branch.label || (isDefault ? "default" : `case-${i}`);
+          const isDefault = isDefaultSwitchBranch(branch, i, branches.length);
+          const handleId = getSwitchBranchHandleId(branch, i, branches.length);
+          const legacyHandleIds = getSwitchBranchHandleAliases(branch, i, branches.length);
           return (
             <div key={i} className="relative flex items-center gap-2">
               {/* Branch pill with left accent stripe */}
@@ -67,11 +70,21 @@ export const SwitchNode = memo(function SwitchNode({ id, data, selected }: NodeP
                 type="source"
                 position={Position.Right}
                 id={handleId}
-                className="!relative !right-0 !top-0 !transform-none !h-2.5 !w-2.5 !border !border-zinc-700 !rounded-full !shadow-sm"
+                className="relative! right-0! top-0! transform-none! h-2.5! w-2.5! border! border-zinc-700! rounded-full! shadow-sm!"
                 style={{
                   backgroundColor: isDefault ? "#52525b" : accentHex,
                 }}
               />
+              {legacyHandleIds.map((legacyHandleId) => (
+                <Handle
+                  key={legacyHandleId}
+                  type="source"
+                  position={Position.Right}
+                  id={legacyHandleId}
+                  className="relative! right-0! top-0! transform-none! h-2.5! w-2.5! border-0! opacity-0! pointer-events-none"
+                  style={{ backgroundColor: "transparent" }}
+                />
+              ))}
             </div>
           );
         })}
@@ -82,7 +95,7 @@ export const SwitchNode = memo(function SwitchNode({ id, data, selected }: NodeP
         type="target"
         position={Position.Left}
         id="input"
-        className="!h-2.5 !w-2.5 !border !border-zinc-700 !rounded-full !shadow-sm"
+        className="h-2.5! w-2.5! border! border-zinc-700! rounded-full! shadow-sm!"
         style={{ backgroundColor: accentHex }}
       />
     </BaseNode>

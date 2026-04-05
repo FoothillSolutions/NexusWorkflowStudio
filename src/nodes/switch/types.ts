@@ -1,6 +1,7 @@
 import { WorkflowNodeType } from "@/types/workflow";
 
 export interface SwitchBranch {
+  id?: string;
   label: string;
   condition: string;
 }
