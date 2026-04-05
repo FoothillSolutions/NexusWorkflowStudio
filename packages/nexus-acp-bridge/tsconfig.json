@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "lib": ["esnext", "dom"],
+    "types": ["bun-types", "node"]
+  },
+  "include": ["src/**/*.ts"]
+}
+

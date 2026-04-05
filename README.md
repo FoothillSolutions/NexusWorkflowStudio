@@ -119,7 +119,7 @@ bun run docker:down
 
 ### 3. Use AI features (optional)
 
-AI features require a running [OpenCode](https://github.com/nichochar/opencode) server.
+AI features require a running [OpenCode](https://github.com/nichochar/opencode) server **or** a compatible bridge endpoint such as the bundled ACP bridge.
 
 ```bash
 bun add -g opencode-ai
@@ -128,7 +128,23 @@ opencode serve --cors http://localhost:3000
 
 Then connect from the Nexus header.
 
-OpenCode is only required for AI-powered features such as:
+### Optional: run the bundled ACP bridge
+
+The repository also includes a minimal ACP bridge under `packages/nexus-acp-bridge/`. It exposes the subset of the OpenCode-style HTTP/SSE API that Nexus currently uses, so you can point Nexus at the bridge URL instead of a direct OpenCode server.
+
+```bash
+bun run bridge:acp
+```
+
+By default the bridge listens on:
+
+```text
+http://127.0.0.1:4080
+```
+
+You can configure it with the environment variables documented in `packages/nexus-acp-bridge/README.md` and the example file at `packages/nexus-acp-bridge/examples/.env.claude.example`.
+
+An OpenCode server or compatible bridge is only required for AI-powered features such as:
 
 - AI workflow generation
 - AI prompt generation and editing
