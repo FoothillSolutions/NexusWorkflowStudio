@@ -22,6 +22,19 @@ export const promptRegistryEntry: NodeRegistryEntry = {
     promptText: "Enter your prompt here.\n\nYou can use variables like {{variableName}}.",
     detectedVariables: [],
   }),
+  aiGenerationPrompt: {
+    description: "A natural language prompt node for inline text instructions.",
+    dataTemplate: `{"type":"prompt","label":"<label>","name":"<id>","promptText":"<text>","detectedVariables":[]}`,
+    requiredFields: [
+      { field: "type", description: 'Must be "prompt"' },
+      { field: "label", description: "Human-readable label" },
+      { field: "name", description: "Must equal the node id" },
+      { field: "promptText", description: "The prompt text content" },
+    ],
+    optionalFields: [
+      { field: "detectedVariables", description: "Array of variable names referenced in promptText via {{varName}} syntax", default: "[]" },
+    ],
+  },
 };
 export const promptSchema = z.object({
   name: z.string().min(1, "Name is required").regex(/^[a-zA-Z0-9_-]+$/, "Only alphanumeric characters, hyphens, and underscores"),

@@ -78,6 +78,37 @@ export const subWorkflowRegistryEntry: NodeRegistryEntry = {
     color: NODE_ACCENT["sub-workflow"],
     disabledTools: [],
   }),
+  aiGenerationPrompt: {
+    description: "Embed a sub-workflow with its own inner nodes and edges. Use when you need to group or reuse a multi-step flow, especially when the inner work is primarily sequential rather than parallel.",
+    dataTemplate: `{"type":"sub-workflow","label":"<label>","name":"<id>","mode":"same-context","subNodes":[],"subEdges":[],"nodeCount":0,"description":"","model":"inherit","memory":"default","temperature":0,"color":"#a855f7","disabledTools":[]}`,
+    requiredFields: [
+      { field: "type", description: 'Must be "sub-workflow"' },
+      { field: "label", description: "Human-readable label" },
+      { field: "name", description: "Must equal the node id" },
+      { field: "mode", description: '"same-context" (runs inline, shares parent context) or "agent" (spawns a dedicated sub-agent)' },
+      { field: "subNodes", description: "Inner workflow nodes following the same node schema as top-level nodes. MUST contain at least a start and end node." },
+      { field: "subEdges", description: "Inner workflow edges connecting the inner nodes, same format as top-level edges" },
+      { field: "nodeCount", description: "Must equal the number of subNodes" },
+    ],
+    optionalFields: [
+      { field: "description", description: 'Agent description (when mode is "agent")', default: '""' },
+      { field: "model", description: 'Model ID (when mode is "agent")', default: '"inherit"' },
+      { field: "memory", description: 'Memory mode (when mode is "agent")', default: '"default"' },
+      { field: "temperature", description: 'Temperature (when mode is "agent")', default: "0" },
+      { field: "color", description: "Hex color", default: '"#a855f7"' },
+      { field: "disabledTools", description: 'Tools to disable (when mode is "agent")', default: "[]" },
+    ],
+    generationHints: [
+      'When mode is "agent", fill in description, model, memory, temperature, and color.',
+      "subNodes and subEdges define the INNER workflow. They follow the exact same node/edge schema as top-level nodes/edges.",
+      "A sub-workflow MUST contain at least a start node and an end node inside subNodes, plus any other nodes (agents, prompts, if-else, etc.) that form the inner flow.",
+      'Use mode "same-context" for simple inline grouping, and mode "agent" when the sub-workflow should run as an independent agent with its own model and description.',
+      "Sub-workflows must always contain at least a start and end node inside subNodes, with subEdges connecting the inner flow.",
+    ],
+    examples: [
+`Example with inner nodes: {"type":"sub-workflow","label":"Data Pipeline","name":"sub-wf-abc","mode":"agent","description":"Handles data ingestion","subNodes":[{"id":"start-inner","type":"start","position":{"x":0,"y":200},"data":{"type":"start","label":"Start","name":"start-inner"}},{"id":"agent-inner","type":"agent","position":{"x":400,"y":200},"data":{"type":"agent","label":"Process Data","name":"agent-inner","description":"Processes incoming data","promptText":"Process and validate the data...","detectedVariables":[],"model":"inherit","memory":"-","temperature":0,"color":"#5f27cd","disabledTools":[]}},{"id":"end-inner","type":"end","position":{"x":800,"y":200},"data":{"type":"end","label":"End","name":"end-inner"}}],"subEdges":[{"id":"e-start-agent","source":"start-inner","target":"agent-inner","type":"deletable"},{"id":"e-agent-end","source":"agent-inner","target":"end-inner","type":"deletable"}],"nodeCount":3,"model":"inherit","memory":"default","temperature":0,"color":"#a855f7","disabledTools":[]}`,
+    ],
+  },
 };
 
 export const subWorkflowSchema = z.object({

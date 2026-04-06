@@ -14,6 +14,20 @@ export const endRegistryEntry: NodeRegistryEntry = {
   accentHex: NODE_ACCENT.end,
   category: NodeCategory.ControlFlow,
   defaultData: (): EndNodeData => ({ type: WorkflowNodeType.End, label: "END", name: "" }),
+  aiGenerationPrompt: {
+    description: "Terminal node. Every workflow must have exactly ONE end node.",
+    dataTemplate: `{"type":"end","label":"End","name":"<id>"}`,
+    requiredFields: [
+      { field: "type", description: 'Must be "end"' },
+      { field: "label", description: 'Display label, typically "End"' },
+      { field: "name", description: "Must equal the node id" },
+    ],
+    generationHints: [
+      "End node should be at the rightmost column, same y as start.",
+      "Include exactly ONE end node per workflow.",
+      "When branches merge back (e.g. both branches → end), place the merge target at the branching node's y.",
+    ],
+  },
 };
 export const endSchema = z.object({
   name: z.string().min(1, "Name is required").regex(/^[a-zA-Z0-9_-]+$/, "Only alphanumeric characters, hyphens, and underscores"),

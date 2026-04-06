@@ -24,6 +24,28 @@ export const ifElseRegistryEntry: NodeRegistryEntry = {
       { label: "False", condition: "" },
     ],
   }),
+  aiGenerationPrompt: {
+    description: "Conditional branch with exactly 2 outputs: true and false.",
+    dataTemplate: `{"type":"if-else","label":"<label>","name":"<id>","evaluationTarget":"<target>","branches":[{"label":"If <cond>","condition":"<cond>"},{"label":"Else","condition":"else"}]}`,
+    edgeRules: `CRITICAL — If-else node edges:
+If-else nodes have exactly 2 branches. The sourceHandle IDs are ALWAYS "true" for the first branch and "false" for the second branch.
+You MUST create one edge per branch from the if-else node using these exact sourceHandle values.
+The "true" branch target must be positioned ABOVE the "false" branch target (lower y value).
+Example: if-else node "if-else-abc" at y:300 connecting to "agent-yes" at y:200 (first/true branch) and "agent-no" at y:400 (second/false branch):
+  {"id":"e-if-else-abc-agent-yes","source":"if-else-abc","target":"agent-yes","sourceHandle":"true","targetHandle":"input"}
+  {"id":"e-if-else-abc-agent-no","source":"if-else-abc","target":"agent-no","sourceHandle":"false","targetHandle":"input"}`,
+    requiredFields: [
+      { field: "type", description: 'Must be "if-else"' },
+      { field: "label", description: "Human-readable label" },
+      { field: "name", description: "Must equal the node id" },
+      { field: "evaluationTarget", description: "What to evaluate" },
+      { field: "branches", description: 'Exactly 2 branches: first with condition, second with condition "else"' },
+    ],
+    generationHints: [
+      "Every if-else node MUST have BOTH \"true\" and \"false\" output handles connected to a target node. Never leave one dangling.",
+      "The TRUE target MUST have a SMALLER y (higher on screen) than the FALSE target. Example: if-else at y:300 → true-target at y:200, false-target at y:400.",
+    ],
+  },
 };
 
 export const ifElseBranchSchema = z.object({

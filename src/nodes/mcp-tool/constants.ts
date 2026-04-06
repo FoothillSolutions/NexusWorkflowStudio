@@ -9,6 +9,19 @@ export const mcpToolRegistryEntry: NodeRegistryEntry = {
   type: WorkflowNodeType.McpTool, displayName: "MCP Tool", description: "Call an MCP tool",
   icon: Plug, accentColor: "teal", accentHex: NODE_ACCENT["mcp-tool"], category: NodeCategory.Basic,
   defaultData: (): McpToolNodeData => ({ type: WorkflowNodeType.McpTool, label: "MCP Tool", name: "", toolName: "", paramsText: "" }),
+  aiGenerationPrompt: {
+    description: "Call an MCP (Model Context Protocol) tool.",
+    dataTemplate: `{"type":"mcp-tool","label":"<label>","name":"<id>","toolName":"<name>","paramsText":""}`,
+    requiredFields: [
+      { field: "type", description: 'Must be "mcp-tool"' },
+      { field: "label", description: "Human-readable label" },
+      { field: "name", description: "Must equal the node id" },
+      { field: "toolName", description: "Name of the MCP tool to call" },
+    ],
+    optionalFields: [
+      { field: "paramsText", description: "Parameters text for the tool call", default: '""' },
+    ],
+  },
 };
 export const mcpToolSchema = z.object({
   name: z.string().min(1, "Name is required").regex(/^[a-zA-Z0-9_-]+$/, "Only alphanumeric characters, hyphens, and underscores"),

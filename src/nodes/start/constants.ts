@@ -19,6 +19,19 @@ export const startRegistryEntry: NodeRegistryEntry = {
     label: "Start",
     name: "",
   }),
+  aiGenerationPrompt: {
+    description: "Workflow entry point. Every workflow must have exactly ONE start node.",
+    dataTemplate: `{"type":"start","label":"Start","name":"<id>"}`,
+    requiredFields: [
+      { field: "type", description: 'Must be "start"' },
+      { field: "label", description: 'Display label, typically "Start"' },
+      { field: "name", description: "Must equal the node id" },
+    ],
+    generationHints: [
+      "Start node at x:80, y:300.",
+      "Include exactly ONE start node per workflow.",
+    ],
+  },
 };
 
 export const startSchema = z.object({

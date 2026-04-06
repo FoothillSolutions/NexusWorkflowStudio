@@ -9,6 +9,28 @@ export enum NodeCategory {
   ControlFlow = "control-flow",
 }
 
+// ── AI generation prompt fragment ──────────────────────────────────────────
+/** Per-node instructions embedded in each node module's constants and assembled
+ *  into the AI workflow-generation system prompt at runtime. */
+export interface AiGenerationPrompt {
+  /** Short description for the AI about what this node does */
+  description: string;
+  /** The JSON data template the AI should use when creating this node */
+  dataTemplate: string;
+  /** Edge handle rules specific to this node type (sourceHandle/targetHandle conventions) */
+  edgeRules?: string;
+  /** Required fields and their descriptions */
+  requiredFields: Array<{ field: string; description: string }>;
+  /** Optional fields and their descriptions */
+  optionalFields?: Array<{ field: string; description: string; default?: string }>;
+  /** Example configuration snippets */
+  examples?: string[];
+  /** Free-form generation hints (positioning, usage notes, important caveats) */
+  generationHints?: string[];
+  /** Connection rules: what this node can connect to/from */
+  connectionRules?: string;
+}
+
 // ── Registry entry shape ────────────────────────────────────────────────────
 export interface NodeRegistryEntry {
   type: NodeType;
@@ -21,6 +43,9 @@ export interface NodeRegistryEntry {
   /** Visual size of the node card. Defaults to Medium when omitted. */
   size?: NodeSize;
   defaultData: () => WorkflowNodeData;
+  /** Per-node AI generation prompt fragment. When present, the system prompt
+   *  assembler uses this instead of auto-dumping defaultData() fields. */
+  aiGenerationPrompt?: AiGenerationPrompt;
 }
 
 // ── Generator contract ──────────────────────────────────────────────────────
