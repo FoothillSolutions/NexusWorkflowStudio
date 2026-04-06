@@ -1,4 +1,4 @@
-# AGENTS.md
+# Nexus Workflow Studio
 
 ## Project summary
 
@@ -126,7 +126,7 @@ Keep the mental model high-level:
 ## Known project pitfalls
 
 - Use `NodeProps<Node<MyNodeData>>` for React Flow node components, not raw data types.
-- `zodResolver` typing may require the existing local cast pattern in the properties form code; do not “simplify” it without verifying TypeScript behavior.
+- `zodResolver` typing may require the existing local cast pattern in the properties form code; do not "simplify" it without verifying TypeScript behavior.
 - React Flow deletion is intentionally controlled by app flows in parts of the editor; do not assume default key handling is always enabled.
 - Export/generation behavior is spread across shared generators and node-specific generators; trace the full path before changing output format.
 - Some old docs reference outdated node counts or structures. Check current source before making assumptions.
@@ -166,3 +166,48 @@ If you change generated output formats, add or update regression tests for the e
 - Prefer extending existing helpers over introducing duplicate utility layers.
 - Follow established naming and module patterns in the surrounding folder.
 - When unsure about behavior, inspect current usage sites before refactoring.
+
+---
+
+## Harness: Nexus Development
+
+**Goal:** Automate multi-file feature development with analysis, implementation, and validation phases to ensure no touchpoints are missed.
+
+**Agent Team:**
+| Agent | Role |
+|-------|------|
+| nexus-analyst | Analyzes requirements, maps all affected files, creates implementation plan |
+| nexus-builder | Implements code changes across all affected modules |
+| nexus-validator | Runs typecheck/lint/tests, verifies cross-module consistency |
+
+**Skills:**
+| Skill | Purpose | Used By |
+|-------|---------|---------|
+| nexus-develop | Orchestrator — coordinates analyst → builder → validator pipeline | All agents |
+| nexus-node-guide | Complete touchpoint guide for node type add/modify operations | nexus-analyst, nexus-builder |
+
+**Execution Rules:**
+- For feature implementation, bug fixes, refactoring, or any non-trivial code change, use the `nexus-develop` skill to coordinate the agent pipeline
+- For node type operations specifically, the analyst and builder should also read `nexus-node-guide` for the full touchpoint chain
+- Simple questions, explanations, or single-file trivial fixes can be handled directly without the harness
+- All agents use `model: "opus"`
+- Intermediate artifacts go in `_workspace/`
+
+**Directory Structure:**
+```
+.claude/
+├── agents/
+│   ├── nexus-analyst.md
+│   ├── nexus-builder.md
+│   └── nexus-validator.md
+└── skills/
+    ├── nexus-develop/
+    │   └── SKILL.md
+    └── nexus-node-guide/
+        └── SKILL.md
+```
+
+**Change History:**
+| Date | Change | Target | Reason |
+|------|--------|--------|--------|
+| 2026-04-06 | Initial harness build | All | Fresh setup — 3-agent pipeline for multi-file development |
