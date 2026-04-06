@@ -67,6 +67,5 @@ storage.json
 .dev.log
 .dev.pid
 /run.sh
-/.claude/
 /temp_examples/
 /test-results/
