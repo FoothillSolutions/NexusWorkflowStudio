@@ -16,6 +16,7 @@ import Canvas from "./canvas";
 import PropertiesPanel from "./properties-panel";
 import DeleteDialog from "./delete-dialog";
 import LibraryPanel from "./library-panel";
+import { BrainPanel } from "./brain-panel";
 import SubWorkflowCanvas from "./sub-workflow-canvas";
 import FloatingPromptGen from "./floating-prompt-gen";
 import FloatingWorkflowGen from "./floating-workflow-gen";
@@ -201,6 +202,7 @@ export default function WorkflowEditor() {
             <FloatingPromptGen />
             <FloatingWorkflowGen />
             <LibraryPanel />
+            <BrainPanel />
           </div>
         </div>
         <DeleteDialog />

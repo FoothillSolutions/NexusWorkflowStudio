@@ -114,6 +114,10 @@ export const useSavedWorkflowsStore = create<SavedWorkflowsState>((set, get) => 
     const willOpen = !get().sidebarOpen;
     if (willOpen) {
       useWorkflowStore.getState().closePropertiesPanel();
+      // Mutual exclusion: close brain panel when opening library
+      import("@/store/knowledge").then(({ useKnowledgeStore }) => {
+        useKnowledgeStore.getState().closePanel();
+      });
       get().refresh();
       void get().fetchMarketplaceItems();
     }
@@ -122,6 +126,10 @@ export const useSavedWorkflowsStore = create<SavedWorkflowsState>((set, get) => 
 
   openSidebar: () => {
     useWorkflowStore.getState().closePropertiesPanel();
+    // Mutual exclusion: close brain panel when opening library
+    import("@/store/knowledge").then(({ useKnowledgeStore }) => {
+      useKnowledgeStore.getState().closePanel();
+    });
     get().refresh();
     void get().fetchMarketplaceItems();
     set({ sidebarOpen: true });

@@ -23,7 +23,7 @@ import {
   Upload,
 } from "lucide-react";
 import { ProjectSwitcher } from "../project-switcher";
-import { LibraryToggleButton } from "../shared-header-actions";
+import { BrainToggleButton, LibraryToggleButton } from "../shared-header-actions";
 import { ActionRail } from "./primitives";
 
 interface HeaderWorkflowActionsProps {
@@ -46,6 +46,7 @@ export function HeaderWorkflowActions({
   return (
     <ActionRail>
       <LibraryToggleButton variant="compact" />
+      <BrainToggleButton variant="compact" />
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
