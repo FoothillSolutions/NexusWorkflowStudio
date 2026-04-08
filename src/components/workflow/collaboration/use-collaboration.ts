@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { CollabDoc } from "@/lib/collaboration";
 import { useCollabStore } from "@/store/collaboration";
 import { useWorkflowStore } from "@/store/workflow";
@@ -36,10 +37,12 @@ export function useCollaboration() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return useCollabStore((s) => ({
-    roomId: s.roomId,
-    isConnected: s.isConnected,
-    isInitializing: s.isInitializing,
-    peerCount: s.peerCount,
-  }));
+  return useCollabStore(
+    useShallow((s) => ({
+      roomId: s.roomId,
+      isConnected: s.isConnected,
+      isInitializing: s.isInitializing,
+      peerCount: s.peerCount,
+    }))
+  );
 }
