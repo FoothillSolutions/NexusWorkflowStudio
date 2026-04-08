@@ -10,6 +10,8 @@ import { HeaderSessionActions } from "./header/session-actions";
 import { useHeaderController } from "./header/use-header-controller";
 import { HeaderWorkflowActions } from "./header/workflow-actions";
 import { WorkflowNameCard } from "./header/workflow-name-card";
+import { ShareButton } from "./collaboration/share-button";
+import { PresenceAvatars } from "./collaboration/presence-avatars";
 
 export default function Header() {
   const {
@@ -82,6 +84,10 @@ export default function Header() {
             generateTarget={generateTarget}
             onOpenGenerateDialog={openGenerateDialog}
           />
+
+          <PresenceAvatars />
+
+          <ShareButton />
 
           <HelpMenu className="rounded-lg border border-transparent bg-transparent hover:bg-zinc-800/80" />
         </div>

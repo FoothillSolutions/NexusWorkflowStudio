@@ -11,6 +11,8 @@ import { useSavedWorkflowsStore } from "@/store/library";
 import { useOpenCodeStore } from "@/store/opencode";
 import { useWorkflowGenStore } from "@/store/workflow-gen";
 import { useWorkflowStore } from "@/store/workflow";
+import { useCollabStore, createRoomId } from "@/store/collaboration";
+import { CollabDoc } from "@/lib/collaboration";
 import { toast } from "sonner";
 import type { WorkflowJSON } from "@/types/workflow";
 
@@ -42,6 +44,13 @@ interface HeaderController {
   handleGenerate: () => void;
   handleView: () => void;
   toggleWorkflowGen: () => void;
+  // Collaboration
+  collabRoomId: string | null;
+  isCollabActive: boolean;
+  isCollabInitializing: boolean;
+  collabPeerCount: number;
+  handleShare: () => void;
+  handleStopSharing: () => void;
 }
 
 export function useHeaderController(): HeaderController {
@@ -55,6 +64,10 @@ export function useHeaderController(): HeaderController {
   const openCodeStatus = useOpenCodeStore((state) => state.status);
   const isOpenCodeConnected = openCodeStatus === "connected";
   const isWorkflowGenOpen = useWorkflowGenStore((state) => state.floating);
+  const collabRoomId = useCollabStore((state) => state.roomId);
+  const isCollabActive = collabRoomId !== null;
+  const isCollabInitializing = useCollabStore((state) => state.isInitializing);
+  const collabPeerCount = useCollabStore((state) => state.peerCount);
 
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -107,6 +120,21 @@ export function useHeaderController(): HeaderController {
     setPreviewMarkdown(getCommandMarkdown(workflow));
     setPreviewOpen(true);
   }, [getWorkflowJSON]);
+
+  const handleShare = useCallback(() => {
+    const id = createRoomId();
+    const url = `${window.location.origin}${window.location.pathname}?room=${id}`;
+    window.history.pushState({}, "", `?room=${id}`);
+    CollabDoc.getOrCreate().start(id, getWorkflowJSON());
+    toast.success("Collaboration started — share the URL with others");
+    void navigator.clipboard.writeText(url).catch(() => {/* ignore */});
+  }, [getWorkflowJSON]);
+
+  const handleStopSharing = useCallback(() => {
+    CollabDoc.getInstance()?.destroy();
+    window.history.pushState({}, "", window.location.pathname);
+    toast("Collaboration stopped");
+  }, []);
 
   const toggleWorkflowGen = useCallback(() => {
     const store = useWorkflowGenStore.getState();
@@ -166,6 +194,12 @@ export function useHeaderController(): HeaderController {
     handleGenerate,
     handleView,
     toggleWorkflowGen,
+    collabRoomId,
+    isCollabActive,
+    isCollabInitializing,
+    collabPeerCount,
+    handleShare,
+    handleStopSharing,
   };
 }
 

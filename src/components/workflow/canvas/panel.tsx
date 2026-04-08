@@ -14,6 +14,7 @@ import { useCanvasInteractions } from "@/hooks/use-canvas-interactions";
 import { useSubWorkflowHoverOpen } from "../use-subworkflow-hover-open";
 import { CanvasShell } from "@/components/workflow/canvas-shell";
 import { ContextMenu } from "@/components/workflow/context-menu";
+import { CollabSelectionOverlay } from "@/components/workflow/collaboration/collab-selection-overlay";
 import {
   copyNodesToWorkflowClipboard,
   hasWorkflowClipboardData,
@@ -225,7 +226,9 @@ export default function Canvas() {
         minimapVisible={minimapVisible}
         toggleMinimap={toggleMinimap}
         isDragging={isDragging}
-      />
+      >
+        <CollabSelectionOverlay />
+      </CanvasShell>
 
       {ctxMenu && (
         <ContextMenu
