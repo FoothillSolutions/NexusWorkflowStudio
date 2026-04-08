@@ -7,6 +7,9 @@ import { useAwarenessStore } from "@/store/collaboration/awareness-store";
 import { getOrCreateUserName, getColorForClientId } from "./awareness-names";
 import type { WorkflowJSON, WorkflowNode, WorkflowEdge } from "@/types/workflow";
 import { WorkflowNodeType } from "@/types/workflow";
+import type { KnowledgeDoc } from "@/types/knowledge";
+import { getAllKnowledgeDocs, replaceAllKnowledgeDocs } from "@/lib/knowledge";
+import { useKnowledgeStore } from "@/store/knowledge";
 
 // ── Transient property stripper ───────────────────────────────────────────
 // Mirrors persistence.ts cleanNode — strips React Flow runtime fields before
@@ -52,6 +55,7 @@ interface RemoteAwarenessState {
 // Module-level mutex flag — prevents the Y.js→Zustand observer from
 // triggering the Zustand→Y.js subscriber and causing an infinite loop.
 let _isApplyingRemote = false;
+let _isApplyingRemoteBrain = false;
 
 export class CollabDoc {
   private static _instance: CollabDoc | null = null;
@@ -69,6 +73,10 @@ export class CollabDoc {
   private _lastSyncedEdges: WorkflowEdge[] = [];
   private _lastSyncedName: string = "";
 
+  private _yDocs: Y.Map<KnowledgeDoc>;
+  private _lastSyncedDocs: KnowledgeDoc[] = [];
+  private _brainStoreUnsub: (() => void) | null = null;
+
   // Track peers for join/leave toasts
   private _prevPeerNames = new Map<number, string>();
 
@@ -77,6 +85,7 @@ export class CollabDoc {
     this._yNodes = this._ydoc.getMap<WorkflowNode>("nodes");
     this._yEdges = this._ydoc.getMap<WorkflowEdge>("edges");
     this._yName = this._ydoc.getText("name");
+    this._yDocs = this._ydoc.getMap<KnowledgeDoc>("brain");
   }
 
   static getInstance(): CollabDoc | null {
@@ -138,10 +147,22 @@ export class CollabDoc {
       this._lastSyncedName = initialState.name;
     }
 
+    // Seed brain docs into Y.Doc when joining as the first peer
+    const localDocs = getAllKnowledgeDocs();
+    if (this._yDocs.size === 0 && localDocs.length > 0) {
+      this._ydoc.transact(() => {
+        for (const doc of localDocs) {
+          this._yDocs.set(doc.id, doc);
+        }
+      });
+      this._lastSyncedDocs = localDocs;
+    }
+
     // Register observers: Y.Doc changes → Zustand
     this._yNodes.observe(this._onRemoteChange);
     this._yEdges.observe(this._onRemoteChange);
     this._yName.observe(this._onRemoteChange);
+    this._yDocs.observe(this._onRemoteBrainChange);
 
     // Register subscriber: Zustand changes → Y.Doc
     this._storeUnsub = useWorkflowStore.subscribe((state) => {
@@ -161,6 +182,18 @@ export class CollabDoc {
         if (nodesChanged) this._syncNodesToYjs(state.nodes);
         if (edgesChanged) this._syncEdgesToYjs(state.edges);
         if (nameChanged) this._syncNameToYjs(state.name);
+      });
+    });
+
+    // Brain: Zustand knowledge store → Y.Doc
+    this._brainStoreUnsub = useKnowledgeStore.subscribe((state) => {
+      if (_isApplyingRemoteBrain) return;
+      if (state.docs === this._lastSyncedDocs) return;
+
+      this._lastSyncedDocs = state.docs;
+
+      this._ydoc.transact(() => {
+        this._syncDocsToYjs(state.docs);
       });
     });
 
@@ -186,6 +219,10 @@ export class CollabDoc {
     this._yNodes.unobserve(this._onRemoteChange);
     this._yEdges.unobserve(this._onRemoteChange);
     this._yName.unobserve(this._onRemoteChange);
+
+    this._brainStoreUnsub?.();
+    this._brainStoreUnsub = null;
+    this._yDocs.unobserve(this._onRemoteBrainChange);
 
     if (this._provider) {
       this._provider.awareness.off("change", this._onAwarenessChange);
@@ -292,6 +329,49 @@ export class CollabDoc {
       this._yName.insert(0, name);
     }
   }
+
+  // ── Private: sync Y.Map → Zustand (brain) ──────────────────────────────
+
+  private _syncDocsToYjs(docs: KnowledgeDoc[]): void {
+    const newIds = new Set(docs.map((d) => d.id));
+
+    // Remove deleted docs
+    for (const id of this._yDocs.keys()) {
+      if (!newIds.has(id)) this._yDocs.delete(id);
+    }
+
+    // Upsert changed docs
+    for (const doc of docs) {
+      const existing = this._yDocs.get(doc.id);
+      if (!existing || JSON.stringify(existing) !== JSON.stringify(doc)) {
+        this._yDocs.set(doc.id, doc);
+      }
+    }
+  }
+
+  private _onRemoteBrainChange = (): void => {
+    if (_isApplyingRemoteBrain) return;
+    _isApplyingRemoteBrain = true;
+
+    try {
+      const remoteDocs = Array.from(this._yDocs.values());
+
+      // Update reference cache so the subscriber skips this tick
+      this._lastSyncedDocs = remoteDocs;
+
+      // Write-through: keep localStorage in sync with Y.Doc
+      replaceAllKnowledgeDocs(remoteDocs);
+
+      // Update Zustand state
+      useKnowledgeStore.getState().refresh();
+
+      queueMicrotask(() => {
+        _isApplyingRemoteBrain = false;
+      });
+    } catch {
+      _isApplyingRemoteBrain = false;
+    }
+  };
 
   // ── Private: awareness → peer store + toasts ───────────────────────────
 

@@ -115,3 +115,8 @@ export function mergeBrainImport(imported: KnowledgeBrain): void {
   );
   writeBrain(merged);
 }
+
+/** Replace the entire brain with a new set of docs (used by Y.js sync). */
+export function replaceAllKnowledgeDocs(docs: KnowledgeDoc[]): void {
+  writeBrain(docs);
+}
