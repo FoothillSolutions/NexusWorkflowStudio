@@ -22,6 +22,8 @@ import FloatingPromptGen from "./floating-prompt-gen";
 import FloatingWorkflowGen from "./floating-workflow-gen";
 import WhatsNewDialog from "./whats-new-dialog";
 import { useWhatsNew } from "@/hooks/use-whats-new";
+import { useCollaboration } from "./collaboration/use-collaboration";
+import { CollabDoc } from "@/lib/collaboration";
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -40,6 +42,17 @@ export default function WorkflowEditor() {
   const activeSubWorkflowNodeId = useWorkflowStore((s) => s.activeSubWorkflowNodeId);
   const openSubWorkflow = useWorkflowStore((s) => s.openSubWorkflow);
   const whatsNew = useWhatsNew();
+
+  // Collaboration — mounts Y.js provider, auto-joins room if ?room= in URL
+  useCollaboration();
+
+  // Report local selected node to remote peers via Y.js awareness
+  useEffect(() => {
+    const unsub = useWorkflowStore.subscribe((state) => {
+      CollabDoc.getInstance()?.updateAwareness({ selectedNodeId: state.selectedNodeId });
+    });
+    return () => unsub();
+  }, []);
 
   // Listen for sub-workflow open events from properties panel
   useEffect(() => {
