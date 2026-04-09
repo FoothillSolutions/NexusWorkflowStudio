@@ -88,6 +88,7 @@ describe("workflow connections", () => {
         linkedFileName: null,
         linkedFileContent: null,
         description: "",
+        brainDocId: null,
       },
     });
 
@@ -124,6 +125,7 @@ describe("workflow connections", () => {
         linkedFileName: null,
         linkedFileContent: null,
         description: "",
+        brainDocId: null,
       },
     });
 

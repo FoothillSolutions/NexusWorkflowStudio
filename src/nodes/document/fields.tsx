@@ -1,11 +1,12 @@
 "use client";
 import type React from "react";
-import { useState, useCallback, useMemo, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useWatch } from "react-hook-form";
 import { FullscreenMarkdownEditor } from "@/components/ui/fullscreen-markdown-editor";
 import { toast } from "sonner";
 import type { FormControl, FormSetValue, FormRegister } from "@/nodes/shared/form-types";
 import { useWorkflowStore } from "@/store/workflow";
+import { useKnowledgeStore } from "@/store/knowledge-store";
 import {
   DOC_NAME_REGEX,
   DOC_SUBFOLDER_REGEX,
@@ -34,6 +35,24 @@ export function Fields({ control, setValue }: DocumentFieldsProps) {
   const fileExtension: DocumentNodeData["fileExtension"] = useWatch({ control, name: "fileExtension" }) ?? "md";
   const contentText: string = useWatch({ control, name: "contentText" }) ?? "";
   const linkedFileName: string | null = useWatch({ control, name: "linkedFileName" }) ?? null;
+  const brainDocId: string | null = useWatch({ control, name: "brainDocId" }) ?? null;
+
+  // Keep contentText synced to the brain doc's current content while the panel is open
+  const brainDocs = useKnowledgeStore((s) => s.docs);
+  useEffect(() => {
+    if (contentMode !== "brain" || !brainDocId) return;
+    const doc = brainDocs.find((d) => d.id === brainDocId);
+    if (doc) {
+      setValue("contentText" as never, doc.content as never, { shouldDirty: true });
+      // Sync docName from brain doc title (kebab-case slug)
+      const slug = doc.title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 40) || "brain-doc";
+      setValue("docName" as never, slug as never, { shouldDirty: true });
+    }
+  }, [brainDocId, brainDocs, contentMode, setValue]);
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [isCreatingSubfolder, setIsCreatingSubfolder] = useState(false);
@@ -157,10 +176,12 @@ export function Fields({ control, setValue }: DocumentFieldsProps) {
         contentMode={contentMode}
         contentText={contentText}
         linkedFileName={linkedFileName}
+        brainDocId={brainDocId}
         fileInputRef={fileInputRef}
         onOpenEditor={() => setEditorOpen(true)}
         onFileUpload={handleFileUpload}
         onClearLinkedFile={clearLinkedFile}
+        onSetValue={(name, value, options) => setValue(name as never, value as never, options)}
       />
 
       {/* Fullscreen Content Editor Dialog */}

@@ -29,6 +29,7 @@ export const documentRegistryEntry: NodeRegistryEntry = {
     linkedFileName: null,
     linkedFileContent: null,
     description: "",
+    brainDocId: null,
   }),
   aiGenerationPrompt: {
     description: "Reference material attached to agents. Provides context, data, or reference content the agent needs. A document node generates a `.opencode/docs/<docName>.<ext>` file, or `.opencode/docs/<docSubfolder>/<docName>.<ext>` when a subfolder is selected.",
@@ -79,11 +80,12 @@ export const documentSchema = z.object({
       (value) => value.length === 0 || DOC_SUBFOLDER_REGEX.test(value),
       "Subfolder must use lowercase letters, digits, and single hyphens only",
     ),
-  contentMode: z.enum(["inline", "linked"]),
+  contentMode: z.enum(["inline", "linked", "brain"]),
   fileExtension: z.enum(["md", "txt", "json", "yaml"]),
   contentText: z.string().default(""),
   linkedFileName: z.string().nullable().default(null),
   linkedFileContent: z.string().nullable().default(null),
   description: z.string().default(""),
+  brainDocId: z.string().nullable().optional(),
 });
 

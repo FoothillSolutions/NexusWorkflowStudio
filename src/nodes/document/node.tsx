@@ -4,11 +4,12 @@ import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import { BaseNode, NodeSize } from "@/nodes/shared/base-node";
 import { HANDLE_CLASS } from "@/lib/theme";
 import { NODE_ACCENT } from "@/lib/node-colors";
-import { FileText, FileUp, Zap } from "lucide-react";
+import { Brain, FileText, FileUp, Zap } from "lucide-react";
 import { WorkflowNodeType } from "@/types/workflow";
 import { documentRegistryEntry } from "./constants";
 import type { DocumentNodeData } from "./types";
 import { useWorkflowStore } from "@/store/workflow";
+import { useKnowledgeStore } from "@/store/knowledge-store";
 import { getDocumentDisplayPath } from "./utils";
 
 /** Maximum number of characters shown for a linked file badge. */
@@ -40,8 +41,14 @@ export const DocumentNode = memo(function DocumentNode({ id, data, selected }: N
   );
 
   const isLinked = data.contentMode === "linked";
+  const isBrain = data.contentMode === "brain";
   const ext = data.fileExtension || "md";
   const documentPath = getDocumentDisplayPath(data);
+  const brainDoc = useKnowledgeStore(
+    (s) => isBrain && data.brainDocId
+      ? s.docs.find((d) => d.id === data.brainDocId) ?? null
+      : null
+  );
 
   return (
     <BaseNode accentHex={accentHex} selected={selected} label={data.label || displayName} type={data.type} icon={icon} size={NodeSize.Small} nodeId={id}>
@@ -55,7 +62,14 @@ export const DocumentNode = memo(function DocumentNode({ id, data, selected }: N
         )}
 
         {/* Content preview or linked file badge */}
-        {isLinked ? (
+        {isBrain ? (
+          <div className="flex items-center gap-1.5 rounded-lg border border-sky-500/20 bg-sky-500/8 px-2 py-1.5">
+            <Brain size={11} className="shrink-0 text-sky-400" />
+            <span className="truncate text-[11px] text-sky-300">
+              {brainDoc ? brainDoc.title : data.brainDocId ? "Brain doc" : "No doc selected"}
+            </span>
+          </div>
+        ) : isLinked ? (
           data.linkedFileName && (
             <div className="flex items-center gap-1.5">
               <FileUp size={10} className="text-yellow-600 shrink-0" />
@@ -92,6 +106,11 @@ export const DocumentNode = memo(function DocumentNode({ id, data, selected }: N
           {isLinked && (
             <span className="inline-flex items-center gap-1 text-[10px] font-mono bg-zinc-800/60 text-zinc-400 border border-zinc-700/40 px-1.5 py-0.5 rounded-md">
               linked
+            </span>
+          )}
+          {isBrain && (
+            <span className="inline-flex items-center gap-1 rounded-full border border-sky-500/20 bg-sky-500/10 px-1.5 py-0.5 text-[9px] font-medium text-sky-400">
+              brain
             </span>
           )}
         </div>

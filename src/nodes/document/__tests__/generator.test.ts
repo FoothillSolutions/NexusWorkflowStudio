@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { WorkflowNodeType } from "@/types/workflow";
+import type { DocumentNodeData } from "../types";
 import { generator } from "../generator";
 
 describe("document generator", () => {
@@ -16,6 +17,7 @@ describe("document generator", () => {
       linkedFileName: null,
       linkedFileContent: null,
       description: "Reference guide",
+      brainDocId: null,
     });
 
     expect(details).toContain("linked (none)");
@@ -35,10 +37,33 @@ describe("document generator", () => {
       linkedFileName: "schema.json",
       linkedFileContent: '{"ok":true}',
       description: "JSON schema",
+      brainDocId: null,
     });
 
     expect(file).not.toBeNull();
     expect(file?.content).toBe('{"ok":true}\n');
+  });
+
+  it("generates doc file from brain mode using contentText", () => {
+    const data: DocumentNodeData = {
+      type: WorkflowNodeType.Document,
+      label: "API Guide",
+      name: "node-1",
+      docName: "api-guide",
+      docSubfolder: "",
+      contentMode: "brain",
+      fileExtension: "md",
+      contentText: "# API Guide\n\nContent from brain.",
+      linkedFileName: null,
+      linkedFileContent: null,
+      description: "API documentation from brain",
+      brainDocId: "abc123xyz",
+    };
+
+    const result = generator.getDocFile?.("node-1", data, "opencode");
+    expect(result).not.toBeNull();
+    expect(result?.path).toBe(".opencode/docs/api-guide.md");
+    expect(result?.content).toContain("# API Guide");
   });
 });
 

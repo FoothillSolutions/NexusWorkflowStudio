@@ -1,6 +1,6 @@
 import { WorkflowNodeType } from "@/types/workflow";
 
-export type DocumentContentMode = "inline" | "linked";
+export type DocumentContentMode = "inline" | "linked" | "brain";
 
 export interface DocumentNodeData extends Record<string, unknown> {
   type: WorkflowNodeType.Document;
@@ -14,4 +14,6 @@ export interface DocumentNodeData extends Record<string, unknown> {
   linkedFileName: string | null;
   linkedFileContent: string | null;
   description: string;
+  /** Brain doc ID when contentMode is "brain" */
+  brainDocId: string | null;
 }

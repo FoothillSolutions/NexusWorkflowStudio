@@ -94,7 +94,7 @@ export interface SkillNodeData extends BaseNodeData {
   metadata: Array<{ key: string; value: string }>;
 }
 
-export type DocumentContentMode = "inline" | "linked";
+export type DocumentContentMode = "inline" | "linked" | "brain";
 
 export interface DocumentNodeData extends BaseNodeData {
   type: WorkflowNodeType.Document;
@@ -110,6 +110,8 @@ export interface DocumentNodeData extends BaseNodeData {
   /** Raw content of the linked/uploaded file */
   linkedFileContent: string | null;
   description: string;
+  /** Brain doc ID when contentMode is "brain" */
+  brainDocId: string | null;
 }
 
 export interface McpToolNodeData extends BaseNodeData {
