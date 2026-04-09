@@ -103,7 +103,7 @@ describe("workflow connections", () => {
     const prompt = makeWorkflowNode({
       id: "prompt-1",
       type: WorkflowNodeType.Prompt,
-      data: { type: WorkflowNodeType.Prompt, label: "Prompt", name: "prompt-1", promptText: "", detectedVariables: [] },
+      data: { type: WorkflowNodeType.Prompt, label: "Prompt", name: "prompt-1", promptText: "", detectedVariables: [], brainDocId: null },
     });
     const skill = makeWorkflowNode({
       id: "skill-1",
@@ -140,7 +140,7 @@ describe("workflow connections", () => {
     const prompt = makeWorkflowNode({
       id: "prompt-1",
       type: WorkflowNodeType.Prompt,
-      data: { type: WorkflowNodeType.Prompt, label: "Prompt", name: "prompt-1", promptText: "", detectedVariables: [] },
+      data: { type: WorkflowNodeType.Prompt, label: "Prompt", name: "prompt-1", promptText: "", detectedVariables: [], brainDocId: null },
     });
     const endA = makeWorkflowNode({
       id: "end-a",

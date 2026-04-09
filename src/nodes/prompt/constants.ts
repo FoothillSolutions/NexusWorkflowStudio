@@ -21,6 +21,7 @@ export const promptRegistryEntry: NodeRegistryEntry = {
     name: "",
     promptText: "Enter your prompt here.\n\nYou can use variables like {{variableName}}.",
     detectedVariables: [],
+    brainDocId: null,
   }),
   aiGenerationPrompt: {
     description: "A natural language prompt node for inline text instructions.",
@@ -41,4 +42,5 @@ export const promptSchema = z.object({
   label: z.string().min(1, "Label is required"),
   promptText: z.string(),
   detectedVariables: z.array(z.string()).optional().default([]),
+  brainDocId: z.string().nullable().optional(),
 });

@@ -29,6 +29,8 @@ export interface PromptNodeData extends BaseNodeData {
   type: WorkflowNodeType.Prompt;
   promptText: string;
   detectedVariables: string[];
+  /** Brain doc ID when prompt content is sourced from the Brain library */
+  brainDocId: string | null;
 }
 
 export interface ScriptNodeData extends BaseNodeData {

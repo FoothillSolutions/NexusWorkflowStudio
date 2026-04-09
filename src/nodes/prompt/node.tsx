@@ -4,14 +4,18 @@ import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import { BaseNode, NodeSize } from "@/nodes/shared/base-node";
 import { detectVarCounts } from "@/nodes/shared/variable-utils";
 import { HANDLE_CLASS } from "@/lib/theme";
-import { Braces, DollarSign } from "lucide-react";
+import { Brain, Braces, DollarSign } from "lucide-react";
 import { promptRegistryEntry } from "./constants";
 import type { PromptNodeData } from "./types";
+import { useKnowledgeStore } from "@/store/knowledge-store";
 const truncate = (str: string, n: number) => str?.length > n ? str.slice(0, n) + "..." : str;
 export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeProps<Node<PromptNodeData>>) {
   const { icon, accentHex, displayName } = promptRegistryEntry;
   const varCounts = data.promptText ? detectVarCounts(data.promptText) : { dynamic: 0, static: 0 };
   const totalVars = varCounts.dynamic + varCounts.static;
+  const brainDoc = useKnowledgeStore(
+    (s) => data.brainDocId ? s.docs.find((d) => d.id === data.brainDocId) ?? null : null,
+  );
   return (
     <BaseNode accentHex={accentHex} selected={selected} label={data.label || displayName} type={data.type} icon={icon} size={NodeSize.Large} nodeId={id}>
       <div className="flex flex-col gap-2">
@@ -26,6 +30,12 @@ export const PromptNode = memo(function PromptNode({ id, data, selected }: NodeP
             </div>
           );
         })()}
+        {brainDoc && (
+          <div className="flex items-center gap-1.5 rounded-lg border border-sky-500/20 bg-sky-500/8 px-2 py-1">
+            <Brain size={10} className="shrink-0 text-sky-400" />
+            <span className="truncate text-[10px] text-sky-300">{brainDoc.title}</span>
+          </div>
+        )}
         {totalVars > 0 && (
           <div className="flex items-center gap-1.5 mt-0.5">
             {varCounts.dynamic > 0 && (
