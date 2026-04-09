@@ -144,7 +144,7 @@ export default function PropertiesPanel() {
 
       {/* Content */}
       <ScrollArea className="flex-1 min-h-0 w-full" viewportClassName="min-h-0 select-text">
-        <form className="space-y-3 p-3 pb-4 select-text" onSubmit={(e) => e.preventDefault()}>
+        <div className="space-y-3 p-3 pb-4 select-text">
           <section className={`${PANEL_SURFACE_CLASS} relative overflow-hidden p-3`}>
             <div
               className="pointer-events-none absolute inset-x-0 top-0 h-20 opacity-100"
@@ -249,7 +249,7 @@ export default function PropertiesPanel() {
               </Button>
             </section>
           )}
-        </form>
+        </div>
       </ScrollArea>
     </div>
   );
