@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { X, Trash2, SlidersHorizontal } from "lucide-react";
 import { useWorkflowStore } from "@/store/workflow";
-import { useSavedWorkflowsStore } from "@/store/library";
 import { WorkflowNodeType } from "@/types/workflow";
 import {
   TEXT_MUTED,
@@ -84,12 +83,6 @@ export default function PropertiesPanel() {
     }
   }, [isSubNode, selectedNodeId, setDeleteTarget]);
 
-  // Close library sidebar when properties panel opens (mutual exclusion)
-  useEffect(() => {
-    if (propertiesPanelOpen && nodeData && registryEntry) {
-      useSavedWorkflowsStore.getState().closeSidebar();
-    }
-  }, [propertiesPanelOpen, nodeData, registryEntry]);
 
   const isVisible = propertiesPanelOpen && !!selectedNodeId && !!nodeData && !!registryEntry;
 
