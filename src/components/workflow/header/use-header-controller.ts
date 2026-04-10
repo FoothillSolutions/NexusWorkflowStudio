@@ -12,7 +12,7 @@ import { useOpenCodeStore } from "@/store/opencode";
 import { useWorkflowGenStore } from "@/store/workflow-gen";
 import { useWorkflowStore } from "@/store/workflow";
 import { useCollabStore, createRoomId } from "@/store/collaboration";
-import { CollabDoc } from "@/lib/collaboration";
+import { buildCollabRoomUrl, buildCollabShareUrl, CollabDoc } from "@/lib/collaboration";
 import { toast } from "sonner";
 import type { WorkflowJSON } from "@/types/workflow";
 
@@ -123,10 +123,10 @@ export function useHeaderController(): HeaderController {
 
   const handleShare = useCallback(() => {
     const id = createRoomId();
-    const url = `${window.location.origin}${window.location.pathname}?room=${id}`;
-    window.history.pushState({}, "", `?room=${id}`);
+    const url = buildCollabShareUrl(id);
+    window.history.pushState({}, "", buildCollabRoomUrl(id));
     CollabDoc.getOrCreate().start(id, getWorkflowJSON());
-    toast.success("Collaboration started — share the URL with others");
+    toast.success("Collaboration started — room state is now persisted on the collab server");
     void navigator.clipboard.writeText(url).catch(() => {/* ignore */});
   }, [getWorkflowJSON]);
 
@@ -202,4 +202,3 @@ export function useHeaderController(): HeaderController {
     handleStopSharing,
   };
 }
-

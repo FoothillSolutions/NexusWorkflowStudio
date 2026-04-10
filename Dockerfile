@@ -69,6 +69,9 @@ COPY --from=builder --chown=bun:bun /app/.next/static ./.next/static
 
 # Persist the fetch cache generated during the build for faster cold starts.
 COPY --from=builder --chown=bun:bun /app/.next/cache ./.next/cache
+COPY --from=dependencies --chown=bun:bun /app/node_modules ./node_modules
+COPY --from=builder --chown=bun:bun /app/scripts ./scripts
+COPY --from=builder --chown=bun:bun /app/src/lib/collaboration/object-store.ts ./src/lib/collaboration/object-store.ts
 
 USER bun
 

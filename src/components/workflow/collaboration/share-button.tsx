@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { CollabDoc } from "@/lib/collaboration";
+import { buildCollabRoomUrl, buildCollabShareUrl, CollabDoc } from "@/lib/collaboration";
 import { useCollabStore, createRoomId } from "@/store/collaboration";
 import { useWorkflowStore } from "@/store/workflow";
 import { toast } from "sonner";
@@ -27,16 +27,14 @@ export function ShareButton() {
 
   const isActive = roomId !== null;
 
-  const collabUrl = isActive
-    ? `${typeof window !== "undefined" ? window.location.origin : ""}${typeof window !== "undefined" ? window.location.pathname : ""}?room=${roomId}`
-    : "";
+  const collabUrl = isActive && roomId ? buildCollabShareUrl(roomId) : "";
 
   const handleShare = useCallback(() => {
     const id = createRoomId();
-    const url = `${window.location.origin}${window.location.pathname}?room=${id}`;
-    window.history.pushState({}, "", `?room=${id}`);
+    const url = buildCollabShareUrl(id);
+    window.history.pushState({}, "", buildCollabRoomUrl(id));
     CollabDoc.getOrCreate().start(id, getWorkflowJSON());
-    toast.success("Collaboration started — share the link with others");
+    toast.success("Collaboration started — the room now persists on the collab server");
     void navigator.clipboard.writeText(url).catch(() => {/* ignore */});
     setOpen(true);
   }, [getWorkflowJSON]);
@@ -102,7 +100,7 @@ export function ShareButton() {
 
           <div className="space-y-3 pt-1">
             <p className="text-sm text-zinc-400">
-              Share this link — anyone who opens it joins your live session.
+              Share this link. Anyone who opens it joins the same persisted live room.
             </p>
 
             <div className="flex gap-2">
@@ -128,7 +126,7 @@ export function ShareButton() {
             </div>
 
             <p className="text-[11px] text-zinc-500">
-              Peer-to-peer — data stays between you and your collaborators.
+              Server-backed with persisted room state.
             </p>
 
             <Button
