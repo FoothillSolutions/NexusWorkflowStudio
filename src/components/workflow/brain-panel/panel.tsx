@@ -142,6 +142,8 @@ function DocCard({
 export function BrainPanel() {
   const {
     docs,
+    loading,
+    saving,
     panelOpen,
     searchQuery,
     activeDocType,
@@ -197,7 +199,7 @@ export function BrainPanel() {
                   variant="outline"
                   className="rounded-full border-zinc-700/70 bg-zinc-950/70 px-2 py-0 text-[10px] font-medium text-zinc-400"
                 >
-                  {docs.length} docs
+                  {loading ? "Syncing..." : `${docs.length} docs`}
                 </Badge>
               </div>
               <p className="mt-1 text-xs text-zinc-500">
@@ -212,6 +214,7 @@ export function BrainPanel() {
                       variant="ghost"
                       size="icon"
                       onClick={exportBrain}
+                      disabled={saving}
                       className="h-8 w-8 rounded-lg text-zinc-400 transition-colors hover:bg-zinc-800/80 hover:text-zinc-100"
                     >
                       <Download size={14} />
@@ -226,6 +229,7 @@ export function BrainPanel() {
                       variant="ghost"
                       size="icon"
                       onClick={() => importInputRef.current?.click()}
+                      disabled={saving}
                       className="h-8 w-8 rounded-lg text-zinc-400 transition-colors hover:bg-zinc-800/80 hover:text-zinc-100"
                     >
                       <Upload size={14} />
@@ -391,10 +395,12 @@ export function BrainPanel() {
                 <div className="flex flex-col items-center justify-center py-10 text-center">
                   <Brain size={28} className="mb-3 text-zinc-700" />
                   <p className="text-sm font-medium text-zinc-500">
-                    {docs.length === 0 ? "No documents yet" : "No results found"}
+                    {loading ? "Loading documents..." : docs.length === 0 ? "No documents yet" : "No results found"}
                   </p>
                   <p className="mt-1 text-xs text-zinc-600">
-                    {docs.length === 0
+                    {loading
+                      ? "Fetching your Brain from the shared storage backend"
+                      : docs.length === 0
                       ? "Create your first knowledge document above"
                       : "Try a different search or filter"}
                   </p>
@@ -432,9 +438,9 @@ export function BrainPanel() {
           ) : undefined
         }
         confirmLabel="Delete"
-        onConfirm={() => {
+        onConfirm={async () => {
           if (deleteTarget) {
-            deleteDoc(deleteTarget.id);
+            await deleteDoc(deleteTarget.id);
             setDeleteTarget(null);
           }
         }}

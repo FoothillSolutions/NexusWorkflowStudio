@@ -15,7 +15,13 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { useKnowledgeStore } from "@/store/knowledge-store";
 import { useSavedWorkflowsStore } from "@/store/library";
-import type { KnowledgeDoc, KnowledgeDocType, KnowledgeDocStatus, FeedbackRating } from "@/types/knowledge";
+import type {
+  KnowledgeDoc,
+  KnowledgeDocType,
+  KnowledgeDocStatus,
+  FeedbackRating,
+  KnowledgeDocVersion,
+} from "@/types/knowledge";
 import {
   DOC_TYPE_LABELS,
   DOC_TYPE_ACCENT_HEX,
@@ -66,11 +72,22 @@ function TagChips({
  * avoiding setState-in-effect which the React compiler forbids.
  */
 export function DocEditor() {
-  const { editorOpen, editingDocId, docs, closeEditor, saveDoc, addFeedback } =
-    useKnowledgeStore();
+  const {
+    editorOpen,
+    editingDocId,
+    docs,
+    docVersions,
+    closeEditor,
+    saveDoc,
+    addFeedback,
+    restoreVersion,
+    saving,
+    restoringVersionId,
+  } = useKnowledgeStore();
   const workflowEntries = useSavedWorkflowsStore((s) => s.entries);
 
   const existingDoc = editingDocId ? docs.find((d) => d.id === editingDocId) ?? null : null;
+  const versions = editingDocId ? docVersions[editingDocId] ?? [] : [];
 
   const handleClose = () => {
     closeEditor();
@@ -105,6 +122,10 @@ export function DocEditor() {
           workflowEntries={workflowEntries}
           onSave={saveDoc}
           onAddFeedback={addFeedback}
+          versions={versions}
+          onRestoreVersion={restoreVersion}
+          saving={saving}
+          restoringVersionId={restoringVersionId}
           onClose={handleClose}
         />
       </SheetContent>
@@ -126,8 +147,12 @@ interface DocEditorFormProps {
     createdBy: string;
     tags: string[];
     associatedWorkflowIds: string[];
-  }) => void;
-  onAddFeedback: (docId: string, rating: FeedbackRating, note: string, author: string) => void;
+  }) => Promise<string>;
+  onAddFeedback: (docId: string, rating: FeedbackRating, note: string, author: string) => Promise<void>;
+  versions: KnowledgeDocVersion[];
+  onRestoreVersion: (docId: string, versionId: string) => Promise<void>;
+  saving: boolean;
+  restoringVersionId: string | null;
   onClose: () => void;
 }
 
@@ -137,6 +162,10 @@ function DocEditorForm({
   workflowEntries,
   onSave,
   onAddFeedback,
+  versions,
+  onRestoreVersion,
+  saving,
+  restoringVersionId,
   onClose,
 }: DocEditorFormProps) {
   // Initial state derived from existingDoc (set once via key-based remount)
@@ -158,9 +187,9 @@ function DocEditorForm({
   const [fbAuthor, setFbAuthor] = useState("");
   const [fbSubmitting, setFbSubmitting] = useState(false);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!title.trim()) return;
-    onSave({
+    await onSave({
       id: existingDoc?.id,
       title: title.trim(),
       summary: summary.trim(),
@@ -191,10 +220,10 @@ function DocEditorForm({
     );
   };
 
-  const handleSubmitFeedback = () => {
+  const handleSubmitFeedback = async () => {
     if (!editingDocId || !fbNote.trim() || !fbAuthor.trim()) return;
     setFbSubmitting(true);
-    onAddFeedback(editingDocId, fbRating, fbNote.trim(), fbAuthor.trim());
+    await onAddFeedback(editingDocId, fbRating, fbNote.trim(), fbAuthor.trim());
     setFbNote("");
     setFbAuthor("");
     setFbRating("neutral");
@@ -443,13 +472,52 @@ function DocEditorForm({
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={handleSubmitFeedback}
+                  onClick={() => { void handleSubmitFeedback(); }}
                   disabled={fbSubmitting || !fbNote.trim() || !fbAuthor.trim()}
                   className="h-8 rounded-lg border border-zinc-700/60 bg-zinc-900/40 px-3 text-xs text-zinc-300 hover:bg-zinc-800/80 hover:text-zinc-100"
                 >
                   Submit Feedback
                 </Button>
               </div>
+            </div>
+          )}
+
+          {existingDoc && (
+            <div className="space-y-3 rounded-xl border border-zinc-800/70 bg-zinc-900/30 p-3.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-500">
+                  Version History
+                </span>
+                <span className="text-xs text-zinc-600">{versions.length} versions</span>
+              </div>
+              {versions.length === 0 ? (
+                <p className="text-xs text-zinc-500">No saved versions yet.</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {versions.map((version) => (
+                    <div
+                      key={version.id}
+                      className="flex items-center gap-2 rounded-lg border border-zinc-800/70 bg-zinc-950/40 px-2.5 py-2"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs text-zinc-200">{version.summary}</p>
+                        <p className="text-[10px] text-zinc-600">
+                          {version.reason} · {version.createdBy || "unknown"} · {formatTimeAgo(version.createdAt)}
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => { void onRestoreVersion(existingDoc.id, version.id); }}
+                        disabled={restoringVersionId === version.id}
+                        className="h-7 rounded-lg border border-zinc-700/60 px-2 text-[11px] text-zinc-300 hover:bg-zinc-800/80 hover:text-zinc-100"
+                      >
+                        {restoringVersionId === version.id ? "Restoring..." : "Restore"}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -468,11 +536,11 @@ function DocEditorForm({
           </Button>
           <Button
             size="sm"
-            onClick={handleSave}
-            disabled={!title.trim()}
+            onClick={() => { void handleSave(); }}
+            disabled={!title.trim() || saving}
             className="h-8 rounded-lg bg-sky-600 px-3 text-xs font-medium text-white hover:bg-sky-500 disabled:opacity-50"
           >
-            {existingDoc ? "Save Changes" : "Create Document"}
+            {saving ? "Saving..." : existingDoc ? "Save Changes" : "Create Document"}
           </Button>
         </div>
       </div>

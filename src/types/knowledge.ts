@@ -36,3 +36,20 @@ export interface KnowledgeBrain {
   exportedAt: string;
   docs: KnowledgeDoc[];
 }
+
+export type KnowledgeVersionReason = "save" | "import" | "restore" | "delete" | "migration";
+
+export interface KnowledgeDocVersion {
+  id: string;
+  docId: string;
+  createdAt: string;
+  createdBy: string;
+  reason: KnowledgeVersionReason;
+  summary: string;
+}
+
+export interface BrainSession {
+  workspaceId: string;
+  token: string;
+  docs: KnowledgeDoc[];
+}
