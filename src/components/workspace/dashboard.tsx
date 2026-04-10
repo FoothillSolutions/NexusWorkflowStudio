@@ -1,14 +1,16 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Loader2 } from "lucide-react";
 import { useWorkspace } from "@/hooks/use-workspace";
+import { useWorkspaceChanges } from "@/hooks/use-workspace-changes";
 import { addRecentWorkspace } from "@/lib/workspace/local-history";
 import { BG_APP, TEXT_PRIMARY, TEXT_MUTED, BORDER_DEFAULT } from "@/lib/theme";
 import { WorkspaceHeader } from "./workspace-header";
 import { WorkflowCard } from "./workflow-card";
 import { EmptyState } from "./empty-state";
+import { ChangesPanel } from "./changes-panel";
 
 interface WorkspaceDashboardProps {
   workspaceId: string;
@@ -17,6 +19,18 @@ interface WorkspaceDashboardProps {
 export function WorkspaceDashboard({ workspaceId }: WorkspaceDashboardProps) {
   const router = useRouter();
   const { workspace, workflows, isLoading, error, refetch } = useWorkspace(workspaceId);
+  const { changes, isLoading: changesLoading, since, markSeen } = useWorkspaceChanges(
+    workspaceId,
+    !isLoading && !!workspace,
+  );
+  const [dismissed, setDismissed] = useState(false);
+
+  // Mark seen once both workspace and changes are loaded
+  useEffect(() => {
+    if (workspace && !changesLoading) {
+      markSeen();
+    }
+  }, [workspace, changesLoading, markSeen]);
 
   useEffect(() => {
     if (workspace) {
@@ -61,6 +75,8 @@ export function WorkspaceDashboard({ workspaceId }: WorkspaceDashboardProps) {
     );
   }
 
+  const showChangesPanel = !dismissed && !changesLoading && changes.length > 0;
+
   return (
     <div className={`min-h-screen ${BG_APP} ${TEXT_PRIMARY}`}>
       <WorkspaceHeader
@@ -69,7 +85,15 @@ export function WorkspaceDashboard({ workspaceId }: WorkspaceDashboardProps) {
         onNameChange={refetch}
       />
 
-      <main className="mx-auto max-w-5xl px-6 py-8">
+      {showChangesPanel && (
+        <ChangesPanel
+          changes={changes}
+          since={since}
+          onDismiss={() => setDismissed(true)}
+        />
+      )}
+
+      <main className={`mx-auto max-w-5xl px-6 py-8 ${showChangesPanel ? "mr-80" : ""}`}>
         {workflows.length === 0 ? (
           <EmptyState onCreateWorkflow={handleNewWorkflow} />
         ) : (
