@@ -35,7 +35,6 @@ function cleanNodeForSync(node: WorkflowNode): WorkflowNode {
 }
 
 function cleanEdgeForSync(edge: WorkflowEdge): WorkflowEdge {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { type: _type, style: _style, animated: _animated, selected: _selected, ...rest } = edge;
   return rest as WorkflowEdge;
 }

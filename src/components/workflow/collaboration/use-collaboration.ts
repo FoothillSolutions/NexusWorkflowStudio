@@ -12,10 +12,11 @@ import { useWorkflowStore } from "@/store/workflow";
  * - On unmount: disconnects the provider.
  * - Registers beforeunload to cleanly disconnect.
  */
-export function useCollaboration() {
+export function useCollaboration({ skip }: { skip?: boolean } = {}) {
   const getWorkflowJSON = useWorkflowStore((s) => s.getWorkflowJSON);
 
   useEffect(() => {
+    if (skip) return;
     if (typeof window === "undefined") return;
 
     const params = new URLSearchParams(window.location.search);
@@ -35,7 +36,7 @@ export function useCollaboration() {
     };
     // Only run once on mount — getWorkflowJSON is stable
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [skip]);
 
   return useCollabStore(
     useShallow((s) => ({

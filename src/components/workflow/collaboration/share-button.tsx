@@ -16,7 +16,11 @@ import { useWorkflowStore } from "@/store/workflow";
 import { toast } from "sonner";
 import { TEXT_MUTED } from "@/lib/theme";
 
-export function ShareButton() {
+interface ShareButtonProps {
+  shareUrlOverride?: string;
+}
+
+export function ShareButton({ shareUrlOverride }: ShareButtonProps = {}) {
   const getWorkflowJSON = useWorkflowStore((s) => s.getWorkflowJSON);
   const roomId = useCollabStore((s) => s.roomId);
   const isConnected = useCollabStore((s) => s.isConnected);
@@ -27,7 +31,7 @@ export function ShareButton() {
 
   const isActive = roomId !== null;
 
-  const collabUrl = isActive && roomId ? buildCollabShareUrl(roomId) : "";
+  const collabUrl = shareUrlOverride ?? (isActive && roomId ? buildCollabShareUrl(roomId) : "");
 
   const handleShare = useCallback(() => {
     const id = createRoomId();
@@ -51,6 +55,26 @@ export function ShareButton() {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }, [collabUrl]);
+
+  // Workspace mode: share button always copies workspace URL
+  if (shareUrlOverride) {
+    return (
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={async () => {
+          await navigator.clipboard.writeText(shareUrlOverride);
+          setCopied(true);
+          toast.success("Workspace workflow URL copied");
+          setTimeout(() => setCopied(false), 2000);
+        }}
+        className={`${TEXT_MUTED} h-8 rounded-lg px-2.5 text-xs hover:bg-zinc-800/80 hover:text-zinc-100`}
+      >
+        {copied ? <Check className="h-3.5 w-3.5 text-emerald-400 sm:mr-1" /> : <Share2 className="h-3.5 w-3.5 sm:mr-1" />}
+        <span className="hidden sm:inline">{copied ? "Copied" : "Share"}</span>
+      </Button>
+    );
+  }
 
   if (!isActive) {
     return (

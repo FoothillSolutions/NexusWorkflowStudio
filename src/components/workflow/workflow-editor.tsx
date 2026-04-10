@@ -8,6 +8,7 @@ import { useSavedWorkflowsStore } from "@/store/library";
 import { throttledSave, exportWorkflow, stripTransientProperties } from "@/lib/persistence";
 import { isModKey } from "@/lib/platform";
 import { toast } from "sonner";
+import type { WorkflowJSON } from "@/types/workflow";
 import { BG_APP, TEXT_PRIMARY } from "@/lib/theme";
 import Header from "./header";
 import NodePalette from "./node-palette";
@@ -24,6 +25,8 @@ import WhatsNewDialog from "./whats-new-dialog";
 import { useWhatsNew } from "@/hooks/use-whats-new";
 import { useCollaboration } from "./collaboration/use-collaboration";
 import { CollabDoc } from "@/lib/collaboration";
+import { buildWorkspaceRoomId } from "@/lib/collaboration/config";
+import { useWorkspaceAutosave } from "@/hooks/use-workspace-autosave";
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -35,16 +38,57 @@ function isEditableTarget(target: EventTarget | null): boolean {
   );
 }
 
-export default function WorkflowEditor() {
+export interface WorkflowEditorProps {
+  workspaceId?: string;
+  workflowId?: string;
+  initialWorkflow?: WorkflowJSON;
+}
+
+export default function WorkflowEditor({
+  workspaceId,
+  workflowId,
+  initialWorkflow,
+}: WorkflowEditorProps = {}) {
+  const isWorkspaceMode = Boolean(workspaceId && workflowId);
+
   const closePropertiesPanel = useWorkflowStore((s) => s.closePropertiesPanel);
   const getWorkflowJSON = useWorkflowStore((s) => s.getWorkflowJSON);
+  const loadWorkflow = useWorkflowStore((s) => s.loadWorkflow);
   const refreshSaveState = useWorkflowStore((s) => s.refreshSaveState);
   const activeSubWorkflowNodeId = useWorkflowStore((s) => s.activeSubWorkflowNodeId);
   const openSubWorkflow = useWorkflowStore((s) => s.openSubWorkflow);
   const whatsNew = useWhatsNew();
 
-  // Collaboration — mounts Y.js provider, auto-joins room if ?room= in URL
-  useCollaboration();
+  // Workspace mode: load initial workflow from server
+  useEffect(() => {
+    if (isWorkspaceMode && initialWorkflow) {
+      loadWorkflow(initialWorkflow);
+    }
+    // Only run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Workspace mode: auto-start Y.js with stable room ID
+  useEffect(() => {
+    if (!isWorkspaceMode || !workspaceId || !workflowId) return;
+    const roomId = buildWorkspaceRoomId(workspaceId, workflowId);
+    const doc = CollabDoc.getOrCreate();
+    doc.start(roomId, getWorkflowJSON());
+
+    return () => {
+      CollabDoc.getInstance()?.destroy();
+    };
+    // Only run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Standalone mode: collaboration via ?room= URL
+  useCollaboration({ skip: isWorkspaceMode });
+
+  // Auto-save to server in workspace mode
+  useWorkspaceAutosave(
+    isWorkspaceMode ? { workspaceId: workspaceId!, workflowId: workflowId!, displayName: "Anonymous" } : null,
+  );
 
   // Report local selected node to remote peers via Y.js awareness
   useEffect(() => {
@@ -161,10 +205,8 @@ export default function WorkflowEditor() {
   }, [closePropertiesPanel, getWorkflowJSON]);
 
   // Auto-save subscription — only reacts to data changes, not high-frequency
-  // position updates. We compare references so that dragging (which creates a
-  // new nodes array on every frame) still triggers a save eventually via the
-  // trailing edge of the throttle, but we avoid constructing the full JSON
-  // object synchronously on every single frame.
+  // position updates. In workspace mode, skip localStorage persistence (server
+  // auto-save handles it).
   useEffect(() => {
     let prevNodes = useWorkflowStore.getState().nodes;
     let prevEdges = useWorkflowStore.getState().edges;
@@ -196,16 +238,20 @@ export default function WorkflowEditor() {
         });
 
         refreshSaveState(snapshot);
-        // Throttle will coalesce rapid position updates into one trailing save
-        throttledSave(snapshot);
+        // In workspace mode, skip localStorage save — server auto-save handles persistence
+        if (!isWorkspaceMode) {
+          throttledSave(snapshot);
+        }
     });
     return () => unsub();
-  }, [refreshSaveState]);
+  }, [refreshSaveState, isWorkspaceMode]);
 
   return (
     <ReactFlowProvider>
       <div className={`flex h-screen min-w-0 flex-col ${BG_APP} ${TEXT_PRIMARY} font-sans`}>
-        <Header />
+        <Header
+          workspaceContext={isWorkspaceMode ? { workspaceId: workspaceId!, workflowId: workflowId! } : undefined}
+        />
         <div className="flex min-w-0 flex-1 overflow-hidden">
           <div className="relative min-w-0 flex-1">
             <Canvas />

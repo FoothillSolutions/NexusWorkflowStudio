@@ -24,3 +24,12 @@ export function buildCollabShareUrl(roomId: string): string {
   if (typeof window === "undefined") return buildCollabRoomUrl(roomId);
   return `${window.location.origin}${buildCollabRoomUrl(roomId)}`;
 }
+
+export function buildWorkspaceRoomId(workspaceId: string, workflowId: string): string {
+  return `nexus-ws-${workspaceId}-${workflowId}`;
+}
+
+export function buildWorkspaceCollabShareUrl(workspaceId: string, workflowId: string): string {
+  if (typeof window === "undefined") return `/workspace/${workspaceId}/workflow/${workflowId}`;
+  return `${window.location.origin}/workspace/${workspaceId}/workflow/${workflowId}`;
+}
