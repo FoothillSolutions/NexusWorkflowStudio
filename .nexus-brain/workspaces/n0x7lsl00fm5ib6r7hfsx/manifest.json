@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "workspace": {
+    "id": "n0x7lsl00fm5ib6r7hfsx",
+    "name": "My Workspace",
+    "createdAt": "2026-04-10T13:07:01.349Z",
+    "updatedAt": "2026-04-10T13:08:00.068Z"
+  },
+  "workflows": [
+    {
+      "id": "u3fd0je5fxrbkgt9lr652",
+      "workspaceId": "n0x7lsl00fm5ib6r7hfsx",
+      "name": "Untitled Workflow",
+      "createdAt": "2026-04-10T13:07:16.192Z",
+      "updatedAt": "2026-04-10T13:08:00.068Z",
+      "lastModifiedBy": "Anonymous"
+    }
+  ]
+}
