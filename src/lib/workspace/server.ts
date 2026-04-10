@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { customAlphabet } from "nanoid";
 import { getWorkspaceConfig } from "./config";
+import { writeSnapshot } from "./snapshots";
 import type { WorkspaceManifest, WorkspaceRecord, WorkflowRecord } from "./types";
 import type { WorkflowJSON } from "@/types/workflow";
 
@@ -151,6 +152,7 @@ export async function saveWorkflow(
 
   await writeJsonFile(workflowPath(workspaceId, workflowId), data);
   await writeJsonFile(manifestPath(workspaceId), manifest);
+  await writeSnapshot(workspaceId, workflowId, data, lastModifiedBy);
 
   return true;
 }
