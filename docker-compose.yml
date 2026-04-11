@@ -15,7 +15,7 @@ services:
       PORT: "3000"
       NEXUS_BRAIN_DATA_DIR: /data/brain
       NEXT_PUBLIC_COLLAB_SERVER_URL: ws://localhost:1234
-      NEXT_PUBLIC_SPACETIME_URI: ws://nexus-spacetimedb:3001
+      NEXT_PUBLIC_SPACETIME_URI: ws://localhost:${SPACETIME_PORT:-30201}
       NEXT_PUBLIC_SPACETIME_DB_NAME: nexus
     expose:
       - "3000"
@@ -45,12 +45,13 @@ services:
 
   # SpacetimeDB server (workspace persistence + real-time sync)
   nexus-spacetimedb:
-    image: clockworklabs/spacetimedb:latest
+    image: clockworklabs/spacetime:latest
     container_name: nexus-spacetimedb
+    command: ["start"]
     environment:
       STDB_LOG_LEVEL: info
     ports:
-      - "3001:3001"
+      - "127.0.0.1:${SPACETIME_PORT:-30201}:3000"
     volumes:
       - nexus_spacetime_data:/var/lib/spacetimedb
     restart: unless-stopped
