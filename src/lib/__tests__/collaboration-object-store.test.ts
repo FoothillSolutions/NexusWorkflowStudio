@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { CollabObjectStore } from "../collaboration/object-store";
+import { LocalFilesystemProvider } from "../storage/local-provider";
 
 let tempDir = "";
 
@@ -18,7 +19,8 @@ describe("CollabObjectStore", () => {
   });
 
   it("stores and reloads room state with metadata", async () => {
-    const store = new CollabObjectStore(tempDir);
+    const provider = new LocalFilesystemProvider(tempDir);
+    const store = new CollabObjectStore(provider);
     const state = new Uint8Array([1, 2, 3, 4]);
 
     await store.store("room-1", state);
@@ -41,7 +43,8 @@ describe("CollabObjectStore", () => {
   });
 
   it("returns null for rooms that have never been stored", async () => {
-    const store = new CollabObjectStore(tempDir);
+    const provider = new LocalFilesystemProvider(tempDir);
+    const store = new CollabObjectStore(provider);
     expect(await store.load("missing-room")).toBeNull();
   });
 });

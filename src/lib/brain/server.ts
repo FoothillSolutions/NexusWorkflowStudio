@@ -1,8 +1,7 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
-import fs from "node:fs/promises";
-import path from "node:path";
 import { customAlphabet } from "nanoid";
 import { getBrainConfig } from "./config";
+import { getStorageProvider } from "@/lib/storage";
 import type {
   BrainManifest,
   BrainDocumentRecord,
@@ -26,6 +25,10 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
+function storage() {
+  return getStorageProvider();
+}
+
 function createEmptyManifest(): BrainManifest {
   return {
     version: 1,
@@ -42,22 +45,18 @@ function toVersionSummary(doc: KnowledgeDoc): string {
     || doc.title;
 }
 
-async function ensureDir(dir: string): Promise<void> {
-  await fs.mkdir(dir, { recursive: true });
-}
-
-async function readJsonFile<T>(filePath: string, fallback: T): Promise<T> {
+async function readJsonKey<T>(key: string, fallback: T): Promise<T> {
+  const raw = await storage().read(key);
+  if (raw === null) return fallback;
   try {
-    const raw = await fs.readFile(filePath, "utf8");
     return JSON.parse(raw) as T;
   } catch {
     return fallback;
   }
 }
 
-async function writeJsonFile(filePath: string, value: unknown): Promise<void> {
-  await ensureDir(path.dirname(filePath));
-  await fs.writeFile(filePath, JSON.stringify(value, null, 2), "utf8");
+async function writeJsonKey(key: string, value: unknown): Promise<void> {
+  await storage().write(key, JSON.stringify(value, null, 2));
 }
 
 function signValue(secret: string, payload: string): string {
@@ -89,28 +88,26 @@ function decodeToken(secret: string, token: string): Record<string, string> | nu
 }
 
 export class BrainStore {
-  private readonly dataDir = getBrainConfig().dataDir;
   private readonly tokenSecret = getBrainConfig().tokenSecret;
 
-  private manifestPath(): string {
-    return path.join(this.dataDir, MANIFEST_FILE);
+  private manifestKey(): string {
+    return MANIFEST_FILE;
   }
 
-  private liveDocPath(workspaceId: string, docId: string): string {
-    return path.join(this.dataDir, "live", workspaceId, `${docId}.json`);
+  private liveDocKey(workspaceId: string, docId: string): string {
+    return `live/${workspaceId}/${docId}.json`;
   }
 
-  private versionPath(workspaceId: string, docId: string, versionId: string): string {
-    return path.join(this.dataDir, "versions", workspaceId, docId, `${versionId}.json`);
+  private versionKey(workspaceId: string, docId: string, versionId: string): string {
+    return `versions/${workspaceId}/${docId}/${versionId}.json`;
   }
 
   private async readManifest(): Promise<BrainManifest> {
-    await ensureDir(this.dataDir);
-    return readJsonFile(this.manifestPath(), createEmptyManifest());
+    return readJsonKey(this.manifestKey(), createEmptyManifest());
   }
 
   private async writeManifest(manifest: BrainManifest): Promise<void> {
-    await writeJsonFile(this.manifestPath(), manifest);
+    await writeJsonKey(this.manifestKey(), manifest);
   }
 
   private toPublicDoc(doc: BrainDocumentRecord): KnowledgeDoc {
@@ -132,8 +129,8 @@ export class BrainStore {
     createdBy: string,
   ): Promise<BrainDocumentVersionRecord> {
     const versionId = nanoid();
-    const snapshotKey = this.versionPath(workspaceId, doc.id, versionId);
-    await writeJsonFile(snapshotKey, doc);
+    const snapshotKey = this.versionKey(workspaceId, doc.id, versionId);
+    await writeJsonKey(snapshotKey, doc);
 
     const version: BrainDocumentVersionRecord = {
       id: versionId,
@@ -197,7 +194,7 @@ export class BrainStore {
           deletedAt: null,
         };
         manifest.documents.push(doc);
-        await writeJsonFile(this.liveDocPath(workspace.id, doc.id), this.toPublicDoc(doc));
+        await writeJsonKey(this.liveDocKey(workspace.id, doc.id), this.toPublicDoc(doc));
         await this.createVersion(
           manifest,
           workspace.id,
@@ -256,7 +253,7 @@ export class BrainStore {
       manifest.documents.unshift(doc);
     }
 
-    await writeJsonFile(this.liveDocPath(workspaceId, doc.id), this.toPublicDoc(doc));
+    await writeJsonKey(this.liveDocKey(workspaceId, doc.id), this.toPublicDoc(doc));
     await this.createVersion(
       manifest,
       workspaceId,
@@ -298,7 +295,7 @@ export class BrainStore {
     doc.metrics.views += 1;
     doc.metrics.lastViewedAt = nowIso();
     doc.updatedAt = nowIso();
-    await writeJsonFile(this.liveDocPath(workspaceId, doc.id), this.toPublicDoc(doc));
+    await writeJsonKey(this.liveDocKey(workspaceId, doc.id), this.toPublicDoc(doc));
     await this.writeManifest(manifest);
     return this.toPublicDoc(doc);
   }
@@ -317,7 +314,7 @@ export class BrainStore {
     doc.metrics.feedback.push(feedback);
     doc.updatedAt = nowIso();
     manifest.feedback.unshift({ ...feedback, workspaceId, docId });
-    await writeJsonFile(this.liveDocPath(workspaceId, doc.id), this.toPublicDoc(doc));
+    await writeJsonKey(this.liveDocKey(workspaceId, doc.id), this.toPublicDoc(doc));
     await this.writeManifest(manifest);
     return this.toPublicDoc(doc);
   }
@@ -337,7 +334,7 @@ export class BrainStore {
     );
     if (!version) return null;
 
-    const snapshot = await readJsonFile<KnowledgeDoc | null>(version.snapshotKey, null);
+    const snapshot = await readJsonKey<KnowledgeDoc | null>(version.snapshotKey, null);
     if (!snapshot) return null;
 
     const index = manifest.documents.findIndex(
@@ -357,7 +354,7 @@ export class BrainStore {
     };
 
     manifest.documents[index] = restored;
-    await writeJsonFile(this.liveDocPath(workspaceId, restored.id), this.toPublicDoc(restored));
+    await writeJsonKey(this.liveDocKey(workspaceId, restored.id), this.toPublicDoc(restored));
     await this.createVersion(
       manifest,
       workspaceId,

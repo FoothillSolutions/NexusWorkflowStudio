@@ -1,8 +1,6 @@
-import fs from "node:fs/promises";
-import path from "node:path";
 import { customAlphabet } from "nanoid";
-import { getWorkspaceConfig } from "./config";
 import { writeSnapshot } from "./snapshots";
+import { getStorageProvider } from "@/lib/storage";
 import type { WorkspaceManifest, WorkspaceRecord, WorkflowRecord } from "./types";
 import type { WorkflowJSON } from "@/types/workflow";
 
@@ -13,44 +11,39 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
-async function ensureDir(dir: string): Promise<void> {
-  await fs.mkdir(dir, { recursive: true });
+function storage() {
+  return getStorageProvider();
 }
 
-async function readJsonFile<T>(filePath: string, fallback: T): Promise<T> {
+function validateId(id: string): void {
+  if (!id || id.includes("..") || id.includes("/") || id.includes("\\")) {
+    throw new Error("Invalid workspace id");
+  }
+}
+
+function manifestKey(id: string): string {
+  validateId(id);
+  return `workspaces/${id}/${MANIFEST_FILE}`;
+}
+
+function workflowKey(workspaceId: string, workflowId: string): string {
+  validateId(workspaceId);
+  validateId(workflowId);
+  return `workspaces/${workspaceId}/workflows/${workflowId}.json`;
+}
+
+async function readJsonKey<T>(key: string, fallback: T): Promise<T> {
+  const raw = await storage().read(key);
+  if (raw === null) return fallback;
   try {
-    const raw = await fs.readFile(filePath, "utf8");
     return JSON.parse(raw) as T;
   } catch {
     return fallback;
   }
 }
 
-async function writeJsonFile(filePath: string, value: unknown): Promise<void> {
-  await ensureDir(path.dirname(filePath));
-  await fs.writeFile(filePath, JSON.stringify(value, null, 2), "utf8");
-}
-
-function workspaceDir(id: string): string {
-  const dataDir = path.resolve(getWorkspaceConfig().dataDir);
-  const dir = path.resolve(dataDir, id);
-  const relative = path.relative(dataDir, dir);
-  if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) {
-    throw new Error("Invalid workspace id");
-  }
-  return dir;
-}
-
-function manifestPath(id: string): string {
-  return path.join(workspaceDir(id), MANIFEST_FILE);
-}
-
-function workflowsDir(workspaceId: string): string {
-  return path.join(workspaceDir(workspaceId), "workflows");
-}
-
-function workflowPath(workspaceId: string, workflowId: string): string {
-  return path.join(workflowsDir(workspaceId), `${workflowId}.json`);
+async function writeJsonKey(key: string, value: unknown): Promise<void> {
+  await storage().write(key, JSON.stringify(value, null, 2));
 }
 
 function createDefaultWorkflowJSON(name: string): WorkflowJSON {
@@ -67,14 +60,12 @@ function createDefaultWorkflowJSON(name: string): WorkflowJSON {
 }
 
 export async function listWorkspaces(): Promise<WorkspaceRecord[]> {
-  const dataDir = getWorkspaceConfig().dataDir;
   try {
-    const entries = await fs.readdir(dataDir, { withFileTypes: true });
+    const dirs = await storage().listDirectories("workspaces");
     const workspaces: WorkspaceRecord[] = [];
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
-      const mPath = path.join(dataDir, entry.name, MANIFEST_FILE);
-      const manifest = await readJsonFile<WorkspaceManifest | null>(mPath, null);
+    for (const dir of dirs) {
+      const key = `workspaces/${dir}/${MANIFEST_FILE}`;
+      const manifest = await readJsonKey<WorkspaceManifest | null>(key, null);
       if (manifest?.workspace) {
         workspaces.push(manifest.workspace);
       }
@@ -92,19 +83,15 @@ export async function createWorkspace(name: string): Promise<WorkspaceRecord> {
   const workspace: WorkspaceRecord = { id, name, createdAt: now, updatedAt: now };
   const manifest: WorkspaceManifest = { version: 1, workspace, workflows: [] };
 
-  await ensureDir(workflowsDir(id));
-  await writeJsonFile(manifestPath(id), manifest);
+  await writeJsonKey(manifestKey(id), manifest);
 
   return workspace;
 }
 
 export async function getWorkspace(id: string): Promise<WorkspaceManifest | null> {
-  try {
-    await fs.access(manifestPath(id));
-  } catch {
-    return null;
-  }
-  return readJsonFile<WorkspaceManifest | null>(manifestPath(id), null);
+  const key = manifestKey(id);
+  if (!(await storage().exists(key))) return null;
+  return readJsonKey<WorkspaceManifest | null>(key, null);
 }
 
 export async function updateWorkspace(
@@ -116,7 +103,7 @@ export async function updateWorkspace(
 
   manifest.workspace.name = updates.name;
   manifest.workspace.updatedAt = nowIso();
-  await writeJsonFile(manifestPath(id), manifest);
+  await writeJsonKey(manifestKey(id), manifest);
 
   return manifest.workspace;
 }
@@ -125,7 +112,8 @@ export async function deleteWorkspace(id: string): Promise<boolean> {
   const manifest = await getWorkspace(id);
   if (!manifest) return false;
 
-  await fs.rm(workspaceDir(id), { recursive: true, force: true });
+  validateId(id);
+  await storage().deleteTree(`workspaces/${id}`);
   return true;
 }
 
@@ -149,8 +137,8 @@ export async function createWorkflow(
 
   manifest.workflows.push(record);
   manifest.workspace.updatedAt = now;
-  await writeJsonFile(workflowPath(workspaceId, id), createDefaultWorkflowJSON(name));
-  await writeJsonFile(manifestPath(workspaceId), manifest);
+  await writeJsonKey(workflowKey(workspaceId, id), createDefaultWorkflowJSON(name));
+  await writeJsonKey(manifestKey(workspaceId), manifest);
 
   return record;
 }
@@ -159,12 +147,9 @@ export async function getWorkflow(
   workspaceId: string,
   workflowId: string,
 ): Promise<WorkflowJSON | null> {
-  try {
-    await fs.access(workflowPath(workspaceId, workflowId));
-  } catch {
-    return null;
-  }
-  return readJsonFile<WorkflowJSON | null>(workflowPath(workspaceId, workflowId), null);
+  const key = workflowKey(workspaceId, workflowId);
+  if (!(await storage().exists(key))) return null;
+  return readJsonKey<WorkflowJSON | null>(key, null);
 }
 
 export async function saveWorkflow(
@@ -184,8 +169,8 @@ export async function saveWorkflow(
   record.lastModifiedBy = lastModifiedBy;
   manifest.workspace.updatedAt = now;
 
-  await writeJsonFile(workflowPath(workspaceId, workflowId), data);
-  await writeJsonFile(manifestPath(workspaceId), manifest);
+  await writeJsonKey(workflowKey(workspaceId, workflowId), data);
+  await writeJsonKey(manifestKey(workspaceId), manifest);
   await writeSnapshot(workspaceId, workflowId, data, lastModifiedBy);
 
   return true;
@@ -205,7 +190,7 @@ export async function updateWorkflowMeta(
   record.name = updates.name;
   record.updatedAt = nowIso();
   manifest.workspace.updatedAt = record.updatedAt;
-  await writeJsonFile(manifestPath(workspaceId), manifest);
+  await writeJsonKey(manifestKey(workspaceId), manifest);
 
   return record;
 }
@@ -223,12 +208,8 @@ export async function deleteWorkflow(
   manifest.workflows.splice(index, 1);
   manifest.workspace.updatedAt = nowIso();
 
-  try {
-    await fs.unlink(workflowPath(workspaceId, workflowId));
-  } catch {
-    // file may already be gone
-  }
+  await storage().delete(workflowKey(workspaceId, workflowId));
 
-  await writeJsonFile(manifestPath(workspaceId), manifest);
+  await writeJsonKey(manifestKey(workspaceId), manifest);
   return true;
 }

@@ -2,6 +2,7 @@ import path from "node:path";
 import { Server } from "@hocuspocus/server";
 import * as Y from "yjs";
 import { CollabObjectStore } from "../src/lib/collaboration/object-store";
+import { LocalFilesystemProvider } from "../src/lib/storage/local-provider";
 
 function readPort(): number {
   const raw = process.env.NEXUS_COLLAB_SERVER_PORT ?? "1234";
@@ -24,7 +25,8 @@ function readDebounceMs(): number {
 async function main(): Promise<void> {
   const port = readPort();
   const dataDir = process.env.NEXUS_COLLAB_DATA_DIR ?? path.join(process.cwd(), ".nexus-collab");
-  const objectStore = new CollabObjectStore(dataDir);
+  const provider = new LocalFilesystemProvider(dataDir);
+  const objectStore = new CollabObjectStore(provider);
 
   const server = new Server({
     port,
