@@ -60,6 +60,7 @@ Keep the mental model high-level:
 - `src/nodes/` — feature modules for each node type (schema, fields, generator, helpers)
 - `src/store/` — Zustand stores and workflow-generation state
 - `src/lib/` — cross-cutting utilities: persistence, generation, registries, validation, OpenCode client, marketplace helpers
+- `src/lib/storage/` — pluggable storage provider abstraction (interface, local filesystem impl, factory)
 - `src/hooks/` — reusable editor and data hooks
 - `src/types/` — shared type definitions
 - `docs/tasks/` — task-specific plans and notes
@@ -87,6 +88,13 @@ Keep the mental model high-level:
 - Workflow artifact generation lives under `src/lib/` and node generators.
 - Export targets currently include `OpenCode`, `PI`, and `Claude Code`.
 - Generated output names are sanitized from workflow or node names; preserve existing sanitization helpers rather than duplicating naming logic.
+
+### Storage abstraction
+- All server-side file I/O flows through a pluggable `StorageProvider` interface defined in `src/lib/storage/`.
+- The default provider is `LocalFilesystemProvider` (local filesystem). Selection is driven by the `NEXUS_STORAGE_PROVIDER` env var (default: `"local"`), with `NEXUS_STORAGE_ROOT` controlling the base path.
+- Use `getStorageProvider()` from `@/lib/storage` to obtain the active provider. Do not import `node:fs/promises` directly for storage operations.
+- To add a new storage backend (S3, Azure Blob, etc.), implement the `StorageProvider` interface and register it via `registerStorageProvider()`.
+- `workspace/server.ts`, `workspace/snapshots.ts`, `brain/server.ts`, and `collaboration/object-store.ts` all use the storage abstraction.
 
 ### OpenCode integration
 - OpenCode support is optional.

@@ -1,16 +1,14 @@
-import fs from "node:fs/promises";
-import path from "node:path";
-import { getWorkspaceConfig } from "./config";
+import { getStorageProvider } from "@/lib/storage";
 import { getWorkspace } from "./server";
 import type { SnapshotMeta, SnapshotFile, ChangeEvent, WorkflowChanges, ChangesResponse } from "./types";
 import type { WorkflowJSON } from "@/types/workflow";
 
-function workspaceDir(id: string): string {
-  return path.join(getWorkspaceConfig().dataDir, id);
+function storage() {
+  return getStorageProvider();
 }
 
-export function snapshotsDir(workspaceId: string, workflowId: string): string {
-  return path.join(workspaceDir(workspaceId), "snapshots", workflowId);
+function snapshotsPrefix(workspaceId: string, workflowId: string): string {
+  return `workspaces/${workspaceId}/snapshots/${workflowId}`;
 }
 
 function toUrlSafeTimestamp(iso: string): string {
@@ -18,8 +16,6 @@ function toUrlSafeTimestamp(iso: string): string {
 }
 
 function fromUrlSafeTimestamp(safe: string): string {
-  // Format: 2026-04-10T12-30-00.000Z → 2026-04-10T12:30:00.000Z
-  // Only replace dashes that appear after the T (time portion)
   const tIndex = safe.indexOf("T");
   if (tIndex < 0) return safe;
   const datePart = safe.slice(0, tIndex);
@@ -34,38 +30,28 @@ export async function writeSnapshot(
   savedBy: string,
 ): Promise<void> {
   const timestamp = new Date().toISOString();
-  const dir = snapshotsDir(workspaceId, workflowId);
-  await fs.mkdir(dir, { recursive: true });
-
   const snapshot: SnapshotFile = { timestamp, workflowId, workspaceId, savedBy, data };
   const filename = `${toUrlSafeTimestamp(timestamp)}.json`;
-  const filePath = path.join(dir, filename);
-  const tmpPath = filePath + ".tmp";
+  const key = `${snapshotsPrefix(workspaceId, workflowId)}/${filename}`;
 
-  await fs.writeFile(tmpPath, JSON.stringify(snapshot, null, 2), "utf8");
-  await fs.rename(tmpPath, filePath);
+  await storage().writeAtomic(key, JSON.stringify(snapshot, null, 2));
 }
 
 export async function listSnapshots(
   workspaceId: string,
   workflowId: string,
 ): Promise<SnapshotMeta[]> {
-  const dir = snapshotsDir(workspaceId, workflowId);
-  let entries: string[];
-  try {
-    entries = await fs.readdir(dir);
-  } catch {
-    return [];
-  }
+  const prefix = snapshotsPrefix(workspaceId, workflowId);
+  const entries = await storage().list(prefix);
 
   const metas: SnapshotMeta[] = [];
   for (const entry of entries) {
     if (!entry.endsWith(".json") || entry.endsWith(".tmp")) continue;
     const safeName = entry.replace(".json", "");
     const timestamp = fromUrlSafeTimestamp(safeName);
-    // Read savedBy from the file
     try {
-      const raw = await fs.readFile(path.join(dir, entry), "utf8");
+      const raw = await storage().read(`${prefix}/${entry}`);
+      if (!raw) continue;
       const snap = JSON.parse(raw) as SnapshotFile;
       metas.push({ timestamp, savedBy: snap.savedBy });
     } catch {
@@ -82,10 +68,11 @@ export async function getSnapshot(
   workflowId: string,
   timestamp: string,
 ): Promise<SnapshotFile | null> {
-  const dir = snapshotsDir(workspaceId, workflowId);
   const filename = `${toUrlSafeTimestamp(timestamp)}.json`;
+  const key = `${snapshotsPrefix(workspaceId, workflowId)}/${filename}`;
   try {
-    const raw = await fs.readFile(path.join(dir, filename), "utf8");
+    const raw = await storage().read(key);
+    if (!raw) return null;
     return JSON.parse(raw) as SnapshotFile;
   } catch {
     return null;
@@ -116,21 +103,18 @@ function diffNodeSets(
 ): ChangeEvent[] {
   const events: ChangeEvent[] = [];
 
-  // node_added: in newer but not older
   for (const [id, info] of newer) {
     if (!older.has(id)) {
       events.push({ type: "node_added", nodeName: info.label, by: savedBy, at: timestamp });
     }
   }
 
-  // node_deleted: in older but not newer
   for (const [id, info] of older) {
     if (!newer.has(id)) {
       events.push({ type: "node_deleted", nodeName: info.label, by: savedBy, at: timestamp });
     }
   }
 
-  // node_renamed: same id, different label
   for (const [id, newInfo] of newer) {
     const oldInfo = older.get(id);
     if (oldInfo && oldInfo.label !== newInfo.label) {
@@ -161,15 +145,12 @@ export async function computeChanges(
     const allMetas = await listSnapshots(workspaceId, wfRecord.id);
     if (allMetas.length === 0) continue;
 
-    // Find snapshots after `since`
     const afterSince = allMetas.filter((m) => m.timestamp > since);
     if (afterSince.length === 0) continue;
 
-    // Find the baseline: the last snapshot at or before `since`
     const beforeSince = allMetas.filter((m) => m.timestamp <= since);
     const baselineMeta = beforeSince.length > 0 ? beforeSince[beforeSince.length - 1] : null;
 
-    // Build ordered list: [baseline, ...afterSince]
     const snapshotsToWalk: SnapshotFile[] = [];
 
     if (baselineMeta) {
@@ -187,20 +168,17 @@ export async function computeChanges(
     const events: ChangeEvent[] = [];
 
     if (!baselineMeta && snapshotsToWalk.length > 0) {
-      // No baseline — first snapshot's nodes are all "added"
       const first = snapshotsToWalk[0];
       const emptyMap = new Map<string, NodeInfo>();
       const firstNodes = extractNodes(first.data);
       events.push(...diffNodeSets(emptyMap, firstNodes, first.savedBy, first.timestamp));
 
-      // Walk remaining pairs
       for (let i = 1; i < snapshotsToWalk.length; i++) {
         const older = extractNodes(snapshotsToWalk[i - 1].data);
         const newer = extractNodes(snapshotsToWalk[i].data);
         events.push(...diffNodeSets(older, newer, snapshotsToWalk[i].savedBy, snapshotsToWalk[i].timestamp));
       }
     } else {
-      // Walk adjacent pairs starting from baseline
       for (let i = 1; i < snapshotsToWalk.length; i++) {
         const older = extractNodes(snapshotsToWalk[i - 1].data);
         const newer = extractNodes(snapshotsToWalk[i].data);

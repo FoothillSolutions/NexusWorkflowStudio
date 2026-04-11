@@ -1,6 +1,5 @@
 import { createHash } from "node:crypto";
-import fs from "node:fs/promises";
-import path from "node:path";
+import type { StorageProvider } from "@/lib/storage";
 
 interface CollabObjectMetadata {
   roomId: string;
@@ -13,55 +12,38 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
-async function ensureDir(dir: string): Promise<void> {
-  await fs.mkdir(dir, { recursive: true });
-}
-
-async function atomicWrite(filePath: string, content: string | Uint8Array): Promise<void> {
-  const tempPath = `${filePath}.tmp`;
-  await ensureDir(path.dirname(filePath));
-  await fs.writeFile(tempPath, content);
-  await fs.rename(tempPath, filePath);
-}
-
 export class CollabObjectStore {
-  constructor(private readonly dataDir: string) {}
+  constructor(private readonly provider: StorageProvider) {}
 
   private roomKey(roomId: string): string {
     return createHash("sha256").update(roomId).digest("hex");
   }
 
-  private roomDir(roomId: string): string {
-    return path.join(this.dataDir, "rooms", this.roomKey(roomId));
+  private stateKey(roomId: string): string {
+    return `rooms/${this.roomKey(roomId)}/state.bin`;
   }
 
-  private statePath(roomId: string): string {
-    return path.join(this.roomDir(roomId), "state.bin");
-  }
-
-  private metadataPath(roomId: string): string {
-    return path.join(this.roomDir(roomId), "metadata.json");
+  private metadataKey(roomId: string): string {
+    return `rooms/${this.roomKey(roomId)}/metadata.json`;
   }
 
   async load(roomId: string): Promise<Uint8Array | null> {
-    try {
-      const state = await fs.readFile(this.statePath(roomId));
-      return new Uint8Array(state);
-    } catch {
-      return null;
-    }
+    return this.provider.readBytes(this.stateKey(roomId));
   }
 
   async store(roomId: string, state: Uint8Array): Promise<void> {
-    const stateKey = this.statePath(roomId);
+    const key = this.stateKey(roomId);
     const metadata: CollabObjectMetadata = {
       roomId,
-      stateKey,
+      stateKey: key,
       updatedAt: nowIso(),
       byteLength: state.byteLength,
     };
 
-    await atomicWrite(stateKey, state);
-    await atomicWrite(this.metadataPath(roomId), JSON.stringify(metadata, null, 2));
+    await this.provider.writeAtomic(key, state);
+    await this.provider.writeAtomic(
+      this.metadataKey(roomId),
+      JSON.stringify(metadata, null, 2),
+    );
   }
 }
