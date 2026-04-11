@@ -8,6 +8,8 @@
 
 This feature moves Brain documents from browser-only storage into a server-backed workspace with signed share tokens, filesystem persistence, and version history. It also replaces peer-to-peer collaboration with a Hocuspocus server that persists room state, so shared workflow sessions survive reconnects and restarts.
 
+Current status: workspace mode now has an optional SpacetimeDB backend. When `NEXT_PUBLIC_SPACETIME_URI` is configured, Brain document operations are routed through the SpacetimeDB sync bridge and generated reducers instead of these filesystem Brain API routes. This document remains the reference for the legacy filesystem Brain backend and Hocuspocus-backed collaboration path.
+
 ## What Was Built
 
 - A file-backed Brain store with workspace sessions, signed tokens, live document files, manifest tracking, and version snapshots.
@@ -73,6 +75,7 @@ The test coverage verifies legacy Brain migration, imported metadata preservatio
 
 ## Notes
 
+- For SpacetimeDB-backed workspace mode, see `docs/tasks/feature-spacetimedb-backend-sync-feature/doc-feature-spacetimedb-backend-sync-feature.md`.
 - Brain sessions are workspace-scoped but still anonymous; possession of a valid token or share link grants access.
 - Deleted documents are soft-deleted in the manifest and recorded as version events.
 - No screenshots were provided for this documentation task.

@@ -1,3 +1,6 @@
+// DEPRECATED: With SpacetimeDB enabled, clients subscribe to workflow_change_event
+// rows directly. This REST endpoint remains as a fallback for filesystem-based mode.
+// Once SpacetimeDB migration is complete, remove this route.
 import { NextResponse } from "next/server";
 import { computeChanges } from "@/lib/workspace/snapshots";
 

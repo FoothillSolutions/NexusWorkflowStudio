@@ -27,6 +27,10 @@ import { useCollaboration } from "./collaboration/use-collaboration";
 import { CollabDoc } from "@/lib/collaboration";
 import { buildWorkspaceRoomId } from "@/lib/collaboration/config";
 import { useWorkspaceAutosave } from "@/hooks/use-workspace-autosave";
+import { isSpacetimeConfigured } from "@/lib/spacetime/config";
+import { spacetimeWorkspaceSync } from "@/lib/spacetime/workspace-sync";
+import { spacetimeBrainSync } from "@/lib/spacetime/brain-sync";
+import { spacetimePresence } from "@/lib/spacetime/presence";
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -68,15 +72,30 @@ export default function WorkflowEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Workspace mode: auto-start Y.js with stable room ID
+  // Workspace mode: choose exactly one live sync backend.
   useEffect(() => {
     if (!isWorkspaceMode || !workspaceId || !workflowId) return;
-    const roomId = buildWorkspaceRoomId(workspaceId, workflowId);
-    const doc = CollabDoc.getOrCreate();
-    doc.start(roomId, getWorkflowJSON());
+
+    const useSpacetimeBackend = isSpacetimeConfigured();
+
+    if (useSpacetimeBackend) {
+      spacetimeWorkspaceSync.startSync(workspaceId, workflowId, "Anonymous");
+      spacetimeBrainSync.startBrainSync(workspaceId);
+      spacetimePresence.startPresence(workspaceId, workflowId, "Anonymous");
+    } else {
+      const roomId = buildWorkspaceRoomId(workspaceId, workflowId);
+      const doc = CollabDoc.getOrCreate();
+      doc.start(roomId, getWorkflowJSON());
+    }
 
     return () => {
-      CollabDoc.getInstance()?.destroy();
+      if (useSpacetimeBackend) {
+        spacetimePresence.stopPresence();
+        spacetimeWorkspaceSync.stopSync();
+        spacetimeBrainSync.stopBrainSync();
+      } else {
+        CollabDoc.getInstance()?.destroy();
+      }
     };
     // Only run once on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -85,18 +104,22 @@ export default function WorkflowEditor({
   // Standalone mode: collaboration via ?room= URL
   useCollaboration({ skip: isWorkspaceMode });
 
-  // Auto-save to server in workspace mode
+  // Auto-save to server in workspace mode (skip when SpacetimeDB handles persistence)
+  const useSpacetime = isWorkspaceMode && isSpacetimeConfigured();
   useWorkspaceAutosave(
-    isWorkspaceMode ? { workspaceId: workspaceId!, workflowId: workflowId!, displayName: "Anonymous" } : null,
+    isWorkspaceMode && !useSpacetime ? { workspaceId: workspaceId!, workflowId: workflowId!, displayName: "Anonymous" } : null,
   );
 
-  // Report local selected node to remote peers via Y.js awareness
+  // Report local selected node to remote peers via awareness (SpacetimeDB or Y.js)
   useEffect(() => {
     const unsub = useWorkflowStore.subscribe((state) => {
       CollabDoc.getInstance()?.updateAwareness({ selectedNodeId: state.selectedNodeId });
+      if (spacetimePresence.isActive()) {
+        spacetimePresence.updateSelection(state.selectedNodeId ?? null);
+      }
     });
     return () => unsub();
-  }, []);
+  }, [useSpacetime]);
 
   // Listen for sub-workflow open events from properties panel
   useEffect(() => {

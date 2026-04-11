@@ -23,15 +23,17 @@ interface ShareButtonProps {
 export function ShareButton({ shareUrlOverride }: ShareButtonProps = {}) {
   const getWorkflowJSON = useWorkflowStore((s) => s.getWorkflowJSON);
   const roomId = useCollabStore((s) => s.roomId);
+  const syncBackend = useCollabStore((s) => s.syncBackend);
   const isConnected = useCollabStore((s) => s.isConnected);
   const isInitializing = useCollabStore((s) => s.isInitializing);
   const peerCount = useCollabStore((s) => s.peerCount);
   const [copied, setCopied] = useState(false);
   const [open, setOpen] = useState(false);
 
-  const isActive = roomId !== null;
+  const isActive = roomId !== null || syncBackend === "spacetimedb";
+  const canStopSharing = roomId !== null;
 
-  const collabUrl = shareUrlOverride ?? (isActive && roomId ? buildCollabShareUrl(roomId) : "");
+  const collabUrl = shareUrlOverride ?? (roomId ? buildCollabShareUrl(roomId) : "");
 
   const handleShare = useCallback(() => {
     const id = createRoomId();
@@ -56,8 +58,8 @@ export function ShareButton({ shareUrlOverride }: ShareButtonProps = {}) {
     setTimeout(() => setCopied(false), 2000);
   }, [collabUrl]);
 
-  // Workspace mode: share button always copies workspace URL
-  if (shareUrlOverride) {
+  // Workspace mode before the room starts: copy the stable workspace URL.
+  if (shareUrlOverride && !isActive) {
     return (
       <Button
         variant="ghost"
@@ -153,15 +155,17 @@ export function ShareButton({ shareUrlOverride }: ShareButtonProps = {}) {
               Server-backed with persisted room state.
             </p>
 
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleStop}
-              className="h-7 w-full border border-zinc-700 text-xs text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
-            >
-              <X className="mr-1.5 h-3.5 w-3.5" />
-              Stop sharing
-            </Button>
+            {canStopSharing && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleStop}
+                className="h-7 w-full border border-zinc-700 text-xs text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
+              >
+                <X className="mr-1.5 h-3.5 w-3.5" />
+                Stop sharing
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>

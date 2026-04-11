@@ -1,3 +1,4 @@
+// DEPRECATED: Temporary shim — will be removed once all clients use SpacetimeDB directly.
 import { NextResponse } from "next/server";
 import { saveBrainDocInputSchema } from "@/lib/brain/schemas";
 import { getBrainStore, getBrainTokenFromHeaders, requireWorkspace } from "@/lib/brain/server";

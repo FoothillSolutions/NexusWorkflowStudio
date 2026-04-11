@@ -102,8 +102,17 @@ export class CollabDoc {
   start(roomId: string, initialState?: WorkflowJSON): void {
     if (typeof window === "undefined") return;
 
+    if (this._provider) {
+      if (this._roomId === roomId) return;
+      this.destroy();
+      CollabDoc._instance = new CollabDoc();
+      CollabDoc._instance.start(roomId, initialState);
+      return;
+    }
+
     this._roomId = roomId;
     useCollabStore.getState()._setRoomId(roomId);
+    useCollabStore.getState()._setSyncBackend("yjs");
     useCollabStore.getState()._setInitializing(true);
 
     // Set up self identity
@@ -210,6 +219,7 @@ export class CollabDoc {
     useCollabStore.getState()._setConnected(false);
     useCollabStore.getState()._setInitializing(false);
     useCollabStore.getState()._setPeerCount(0);
+    useCollabStore.getState()._setSyncBackend(null);
     useAwarenessStore.getState()._setPeers([]);
 
     CollabDoc._instance = null;

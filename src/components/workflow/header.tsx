@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { getGenerationTarget } from "@/lib/generation-targets";
-import { buildWorkspaceCollabShareUrl } from "@/lib/collaboration/config";
+import { buildWorkspaceCollabShareUrl, buildWorkspaceYjsShareUrl } from "@/lib/collaboration/config";
+import { isSpacetimeConfigured } from "@/lib/spacetime/config";
 import { BG_SURFACE, BORDER_DEFAULT, TEXT_MUTED } from "@/lib/theme";
 import { HelpMenu } from "./shared-header-actions";
 import { HeaderBrand } from "./header/brand";
@@ -84,7 +85,9 @@ export default function Header({ workspaceContext }: HeaderProps) {
   }, [workspaceContext]);
 
   const workspaceShareUrl = workspaceContext
-    ? buildWorkspaceCollabShareUrl(workspaceContext.workspaceId, workspaceContext.workflowId)
+    ? isSpacetimeConfigured()
+      ? buildWorkspaceCollabShareUrl(workspaceContext.workspaceId, workspaceContext.workflowId)
+      : buildWorkspaceYjsShareUrl(workspaceContext.workspaceId, workspaceContext.workflowId)
     : undefined;
 
   return (
