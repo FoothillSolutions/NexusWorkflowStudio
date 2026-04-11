@@ -102,16 +102,19 @@ class SpacetimeWorkspaceSync {
 
     const client = getSpacetimeClient();
 
-    // Track connection state in the collab store
-    useCollabStore.getState()._setSyncBackend("spacetimedb");
     this._connectionUnsub = client.onStateChange((state) => {
+      if (useCollabStore.getState().syncBackend === "yjs") return;
+      useCollabStore.getState()._setSyncBackend("spacetimedb");
       useCollabStore.getState()._setConnected(state === "connected");
       useCollabStore.getState()._setInitializing(state === "connecting");
     });
 
     // Connect if not already
     if (!client.isConnected) {
-      useCollabStore.getState()._setInitializing(true);
+      if (useCollabStore.getState().syncBackend !== "yjs") {
+        useCollabStore.getState()._setSyncBackend("spacetimedb");
+        useCollabStore.getState()._setInitializing(true);
+      }
       client.connect();
     }
 
@@ -189,9 +192,11 @@ class SpacetimeWorkspaceSync {
     this._workspaceId = null;
     this._workflowId = null;
 
-    useCollabStore.getState()._setConnected(false);
-    useCollabStore.getState()._setInitializing(false);
-    useCollabStore.getState()._setSyncBackend(null);
+    if (useCollabStore.getState().syncBackend !== "yjs") {
+      useCollabStore.getState()._setConnected(false);
+      useCollabStore.getState()._setInitializing(false);
+      useCollabStore.getState()._setSyncBackend(null);
+    }
   }
 
   // ── Private: Subscription Setup ────────────────────────────────────────
@@ -217,8 +222,11 @@ class SpacetimeWorkspaceSync {
       () => this._syncFromCache(connection),
     );
 
-    useCollabStore.getState()._setConnected(true);
-    useCollabStore.getState()._setInitializing(false);
+    if (useCollabStore.getState().syncBackend !== "yjs") {
+      useCollabStore.getState()._setSyncBackend("spacetimedb");
+      useCollabStore.getState()._setConnected(true);
+      useCollabStore.getState()._setInitializing(false);
+    }
 
     // Initialize reference cache from current store state
     const state = useWorkflowStore.getState();
