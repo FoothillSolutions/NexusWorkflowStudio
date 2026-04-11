@@ -64,6 +64,7 @@ Keep the mental model high-level:
 - `src/types/` — shared type definitions
 - `docs/tasks/` — task-specific plans and notes
 - `packages/` — auxiliary packages such as `nexus-acp-bridge`
+- `spacetime/nexus/` — SpacetimeDB TypeScript module (tables, reducers, lifecycle hooks)
 
 ---
 
@@ -92,6 +93,16 @@ Keep the mental model high-level:
 - OpenCode support is optional.
 - Keep offline/editor-only flows working even when OpenCode is disconnected.
 - Client/service logic lives under `src/lib/opencode/`; related state lives under `src/store/opencode*`.
+
+### SpacetimeDB persistence and sync (workspace mode)
+- When `NEXT_PUBLIC_SPACETIME_URI` is configured, workspace mode uses SpacetimeDB for persistence and real-time collaboration instead of the filesystem REST API + Hocuspocus.
+- SpacetimeDB module definition: `spacetime/nexus/src/lib.ts` — tables, reducers, lifecycle hooks.
+- Client-side sync bridges: `src/lib/spacetime/` — connection manager, workspace sync, brain sync, presence layer.
+- The sync bridges use the `_isApplyingRemote` loop-prevention pattern from `collab-doc.ts` to avoid feedback loops between SpacetimeDB subscriptions and Zustand store updates.
+- Hocuspocus/Yjs remains for standalone `?room=` collaboration mode.
+- REST API routes under `src/app/api/workspaces/` and `src/app/api/brain/` are deprecated shims; they will be removed once all clients use SpacetimeDB directly.
+- Standalone editor/localStorage mode is completely unaffected by SpacetimeDB.
+- New environment variables: `NEXT_PUBLIC_SPACETIME_URI`, `NEXT_PUBLIC_SPACETIME_DB_NAME`, `SPACETIME_MODULE_PATH`.
 
 ---
 

@@ -1,3 +1,4 @@
+// DEPRECATED: Temporary shim — will be removed once all clients use SpacetimeDB directly.
 import { NextResponse } from "next/server";
 import { CreateWorkflowSchema } from "@/lib/workspace/schemas";
 import { createWorkflow } from "@/lib/workspace/server";

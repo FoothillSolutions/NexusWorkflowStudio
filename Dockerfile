@@ -53,9 +53,12 @@ EXPOSE 3000
 
 COPY --from=builder --chown=bun:bun /app/public ./public
 
-# Install git for marketplace clone/pull operations at runtime.
-RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
+# Install git for marketplace clone/pull operations and curl for SpacetimeDB CLI.
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates curl \
     && rm -rf /var/lib/apt/lists/*
+
+# Install SpacetimeDB CLI for binding generation.
+RUN curl -fsSL https://install.spacetimedb.com | bash -s -- --yes 2>/dev/null || true
 
 RUN mkdir .next && chown bun:bun .next
 

@@ -28,6 +28,7 @@
     "docker:down": "docker compose down"
   },
   "dependencies": {
+    "@clockworklabs/spacetimedb-sdk": "^1.0.0",
     "@dagrejs/dagre": "^2.0.4",
     "@hocuspocus/provider": "^3.4.4",
     "@hocuspocus/server": "^3.4.4",

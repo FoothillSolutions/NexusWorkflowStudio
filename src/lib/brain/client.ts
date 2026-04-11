@@ -10,6 +10,7 @@ import type {
   KnowledgeDocVersion,
   KnowledgeFeedback,
 } from "@/types/knowledge";
+import { isSpacetimeConfigured } from "@/lib/spacetime/config";
 
 const nanoid = customAlphabet("abcdefghijklmnopqrstuvwxyz0123456789", 12);
 const BRAIN_TOKEN_KEY = "nexus:brain-token";
@@ -77,7 +78,23 @@ function createMigrationPayload(): KnowledgeBrain | null {
   };
 }
 
+/**
+ * When SpacetimeDB is configured for workspace mode, the brain-sync bridge
+ * handles brain document operations directly via SpacetimeDB reducers.
+ * The REST-based session flow is only needed in non-SpacetimeDB mode.
+ */
 export async function ensureBrainSession(): Promise<BrainSession> {
+  // In SpacetimeDB mode, brain operations go through the sync bridge.
+  // Return a minimal session so existing callers don't break.
+  if (isSpacetimeConfigured()) {
+    const docs = getAllKnowledgeDocs();
+    return {
+      workspaceId: "spacetimedb",
+      token: "spacetimedb-identity",
+      docs,
+    };
+  }
+
   const token = getStoredToken() ?? getUrlToken();
   const legacyBrain = token ? null : createMigrationPayload();
 
