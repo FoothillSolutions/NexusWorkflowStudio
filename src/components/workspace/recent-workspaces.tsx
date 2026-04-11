@@ -1,9 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Clock, Workflow } from "lucide-react";
-import { getRecentWorkspaces } from "@/lib/workspace/local-history";
+import {
+  getRecentWorkspaces,
+  type RecentWorkspaceEntry,
+} from "@/lib/workspace/local-history";
 import { TEXT_MUTED, TEXT_SECONDARY, BORDER_DEFAULT } from "@/lib/theme";
 
 function timeAgo(dateStr: string): string {
@@ -17,9 +20,21 @@ function timeAgo(dateStr: string): string {
   return `${days}d ago`;
 }
 
-export function RecentWorkspaces() {
+interface RecentWorkspacesProps {
+  refreshKey?: number;
+}
+
+export function RecentWorkspaces({ refreshKey = 0 }: RecentWorkspacesProps) {
   const router = useRouter();
-  const [entries] = useState(() => getRecentWorkspaces());
+  const [entries, setEntries] = useState<RecentWorkspaceEntry[]>([]);
+
+  useEffect(() => {
+    const loadEntries = window.setTimeout(() => {
+      setEntries(getRecentWorkspaces());
+    }, 0);
+
+    return () => window.clearTimeout(loadEntries);
+  }, [refreshKey]);
 
   if (entries.length === 0) return null;
 

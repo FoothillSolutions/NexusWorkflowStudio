@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { UpdateWorkspaceSchema } from "@/lib/workspace/schemas";
-import { getWorkspace, updateWorkspace } from "@/lib/workspace/server";
+import { deleteWorkspace, getWorkspace, updateWorkspace } from "@/lib/workspace/server";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +42,23 @@ export async function PATCH(
     return NextResponse.json({ workspace });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to update workspace";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { id } = await params;
+    const deleted = await deleteWorkspace(id);
+    if (!deleted) {
+      return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
+    }
+    return new NextResponse(null, { status: 204 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to delete workspace";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
