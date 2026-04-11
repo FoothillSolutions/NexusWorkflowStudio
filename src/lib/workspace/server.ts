@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { customAlphabet } from "nanoid";
 import { getWorkspaceConfig } from "./config";
+import { writeSnapshot } from "./snapshots";
 import type { WorkspaceManifest, WorkspaceRecord, WorkflowRecord } from "./types";
 import type { WorkflowJSON } from "@/types/workflow";
 
@@ -31,7 +32,13 @@ async function writeJsonFile(filePath: string, value: unknown): Promise<void> {
 }
 
 function workspaceDir(id: string): string {
-  return path.join(getWorkspaceConfig().dataDir, id);
+  const dataDir = path.resolve(getWorkspaceConfig().dataDir);
+  const dir = path.resolve(dataDir, id);
+  const relative = path.relative(dataDir, dir);
+  if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) {
+    throw new Error("Invalid workspace id");
+  }
+  return dir;
 }
 
 function manifestPath(id: string): string {
@@ -57,6 +64,26 @@ function createDefaultWorkflowJSON(name: string): WorkflowJSON {
       viewport: { x: 0, y: 0, zoom: 1 },
     },
   };
+}
+
+export async function listWorkspaces(): Promise<WorkspaceRecord[]> {
+  const dataDir = getWorkspaceConfig().dataDir;
+  try {
+    const entries = await fs.readdir(dataDir, { withFileTypes: true });
+    const workspaces: WorkspaceRecord[] = [];
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const mPath = path.join(dataDir, entry.name, MANIFEST_FILE);
+      const manifest = await readJsonFile<WorkspaceManifest | null>(mPath, null);
+      if (manifest?.workspace) {
+        workspaces.push(manifest.workspace);
+      }
+    }
+    workspaces.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    return workspaces;
+  } catch {
+    return [];
+  }
 }
 
 export async function createWorkspace(name: string): Promise<WorkspaceRecord> {
@@ -92,6 +119,14 @@ export async function updateWorkspace(
   await writeJsonFile(manifestPath(id), manifest);
 
   return manifest.workspace;
+}
+
+export async function deleteWorkspace(id: string): Promise<boolean> {
+  const manifest = await getWorkspace(id);
+  if (!manifest) return false;
+
+  await fs.rm(workspaceDir(id), { recursive: true, force: true });
+  return true;
 }
 
 export async function createWorkflow(
@@ -151,6 +186,7 @@ export async function saveWorkflow(
 
   await writeJsonFile(workflowPath(workspaceId, workflowId), data);
   await writeJsonFile(manifestPath(workspaceId), manifest);
+  await writeSnapshot(workspaceId, workflowId, data, lastModifiedBy);
 
   return true;
 }
