@@ -60,6 +60,26 @@ function createDefaultWorkflowJSON(name: string): WorkflowJSON {
   };
 }
 
+export async function listWorkspaces(): Promise<WorkspaceRecord[]> {
+  const dataDir = getWorkspaceConfig().dataDir;
+  try {
+    const entries = await fs.readdir(dataDir, { withFileTypes: true });
+    const workspaces: WorkspaceRecord[] = [];
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const mPath = path.join(dataDir, entry.name, MANIFEST_FILE);
+      const manifest = await readJsonFile<WorkspaceManifest | null>(mPath, null);
+      if (manifest?.workspace) {
+        workspaces.push(manifest.workspace);
+      }
+    }
+    workspaces.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    return workspaces;
+  } catch {
+    return [];
+  }
+}
+
 export async function createWorkspace(name: string): Promise<WorkspaceRecord> {
   const id = nanoid();
   const now = nowIso();
