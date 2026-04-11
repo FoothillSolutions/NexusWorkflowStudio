@@ -9,7 +9,8 @@ As a workspace user, I want all my workspace data (workspaces, workflows, Brain 
 - SpacetimeDB server running (via `docker compose up` or standalone)
 - `NEXT_PUBLIC_SPACETIME_URI` configured and pointing to the SpacetimeDB instance
 - `NEXT_PUBLIC_SPACETIME_DB_NAME` set to the published module name
-- SpacetimeDB module published (`spacetimedb publish nexus spacetime/nexus`)
+- SpacetimeDB module published (`spacetime publish -p spacetime/nexus nexus`)
+- Generated SpacetimeDB client bindings are current (`./scripts/generate-spacetime-bindings.sh` after schema changes)
 - App running with `bun run dev` or built and served
 
 ## Test Steps

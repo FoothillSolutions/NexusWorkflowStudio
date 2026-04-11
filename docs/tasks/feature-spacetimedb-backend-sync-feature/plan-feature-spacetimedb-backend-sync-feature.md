@@ -17,7 +17,7 @@ SpacetimeDB unifies these into normalized database tables with reducer-based mut
 Replace workspace-mode storage and sync paths with SpacetimeDB while preserving standalone editor/localStorage behavior. After completion:
 - All workspace CRUD, workflow saves, Brain document operations, and real-time collaboration flow through SpacetimeDB
 - The Hocuspocus/Yjs layer is removed from workspace mode (retained only for standalone `?room=` collaboration until deliberately migrated)
-- Invite-link access uses SpacetimeDB private tables + views for row-level access control
+- Invite-link access uses SpacetimeDB membership validation before workspace-scoped reducer mutations
 - Existing workspace data can be migrated via an idempotent migration script
 - Presence/awareness broadcasts through SpacetimeDB presence rows
 
@@ -77,7 +77,7 @@ Use these files to complete the task:
 ### New Files
 
 - **`spacetime/nexus/`** — SpacetimeDB TypeScript module directory
-  - **`spacetime/nexus/src/lib.ts`** — Main module: table definitions, reducers, lifecycle hooks
+  - **`spacetime/nexus/src/index.ts`** — Main SpacetimeDB 2.1 TypeScript module: table definitions, reducers, lifecycle hooks
   - **`spacetime/nexus/spacetimedb.toml`** — Module configuration
   - **`spacetime/nexus/tsconfig.json`** — TypeScript config for the module
 - **`src/lib/spacetime/client.ts`** — SpacetimeDB client connection manager (DbConnection wrapper, identity token persistence, reconnection logic)
@@ -106,8 +106,8 @@ Set up the SpacetimeDB module, define the database schema as normalized tables, 
 Key decisions:
 - Use TypeScript module support so backend schema/reducers stay close to the existing TS codebase
 - Store `WorkflowNodeData` as JSON strings initially (not strict SpacetimeDB types) to minimize migration risk
-- Use private tables + public views for workspace data to enforce row-level access control
-- Keep invite token flow: client connects → calls `join_workspace(token)` → reducer validates + records membership → views expose member-only rows
+- Validate workspace membership in reducers before workspace-scoped mutations
+- Keep invite token flow: client connects → calls `join_workspace(token)` → reducer validates + records membership → subsequent workspace-scoped reducers accept that identity
 
 ### Phase 2: Core Implementation
 Build the client-side sync bridges that connect SpacetimeDB subscriptions to Zustand stores. Implement the workspace sync bridge with loop-prevention (mirroring the `_isApplyingRemote` pattern), the Brain document sync bridge, and the presence layer. Key concerns:
@@ -132,7 +132,7 @@ IMPORTANT: Execute every step in order, top to bottom.
 
 ### 1. Set Up SpacetimeDB Module Structure
 - Create `spacetime/nexus/` directory with `spacetimedb.toml`, `tsconfig.json`
-- Create `spacetime/nexus/src/lib.ts` with all table definitions:
+- Create `spacetime/nexus/src/index.ts` with all table definitions:
   - `workspace`: id (string, primary), name, createdAt, updatedAt
   - `workspace_member`: workspaceId, identity, displayName, role, joinedAt
   - `workspace_invite`: workspaceId, tokenHash, createdAt, revokedAt
@@ -145,7 +145,7 @@ IMPORTANT: Execute every step in order, top to bottom.
   - `brain_feedback`: docId, identity, type, comment, createdAt
   - `workflow_change_event`: workflowId, eventType, nodeId, details, timestamp (append-only)
   - `presence`: workspaceId, workflowId, identity, displayName, selectedNodeId, lastSeenAt
-- Use private tables with public views filtered by `ctx.sender` membership for access control
+- Validate membership in reducers with `ctx.sender` before workspace-scoped mutations
 - Implement identity lifecycle hooks (`__identity_connected__`, `__identity_disconnected__`)
 
 ### 2. Implement SpacetimeDB Reducers
@@ -160,7 +160,7 @@ IMPORTANT: Execute every step in order, top to bottom.
 - Disconnect cleanup: clear presence rows in `__identity_disconnected__`
 
 ### 3. Generate TypeScript Client Bindings
-- Create `scripts/generate-spacetime-bindings.sh` to run `spacetimedb generate --lang typescript --out-dir src/lib/spacetime/module_bindings`
+- Create `scripts/generate-spacetime-bindings.sh` to run `spacetime generate --lang typescript --out-dir src/lib/spacetime/module_bindings --module-path spacetime/nexus`
 - Generate bindings and commit to `src/lib/spacetime/module_bindings/`
 - Add `@clockworklabs/spacetimedb-sdk` to `package.json` dependencies
 - Add `.gitignore` entry or build script note for regeneration
@@ -223,7 +223,7 @@ IMPORTANT: Execute every step in order, top to bottom.
 - Update awareness sync to use SpacetimeDB presence instead of Yjs awareness in workspace mode
 
 ### 10. Implement Invite-Link Access Control
-- In SpacetimeDB module: define views filtered by `ctx.sender` membership
+- In the SpacetimeDB module: validate invite tokens and member identity before workspace-scoped mutations
 - Update workspace join flow:
   - Client opens `/workspace/[id]?invite=...`
   - Client connects to SpacetimeDB (anonymous identity, token persisted)
@@ -261,15 +261,15 @@ IMPORTANT: Execute every step in order, top to bottom.
   - Add `nexus-spacetimedb` service running SpacetimeDB server
   - Mount data volume for SpacetimeDB persistence
   - Set environment variables: `NEXT_PUBLIC_SPACETIME_URI`, `NEXT_PUBLIC_SPACETIME_DB_NAME`
-  - Publish SpacetimeDB module on container startup
+  - Run SpacetimeDB as a separate service; publish the module with the SpacetimeDB CLI during setup or after schema changes
 - Update `Dockerfile`:
   - Install SpacetimeDB CLI for binding generation during build
-  - Add binding generation step to build process
+  - Keep generated bindings committed so regular app builds do not require the SpacetimeDB CLI
 - Update `.env.example` with new variables:
   - `NEXT_PUBLIC_SPACETIME_URI=ws://localhost:3001`
   - `NEXT_PUBLIC_SPACETIME_DB_NAME=nexus`
   - `SPACETIME_MODULE_PATH=spacetime/nexus`
-- Add CI check: fail build if generated bindings are stale
+- Consider a CI check that fails when generated bindings are stale
 
 ### 15. Add Unit and Integration Tests
 - Test SpacetimeDB client connection manager (connect, disconnect, reconnect, identity persistence)
@@ -338,7 +338,7 @@ IMPORTANT: Execute every step in order, top to bottom.
 - Batch operation reducer handles drag-stop and throttled interval flushes
 - Brain document CRUD, versioning, and feedback work through SpacetimeDB
 - Presence/awareness shows selected nodes and connected peers via SpacetimeDB rows
-- Invite-link access control uses private tables + views (no global read access)
+- Invite-link access control validates membership before workspace-scoped reducer mutations
 - Existing workspace data can be migrated via `scripts/migrate-to-spacetime.ts`
 - Recent changes panel uses `workflow_change_event` rows instead of filesystem snapshots
 - Standalone editor/localStorage mode is completely unaffected

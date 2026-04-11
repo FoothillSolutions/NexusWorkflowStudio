@@ -8,6 +8,8 @@
 
 Adds SpacetimeDB as an optional persistence and real-time synchronization backend for workspace mode. When `NEXT_PUBLIC_SPACETIME_URI` is configured, workspace CRUD, workflow saves, Brain document operations, and multi-user presence all flow through SpacetimeDB instead of the filesystem REST API + Hocuspocus. Standalone editor/localStorage mode is completely unaffected.
 
+The implementation targets the SpacetimeDB 2.1 TypeScript module and generated client binding APIs. The module source is `spacetime/nexus/src/index.ts`, and generated browser bindings are committed under `src/lib/spacetime/module_bindings/` so the main app can build without running the SpacetimeDB CLI.
+
 ## Screenshots
 
 ![Main page with What's New dialog](assets/01_main_page.png)
@@ -18,8 +20,9 @@ Adds SpacetimeDB as an optional persistence and real-time synchronization backen
 
 ## What Was Built
 
-- SpacetimeDB TypeScript module with full table schema and reducers (`spacetime/nexus/`)
-- Client-side connection manager with identity persistence and reconnection (`src/lib/spacetime/client.ts`)
+- SpacetimeDB 2.1 TypeScript module with full table schema and reducers (`spacetime/nexus/src/index.ts`)
+- Generated SpacetimeDB 2.1 TypeScript client bindings (`src/lib/spacetime/module_bindings/`)
+- Client-side connection manager with generated `DbConnection` API usage, identity persistence, and reconnection (`src/lib/spacetime/client.ts`)
 - Workspace sync bridge with loop-prevention pattern (`src/lib/spacetime/workspace-sync.ts`)
 - Brain document sync bridge (`src/lib/spacetime/brain-sync.ts`)
 - Presence/awareness layer via SpacetimeDB rows (`src/lib/spacetime/presence.ts`)
@@ -39,17 +42,18 @@ Adds SpacetimeDB as an optional persistence and real-time synchronization backen
 - `src/store/collaboration/collab-store.ts`: Added SpacetimeDB connection state tracking alongside Hocuspocus state
 - `src/lib/brain/client.ts`: Added SpacetimeDB-aware brain operations
 - `docker-compose.yml`: Added `nexus-spacetimedb` service using `clockworklabs/spacetime:latest` image on port 30201
-- `Dockerfile`: Added SpacetimeDB CLI installation for binding generation during build
+- `Dockerfile`: Added SpacetimeDB CLI installation for operational binding-generation support in the runtime image
 - `.env.example`: Added `NEXT_PUBLIC_SPACETIME_URI`, `NEXT_PUBLIC_SPACETIME_DB_NAME`, `SPACETIME_MODULE_PATH`
 - `package.json`: Added `@clockworklabs/spacetimedb-sdk` dependency
-- `eslint.config.mjs`: Added ESLint ignore entries for SpacetimeDB files
+- `eslint.config.mjs`: Added ESLint ignore entries for SpacetimeDB module files and generated client bindings
 - `tsconfig.json`: Updated for SpacetimeDB module compilation
 - `CLAUDE.md`: Updated architecture notes documenting SpacetimeDB persistence layer
 - REST API routes (`src/app/api/workspaces/`, `src/app/api/brain/`): Marked as deprecated shims
 
 ### New Files
 
-- `spacetime/nexus/src/lib.ts` (815 lines): Full SpacetimeDB module — 13 table definitions (workspace, workflow, nodes, edges, UI state, brain docs/versions/feedback, presence, change events, invites, members), reducers for all CRUD operations, `apply_workflow_ops` batch reducer, identity lifecycle hooks
+- `spacetime/nexus/src/index.ts` (578 lines): Full SpacetimeDB 2.1 TypeScript module — 13 table definitions (workspace, workflow, nodes, edges, UI state, brain docs/versions/feedback, presence, change events, invites, members), reducers for CRUD/import operations, and `apply_workflow_ops` batch reducer
+- `spacetime/nexus/package.json` + `package-lock.json`: Module-local SpacetimeDB 2.1 package metadata
 - `spacetime/nexus/spacetimedb.toml` + `tsconfig.json`: Module configuration
 - `src/lib/spacetime/client.ts` (246 lines): Singleton `SpacetimeClient` with WebSocket connection, identity token persistence in localStorage, exponential backoff reconnection, state change event emitters
 - `src/lib/spacetime/workspace-sync.ts` (436 lines): Bidirectional sync bridge using `_isApplyingRemote` mutex pattern (mirrored from `collab-doc.ts`), batched node/edge changes, transient React Flow property cleaning
@@ -66,7 +70,7 @@ Adds SpacetimeDB as an optional persistence and real-time synchronization backen
 - **Conditional sync path**: The workflow editor detects SpacetimeDB configuration at mount time and starts either SpacetimeDB sync or the legacy Y.js/Hocuspocus path — never both
 - **Loop prevention**: The `_isApplyingRemote` flag pattern from `collab-doc.ts` is faithfully replicated in both `workspace-sync.ts` and `brain-sync.ts` to prevent feedback loops between SpacetimeDB subscriptions and Zustand store updates
 - **Batched operations**: Node/edge mutations are collected during drag operations and flushed via `apply_workflow_ops` on drag-stop or a 200ms throttle interval
-- **Private tables + views**: SpacetimeDB tables use `access: "private"` with membership-filtered views for row-level access control
+- **Membership checks**: Reducers validate workspace membership before workspace, workflow, Brain, and presence mutations
 - **Change events**: Reducers write `workflow_change_event` rows for the recent-changes feed, replacing filesystem-based snapshot diffs
 
 ## How to Use
@@ -84,7 +88,8 @@ Adds SpacetimeDB as an optional persistence and real-time synchronization backen
 
 3. **Publish the SpacetimeDB module** (first time or after schema changes):
    ```bash
-   spacetime publish --project-path spacetime/nexus nexus
+   spacetime publish -p spacetime/nexus nexus
+   ./scripts/generate-spacetime-bindings.sh
    ```
 
 4. **Start the app** normally:
@@ -122,4 +127,4 @@ When `NEXT_PUBLIC_SPACETIME_URI` is **not set**, the app falls back to the exist
 - REST API routes under `src/app/api/workspaces/` and `src/app/api/brain/` are marked as deprecated shims and will be removed once all clients use SpacetimeDB directly
 - Node data is stored as JSON strings in SpacetimeDB columns to minimize migration risk and avoid encoding the full discriminated union as strict SpacetimeDB types
 - OpenCode local server calls, marketplace Git operations, generated ZIP exports, and browser-only preferences remain outside SpacetimeDB
-- The `src/lib/spacetime/module_bindings/` directory is reserved for auto-generated TypeScript client bindings (run `scripts/generate-spacetime-bindings.sh` after module schema changes)
+- The `src/lib/spacetime/module_bindings/` directory contains generated SpacetimeDB 2.1 TypeScript client bindings. Do not hand-edit these files; run `scripts/generate-spacetime-bindings.sh` after module schema changes and commit the regenerated output.

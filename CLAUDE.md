@@ -96,8 +96,9 @@ Keep the mental model high-level:
 
 ### SpacetimeDB persistence and sync (workspace mode)
 - When `NEXT_PUBLIC_SPACETIME_URI` is configured, workspace mode uses SpacetimeDB for persistence and real-time collaboration instead of the filesystem REST API + Hocuspocus.
-- SpacetimeDB module definition: `spacetime/nexus/src/lib.ts` — tables, reducers, lifecycle hooks.
+- SpacetimeDB module definition: `spacetime/nexus/src/index.ts` — tables, reducers, lifecycle hooks for the SpacetimeDB 2.1 TypeScript module API.
 - Client-side sync bridges: `src/lib/spacetime/` — connection manager, workspace sync, brain sync, presence layer.
+- Generated SpacetimeDB client bindings live in `src/lib/spacetime/module_bindings/`. They are committed so app builds do not require the SpacetimeDB CLI; regenerate them with `scripts/generate-spacetime-bindings.sh` after module schema changes.
 - The sync bridges use the `_isApplyingRemote` loop-prevention pattern from `collab-doc.ts` to avoid feedback loops between SpacetimeDB subscriptions and Zustand store updates.
 - Hocuspocus/Yjs remains for standalone `?room=` collaboration mode.
 - REST API routes under `src/app/api/workspaces/` and `src/app/api/brain/` are deprecated shims; they will be removed once all clients use SpacetimeDB directly.

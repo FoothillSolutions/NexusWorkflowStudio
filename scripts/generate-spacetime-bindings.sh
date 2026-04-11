@@ -5,8 +5,8 @@
 #   ./scripts/generate-spacetime-bindings.sh
 #
 # Prerequisites:
-#   - spacetimedb CLI installed (https://spacetimedb.com/install)
-#   - SpacetimeDB module published (spacetimedb publish nexus spacetime/nexus)
+#   - spacetime CLI installed (https://spacetimedb.com/install)
+#   - SpacetimeDB module published (spacetime publish -p spacetime/nexus nexus)
 #
 # The generated bindings are committed to the repo so that app builds
 # don't require the SpacetimeDB CLI.
@@ -22,10 +22,10 @@ echo "Generating SpacetimeDB TypeScript bindings..."
 echo "  Module: spacetime/nexus"
 echo "  Output: $OUT_DIR"
 
-spacetimedb generate \
+spacetime generate \
   --lang typescript \
   --out-dir "$OUT_DIR" \
-  --project-path "$ROOT_DIR/spacetime/nexus"
+  --module-path "$ROOT_DIR/spacetime/nexus"
 
 echo "Bindings generated successfully."
 echo ""

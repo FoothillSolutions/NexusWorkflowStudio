@@ -100,6 +100,32 @@ bun run docker:up
 bun run docker:down
 ```
 
+### Optional SpacetimeDB workspace backend
+
+Workspace mode can use SpacetimeDB for persistence and real-time sync. Standalone editor mode still uses browser storage.
+
+Start the SpacetimeDB service:
+
+```bash
+docker compose up nexus-spacetimedb -d
+```
+
+Publish the module and regenerate bindings after schema changes:
+
+```bash
+spacetime publish -p spacetime/nexus nexus
+./scripts/generate-spacetime-bindings.sh
+```
+
+Configure the app:
+
+```bash
+NEXT_PUBLIC_SPACETIME_URI=ws://localhost:30201
+NEXT_PUBLIC_SPACETIME_DB_NAME=nexus
+```
+
+Generated SpacetimeDB client bindings are committed under `src/lib/spacetime/module_bindings/`, so regular app builds do not need to run the SpacetimeDB CLI.
+
 ## Usage
 
 ### 1. Build a workflow
