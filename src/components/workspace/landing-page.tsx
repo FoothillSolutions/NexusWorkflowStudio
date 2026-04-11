@@ -2,10 +2,13 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, Users, Plus, Loader2, X, Clock, FolderOpen } from "lucide-react";
+import { Pencil, Users, Plus, Loader2, X, Clock, FolderOpen, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { BG_APP, BG_SURFACE, BORDER_DEFAULT, TEXT_PRIMARY, TEXT_MUTED } from "@/lib/theme";
+import { removeRecentWorkspace } from "@/lib/workspace/local-history";
 import { RecentWorkspaces } from "./recent-workspaces";
+import { toast } from "sonner";
 
 interface WorkspaceEntry {
   id: string;
@@ -20,6 +23,9 @@ export function LandingPage() {
   const [showPicker, setShowPicker] = useState(false);
   const [pickerLoading, setPickerLoading] = useState(false);
   const [pickerWorkspaces, setPickerWorkspaces] = useState<WorkspaceEntry[]>([]);
+  const [deleteTarget, setDeleteTarget] = useState<WorkspaceEntry | null>(null);
+  const [deletingWorkspaceId, setDeletingWorkspaceId] = useState<string | null>(null);
+  const [recentRefreshKey, setRecentRefreshKey] = useState(0);
 
   const fetchWorkspaces = useCallback(async () => {
     setPickerLoading(true);
@@ -53,6 +59,30 @@ export function LandingPage() {
       router.push(`/workspace/${workspace.id}`);
     } catch {
       setCreating(false);
+    }
+  };
+
+  const handleDeleteWorkspace = async () => {
+    if (!deleteTarget || deletingWorkspaceId) return;
+
+    const workspaceToDelete = deleteTarget;
+    setDeletingWorkspaceId(workspaceToDelete.id);
+    try {
+      const res = await fetch(`/api/workspaces/${workspaceToDelete.id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to delete workspace");
+      removeRecentWorkspace(workspaceToDelete.id);
+      setPickerWorkspaces((workspaces) =>
+        workspaces.filter((workspace) => workspace.id !== workspaceToDelete.id),
+      );
+      setRecentRefreshKey((key) => key + 1);
+      setDeleteTarget(null);
+      toast.success("Workspace deleted");
+    } catch {
+      toast.error("Failed to delete workspace");
+    } finally {
+      setDeletingWorkspaceId(null);
     }
   };
 
@@ -130,28 +160,66 @@ export function LandingPage() {
             ) : (
               <div className="space-y-1.5">
                 {pickerWorkspaces.map((ws) => (
-                  <button
+                  <div
                     key={ws.id}
-                    type="button"
-                    onClick={() => router.push(`/workspace/${ws.id}`)}
-                    className={`flex w-full items-center gap-3 rounded-lg border ${BORDER_DEFAULT} bg-zinc-900/60 px-4 py-3 text-left transition-colors hover:bg-zinc-800/80`}
+                    className={`flex w-full items-center gap-2 rounded-lg border ${BORDER_DEFAULT} bg-zinc-900/60 px-3 py-3 transition-colors hover:bg-zinc-800/80`}
                   >
-                    <div className="min-w-0 flex-1">
+                    <button
+                      type="button"
+                      onClick={() => router.push(`/workspace/${ws.id}`)}
+                      className="min-w-0 flex-1 text-left"
+                    >
                       <p className="truncate text-sm font-medium text-zinc-200">{ws.name}</p>
                       <span className={`mt-0.5 flex items-center gap-1 text-xs ${TEXT_MUTED}`}>
                         <Clock className="h-3 w-3" />
                         Updated {new Date(ws.updatedAt).toLocaleDateString()}
                       </span>
-                    </div>
-                  </button>
+                    </button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      disabled={deletingWorkspaceId === ws.id}
+                      onClick={() => setDeleteTarget(ws)}
+                      className="h-8 w-8 text-zinc-500 hover:bg-red-950/40 hover:text-red-300"
+                      aria-label={`Delete ${ws.name}`}
+                    >
+                      {deletingWorkspaceId === ws.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
                 ))}
               </div>
             )}
           </div>
         )}
 
-        <RecentWorkspaces />
+        <RecentWorkspaces refreshKey={recentRefreshKey} />
       </div>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        tone="danger"
+        title="Delete this workspace?"
+        description={
+          deleteTarget ? (
+            <>
+              This will permanently delete <span className="font-medium text-zinc-200">{deleteTarget.name}</span> and
+              all of its workflows.
+            </>
+          ) : undefined
+        }
+        confirmLabel={deletingWorkspaceId ? "Deleting..." : "Delete workspace"}
+        onConfirm={() => {
+          void handleDeleteWorkspace();
+        }}
+      />
     </div>
   );
 }

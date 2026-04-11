@@ -32,7 +32,13 @@ async function writeJsonFile(filePath: string, value: unknown): Promise<void> {
 }
 
 function workspaceDir(id: string): string {
-  return path.join(getWorkspaceConfig().dataDir, id);
+  const dataDir = path.resolve(getWorkspaceConfig().dataDir);
+  const dir = path.resolve(dataDir, id);
+  const relative = path.relative(dataDir, dir);
+  if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) {
+    throw new Error("Invalid workspace id");
+  }
+  return dir;
 }
 
 function manifestPath(id: string): string {
@@ -113,6 +119,14 @@ export async function updateWorkspace(
   await writeJsonFile(manifestPath(id), manifest);
 
   return manifest.workspace;
+}
+
+export async function deleteWorkspace(id: string): Promise<boolean> {
+  const manifest = await getWorkspace(id);
+  if (!manifest) return false;
+
+  await fs.rm(workspaceDir(id), { recursive: true, force: true });
+  return true;
 }
 
 export async function createWorkflow(
