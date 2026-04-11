@@ -1,0 +1,16 @@
+{
+  "name": "nexus-spacetime-module",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "spacetime build",
+    "publish": "spacetime publish"
+  },
+  "dependencies": {
+    "spacetimedb": "^2.1.0"
+  },
+  "devDependencies": {
+    "typescript": "~5.6.2"
+  }
+}

@@ -18,13 +18,16 @@ import { useCollabStore } from "@/store/collaboration/collab-store";
 import { getSpacetimeClient } from "./client";
 import { getColorForClientId } from "@/lib/collaboration/awareness-names";
 import type { SpacetimePresence } from "./types";
+import type { SubscriptionHandle } from "./module_bindings";
+import type { Presence as BindingPresence } from "./module_bindings/types";
 
 class SpacetimePresenceManager {
   private _workspaceId: string | null = null;
   private _workflowId: string | null = null;
   private _displayName = "Anonymous";
   private _active = false;
-  private _messageHandler: ((event: MessageEvent) => void) | null = null;
+  private _subscription: SubscriptionHandle | null = null;
+  private _tableUnsubs: Array<() => void> = [];
 
   // Cache of remote presence rows
   private _remotePresence = new Map<string, SpacetimePresence>();
@@ -55,10 +58,6 @@ class SpacetimePresenceManager {
 
     const client = getSpacetimeClient();
 
-    this._messageHandler = (event: MessageEvent) => {
-      this._onMessage(event);
-    };
-
     if (client.isConnected) {
       this._setupSubscriptions();
     } else {
@@ -76,13 +75,7 @@ class SpacetimePresenceManager {
 
     this._updatePresenceThrottled.cancel();
 
-    if (this._messageHandler) {
-      const ws = getSpacetimeClient().connection;
-      if (ws) {
-        ws.removeEventListener("message", this._messageHandler);
-      }
-      this._messageHandler = null;
-    }
+    this._teardownSubscriptions();
 
     this._remotePresence.clear();
     useAwarenessStore.getState()._setPeers([]);
@@ -102,14 +95,28 @@ class SpacetimePresenceManager {
 
   private _setupSubscriptions(): void {
     const client = getSpacetimeClient();
-    const ws = client.connection;
-    if (!ws || !this._messageHandler) return;
+    const connection = client.connection;
+    if (!connection) return;
 
-    ws.addEventListener("message", this._messageHandler);
+    this._teardownSubscriptions();
 
-    client.subscribe([
-      `SELECT * FROM presence WHERE workspaceId = '${this._workspaceId}'`,
-    ]);
+    const onInsert = (_ctx: unknown, row: BindingPresence) => this._upsertPresence(row);
+    const onUpdate = (_ctx: unknown, _oldRow: BindingPresence, row: BindingPresence) => this._upsertPresence(row);
+    const onDelete = (_ctx: unknown, row: BindingPresence) => this._deletePresence(row);
+
+    connection.db.presence.onInsert(onInsert);
+    connection.db.presence.onUpdate?.(onUpdate);
+    connection.db.presence.onDelete(onDelete);
+    this._tableUnsubs.push(
+      () => connection.db.presence.removeOnInsert(onInsert),
+      () => connection.db.presence.removeOnUpdate?.(onUpdate),
+      () => connection.db.presence.removeOnDelete(onDelete),
+    );
+
+    this._subscription = client.subscribe(
+      [`SELECT * FROM presence WHERE workspace_id = '${this._workspaceId}'`],
+      () => this._syncFromCache(connection),
+    );
 
     // Send initial presence
     this._sendPresenceUpdate(null);
@@ -121,67 +128,64 @@ class SpacetimePresenceManager {
     if (!this._active || !this._workspaceId || !this._workflowId) return;
 
     try {
-      getSpacetimeClient().callReducer("update_presence", [
-        this._workspaceId,
-        this._workflowId,
-        this._displayName,
-        selectedNodeId,
-      ]);
+      void getSpacetimeClient()
+        .callReducer("update_presence", [
+          this._workspaceId,
+          this._workflowId,
+          this._displayName,
+          selectedNodeId,
+        ])
+        .catch(() => {
+          // Ignore if not connected
+        });
     } catch {
       // Ignore if not connected
     }
   }
 
-  // ── Private: Handle incoming messages ──────────────────────────────────
-
-  private _onMessage(event: MessageEvent): void {
-    if (!this._active) return;
-
-    try {
-      const msg = JSON.parse(event.data as string);
-      if (msg.type === "transaction_update" || msg.type === "subscription_applied") {
-        const updates = msg.subscription_update?.table_updates ?? msg.table_updates ?? [];
-        this._processTableUpdates(updates);
-      }
-    } catch {
-      // Ignore non-JSON messages
+  private _teardownSubscriptions(): void {
+    if (this._subscription && !this._subscription.isEnded()) {
+      this._subscription.unsubscribe();
     }
+    this._subscription = null;
+
+    for (const unsub of this._tableUnsubs) {
+      unsub();
+    }
+    this._tableUnsubs = [];
   }
 
-  private _processTableUpdates(
-    tableUpdates: Array<{
-      table_name: string;
-      inserts?: Array<Record<string, unknown>>;
-      deletes?: Array<Record<string, unknown>>;
-    }>,
-  ): void {
-    let presenceChanged = false;
+  private _syncFromCache(connection: NonNullable<ReturnType<typeof getSpacetimeClient>["connection"]>): void {
+    if (!this._active) return;
 
-    for (const update of tableUpdates) {
-      if (update.table_name !== "presence") continue;
-
-      for (const del of update.deletes ?? []) {
-        const row = del as unknown as SpacetimePresence;
-        this._remotePresence.delete(row.identity);
-        presenceChanged = true;
-      }
-
-      for (const ins of update.inserts ?? []) {
-        const row = ins as unknown as SpacetimePresence;
-        if (row.workspaceId === this._workspaceId) {
-          // Skip our own presence
-          const selfIdentity = getSpacetimeClient().identity;
-          if (row.identity === selfIdentity) continue;
-
-          this._remotePresence.set(row.identity, row);
-          presenceChanged = true;
-        }
-      }
+    this._remotePresence.clear();
+    for (const row of connection.db.presence.iter()) {
+      this._upsertPresence(row);
     }
+    this._updatePeerStore();
+  }
 
-    if (presenceChanged) {
-      this._updatePeerStore();
-    }
+  private _upsertPresence(row: BindingPresence): void {
+    if (!this._active || row.workspaceId !== this._workspaceId) return;
+
+    const identity = row.identity.toHexString();
+    if (identity === getSpacetimeClient().identity) return;
+
+    this._remotePresence.set(identity, {
+      workspaceId: row.workspaceId,
+      workflowId: row.workflowId,
+      identity,
+      displayName: row.displayName,
+      selectedNodeId: row.selectedNodeId ?? null,
+      lastSeenAt: row.lastSeenAt,
+    });
+    this._updatePeerStore();
+  }
+
+  private _deletePresence(row: BindingPresence): void {
+    const identity = row.identity.toHexString();
+    this._remotePresence.delete(identity);
+    this._updatePeerStore();
   }
 
   private _updatePeerStore(): void {

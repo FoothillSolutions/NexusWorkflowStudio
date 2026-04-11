@@ -53,6 +53,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // SpacetimeDB module has its own tsconfig and uses decorators not supported by ESLint
     "spacetime/**",
+    // SpacetimeDB generated client bindings are validated by typecheck.
+    "src/lib/spacetime/module_bindings/**",
   ]),
 ]);
 

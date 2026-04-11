@@ -11,6 +11,7 @@
 "use client";
 
 import { getSpacetimeUri, getSpacetimeDbName } from "./config";
+import { DbConnection, type SubscriptionHandle } from "./module_bindings";
 
 // ── Identity Token Persistence ─────────────────────────────────────────────
 
@@ -42,17 +43,14 @@ type SubscriptionReadyListener = () => void;
 /**
  * Manages a single SpacetimeDB connection for the browser session.
  *
- * Since the SpacetimeDB SDK generates specific binding classes that depend on
- * the published module, this client uses a generic WebSocket approach that
- * wraps the generated DbConnection when available. For now it provides the
- * connection lifecycle and state management; actual table subscriptions are
- * set up by the sync bridges (workspace-sync.ts, brain-sync.ts, presence.ts).
+ * Uses the generated SpacetimeDB v2 bindings for reducer calls and table
+ * subscriptions. Sync bridges own their table-specific listeners.
  */
 class SpacetimeClient {
   private static _instance: SpacetimeClient | null = null;
 
   private _state: SpacetimeConnectionState = "disconnected";
-  private _connection: WebSocket | null = null;
+  private _connection: DbConnection | null = null;
   private _identity: string | null = null;
   private _stateListeners = new Set<ConnectionStateListener>();
   private _subscriptionReadyListeners = new Set<SubscriptionReadyListener>();
@@ -84,7 +82,7 @@ class SpacetimeClient {
     return this._state === "connected";
   }
 
-  get connection(): WebSocket | null {
+  get connection(): DbConnection | null {
     return this._connection;
   }
 
@@ -104,58 +102,40 @@ class SpacetimeClient {
     this._intentionalDisconnect = false;
     this._setState("connecting");
 
-    const uri = getSpacetimeUri();
-    const dbName = getSpacetimeDbName();
     const token = loadIdentityToken();
 
-    // Build WebSocket URL with database name and optional token
-    const wsUrl = new URL(`/database/subscribe/${dbName}`, uri.replace("ws://", "http://").replace("wss://", "https://"));
+    let builder = DbConnection.builder()
+      .withUri(getSpacetimeUri())
+      .withDatabaseName(getSpacetimeDbName())
+      .withCompression("gzip")
+      .onConnect((_connection, identity, authToken) => {
+        this._identity = identity.toHexString();
+        saveIdentityToken(authToken);
+        this._reconnectAttempts = 0;
+        this._setState("connected");
+      })
+      .onDisconnect(() => {
+        this._connection = null;
+        this._setState("disconnected");
+
+        if (!this._intentionalDisconnect) {
+          this._scheduleReconnect();
+        }
+      })
+      .onConnectError(() => {
+        this._connection = null;
+        this._setState("disconnected");
+
+        if (!this._intentionalDisconnect) {
+          this._scheduleReconnect();
+        }
+      });
+
     if (token) {
-      wsUrl.searchParams.set("token", token);
+      builder = builder.withToken(token);
     }
 
-    const ws = new WebSocket(wsUrl.toString().replace("http://", "ws://").replace("https://", "wss://"));
-
-    ws.onopen = () => {
-      this._reconnectAttempts = 0;
-      this._setState("connected");
-    };
-
-    ws.onmessage = (event) => {
-      try {
-        const msg = JSON.parse(event.data as string);
-
-        // Handle identity token assignment
-        if (msg.type === "identity_token" && msg.token) {
-          this._identity = msg.identity ?? null;
-          saveIdentityToken(msg.token);
-        }
-
-        // Handle subscription ready
-        if (msg.type === "subscription_applied" || msg.type === "transaction_update") {
-          for (const listener of this._subscriptionReadyListeners) {
-            listener();
-          }
-        }
-      } catch {
-        // Non-JSON messages are ignored
-      }
-    };
-
-    ws.onclose = () => {
-      this._connection = null;
-      this._setState("disconnected");
-
-      if (!this._intentionalDisconnect) {
-        this._scheduleReconnect();
-      }
-    };
-
-    ws.onerror = () => {
-      // Error will trigger onclose, which handles reconnection
-    };
-
-    this._connection = ws;
+    this._connection = builder.build();
   }
 
   disconnect(): void {
@@ -163,7 +143,7 @@ class SpacetimeClient {
     this._clearReconnectTimer();
 
     if (this._connection) {
-      this._connection.close();
+      this._connection.disconnect();
       this._connection = null;
     }
 
@@ -171,38 +151,80 @@ class SpacetimeClient {
   }
 
   /**
-   * Send a reducer call to SpacetimeDB.
-   * The message format follows the SpacetimeDB WebSocket protocol.
+   * Send a reducer call to SpacetimeDB using the generated v2 reducer API.
    */
-  callReducer(reducerName: string, args: unknown[]): void {
+  async callReducer(reducerName: string, args: unknown[]): Promise<void> {
     if (!this._connection || this._state !== "connected") {
       throw new Error(`Cannot call reducer '${reducerName}': not connected to SpacetimeDB`);
     }
 
-    this._connection.send(
-      JSON.stringify({
-        type: "call_reducer",
-        reducer: reducerName,
-        args,
-      }),
-    );
+    const reducers = this._connection.reducers;
+
+    switch (reducerName) {
+      case "add_brain_feedback":
+        return reducers.addBrainFeedback({ docId: String(args[0]), type: String(args[1]), comment: String(args[2]) });
+      case "apply_workflow_ops":
+        return reducers.applyWorkflowOps({ workflowId: String(args[0]), opsJson: String(args[1]), displayName: String(args[2]) });
+      case "create_invite":
+        return reducers.createInvite({ workspaceId: String(args[0]), tokenHash: String(args[1]) });
+      case "create_workflow":
+        return reducers.createWorkflow({ id: String(args[0]), workspaceId: String(args[1]), name: String(args[2]), displayName: String(args[3]) });
+      case "create_workspace":
+        return reducers.createWorkspace({ id: String(args[0]), name: String(args[1]), displayName: String(args[2]) });
+      case "delete_brain_doc":
+        return reducers.deleteBrainDoc({ docId: String(args[0]) });
+      case "delete_workflow":
+        return reducers.deleteWorkflow({ workflowId: String(args[0]) });
+      case "delete_workspace":
+        return reducers.deleteWorkspace({ workspaceId: String(args[0]) });
+      case "import_brain_doc":
+        return reducers.importBrainDoc({ id: String(args[0]), workspaceId: String(args[1]), title: String(args[2]), contentJson: String(args[3]), createdAt: String(args[4]), updatedAt: String(args[5]) });
+      case "import_workflow_snapshot":
+        return reducers.importWorkflowSnapshot({ workflowId: String(args[0]), workspaceId: String(args[1]), name: String(args[2]), nodesJson: String(args[3]), edgesJson: String(args[4]), uiStateJson: String(args[5]), createdAt: String(args[6]), updatedAt: String(args[7]), lastModifiedBy: String(args[8]) });
+      case "import_workspace":
+        return reducers.importWorkspace({ id: String(args[0]), name: String(args[1]), createdAt: String(args[2]), updatedAt: String(args[3]), displayName: String(args[4]) });
+      case "join_workspace":
+        return reducers.joinWorkspace({ tokenHash: String(args[0]), displayName: String(args[1]) });
+      case "record_brain_view":
+        return reducers.recordBrainView({ docId: String(args[0]) });
+      case "rename_workflow":
+        return reducers.renameWorkflow({ workflowId: String(args[0]), newName: String(args[1]) });
+      case "rename_workspace":
+        return reducers.renameWorkspace({ workspaceId: String(args[0]), newName: String(args[1]) });
+      case "restore_brain_doc_version":
+        return reducers.restoreBrainDocVersion({ docId: String(args[0]), versionId: String(args[1]), snapshotVersionId: String(args[2]) });
+      case "save_brain_doc":
+        return reducers.saveBrainDoc({ id: String(args[0]), workspaceId: String(args[1]), title: String(args[2]), contentJson: String(args[3]), versionId: args[4] == null ? undefined : String(args[4]) });
+      case "update_presence":
+        return reducers.updatePresence({ workspaceId: String(args[0]), workflowId: String(args[1]), displayName: String(args[2]), selectedNodeId: args[3] == null ? undefined : String(args[3]) });
+      case "update_workflow_ui_state":
+        return reducers.updateWorkflowUiState({ workflowId: String(args[0]), uiStateJson: String(args[1]) });
+      default:
+        throw new Error(`Unknown SpacetimeDB reducer '${reducerName}'`);
+    }
   }
 
   /**
    * Subscribe to SpacetimeDB table queries.
    * Tables are specified as SQL-like query strings.
    */
-  subscribe(queries: string[]): void {
+  subscribe(queries: string[], onApplied?: () => void): SubscriptionHandle {
     if (!this._connection || this._state !== "connected") {
       throw new Error("Cannot subscribe: not connected to SpacetimeDB");
     }
 
-    this._connection.send(
-      JSON.stringify({
-        type: "subscribe",
-        queries,
-      }),
-    );
+    return this._connection
+      .subscriptionBuilder()
+      .onApplied(() => {
+        onApplied?.();
+        for (const listener of this._subscriptionReadyListeners) {
+          listener();
+        }
+      })
+      .onError((ctx) => {
+        console.error("SpacetimeDB subscription error", ctx.event);
+      })
+      .subscribe(queries);
   }
 
   // ── Private ────────────────────────────────────────────────────────────

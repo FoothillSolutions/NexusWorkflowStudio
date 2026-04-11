@@ -23,6 +23,12 @@ import type {
   SpacetimeWorkflowEdge,
   WorkflowOp,
 } from "./types";
+import type { SubscriptionHandle } from "./module_bindings";
+import type {
+  Workflow as BindingWorkflow,
+  WorkflowNode as BindingWorkflowNode,
+  WorkflowEdge as BindingWorkflowEdge,
+} from "./module_bindings/types";
 import {
   spacetimeNodeToWorkflowNode,
   spacetimeEdgeToWorkflowEdge,
@@ -66,7 +72,8 @@ class SpacetimeWorkspaceSync {
   private _workflowId: string | null = null;
   private _storeUnsub: (() => void) | null = null;
   private _connectionUnsub: (() => void) | null = null;
-  private _messageHandler: ((event: MessageEvent) => void) | null = null;
+  private _subscription: SubscriptionHandle | null = null;
+  private _tableUnsubs: Array<() => void> = [];
   private _displayName = "Anonymous";
   private _active = false;
 
@@ -108,11 +115,6 @@ class SpacetimeWorkspaceSync {
       client.connect();
     }
 
-    // Set up message handler for row updates
-    this._messageHandler = (event: MessageEvent) => {
-      this._onMessage(event);
-    };
-
     // Wait for connection, then subscribe
     if (client.isConnected) {
       this._setupSubscriptions();
@@ -145,10 +147,14 @@ class SpacetimeWorkspaceSync {
       }
       if (nameChanged && this._workflowId) {
         try {
-          getSpacetimeClient().callReducer("rename_workflow", [
-            this._workflowId,
-            state.name,
-          ]);
+          void getSpacetimeClient()
+            .callReducer("rename_workflow", [
+              this._workflowId,
+              state.name,
+            ])
+            .catch(() => {
+              // Ignore if not connected
+            });
         } catch {
           // Ignore if not connected
         }
@@ -171,13 +177,7 @@ class SpacetimeWorkspaceSync {
     this._connectionUnsub?.();
     this._connectionUnsub = null;
 
-    if (this._messageHandler) {
-      const ws = getSpacetimeClient().connection;
-      if (ws) {
-        ws.removeEventListener("message", this._messageHandler);
-      }
-      this._messageHandler = null;
-    }
+    this._teardownSubscriptions();
 
     this._flushThrottled.cancel();
     this._pendingOps = [];
@@ -198,23 +198,24 @@ class SpacetimeWorkspaceSync {
 
   private _setupSubscriptions(): void {
     const client = getSpacetimeClient();
-    const ws = client.connection;
-    if (!ws) return;
+    const connection = client.connection;
+    if (!connection) return;
 
-    // Listen for row update messages
-    if (this._messageHandler) {
-      ws.addEventListener("message", this._messageHandler);
-    }
+    this._teardownSubscriptions();
+    this._registerTableListeners(connection);
 
     // Subscribe to relevant tables
-    client.subscribe([
-      `SELECT * FROM workflow WHERE workspaceId = '${this._workspaceId}'`,
-      `SELECT * FROM workflow_node WHERE workflowId = '${this._workflowId}'`,
-      `SELECT * FROM workflow_edge WHERE workflowId = '${this._workflowId}'`,
-      `SELECT * FROM workflow_ui_state WHERE workflowId = '${this._workflowId}'`,
-      `SELECT * FROM workflow_change_event WHERE workflowId = '${this._workflowId}'`,
-      `SELECT * FROM workspace_member WHERE workspaceId = '${this._workspaceId}'`,
-    ]);
+    this._subscription = client.subscribe(
+      [
+        `SELECT * FROM workflow WHERE workspace_id = '${this._workspaceId}'`,
+        `SELECT * FROM workflow_node WHERE workflow_id = '${this._workflowId}'`,
+        `SELECT * FROM workflow_edge WHERE workflow_id = '${this._workflowId}'`,
+        `SELECT * FROM workflow_ui_state WHERE workflow_id = '${this._workflowId}'`,
+        `SELECT * FROM workflow_change_event WHERE workflow_id = '${this._workflowId}'`,
+        `SELECT * FROM workspace_member WHERE workspace_id = '${this._workspaceId}'`,
+      ],
+      () => this._syncFromCache(connection),
+    );
 
     useCollabStore.getState()._setConnected(true);
     useCollabStore.getState()._setInitializing(false);
@@ -226,99 +227,101 @@ class SpacetimeWorkspaceSync {
     this._lastSyncedName = state.name;
   }
 
-  // ── Private: Handle incoming messages ──────────────────────────────────
+  private _teardownSubscriptions(): void {
+    if (this._subscription && !this._subscription.isEnded()) {
+      this._subscription.unsubscribe();
+    }
+    this._subscription = null;
 
-  private _onMessage(event: MessageEvent): void {
+    for (const unsub of this._tableUnsubs) {
+      unsub();
+    }
+    this._tableUnsubs = [];
+  }
+
+  private _registerTableListeners(connection: NonNullable<ReturnType<typeof getSpacetimeClient>["connection"]>): void {
+    const onNodeInsert = (_ctx: unknown, row: BindingWorkflowNode) => this._upsertRemoteNode(row);
+    const onNodeUpdate = (_ctx: unknown, _oldRow: BindingWorkflowNode, row: BindingWorkflowNode) => this._upsertRemoteNode(row);
+    const onNodeDelete = (_ctx: unknown, row: BindingWorkflowNode) => this._deleteRemoteNode(row);
+    const onEdgeInsert = (_ctx: unknown, row: BindingWorkflowEdge) => this._upsertRemoteEdge(row);
+    const onEdgeUpdate = (_ctx: unknown, _oldRow: BindingWorkflowEdge, row: BindingWorkflowEdge) => this._upsertRemoteEdge(row);
+    const onEdgeDelete = (_ctx: unknown, row: BindingWorkflowEdge) => this._deleteRemoteEdge(row);
+    const onWorkflowInsert = (_ctx: unknown, row: BindingWorkflow) => this._upsertRemoteWorkflow(row);
+    const onWorkflowUpdate = (_ctx: unknown, _oldRow: BindingWorkflow, row: BindingWorkflow) => this._upsertRemoteWorkflow(row);
+
+    connection.db.workflowNode.onInsert(onNodeInsert);
+    connection.db.workflowNode.onUpdate?.(onNodeUpdate);
+    connection.db.workflowNode.onDelete(onNodeDelete);
+    connection.db.workflowEdge.onInsert(onEdgeInsert);
+    connection.db.workflowEdge.onUpdate?.(onEdgeUpdate);
+    connection.db.workflowEdge.onDelete(onEdgeDelete);
+    connection.db.workflow.onInsert(onWorkflowInsert);
+    connection.db.workflow.onUpdate?.(onWorkflowUpdate);
+
+    this._tableUnsubs.push(
+      () => connection.db.workflowNode.removeOnInsert(onNodeInsert),
+      () => connection.db.workflowNode.removeOnUpdate?.(onNodeUpdate),
+      () => connection.db.workflowNode.removeOnDelete(onNodeDelete),
+      () => connection.db.workflowEdge.removeOnInsert(onEdgeInsert),
+      () => connection.db.workflowEdge.removeOnUpdate?.(onEdgeUpdate),
+      () => connection.db.workflowEdge.removeOnDelete(onEdgeDelete),
+      () => connection.db.workflow.removeOnInsert(onWorkflowInsert),
+      () => connection.db.workflow.removeOnUpdate?.(onWorkflowUpdate),
+    );
+  }
+
+  private _syncFromCache(connection: NonNullable<ReturnType<typeof getSpacetimeClient>["connection"]>): void {
     if (!this._active) return;
 
-    try {
-      const msg = JSON.parse(event.data as string);
+    const nodes = Array.from(connection.db.workflowNode.iter())
+      .filter((row) => row.workflowId === this._workflowId)
+      .map((row) => spacetimeNodeToWorkflowNode(row as SpacetimeWorkflowNode));
+    const edges = Array.from(connection.db.workflowEdge.iter())
+      .filter((row) => row.workflowId === this._workflowId)
+      .map((row) => spacetimeEdgeToWorkflowEdge(row as SpacetimeWorkflowEdge));
+    const workflow = Array.from(connection.db.workflow.iter()).find((row) => row.id === this._workflowId);
 
-      // Handle subscription_applied or transaction_update with row changes
-      if (msg.type === "transaction_update" || msg.type === "subscription_applied") {
-        const updates = msg.subscription_update?.table_updates ?? msg.table_updates ?? [];
-        this._processTableUpdates(updates);
-      }
-    } catch {
-      // Ignore non-JSON messages
+    this._applyRemoteGraphChange(nodes, edges);
+    if (workflow && workflow.name !== this._lastSyncedName) {
+      this._applyRemoteNameChange(workflow.name);
     }
   }
 
-  private _processTableUpdates(
-    tableUpdates: Array<{
-      table_name: string;
-      inserts?: Array<Record<string, unknown>>;
-      deletes?: Array<Record<string, unknown>>;
-    }>,
-  ): void {
-    let nodesChanged = false;
-    let edgesChanged = false;
+  private _upsertRemoteNode(row: BindingWorkflowNode): void {
+    if (!this._active || row.workflowId !== this._workflowId) return;
 
-    const currentNodes = new Map(
-      this._lastSyncedNodes.map((n) => [n.id, n]),
-    );
-    const currentEdges = new Map(
-      this._lastSyncedEdges.map((e) => [e.id, e]),
-    );
+    const currentNodes = new Map(this._lastSyncedNodes.map((node) => [node.id, node]));
+    currentNodes.set(row.nodeId, spacetimeNodeToWorkflowNode(row as SpacetimeWorkflowNode));
+    this._applyRemoteGraphChange(Array.from(currentNodes.values()), null);
+  }
 
-    for (const update of tableUpdates) {
-      switch (update.table_name) {
-        case "workflow_node": {
-          // Process deletes first
-          for (const del of update.deletes ?? []) {
-            const row = del as unknown as SpacetimeWorkflowNode;
-            if (row.workflowId === this._workflowId) {
-              currentNodes.delete(row.nodeId);
-              nodesChanged = true;
-            }
-          }
-          // Then inserts (which include updates)
-          for (const ins of update.inserts ?? []) {
-            const row = ins as unknown as SpacetimeWorkflowNode;
-            if (row.workflowId === this._workflowId) {
-              currentNodes.set(row.nodeId, spacetimeNodeToWorkflowNode(row));
-              nodesChanged = true;
-            }
-          }
-          break;
-        }
+  private _deleteRemoteNode(row: BindingWorkflowNode): void {
+    if (!this._active || row.workflowId !== this._workflowId) return;
 
-        case "workflow_edge": {
-          for (const del of update.deletes ?? []) {
-            const row = del as unknown as SpacetimeWorkflowEdge;
-            if (row.workflowId === this._workflowId) {
-              currentEdges.delete(row.edgeId);
-              edgesChanged = true;
-            }
-          }
-          for (const ins of update.inserts ?? []) {
-            const row = ins as unknown as SpacetimeWorkflowEdge;
-            if (row.workflowId === this._workflowId) {
-              currentEdges.set(row.edgeId, spacetimeEdgeToWorkflowEdge(row));
-              edgesChanged = true;
-            }
-          }
-          break;
-        }
+    const currentNodes = new Map(this._lastSyncedNodes.map((node) => [node.id, node]));
+    currentNodes.delete(row.nodeId);
+    this._applyRemoteGraphChange(Array.from(currentNodes.values()), null);
+  }
 
-        case "workflow": {
-          for (const ins of update.inserts ?? []) {
-            const row = ins as unknown as { id: string; name: string };
-            if (row.id === this._workflowId && row.name !== this._lastSyncedName) {
-              this._applyRemoteNameChange(row.name);
-            }
-          }
-          break;
-        }
-      }
-    }
+  private _upsertRemoteEdge(row: BindingWorkflowEdge): void {
+    if (!this._active || row.workflowId !== this._workflowId) return;
 
-    if (nodesChanged || edgesChanged) {
-      this._applyRemoteGraphChange(
-        nodesChanged ? Array.from(currentNodes.values()) : null,
-        edgesChanged ? Array.from(currentEdges.values()) : null,
-      );
-    }
+    const currentEdges = new Map(this._lastSyncedEdges.map((edge) => [edge.id, edge]));
+    currentEdges.set(row.edgeId, spacetimeEdgeToWorkflowEdge(row as SpacetimeWorkflowEdge));
+    this._applyRemoteGraphChange(null, Array.from(currentEdges.values()));
+  }
+
+  private _deleteRemoteEdge(row: BindingWorkflowEdge): void {
+    if (!this._active || row.workflowId !== this._workflowId) return;
+
+    const currentEdges = new Map(this._lastSyncedEdges.map((edge) => [edge.id, edge]));
+    currentEdges.delete(row.edgeId);
+    this._applyRemoteGraphChange(null, Array.from(currentEdges.values()));
+  }
+
+  private _upsertRemoteWorkflow(row: BindingWorkflow): void {
+    if (!this._active || row.id !== this._workflowId || row.name === this._lastSyncedName) return;
+    this._applyRemoteNameChange(row.name);
   }
 
   // ── Private: Apply remote changes to Zustand (with loop prevention) ────
@@ -420,11 +423,15 @@ class SpacetimeWorkspaceSync {
     const ops = this._pendingOps.splice(0);
 
     try {
-      getSpacetimeClient().callReducer("apply_workflow_ops", [
-        this._workflowId,
-        JSON.stringify(ops),
-        this._displayName,
-      ]);
+      void getSpacetimeClient()
+        .callReducer("apply_workflow_ops", [
+          this._workflowId,
+          JSON.stringify(ops),
+          this._displayName,
+        ])
+        .catch(() => {
+          // If not connected, ops are lost — they'll be re-synced on reconnect
+        });
     } catch {
       // If not connected, ops are lost — they'll be re-synced on reconnect
     }
