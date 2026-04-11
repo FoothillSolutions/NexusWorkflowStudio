@@ -33,3 +33,14 @@ export function buildWorkspaceCollabShareUrl(workspaceId: string, workflowId: st
   if (typeof window === "undefined") return `/workspace/${workspaceId}/workflow/${workflowId}`;
   return `${window.location.origin}/workspace/${workspaceId}/workflow/${workflowId}`;
 }
+
+export function buildWorkspaceYjsShareUrl(workspaceId: string, workflowId: string): string {
+  const roomId = buildWorkspaceRoomId(workspaceId, workflowId);
+  const basePath = `/workspace/${workspaceId}/workflow/${workflowId}`;
+
+  if (typeof window === "undefined") {
+    return `${basePath}?room=${roomId}`;
+  }
+
+  return `${window.location.origin}${basePath}?room=${encodeURIComponent(roomId)}`;
+}

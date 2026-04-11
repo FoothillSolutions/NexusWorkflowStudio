@@ -72,30 +72,30 @@ export default function WorkflowEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Workspace mode: auto-start sync (SpacetimeDB when configured, otherwise Y.js)
+  // Workspace mode: choose exactly one live sync backend.
   useEffect(() => {
     if (!isWorkspaceMode || !workspaceId || !workflowId) return;
 
-    if (isSpacetimeConfigured()) {
-      // SpacetimeDB path: workspace sync + brain sync + presence
+    const useSpacetimeBackend = isSpacetimeConfigured();
+
+    if (useSpacetimeBackend) {
       spacetimeWorkspaceSync.startSync(workspaceId, workflowId, "Anonymous");
       spacetimeBrainSync.startBrainSync(workspaceId);
       spacetimePresence.startPresence(workspaceId, workflowId, "Anonymous");
-
-      return () => {
-        spacetimeWorkspaceSync.stopSync();
-        spacetimeBrainSync.stopBrainSync();
-        spacetimePresence.stopPresence();
-      };
+    } else {
+      const roomId = buildWorkspaceRoomId(workspaceId, workflowId);
+      const doc = CollabDoc.getOrCreate();
+      doc.start(roomId, getWorkflowJSON());
     }
 
-    // Fallback: Y.js / Hocuspocus path
-    const roomId = buildWorkspaceRoomId(workspaceId, workflowId);
-    const doc = CollabDoc.getOrCreate();
-    doc.start(roomId, getWorkflowJSON());
-
     return () => {
-      CollabDoc.getInstance()?.destroy();
+      if (useSpacetimeBackend) {
+        spacetimePresence.stopPresence();
+        spacetimeWorkspaceSync.stopSync();
+        spacetimeBrainSync.stopBrainSync();
+      } else {
+        CollabDoc.getInstance()?.destroy();
+      }
     };
     // Only run once on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -113,10 +113,9 @@ export default function WorkflowEditor({
   // Report local selected node to remote peers via awareness (SpacetimeDB or Y.js)
   useEffect(() => {
     const unsub = useWorkflowStore.subscribe((state) => {
-      if (useSpacetime) {
+      CollabDoc.getInstance()?.updateAwareness({ selectedNodeId: state.selectedNodeId });
+      if (spacetimePresence.isActive()) {
         spacetimePresence.updateSelection(state.selectedNodeId ?? null);
-      } else {
-        CollabDoc.getInstance()?.updateAwareness({ selectedNodeId: state.selectedNodeId });
       }
     });
     return () => unsub();
