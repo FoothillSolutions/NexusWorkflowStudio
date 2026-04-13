@@ -33,8 +33,13 @@ async function copyText(text: string) {
   textarea.style.opacity = "0";
   document.body.appendChild(textarea);
   textarea.select();
-  document.execCommand("copy");
-  document.body.removeChild(textarea);
+  try {
+    if (!document.execCommand("copy")) {
+      throw new Error("Copy command failed");
+    }
+  } finally {
+    document.body.removeChild(textarea);
+  }
 }
 
 export function ShareButton({ shareUrlOverride }: ShareButtonProps = {}) {
@@ -56,7 +61,9 @@ export function ShareButton({ shareUrlOverride }: ShareButtonProps = {}) {
     window.history.pushState({}, "", buildCollabRoomUrl(id));
     CollabDoc.getOrCreate().start(id, getWorkflowJSON());
     toast.success("Collaboration started — the room now persists on the collab server");
-    void copyText(url).catch(() => {/* ignore */});
+    void copyText(url).catch(() => {
+      toast.error("Could not copy the collaboration link — copy it manually from the dialog");
+    });
     setOpen(true);
   }, [getWorkflowJSON]);
 
