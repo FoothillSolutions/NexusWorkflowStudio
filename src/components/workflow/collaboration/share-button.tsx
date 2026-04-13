@@ -20,6 +20,23 @@ interface ShareButtonProps {
   shareUrlOverride?: string;
 }
 
+async function copyText(text: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand("copy");
+  document.body.removeChild(textarea);
+}
+
 export function ShareButton({ shareUrlOverride }: ShareButtonProps = {}) {
   const getWorkflowJSON = useWorkflowStore((s) => s.getWorkflowJSON);
   const roomId = useCollabStore((s) => s.roomId);
@@ -39,7 +56,7 @@ export function ShareButton({ shareUrlOverride }: ShareButtonProps = {}) {
     window.history.pushState({}, "", buildCollabRoomUrl(id));
     CollabDoc.getOrCreate().start(id, getWorkflowJSON());
     toast.success("Collaboration started — the room now persists on the collab server");
-    void navigator.clipboard.writeText(url).catch(() => {/* ignore */});
+    void copyText(url).catch(() => {/* ignore */});
     setOpen(true);
   }, [getWorkflowJSON]);
 
@@ -51,7 +68,7 @@ export function ShareButton({ shareUrlOverride }: ShareButtonProps = {}) {
   }, []);
 
   const handleCopy = useCallback(async () => {
-    await navigator.clipboard.writeText(collabUrl);
+    await copyText(collabUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }, [collabUrl]);
@@ -63,7 +80,7 @@ export function ShareButton({ shareUrlOverride }: ShareButtonProps = {}) {
         variant="ghost"
         size="sm"
         onClick={async () => {
-          await navigator.clipboard.writeText(shareUrlOverride);
+          await copyText(shareUrlOverride);
           setCopied(true);
           toast.success("Workspace workflow URL copied");
           setTimeout(() => setCopied(false), 2000);

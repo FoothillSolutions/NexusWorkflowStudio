@@ -44,6 +44,13 @@ start_docker() {
 start_local() {
   require_command bun
 
+  if [[ -f "$ENV_FILE" ]]; then
+    set -a
+    # shellcheck disable=SC1090
+    source "$ENV_FILE"
+    set +a
+  fi
+
   local brain_dir="${NEXUS_BRAIN_DATA_DIR:-$DEFAULT_BRAIN_DIR}"
   local brain_secret="${NEXUS_BRAIN_TOKEN_SECRET:-}"
   local collab_dir="${NEXUS_COLLAB_DATA_DIR:-$DEFAULT_COLLAB_DIR}"
