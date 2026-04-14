@@ -13,3 +13,9 @@
     - When working with Brain document persistence, migration, import/export, or version restore
     - When modifying `src/app/api/brain/*` routes or the `src/lib/brain/*` storage/session layer
     - When troubleshooting persisted collaboration rooms, Hocuspocus startup, or share-link behavior
+- docs/tasks/feature-workspace-foundation-616005e8/doc-feature-workspace-foundation-616005e8.md
+  - Conditions:
+    - When working with workspaces, the workspace dashboard, or workspace-scoped workflow editing
+    - When modifying `src/app/api/workspaces/*`, `src/lib/workspace/*`, `src/components/workspace/*`, or `src/app/workspace/[id]/**`
+    - When changing routing between `/`, `/editor`, and `/workspace/[id]/workflow/[wid]`
+    - When touching workspace auto-save, recent-workspace `localStorage` history, or stable Y.js room IDs for workspace workflows
