@@ -21,6 +21,8 @@ import {
 import type { SubWorkflowNodeData } from "@/nodes/sub-workflow/types";
 import { SubAgentModel, SubAgentMemory } from "@/nodes/agent/enums";
 import { createNodeFromType } from "@/lib/node-registry";
+import { useKnowledgeStore } from "@/store/knowledge";
+import { useSavedWorkflowsStore } from "@/store/library";
 import { usePromptGenStore } from "@/store/prompt-gen";
 import { moveNodeIntoSubWorkflowContext } from "@/lib/subworkflow-transfer";
 import { normalizeWorkflowConnection } from "@/lib/workflow-connections";
@@ -250,6 +252,8 @@ export const useWorkflowStore = create<WorkflowState>()(
   selectNode: (nodeId) => set({ selectedNodeId: nodeId }),
 
   openPropertiesPanel: (nodeId) => {
+    useSavedWorkflowsStore.getState().closeSidebar();
+    useKnowledgeStore.getState().closePanel();
     set({ selectedNodeId: nodeId, propertiesPanelOpen: true });
   },
 

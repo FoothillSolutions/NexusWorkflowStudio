@@ -17,6 +17,7 @@ import {
   saveBrainDoc,
 } from "@/lib/brain/client";
 import { useSavedWorkflowsStore } from "@/store/library";
+import { useWorkflowStore } from "@/store/workflow";
 
 const nanoid = customAlphabet("abcdefghijklmnopqrstuvwxyz0123456789", 12);
 
@@ -46,7 +47,8 @@ export const useKnowledgeStore = create<KnowledgeState>((set, get) => ({
   openPanel: () => {
     // Mutual exclusion: close library panel when opening brain
     useSavedWorkflowsStore.getState().closeSidebar();
-    void get().refresh();
+    useWorkflowStore.getState().closePropertiesPanel();
+    void get().refresh().catch(() => {});
     set({ panelOpen: true });
   },
 

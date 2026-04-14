@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { X, Trash2, SlidersHorizontal } from "lucide-react";
 import { useWorkflowStore } from "@/store/workflow";
-import { useSavedWorkflowsStore } from "@/store/library";
 import { WorkflowNodeType } from "@/types/workflow";
 import {
   TEXT_MUTED,
@@ -84,12 +83,6 @@ export default function PropertiesPanel() {
     }
   }, [isSubNode, selectedNodeId, setDeleteTarget]);
 
-  // Close library sidebar when properties panel opens (mutual exclusion)
-  useEffect(() => {
-    if (propertiesPanelOpen && nodeData && registryEntry) {
-      useSavedWorkflowsStore.getState().closeSidebar();
-    }
-  }, [propertiesPanelOpen, nodeData, registryEntry]);
 
   const isVisible = propertiesPanelOpen && !!selectedNodeId && !!nodeData && !!registryEntry;
 
@@ -144,7 +137,7 @@ export default function PropertiesPanel() {
 
       {/* Content */}
       <ScrollArea className="flex-1 min-h-0 w-full" viewportClassName="min-h-0 select-text">
-        <form className="space-y-3 p-3 pb-4 select-text" onSubmit={(e) => e.preventDefault()}>
+        <div className="space-y-3 p-3 pb-4 select-text">
           <section className={`${PANEL_SURFACE_CLASS} relative overflow-hidden p-3`}>
             <div
               className="pointer-events-none absolute inset-x-0 top-0 h-20 opacity-100"
@@ -249,7 +242,7 @@ export default function PropertiesPanel() {
               </Button>
             </section>
           )}
-        </form>
+        </div>
       </ScrollArea>
     </div>
   );
