@@ -8,6 +8,9 @@
     "node": ">=20"
   },
   "scripts": {
+    "start:local": "bash ./scripts/start.sh",
+    "start:docker": "bash ./scripts/start.sh --docker",
+    "collab:server": "bun scripts/collab-server.ts",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
@@ -26,6 +29,8 @@
   },
   "dependencies": {
     "@dagrejs/dagre": "^2.0.4",
+    "@hocuspocus/provider": "^3.4.4",
+    "@hocuspocus/server": "^3.4.4",
     "@hookform/resolvers": "^5.2.2",
     "@uiw/react-md-editor": "^4.0.11",
     "@xyflow/react": "^12.10.1",
@@ -47,7 +52,8 @@
     "react-simple-code-editor": "^0.14.1",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
-    "y-webrtc": "^10.3.0",
+    "@hocuspocus/provider": "^3.4.4",
+    "@hocuspocus/server": "^3.4.4",
     "yjs": "^13.6.30",
     "zod": "^4.3.6",
     "zundo": "^2.3.0",

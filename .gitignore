@@ -71,3 +71,7 @@ storage.json
 /temp_examples/
 /test-results/
 _workspace
+
+# Local runtime data stores (Brain / collab)
+/.nexus-brain/
+/.nexus-collab/

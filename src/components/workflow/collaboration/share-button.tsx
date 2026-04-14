@@ -10,13 +10,39 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { CollabDoc } from "@/lib/collaboration";
+import { buildCollabRoomUrl, buildCollabShareUrl, CollabDoc } from "@/lib/collaboration";
 import { useCollabStore, createRoomId } from "@/store/collaboration";
 import { useWorkflowStore } from "@/store/workflow";
 import { toast } from "sonner";
 import { TEXT_MUTED } from "@/lib/theme";
 
-export function ShareButton() {
+interface ShareButtonProps {
+  shareUrlOverride?: string;
+}
+
+async function copyText(text: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  try {
+    if (!document.execCommand("copy")) {
+      throw new Error("Copy command failed");
+    }
+  } finally {
+    document.body.removeChild(textarea);
+  }
+}
+
+export function ShareButton({ shareUrlOverride }: ShareButtonProps = {}) {
   const getWorkflowJSON = useWorkflowStore((s) => s.getWorkflowJSON);
   const roomId = useCollabStore((s) => s.roomId);
   const isConnected = useCollabStore((s) => s.isConnected);
@@ -27,17 +53,17 @@ export function ShareButton() {
 
   const isActive = roomId !== null;
 
-  const collabUrl = isActive
-    ? `${typeof window !== "undefined" ? window.location.origin : ""}${typeof window !== "undefined" ? window.location.pathname : ""}?room=${roomId}`
-    : "";
+  const collabUrl = shareUrlOverride ?? (isActive && roomId ? buildCollabShareUrl(roomId) : "");
 
   const handleShare = useCallback(() => {
     const id = createRoomId();
-    const url = `${window.location.origin}${window.location.pathname}?room=${id}`;
-    window.history.pushState({}, "", `?room=${id}`);
+    const url = buildCollabShareUrl(id);
+    window.history.pushState({}, "", buildCollabRoomUrl(id));
     CollabDoc.getOrCreate().start(id, getWorkflowJSON());
-    toast.success("Collaboration started — share the link with others");
-    void navigator.clipboard.writeText(url).catch(() => {/* ignore */});
+    toast.success("Collaboration started — the room now persists on the collab server");
+    void copyText(url).catch(() => {
+      toast.error("Could not copy the collaboration link — copy it manually from the dialog");
+    });
     setOpen(true);
   }, [getWorkflowJSON]);
 
@@ -49,10 +75,30 @@ export function ShareButton() {
   }, []);
 
   const handleCopy = useCallback(async () => {
-    await navigator.clipboard.writeText(collabUrl);
+    await copyText(collabUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }, [collabUrl]);
+
+  // Workspace mode: share button always copies workspace URL
+  if (shareUrlOverride) {
+    return (
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={async () => {
+          await copyText(shareUrlOverride);
+          setCopied(true);
+          toast.success("Workspace workflow URL copied");
+          setTimeout(() => setCopied(false), 2000);
+        }}
+        className={`${TEXT_MUTED} h-8 rounded-lg px-2.5 text-xs hover:bg-zinc-800/80 hover:text-zinc-100`}
+      >
+        {copied ? <Check className="h-3.5 w-3.5 text-emerald-400 sm:mr-1" /> : <Share2 className="h-3.5 w-3.5 sm:mr-1" />}
+        <span className="hidden sm:inline">{copied ? "Copied" : "Share"}</span>
+      </Button>
+    );
+  }
 
   if (!isActive) {
     return (
@@ -102,7 +148,7 @@ export function ShareButton() {
 
           <div className="space-y-3 pt-1">
             <p className="text-sm text-zinc-400">
-              Share this link — anyone who opens it joins your live session.
+              Share this link. Anyone who opens it joins the same persisted live room.
             </p>
 
             <div className="flex gap-2">
@@ -128,7 +174,7 @@ export function ShareButton() {
             </div>
 
             <p className="text-[11px] text-zinc-500">
-              Peer-to-peer — data stays between you and your collaborators.
+              Server-backed with persisted room state.
             </p>
 
             <Button

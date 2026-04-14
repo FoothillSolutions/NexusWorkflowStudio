@@ -1,10 +1,11 @@
 import * as Y from "yjs";
-import { WebrtcProvider } from "y-webrtc";
+import { HocuspocusProvider, WebSocketStatus } from "@hocuspocus/provider";
 import { toast } from "sonner";
 import { useWorkflowStore } from "@/store/workflow";
 import { useCollabStore } from "@/store/collaboration/collab-store";
 import { useAwarenessStore } from "@/store/collaboration/awareness-store";
 import { getOrCreateUserName, getColorForClientId } from "./awareness-names";
+import { getCollabServerUrl } from "./config";
 import type { WorkflowJSON, WorkflowNode, WorkflowEdge } from "@/types/workflow";
 import { WorkflowNodeType } from "@/types/workflow";
 import type { KnowledgeDoc } from "@/types/knowledge";
@@ -34,7 +35,6 @@ function cleanNodeForSync(node: WorkflowNode): WorkflowNode {
 }
 
 function cleanEdgeForSync(edge: WorkflowEdge): WorkflowEdge {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { type: _type, style: _style, animated: _animated, selected: _selected, ...rest } = edge;
   return rest as WorkflowEdge;
 }
@@ -61,7 +61,7 @@ export class CollabDoc {
   private static _instance: CollabDoc | null = null;
 
   private _ydoc: Y.Doc;
-  private _provider: WebrtcProvider | null = null;
+  private _provider: HocuspocusProvider | null = null;
   private _yNodes: Y.Map<WorkflowNode>;
   private _yEdges: Y.Map<WorkflowEdge>;
   private _yName: Y.Text;
@@ -99,10 +99,6 @@ export class CollabDoc {
     return CollabDoc._instance;
   }
 
-  /**
-   * Join or create a room. If `initialState` is provided and the Y.Doc is
-   * empty, seeds the document so new joiners receive the current workflow.
-   */
   start(roomId: string, initialState?: WorkflowJSON): void {
     if (typeof window === "undefined") return;
 
@@ -115,48 +111,39 @@ export class CollabDoc {
     const selfColors = getColorForClientId(this._ydoc.clientID);
     useAwarenessStore.getState()._setSelf(selfName, selfColors.color, selfColors.colorLight);
 
-    // Create the WebRTC provider
-    this._provider = new WebrtcProvider(`nexus-collab-${roomId}`, this._ydoc, {
-      signaling: ["wss://signaling.yjs.dev"],
+    this._provider = new HocuspocusProvider({
+      url: getCollabServerUrl(),
+      name: roomId,
+      document: this._ydoc,
+      onStatus: ({ status }) => {
+        useCollabStore.getState()._setConnected(status === WebSocketStatus.Connected);
+      },
+      onSynced: ({ state }) => {
+        if (state && initialState) {
+          this._seedInitialState(initialState);
+        } else if (state) {
+          this._seedInitialBrainDocs();
+        }
+
+        if (state) {
+          useCollabStore.getState()._setConnected(true);
+          useCollabStore.getState()._setInitializing(false);
+        }
+      },
+      onDisconnect: () => {
+        useCollabStore.getState()._setConnected(false);
+      },
+      onAwarenessChange: () => {
+        this._onAwarenessChange();
+      },
     });
 
-    // Set local awareness state
-    this._provider.awareness.setLocalStateField("user", {
+    this._provider.setAwarenessField("user", {
       name: selfName,
       color: selfColors.color,
       colorLight: selfColors.colorLight,
     });
-    this._provider.awareness.setLocalStateField("selectedNodeId", null);
-
-    // Seed the Y.Doc with the current workflow if this is the first peer
-    if (initialState && this._yNodes.size === 0 && this._yEdges.size === 0) {
-      this._ydoc.transact(() => {
-        for (const node of initialState.nodes) {
-          this._yNodes.set(node.id, cleanNodeForSync(node));
-        }
-        for (const edge of initialState.edges) {
-          this._yEdges.set(edge.id, cleanEdgeForSync(edge));
-        }
-        this._yName.delete(0, this._yName.length);
-        this._yName.insert(0, initialState.name);
-      });
-
-      // Sync reference cache so the Zustand subscriber skips the first tick
-      this._lastSyncedNodes = initialState.nodes;
-      this._lastSyncedEdges = initialState.edges;
-      this._lastSyncedName = initialState.name;
-    }
-
-    // Seed brain docs into Y.Doc when joining as the first peer
-    const localDocs = getAllKnowledgeDocs();
-    if (this._yDocs.size === 0 && localDocs.length > 0) {
-      this._ydoc.transact(() => {
-        for (const doc of localDocs) {
-          this._yDocs.set(doc.id, doc);
-        }
-      });
-      this._lastSyncedDocs = localDocs;
-    }
+    this._provider.setAwarenessField("selectedNodeId", null);
 
     // Register observers: Y.Doc changes → Zustand
     this._yNodes.observe(this._onRemoteChange);
@@ -197,18 +184,6 @@ export class CollabDoc {
       });
     });
 
-    // Awareness changes → peer list + toasts
-    this._provider.awareness.on("change", this._onAwarenessChange);
-
-    // Connection events
-    this._provider.on("synced", () => {
-      useCollabStore.getState()._setConnected(true);
-      useCollabStore.getState()._setInitializing(false);
-    });
-
-    // If the room already has state (joining after others), the observers
-    // will fire immediately once the WebRTC connection establishes and
-    // documents are exchanged — no special handling needed.
   }
 
   /** Disconnect and clean up everything. */
@@ -225,8 +200,6 @@ export class CollabDoc {
     this._yDocs.unobserve(this._onRemoteBrainChange);
 
     if (this._provider) {
-      this._provider.awareness.off("change", this._onAwarenessChange);
-      this._provider.disconnect();
       this._provider.destroy();
       this._provider = null;
     }
@@ -246,7 +219,7 @@ export class CollabDoc {
   updateAwareness(patch: { selectedNodeId?: string | null }): void {
     if (!this._provider) return;
     for (const [key, value] of Object.entries(patch)) {
-      this._provider.awareness.setLocalStateField(key, value);
+      this._provider.setAwarenessField(key, value);
     }
   }
 
@@ -375,10 +348,47 @@ export class CollabDoc {
 
   // ── Private: awareness → peer store + toasts ───────────────────────────
 
+  private _seedInitialState(initialState: WorkflowJSON): void {
+    if (this._yNodes.size !== 0 || this._yEdges.size !== 0 || this._yName.length !== 0) return;
+
+    this._ydoc.transact(() => {
+      for (const node of initialState.nodes) {
+        this._yNodes.set(node.id, cleanNodeForSync(node));
+      }
+      for (const edge of initialState.edges) {
+        this._yEdges.set(edge.id, cleanEdgeForSync(edge));
+      }
+      this._yName.delete(0, this._yName.length);
+      this._yName.insert(0, initialState.name);
+    });
+
+    this._lastSyncedNodes = initialState.nodes;
+    this._lastSyncedEdges = initialState.edges;
+    this._lastSyncedName = initialState.name;
+    this._seedInitialBrainDocs();
+  }
+
+  private _seedInitialBrainDocs(): void {
+    if (this._yDocs.size !== 0) return;
+
+    const localDocs = getAllKnowledgeDocs();
+    if (localDocs.length === 0) return;
+
+    this._ydoc.transact(() => {
+      for (const doc of localDocs) {
+        this._yDocs.set(doc.id, doc);
+      }
+    });
+
+    this._lastSyncedDocs = localDocs;
+  }
+
   private _onAwarenessChange = (): void => {
     if (!this._provider) return;
 
-    const allStates = this._provider.awareness.getStates() as Map<number, RemoteAwarenessState & { clientId?: number }>;
+    const allStates = this._provider.awareness?.getStates() as Map<number, RemoteAwarenessState & { clientId?: number }> | undefined;
+    if (!allStates) return;
+
     const selfId = this._ydoc.clientID;
 
     const peers = [];

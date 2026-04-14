@@ -12,6 +12,7 @@ interface WorkflowNameCardProps {
   needsSave: boolean;
   activeWorkflowId: string | null;
   generationTargetLabel: string;
+  onRename?: (newName: string) => void;
 }
 
 export function WorkflowNameCard({
@@ -21,6 +22,7 @@ export function WorkflowNameCard({
   needsSave,
   activeWorkflowId,
   generationTargetLabel,
+  onRename,
 }: WorkflowNameCardProps) {
   const [isEditingName, setIsEditingName] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -31,11 +33,15 @@ export function WorkflowNameCard({
     }
   }, [isEditingName]);
 
-  const handleNameBlur = () => setIsEditingName(false);
+  const handleNameBlur = () => {
+    setIsEditingName(false);
+    if (onRename && name.trim()) onRename(name.trim());
+  };
 
   const handleNameKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Enter") {
       setIsEditingName(false);
+      if (onRename && name.trim()) onRename(name.trim());
     }
   };
 

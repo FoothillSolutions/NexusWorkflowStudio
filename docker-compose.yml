@@ -13,6 +13,34 @@ services:
     environment:
       NODE_ENV: production
       PORT: "3000"
+      NEXUS_BRAIN_DATA_DIR: /data/brain
+      NEXT_PUBLIC_COLLAB_SERVER_URL: ws://localhost:1234
     expose:
       - "3000"
+    volumes:
+      - nexus_brain_data:/data/brain
     restart: unless-stopped
+  nexus-collab:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        GIT_SHA: ${GIT_SHA:-unknown}
+        BUILD_TIMESTAMP: ${BUILD_TIMESTAMP:-unknown}
+    pull_policy: build
+    image: nexus-workflow-studio:latest
+    container_name: nexus-workflow-studio-collab
+    command: ["bun", "scripts/collab-server.ts"]
+    environment:
+      NODE_ENV: production
+      NEXUS_COLLAB_SERVER_PORT: "1234"
+      NEXUS_COLLAB_DATA_DIR: /data/collab
+    ports:
+      - "1234:1234"
+    volumes:
+      - nexus_collab_data:/data/collab
+    restart: unless-stopped
+
+volumes:
+  nexus_brain_data:
+  nexus_collab_data:
