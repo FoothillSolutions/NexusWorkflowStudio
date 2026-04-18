@@ -67,8 +67,8 @@ export const ParallelAgentNode = memo(function ParallelAgentNode({ id, data, sel
     >
       <div className="flex flex-col gap-2.5">
         {data.sharedInstructions?.trim() && (
-          <div className="rounded-lg border border-indigo-800/30 bg-indigo-950/20 px-2.5 py-2 text-[11px] leading-snug text-indigo-200/85">
-            {truncate(data.sharedInstructions.trim(), 140)}
+          <div className="rounded-lg border truncate border-indigo-800/30 bg-indigo-950/20 px-2.5 py-2 text-[11px] leading-snug text-indigo-200/85">
+            {data.sharedInstructions.trim()}
           </div>
         )}
 
