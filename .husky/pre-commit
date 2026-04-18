@@ -1,1 +1,8 @@
+git stash push --keep-index --include-untracked -m "pre-commit-stash"
+
 bun run check
+EXIT_CODE=$?
+
+git stash pop
+
+exit $EXIT_CODE
