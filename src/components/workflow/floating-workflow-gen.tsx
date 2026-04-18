@@ -249,8 +249,7 @@ export default function FloatingWorkflowGen() {
             />
           </div>
 
-          <div className="flex-1 min-h-0 overflow-y-auto">
-          <div className="px-3.5 pb-3.5 pt-3.5 space-y-3.5">
+          <div className="flex-1 min-h-0 overflow-y-auto px-3.5 pb-3.5 pt-3.5 space-y-3.5">
           {/* ── Connection warning ──────────────────────────────── */}
           {!isConnected && (
             <div className="flex items-center gap-2 text-amber-400 bg-amber-950/20 border border-amber-800/30 rounded-lg px-3 py-2 text-xs">
@@ -336,7 +335,6 @@ export default function FloatingWorkflowGen() {
             onReset={reset}
             onGenerate={handleGenerate}
           />
-        </div>
         </div>
         </>
       )}
