@@ -3,15 +3,27 @@ if git diff --cached --quiet; then
   exit 0
 fi
 
+STASHED=0
+
+cleanup() {
+  if [ $STASHED -eq 1 ]; then
+    echo "Restoring unstaged changes..."
+    git stash pop -q
+    STASHED=0
+  fi
+}
+
+trap cleanup EXIT INT TERM
+
 echo "Stashing unstaged changes..."
 git stash push --keep-index --include-untracked -m "pre-commit-stash"
+STASHED=1
 
 echo "Running checks (typecheck + lint + tests)..."
 bun run check
 EXIT_CODE=$?
 
-echo "Restoring unstaged changes..."
-git stash pop -q
+cleanup
 
 if [ $EXIT_CODE -ne 0 ]; then
   echo "Pre-commit checks failed. Commit blocked."
