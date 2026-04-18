@@ -21,6 +21,8 @@ STASHED=1
 
 echo "Running checks (typecheck + lint + tests)..."
 bun run check
+echo "Finished running checks."
+
 EXIT_CODE=$?
 
 cleanup
