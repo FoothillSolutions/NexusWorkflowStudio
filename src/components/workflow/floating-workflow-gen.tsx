@@ -5,7 +5,6 @@ import { AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import UnsavedChangesDialog from "./unsaved-changes-dialog";
 import { FloatingWorkflowGenActionsRow } from "./floating-workflow-gen/actions-row";
 import { FloatingWorkflowGenCollapsedStatus } from "./floating-workflow-gen/collapsed-status";
@@ -250,7 +249,7 @@ export default function FloatingWorkflowGen() {
             />
           </div>
 
-          <ScrollArea className="flex-1 min-h-0">
+          <div className="flex-1 min-h-0 overflow-y-auto">
           <div className="px-3.5 pb-3.5 pt-3.5 space-y-3.5">
           {/* ── Connection warning ──────────────────────────────── */}
           {!isConnected && (
@@ -338,7 +337,7 @@ export default function FloatingWorkflowGen() {
             onGenerate={handleGenerate}
           />
         </div>
-        </ScrollArea>
+        </div>
         </>
       )}
     </div>
