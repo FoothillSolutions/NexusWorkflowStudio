@@ -1,8 +1,22 @@
+if git diff --cached --quiet; then
+  echo "No staged changes. Skipping checks."
+  exit 0
+fi
+
+echo "Stashing unstaged changes..."
 git stash push --keep-index --include-untracked -m "pre-commit-stash"
 
+echo "Running checks (typecheck + lint + tests)..."
 bun run check
 EXIT_CODE=$?
 
-git stash pop
+echo "Restoring unstaged changes..."
+git stash pop -q
+
+if [ $EXIT_CODE -ne 0 ]; then
+  echo "Pre-commit checks failed. Commit blocked."
+else
+  echo "All checks passed. Proceeding with commit."
+fi
 
 exit $EXIT_CODE
