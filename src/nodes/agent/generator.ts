@@ -13,6 +13,21 @@ import type { SubAgentNodeData } from "./types";
 import { SubAgentModel, SubAgentMemory } from "./types";
 
 /**
+ * Claude Code's `.claude/agents/*.md` frontmatter expects the short names
+ * `sonnet`, `opus`, `haiku`, or `inherit` — not the provider-prefixed ids
+ * (e.g. `github-copilot/claude-sonnet-4.6`) used elsewhere in the app.
+ * Returns null when the model can't be mapped to a Claude Code tier
+ * (non-Claude models) so the caller can omit the line.
+ */
+function mapModelForClaudeCode(model: string): string | null {
+  const lower = model.toLowerCase();
+  if (lower.includes("haiku")) return "haiku";
+  if (lower.includes("opus")) return "opus";
+  if (lower.includes("sonnet")) return "sonnet";
+  return null;
+}
+
+/**
  * Build the frontmatter + prompt content for a .opencode/agents/<name>.md file.
  */
 export function buildAgentFile(
@@ -31,7 +46,12 @@ export function buildAgentFile(
   lines.push(`hidden: true`);
 
   if (d.model && d.model !== SubAgentModel.Inherit) {
-    lines.push(`model: ${d.model}`);
+    if (target === "claude-code") {
+      const mapped = mapModelForClaudeCode(d.model);
+      if (mapped) lines.push(`model: ${mapped}`);
+    } else {
+      lines.push(`model: ${d.model}`);
+    }
   }
 
   if (d.memory && d.memory !== SubAgentMemory.Default) {
