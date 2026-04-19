@@ -22,7 +22,7 @@ import { fetchAiExamples } from "./examples-generator";
 import { generate } from "./workflow-generator";
 
 // Re-export types for consumers
-export type { WorkflowGenStatus, WorkflowGenState } from "./types";
+export type { WorkflowGenStatus, WorkflowGenState, WorkflowGenMode } from "./types";
 
 // ── Store ────────────────────────────────────────────────────────────────────
 
@@ -32,6 +32,7 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
   floating: false,
   collapsed: false,
   status: "idle",
+  mode: "generate",
   prompt: "",
   selectedModel: null,
   streamedText: "",
@@ -82,6 +83,7 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
 
   setPrompt: (prompt) => set({ prompt }),
   setSelectedModel: (model) => set({ selectedModel: model }),
+  setMode: (mode) => set({ mode }),
 
   setUseProjectContext: (use) => {
     set({ useProjectContext: use });
@@ -165,6 +167,7 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
     set({
       sessionId: null,
       status: "idle",
+      mode: "generate",
       streamedText: "",
       parsedNodeCount: 0,
       parsedEdgeCount: 0,

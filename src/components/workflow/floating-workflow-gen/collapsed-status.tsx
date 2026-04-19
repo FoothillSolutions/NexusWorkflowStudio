@@ -1,4 +1,5 @@
 import { Loader2 } from "lucide-react";
+import type { WorkflowGenMode } from "@/store/workflow-gen";
 
 interface FloatingWorkflowGenCollapsedStatusProps {
   isStreaming: boolean;
@@ -6,6 +7,7 @@ interface FloatingWorkflowGenCollapsedStatusProps {
   isError: boolean;
   tokenCount: number;
   parsedNodeCount: number;
+  mode: WorkflowGenMode;
 }
 
 export function FloatingWorkflowGenCollapsedStatus({
@@ -14,13 +16,15 @@ export function FloatingWorkflowGenCollapsedStatus({
   isError,
   tokenCount,
   parsedNodeCount,
+  mode,
 }: FloatingWorkflowGenCollapsedStatusProps) {
+  const streamingVerb = mode === "edit" ? "Editing" : "Generating";
   return (
     <div className="px-3.5 py-2 flex items-center gap-2 text-[11px] text-zinc-400">
       {isStreaming ? (
         <>
           <Loader2 size={11} className="text-violet-400 animate-spin" />
-          Generating… ~{tokenCount} tokens · {parsedNodeCount} nodes
+          {streamingVerb}… ~{tokenCount} tokens · {parsedNodeCount} nodes
         </>
       ) : isDone ? (
         <>

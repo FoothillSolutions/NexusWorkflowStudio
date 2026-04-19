@@ -14,6 +14,7 @@ import {
 } from "./floating-workflow-gen/constants";
 import { FloatingWorkflowGenExamplesSection } from "./floating-workflow-gen/examples-section";
 import { FloatingWorkflowGenHeader } from "./floating-workflow-gen/header";
+import { FloatingWorkflowGenModeToggle } from "./floating-workflow-gen/mode-toggle";
 import { FloatingWorkflowGenProjectContextToggle } from "./floating-workflow-gen/project-context-toggle";
 import { FloatingWorkflowGenStatusPanel } from "./floating-workflow-gen/status-panel";
 import { useFloatingWorkflowGenPosition } from "./floating-workflow-gen/use-floating-workflow-gen-position";
@@ -22,6 +23,7 @@ import { useOpenCodeStore } from "@/store/opencode";
 import { useWorkflowStore } from "@/store/workflow";
 import { useModels } from "@/hooks/use-models";
 import { ModelSelect } from "@/nodes/shared/model-select";
+import { WorkflowNodeType } from "@/types/workflow";
 import { toast } from "sonner";
 
 
@@ -33,6 +35,7 @@ export default function FloatingWorkflowGen() {
   const floating = useWorkflowGenStore((s) => s.floating);
   const collapsed = useWorkflowGenStore((s) => s.collapsed);
   const status = useWorkflowGenStore((s) => s.status);
+  const mode = useWorkflowGenStore((s) => s.mode);
   const prompt = useWorkflowGenStore((s) => s.prompt);
   const selectedModel = useWorkflowGenStore((s) => s.selectedModel);
   const parsedNodeCount = useWorkflowGenStore((s) => s.parsedNodeCount);
@@ -42,6 +45,7 @@ export default function FloatingWorkflowGen() {
 
   const setPrompt = useWorkflowGenStore((s) => s.setPrompt);
   const setSelectedModel = useWorkflowGenStore((s) => s.setSelectedModel);
+  const setMode = useWorkflowGenStore((s) => s.setMode);
   const generate = useWorkflowGenStore((s) => s.generate);
   const cancel = useWorkflowGenStore((s) => s.cancel);
   const reset = useWorkflowGenStore((s) => s.reset);
@@ -63,6 +67,17 @@ export default function FloatingWorkflowGen() {
   const isConnected = connectionStatus === "connected";
   const currentProject = useOpenCodeStore((s) => s.currentProject);
   const needsSave = useWorkflowStore((s) => s.needsSave);
+  const workflowNodes = useWorkflowStore((s) => s.nodes);
+  const workflowEdges = useWorkflowStore((s) => s.edges);
+
+  // The canvas has "user content" when it holds anything beyond the default
+  // start + end pair (or any edges). Edit mode is only useful in that case.
+  const hasContent = useMemo(() => {
+    const hasExtraNode = workflowNodes.some(
+      (n) => n.data?.type !== WorkflowNodeType.Start && n.data?.type !== WorkflowNodeType.End,
+    );
+    return hasExtraNode || workflowEdges.length > 0;
+  }, [workflowNodes, workflowEdges]);
 
   const { groups } = useModels();
 
@@ -141,13 +156,26 @@ export default function FloatingWorkflowGen() {
     }
   }, [floating, collapsed]);
 
+  // If the panel opens on an empty canvas while Edit is selected, snap back
+  // to Generate. We do NOT auto-flip to Edit when content appears.
+  useEffect(() => {
+    if (floating && !hasContent && mode === "edit") {
+      setMode("generate");
+    }
+  }, [floating, hasContent, mode, setMode]);
+
   const runGenerate = useCallback(async () => {
     // Auto-collapse when generation starts so the user sees the canvas
     useWorkflowGenStore.setState({ collapsed: true });
+    const startingMode = useWorkflowGenStore.getState().mode;
     await generate();
     const newStatus = useWorkflowGenStore.getState().status;
     if (newStatus === "done") {
-      toast.success("Workflow generated successfully!");
+      toast.success(
+        startingMode === "edit"
+          ? "Workflow edited successfully!"
+          : "Workflow generated successfully!",
+      );
     }
   }, [generate]);
 
@@ -206,6 +234,7 @@ export default function FloatingWorkflowGen() {
         isDone={isDone}
         tokenCount={tokenCount}
         parsedNodeCount={parsedNodeCount}
+        mode={mode}
         onToggleCollapsed={() => {
           toggleCollapsed();
           requestAnimationFrame(() => resetPosition());
@@ -217,9 +246,17 @@ export default function FloatingWorkflowGen() {
       <UnsavedChangesDialog
         open={confirmGenerateOpen}
         onOpenChange={setConfirmGenerateOpen}
-        title="Generate a new workflow with AI?"
-        description="Your current workflow has unsaved work. Generating with AI will replace the current canvas."
-        confirmLabel="Generate Anyway"
+        title={
+          mode === "edit"
+            ? "Edit current workflow with AI?"
+            : "Generate a new workflow with AI?"
+        }
+        description={
+          mode === "edit"
+            ? "Your current workflow has unsaved changes. The AI will return an updated version that replaces the canvas atomically."
+            : "Your current workflow has unsaved work. Generating with AI will replace the current canvas."
+        }
+        confirmLabel={mode === "edit" ? "Edit Anyway" : "Generate Anyway"}
         onConfirm={() => {
           void runGenerate();
         }}
@@ -233,6 +270,7 @@ export default function FloatingWorkflowGen() {
           isError={isError}
           tokenCount={tokenCount}
           parsedNodeCount={parsedNodeCount}
+          mode={mode}
         />
       )}
 
@@ -276,22 +314,36 @@ export default function FloatingWorkflowGen() {
             />
           )}
 
+          {/* ── Mode toggle (Generate / Edit) ──────────────────── */}
+          <FloatingWorkflowGenModeToggle
+            mode={mode}
+            onChange={setMode}
+            disabled={isStreaming}
+            editDisabled={!hasContent}
+            editDisabledReason="Add or load a workflow to enable Edit"
+          />
+
           {/* ── Prompt input ───────────────────────────────────── */}
           <div className="space-y-1.5">
             <Label className="text-zinc-400 text-[11px] font-medium">
-              Describe your workflow
+              {mode === "edit" ? "Describe your change" : "Describe your workflow"}
             </Label>
             <Textarea
               ref={textareaRef}
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="e.g. A multi-agent code review workflow…"
+              placeholder={
+                mode === "edit"
+                  ? "e.g. Add a skill node that connects to the reviewer agent…"
+                  : "e.g. A multi-agent code review workflow…"
+              }
               className="min-h-20 bg-zinc-800/50 border-zinc-700/50 text-zinc-100 placeholder:text-zinc-600 resize-none text-xs focus:border-violet-500/50 focus:ring-violet-500/20"
               disabled={isStreaming}
             />
             <p className="text-[10px] text-zinc-600">
-              <kbd className="px-1 py-0.5 rounded bg-zinc-800 text-zinc-500 text-[9px]">Ctrl+Enter</kbd> to generate
+              <kbd className="px-1 py-0.5 rounded bg-zinc-800 text-zinc-500 text-[9px]">Ctrl+Enter</kbd>
+              {mode === "edit" ? " to edit" : " to generate"}
             </p>
           </div>
 
@@ -331,6 +383,7 @@ export default function FloatingWorkflowGen() {
             isDone={isDone}
             isError={isError}
             canGenerate={isConnected && Boolean(prompt.trim()) && Boolean(selectedModel)}
+            mode={mode}
             onCancel={cancel}
             onReset={reset}
             onGenerate={handleGenerate}

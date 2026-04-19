@@ -7,6 +7,9 @@ export type WorkflowGenStatus =
   | "done"
   | "error";
 
+/** Generation mode — either create a new workflow or edit the current one. */
+export type WorkflowGenMode = "generate" | "edit";
+
 export interface WorkflowGenState {
   /** Whether the floating panel is visible */
   floating: boolean;
@@ -14,6 +17,8 @@ export interface WorkflowGenState {
   collapsed: boolean;
   /** Current generation status */
   status: WorkflowGenStatus;
+  /** Current mode — generate from scratch or edit the current workflow */
+  mode: WorkflowGenMode;
   /** The user's natural-language prompt */
   prompt: string;
   /** Selected model (providerId/modelId) */
@@ -65,6 +70,7 @@ export interface WorkflowGenState {
   close: () => void;
   setPrompt: (prompt: string) => void;
   setSelectedModel: (model: string | null) => void;
+  setMode: (mode: WorkflowGenMode) => void;
   setUseProjectContext: (use: boolean) => void;
   /** Fetch the project folder's file tree for context */
   fetchProjectContext: () => Promise<void>;

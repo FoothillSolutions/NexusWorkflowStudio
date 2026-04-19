@@ -156,8 +156,9 @@ export function buildSystemPrompt(opts?: {
   projectContext?: string | null;
   availableModels?: string[];
   availableTools?: string[];
+  mode?: "generate" | "edit";
 }): string {
-  const { projectContext, availableModels, availableTools } = opts ?? {};
+  const { projectContext, availableModels, availableTools, mode } = opts ?? {};
   const contextSection = projectContext
     ? `\n\n## Project Context\nThe user has a project with the following file structure. Use this to inform agent names, skill content, document references, and overall workflow design. Tailor the workflow to be relevant to this project:\n\`\`\`\n${projectContext}\n\`\`\`\n`
     : "";
@@ -168,6 +169,17 @@ export function buildSystemPrompt(opts?: {
 
   const toolsSection = availableTools && availableTools.length > 0
     ? `\n\n## Available Tools\nThe following tools are available for agents. By default ALL tools are enabled. Only add tool names to the "disabledTools" array if you want to DISABLE specific tools for that agent. Only disable tools that are not relevant to the agent's task.\n\nAvailable tools: ${availableTools.join(", ")}\n`
+    : "";
+
+  const editModeSection = mode === "edit"
+    ? `\n## Edit Mode Rules
+You are editing an existing workflow. The user will include the current WorkflowJSON and a change request.
+- Return a single complete WorkflowJSON (not a diff).
+- Copy unchanged nodes, edges, and sub-workflow contents VERBATIM from the input — same ids, positions, and data fields.
+- Only mutate what the user's change request requires.
+- Do not rename ids, do not reformat positions, do not drop the \`ui\` block.
+- The same start/end/edge-handle rules from earlier still apply.
+`
     : "";
 
   // Dynamically assembled sections
@@ -252,6 +264,6 @@ ${nodeDataTemplates}
 ${nodeGuidelines}
 - NEVER leave a branch output handle unconnected. Every if-else must have both true/false edges, every switch must have an edge per branch, every parallel-agent must have an edge per branch handle, and every ask-user (single-select) must have an edge per option.
 - Skills and documents have a MANY-TO-MANY relationship with agent-like nodes: one agent or parallel-agent node can have multiple skills and documents, and one skill/document can be shared across multiple agents. Be generous — give each node the skills and documents it needs.
-${modelsSection}${toolsSection}${contextSection}
+${modelsSection}${toolsSection}${contextSection}${editModeSection}
 NOW OUTPUT ONLY JSON.`;
 }
