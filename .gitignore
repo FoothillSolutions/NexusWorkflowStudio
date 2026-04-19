@@ -71,9 +71,10 @@ storage.json
 /temp_examples/
 /test-results/
 _workspace
+/graphify-out
+_workspace*
 
 # Local runtime data stores (Brain / collab)
 /.nexus-brain/
 /.nexus-collab/
-/graphify-out
-_workspace*
+
