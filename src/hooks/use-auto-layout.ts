@@ -99,6 +99,8 @@ function fixBranchOrdering(
         if (ordered.length >= 2) orderedTargetIds = ordered;
       }
     } else if (nodeType === WorkflowNodeType.ParallelAgent) {
+      const spawnMode = (d as { spawnMode?: import("@/types/workflow").ParallelAgentSpawnMode }).spawnMode ?? "fixed";
+      if (spawnMode === "dynamic") continue;
       const branches = d.branches as Array<{ label: string }> | undefined;
       if (branches && branches.length >= 2) {
         const ordered: string[] = [];

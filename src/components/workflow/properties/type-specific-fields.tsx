@@ -30,7 +30,7 @@ export function TypeSpecificFields({ nodeType, register, control, setValue, sele
     case WorkflowNodeType.Prompt:         return <PromptFields control={control} setValue={setValue} nodeId={selectedNodeId} />;
     case WorkflowNodeType.Script:         return <ScriptFields control={control} setValue={setValue} nodeId={selectedNodeId} />;
     case WorkflowNodeType.Agent:          return <SubAgentFields control={control} setValue={setValue} nodeId={selectedNodeId} />;
-    case WorkflowNodeType.ParallelAgent:  return <ParallelAgentFields register={register} control={control} nodeId={selectedNodeId} />;
+    case WorkflowNodeType.ParallelAgent:  return <ParallelAgentFields register={register} control={control} setValue={setValue} nodeId={selectedNodeId} />;
     case WorkflowNodeType.SubWorkflow:    return <SubWorkflowFields control={control} setValue={setValue} nodeId={selectedNodeId} />;
     case WorkflowNodeType.Skill:          return <SkillFields register={register} control={control} setValue={setValue} nodeId={selectedNodeId} />;
     case WorkflowNodeType.Document:       return <DocumentFields register={register} control={control} setValue={setValue} />;

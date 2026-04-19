@@ -56,6 +56,8 @@ export interface SubAgentNodeData extends BaseNodeData {
   variableMappings: Record<string, string>;
 }
 
+export type ParallelAgentSpawnMode = "fixed" | "dynamic";
+
 export interface ParallelAgentBranch {
   label: string;
   instructions: string;
@@ -64,8 +66,17 @@ export interface ParallelAgentBranch {
 
 export interface ParallelAgentNodeData extends BaseNodeData {
   type: WorkflowNodeType.ParallelAgent;
+  /** Fan-out mode. "fixed" renders one branch-N output handle per entry in `branches`. "dynamic" renders a single output handle feeding one template agent. Defaults to "fixed" for back-compat. */
+  spawnMode: ParallelAgentSpawnMode;
   sharedInstructions: string;
+  /** Used only in fixed mode. Empty/ignored in dynamic mode. */
   branches: ParallelAgentBranch[];
+  /** Dynamic mode only: free-text rule for deriving N at runtime. Required (non-empty) in dynamic mode. Must be empty string in fixed mode. */
+  spawnCriterion: string;
+  /** Dynamic mode only: minimum number of spawned instances. Integer >= 1. In fixed mode, must be 1. */
+  spawnMin: number;
+  /** Dynamic mode only: maximum number of spawned instances. Integer >= spawnMin. In fixed mode, must be 1. */
+  spawnMax: number;
 }
 
 export type SubWorkflowMode = "same-context" | "agent";

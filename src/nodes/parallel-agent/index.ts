@@ -1,4 +1,4 @@
-export type { ParallelAgentNodeData, ParallelAgentBranch } from "./types";
+export type { ParallelAgentNodeData, ParallelAgentBranch, ParallelAgentSpawnMode } from "./types";
 export { parallelAgentRegistryEntry, parallelAgentSchema, createParallelAgentBranch } from "./constants";
 export { ParallelAgentNode } from "./node";
 export { Fields as ParallelAgentFields } from "./fields";

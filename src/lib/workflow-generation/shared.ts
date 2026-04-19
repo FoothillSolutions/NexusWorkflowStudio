@@ -94,10 +94,12 @@ export function mermaidEdge(
       const srcNode = nodeById.get(edge.source);
       if (srcNode?.data?.type === WorkflowNodeType.ParallelAgent) {
         const d = srcNode.data as import("@/types/workflow").ParallelAgentNodeData;
-        const idx = Number.parseInt(parallelMatch[1], DECIMAL_RADIX);
-        const branch = d.branches?.[idx];
-        if (branch?.label) {
-          raw = branch.label;
+        if (d.spawnMode !== "dynamic") {
+          const idx = Number.parseInt(parallelMatch[1], DECIMAL_RADIX);
+          const branch = d.branches?.[idx];
+          if (branch?.label) {
+            raw = branch.label;
+          }
         }
       }
     }

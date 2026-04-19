@@ -2,12 +2,12 @@
 
 import { memo, useCallback } from "react";
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
-import { FileText, Network, Users, Zap } from "lucide-react";
+import { FileText, Network, Sparkles, Users, Zap } from "lucide-react";
 import { BaseNode, NodeSize } from "@/nodes/shared/base-node";
 import { HANDLE_CLASS } from "@/lib/theme";
 import { NODE_ACCENT } from "@/lib/node-colors";
 import { useWorkflowStore } from "@/store/workflow";
-import type { ParallelAgentNodeData } from "@/types/workflow";
+import type { ParallelAgentNodeData, ParallelAgentSpawnMode } from "@/types/workflow";
 import { parallelAgentRegistryEntry } from "./constants";
 
 const truncate = (str: string, n: number) => ((str?.length ?? 0) > n ? `${str.slice(0, n)}...` : str);
@@ -20,9 +20,14 @@ type ParallelAgentBranchView = {
 
 export const ParallelAgentNode = memo(function ParallelAgentNode({ id, data, selected }: NodeProps<Node<ParallelAgentNodeData>>) {
   const { icon, accentHex, displayName } = parallelAgentRegistryEntry;
+  const spawnMode: ParallelAgentSpawnMode = data.spawnMode ?? "fixed";
   const branches: ParallelAgentBranchView[] = (data.branches as ParallelAgentBranchView[] | undefined) ?? [];
   const totalSpawnCount = branches.reduce((sum, branch) => sum + Math.max(1, Number(branch.spawnCount ?? 1)), 0);
   const agentLabel = branches.length === 1 ? "agent" : "agents";
+  const spawnMin = Math.max(1, Number(data.spawnMin ?? 1));
+  const spawnMax = Math.max(spawnMin, Number(data.spawnMax ?? spawnMin));
+  const spawnCriterion = (data.spawnCriterion ?? "").trim();
+  const hasCriterion = spawnMode === "dynamic" && spawnCriterion.length > 0;
 
   const skillCount = useWorkflowStore(
     useCallback(
@@ -73,12 +78,29 @@ export const ParallelAgentNode = memo(function ParallelAgentNode({ id, data, sel
         )}
 
         <div className="flex flex-wrap gap-1.5">
-          <span className="inline-flex items-center gap-1 text-[10px] font-mono bg-indigo-950/50 text-indigo-300 border border-indigo-800/40 px-1.5 py-0.5 rounded-md">
-            <Users className="h-2.5 w-2.5" />{branches.length} {agentLabel}
-          </span>
-          <span className="inline-flex items-center gap-1 text-[10px] font-mono bg-violet-950/50 text-violet-300 border border-violet-800/40 px-1.5 py-0.5 rounded-md">
-            <Network className="h-2.5 w-2.5" />x{totalSpawnCount} total
-          </span>
+          {spawnMode === "fixed" ? (
+            <>
+              <span className="inline-flex items-center gap-1 text-[10px] font-mono bg-indigo-950/50 text-indigo-300 border border-indigo-800/40 px-1.5 py-0.5 rounded-md">
+                <Users className="h-2.5 w-2.5" />{branches.length} {agentLabel}
+              </span>
+              <span className="inline-flex items-center gap-1 text-[10px] font-mono bg-violet-950/50 text-violet-300 border border-violet-800/40 px-1.5 py-0.5 rounded-md">
+                <Network className="h-2.5 w-2.5" />x{totalSpawnCount} total
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="inline-flex items-center gap-1 text-[10px] font-mono bg-indigo-950/50 text-indigo-300 border border-indigo-800/40 px-1.5 py-0.5 rounded-md">
+                <Network className="h-2.5 w-2.5" />
+                dynamic: {spawnMin === spawnMax ? `x${spawnMin}` : `${spawnMin}–${spawnMax}`}
+              </span>
+              {hasCriterion && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-mono bg-violet-950/50 text-violet-300 border border-violet-800/40 px-1.5 py-0.5 rounded-md">
+                  <Sparkles className="h-2.5 w-2.5" />
+                  <span className="truncate max-w-[140px]">{truncate(spawnCriterion, 40)}</span>
+                </span>
+              )}
+            </>
+          )}
           {skillCount > 0 && (
             <span className="inline-flex items-center gap-1 text-[10px] font-mono bg-cyan-950/60 text-cyan-300 border border-cyan-800/40 px-1.5 py-0.5 rounded-md">
               <Zap className="h-2.5 w-2.5" />{skillCount} skills
@@ -91,38 +113,64 @@ export const ParallelAgentNode = memo(function ParallelAgentNode({ id, data, sel
           )}
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          {branches.map((branch, index) => (
-            <div key={`${branch.label}-${index}`} className="relative flex items-center gap-2">
-              <div className="flex-1 min-w-0 rounded-md border border-zinc-700/50 bg-zinc-950/40 px-2.5 py-2">
-                <div className="flex items-center gap-1.5 text-[11px] font-medium text-zinc-200 truncate">
-                  <Network className="h-3 w-3 text-indigo-300 shrink-0" />
-                  <span className="truncate">{branch.label || `Branch ${index + 1}`}</span>
+        {spawnMode === "fixed" ? (
+          <div className="flex flex-col gap-1.5">
+            {branches.map((branch, index) => (
+              <div key={`${branch.label}-${index}`} className="relative flex items-center gap-2">
+                <div className="flex-1 min-w-0 rounded-md border border-zinc-700/50 bg-zinc-950/40 px-2.5 py-2">
+                  <div className="flex items-center gap-1.5 text-[11px] font-medium text-zinc-200 truncate">
+                    <Network className="h-3 w-3 text-indigo-300 shrink-0" />
+                    <span className="truncate">{branch.label || `Branch ${index + 1}`}</span>
+                  </div>
+                  <div className="mt-0.5 text-[10px] font-mono text-indigo-300/80 truncate">spawn x{Math.max(1, Number(branch.spawnCount ?? 1))}</div>
+                  {branch.instructions?.trim() && (
+                    <p className="mt-1 text-[10px] leading-tight text-zinc-500 truncate">
+                      {truncate(branch.instructions.trim(), 70)}
+                    </p>
+                  )}
                 </div>
-                <div className="mt-0.5 text-[10px] font-mono text-indigo-300/80 truncate">spawn x{Math.max(1, Number(branch.spawnCount ?? 1))}</div>
-                {branch.instructions?.trim() && (
-                  <p className="mt-1 text-[10px] leading-tight text-zinc-500 truncate">
-                    {truncate(branch.instructions.trim(), 70)}
-                  </p>
-                )}
+                <Handle
+                  type="source"
+                  position={Position.Right}
+                  id={`branch-${index}`}
+                  className="relative! right-0! top-0! transform-none! h-2.5! w-2.5! border! border-zinc-700! rounded-full! shadow-sm!"
+                  style={{ backgroundColor: accentHex }}
+                  isValidConnection={isValidBranchConnection}
+                />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            <div className="relative flex items-center gap-2">
+              <div className="flex-1 min-w-0 rounded-md border border-indigo-700/40 bg-indigo-950/20 px-2.5 py-2">
+                <div className="flex items-center gap-1.5 text-[11px] font-medium text-indigo-200 truncate">
+                  <Sparkles className="h-3 w-3 text-indigo-300 shrink-0" />
+                  <span className="truncate">Template agent</span>
+                </div>
+                <div className="mt-0.5 text-[10px] font-mono text-indigo-300/80 truncate">
+                  {spawnMin === spawnMax ? `cloned x${spawnMin}` : `cloned ${spawnMin}–${spawnMax} times by criterion`}
+                </div>
               </div>
               <Handle
                 type="source"
                 position={Position.Right}
-                id={`branch-${index}`}
+                id="output"
                 className="relative! right-0! top-0! transform-none! h-2.5! w-2.5! border! border-zinc-700! rounded-full! shadow-sm!"
                 style={{ backgroundColor: accentHex }}
                 isValidConnection={isValidBranchConnection}
               />
             </div>
-          ))}
-        </div>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col gap-1 mt-2 pt-2 border-t border-zinc-700/30">
         <div className="flex items-center gap-1.5">
           <Network size={9} className="text-indigo-500 shrink-0" />
-          <span className="text-[9px] font-mono text-indigo-400 tracking-wide uppercase">connect outputs to agent nodes</span>
+          <span className="text-[9px] font-mono text-indigo-400 tracking-wide uppercase">
+            {spawnMode === "dynamic" ? "connect output to template agent" : "connect outputs to agent nodes"}
+          </span>
         </div>
         <div className="flex items-center gap-1.5">
           <Zap size={9} className="text-cyan-600 shrink-0" />

@@ -212,7 +212,7 @@ function collectAgentFiles(
 
     files.push({
       path: buildGeneratedCommandFilePath(mermaidId(node.id), target),
-      content: buildCommandMarkdown(innerJSON),
+      content: buildCommandMarkdown(innerJSON, target),
     });
     files.push(...collectAgentFiles(innerJSON.nodes, innerJSON.edges, target));
   }
@@ -220,7 +220,10 @@ function collectAgentFiles(
   return files;
 }
 
-function buildCommandMarkdown(workflow: WorkflowJSON): string {
+function buildCommandMarkdown(
+  workflow: WorkflowJSON,
+  target: GenerationTargetId = DEFAULT_GENERATION_TARGET,
+): string {
   const { name } = workflow;
   const { nodes, edges } = filterReachable(workflow.nodes, workflow.edges);
   const seenTypes = new Set<string>();
@@ -320,7 +323,7 @@ Workflow arguments are **comma-separated and trimmed**. For example \`/workflow 
     workflow.nodes,
     workflow.edges,
   );
-  const parallelAgentDetails = buildParallelAgentDetailsSection(nodes, edges);
+  const parallelAgentDetails = buildParallelAgentDetailsSection(nodes, edges, target);
   const ifElseDetails = buildIfElseDetailsSection(nodes, edges);
   const switchDetails = buildSwitchDetailsSection(nodes, edges);
   const askUserDetails = buildAskUserDetailsSection(nodes, edges);
@@ -349,7 +352,7 @@ export function generateWorkflowFiles(
   const safeName = sanitizeGeneratedName(workflow.name);
   const commandFile: GeneratedFile = {
     path: buildGeneratedCommandFilePath(safeName, target),
-    content: buildCommandMarkdown(workflow),
+    content: buildCommandMarkdown(workflow, target),
   };
   const agentFiles = collectAgentFiles(workflow.nodes, workflow.edges, target);
   const runScripts = generateRunScriptFiles(safeName, target);

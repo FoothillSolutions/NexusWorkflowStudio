@@ -121,13 +121,16 @@ function buildNoteForNode(type: string, prompt: AiGenerationPrompt): string | nu
     case "parallel-agent":
       return `  NOTE on parallel-agent:
   - This is a rectangular workflow node that spawns connected external agent nodes in parallel.
-  - Prefer this node when multiple independent subtasks can run at the same time, or when a big task should be split across simultaneous agents.
-  - \`branches\` MUST contain at least 1 entry.
-  - Each branch creates its own output handle using \`branch-<index>\`.
-  - Each branch should connect to an external \`agent\` node, and \`spawnCount\` defines how many parallel runs of that target agent to launch.
-  - Branch \`instructions\` describe what that branch should ask the connected external agent to focus on.
-  - \`sharedInstructions\` applies to every spawned branch run.
-  - Shared skills/documents can connect to the parallel-agent node and are available to every branch.`;
+  - \`spawnMode\` discriminates behavior:
+    - "fixed" (default): hand-authored list of branches. Each branch has its own output handle \`branch-<index>\` and MUST be connected to exactly one external \`agent\` node. \`spawnCount\` on each branch = parallel runs of that target agent. Branch \`instructions\` describe the lane's focus.
+    - "dynamic": a single output handle \`"output"\` that MUST be connected to exactly ONE external \`agent\` (the template agent cloned at runtime). \`branches\` MUST be an empty array. \`spawnCriterion\` is REQUIRED non-empty. \`spawnMin >= 1\`, \`spawnMax >= spawnMin\` bound the runtime count.
+  - In dynamic spawn mode the parallel-agent node has EXACTLY ONE outgoing edge to ONE template Agent node — never emit branch-N handles in dynamic mode.
+  - CRITICAL — branch instructions vs agent promptText:
+    - branch instructions live on the branch object. The branch's \`instructions\` field is an upstream descriptor that the runtime surfaces to the connected agent.
+    - DO NOT copy the branch instruction into the agent's promptText. The agent's \`promptText\` is its own role; the branch instruction is a per-lane directive.
+  - \`sharedInstructions\` applies to every spawned agent in both modes.
+  - Shared skills/documents can connect to the parallel-agent node and are available to every spawned agent.
+  - Every parallel-agent node MUST have its output(s) fully connected: fixed = one edge per branch handle; dynamic = exactly one edge from \`"output"\` to an agent.`;
     case "ask-user":
       return `  NOTE: With multipleSelection:false and aiSuggestOptions:false (the default), each option becomes its own output handle (option-0, option-1, ...). Create one edge per option to branch the flow directly. Do not add a redundant switch or if-else right after this node. At least 2 options are required.`;
     case "sub-workflow":
@@ -239,7 +242,7 @@ ${nodeEdgeRules}
 CRITICAL — EVERY branch output handle MUST be connected:
 - Every if-else node MUST have BOTH "true" and "false" output handles connected to a target node. Never leave one dangling.
 - Every switch node MUST have ALL branch labels connected to target nodes. If you define 3 branches, you need 3 outgoing edges.
-- Every parallel-agent node MUST have ALL branch handles ("branch-0", "branch-1", ...) connected. If you define 3 branches, you need 3 outgoing edges.
+- Every parallel-agent node MUST have its outputs fully connected. In fixed mode (default), ALL branch handles ("branch-0", "branch-1", ...) must be connected — if you define 3 branches, you need 3 outgoing edges. In dynamic spawn mode the parallel-agent node has EXACTLY ONE outgoing edge to ONE template Agent node — never emit branch-N handles in dynamic mode.
 - Every ask-user node (in single-select mode) MUST have ALL option handles ("option-0", "option-1", ...) connected. If you define 3 options, you need 3 outgoing edges.
 - No branching node output handle may be left unconnected. This is a hard requirement.
 

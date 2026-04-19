@@ -23,6 +23,8 @@ export interface NodeBranchInfo {
   options?: Array<{ label: string }>;
   multipleSelection?: boolean;
   aiSuggestOptions?: boolean;
+  /** Parallel-agent only: discriminates fixed vs dynamic spawn mode. */
+  spawnMode?: "fixed" | "dynamic";
 }
 
 /** Fix if-else / switch / ask-user / parallel-agent sourceHandles on a set of edges using node type info. */
@@ -57,12 +59,17 @@ export function fixEdgeHandles(
       }
     }
 
-    if (sourceInfo.type === WorkflowNodeType.ParallelAgent && sourceInfo.branches) {
-      const branchMatch = handle?.match(/^branch-(\d+)$/);
-      if (branchMatch) {
-        const idx = Number.parseInt(branchMatch[1], DECIMAL_RADIX);
-        if (idx < sourceInfo.branches.length) {
-          return { ...edge, sourceHandle: `branch-${idx}`, type: "deletable" } as unknown as WorkflowEdge;
+    if (sourceInfo.type === WorkflowNodeType.ParallelAgent) {
+      if (sourceInfo.spawnMode === "dynamic") {
+        return { ...edge, sourceHandle: "output", type: "deletable" } as unknown as WorkflowEdge;
+      }
+      if (sourceInfo.branches) {
+        const branchMatch = handle?.match(/^branch-(\d+)$/);
+        if (branchMatch) {
+          const idx = Number.parseInt(branchMatch[1], DECIMAL_RADIX);
+          if (idx < sourceInfo.branches.length) {
+            return { ...edge, sourceHandle: `branch-${idx}`, type: "deletable" } as unknown as WorkflowEdge;
+          }
         }
       }
     }

@@ -167,7 +167,17 @@ describe("workflow connections", () => {
     const parallelAgent = makeWorkflowNode({
       id: "parallel-1",
       type: WorkflowNodeType.ParallelAgent,
-      data: { type: WorkflowNodeType.ParallelAgent, label: "Parallel", name: "parallel-1", sharedInstructions: "", branches: [] },
+      data: {
+        type: WorkflowNodeType.ParallelAgent,
+        label: "Parallel",
+        name: "parallel-1",
+        spawnMode: "fixed",
+        sharedInstructions: "",
+        branches: [],
+        spawnCriterion: "",
+        spawnMin: 1,
+        spawnMax: 1,
+      } as WorkflowNode["data"],
     });
     const agent = makeWorkflowNode({
       id: "agent-1",
@@ -200,6 +210,182 @@ describe("workflow connections", () => {
     expect(
       connect({ source: "parallel-1", target: "agent-1", sourceHandle: "branch-0" }, [parallelAgent, agent]),
     ).toHaveLength(1);
+  });
+
+  it("dynamic-mode parallel-agent canonicalizes sourceHandle to 'output' when connecting to an agent", () => {
+    const parallelAgent = makeWorkflowNode({
+      id: "parallel-d",
+      type: WorkflowNodeType.ParallelAgent,
+      data: {
+        type: WorkflowNodeType.ParallelAgent,
+        label: "Parallel Dyn",
+        name: "parallel-d",
+        spawnMode: "dynamic",
+        sharedInstructions: "",
+        branches: [],
+        spawnCriterion: "per item",
+        spawnMin: 1,
+        spawnMax: 3,
+      } as WorkflowNode["data"],
+    });
+    const agent = makeWorkflowNode({
+      id: "agent-1",
+      type: WorkflowNodeType.Agent,
+      data: {
+        type: WorkflowNodeType.Agent,
+        label: "Agent",
+        name: "agent-1",
+        description: "",
+        promptText: "",
+        detectedVariables: [],
+        model: "",
+        memory: SubAgentMemory.Default,
+        temperature: 0,
+        color: "#000000",
+        disabledTools: [],
+        parameterMappings: [],
+        variableMappings: {},
+      } as WorkflowNode["data"],
+    });
+
+    const edges = connect(
+      { source: "parallel-d", target: "agent-1", sourceHandle: "output" },
+      [parallelAgent, agent],
+    );
+    expect(edges).toHaveLength(1);
+    expect(edges?.[0].sourceHandle).toBe("output");
+  });
+
+  it("dynamic-mode parallel-agent rejects branch-N sourceHandles", () => {
+    const parallelAgent = makeWorkflowNode({
+      id: "parallel-d",
+      type: WorkflowNodeType.ParallelAgent,
+      data: {
+        type: WorkflowNodeType.ParallelAgent,
+        label: "Parallel Dyn",
+        name: "parallel-d",
+        spawnMode: "dynamic",
+        sharedInstructions: "",
+        branches: [],
+        spawnCriterion: "per item",
+        spawnMin: 1,
+        spawnMax: 3,
+      } as WorkflowNode["data"],
+    });
+    const agent = makeWorkflowNode({
+      id: "agent-1",
+      type: WorkflowNodeType.Agent,
+      data: {
+        type: WorkflowNodeType.Agent,
+        label: "Agent",
+        name: "agent-1",
+        description: "",
+        promptText: "",
+        detectedVariables: [],
+        model: "",
+        memory: SubAgentMemory.Default,
+        temperature: 0,
+        color: "#000000",
+        disabledTools: [],
+        parameterMappings: [],
+        variableMappings: {},
+      } as WorkflowNode["data"],
+    });
+
+    expect(
+      connect({ source: "parallel-d", target: "agent-1", sourceHandle: "branch-0" }, [parallelAgent, agent]),
+    ).toBeNull();
+  });
+
+  it("dynamic-mode parallel-agent rejects non-Agent targets", () => {
+    const parallelAgent = makeWorkflowNode({
+      id: "parallel-d",
+      type: WorkflowNodeType.ParallelAgent,
+      data: {
+        type: WorkflowNodeType.ParallelAgent,
+        label: "Parallel Dyn",
+        name: "parallel-d",
+        spawnMode: "dynamic",
+        sharedInstructions: "",
+        branches: [],
+        spawnCriterion: "per item",
+        spawnMin: 1,
+        spawnMax: 3,
+      } as WorkflowNode["data"],
+    });
+    const endNode = makeWorkflowNode({
+      id: "end-1",
+      type: WorkflowNodeType.End,
+      data: { type: WorkflowNodeType.End, label: "End", name: "end-1" },
+    });
+
+    expect(
+      connect({ source: "parallel-d", target: "end-1", sourceHandle: "output" }, [parallelAgent, endNode]),
+    ).toBeNull();
+  });
+
+  it("dynamic-mode parallel-agent only keeps one outgoing output edge (existing filteredEdges behavior)", () => {
+    const parallelAgent = makeWorkflowNode({
+      id: "parallel-d",
+      type: WorkflowNodeType.ParallelAgent,
+      data: {
+        type: WorkflowNodeType.ParallelAgent,
+        label: "Parallel Dyn",
+        name: "parallel-d",
+        spawnMode: "dynamic",
+        sharedInstructions: "",
+        branches: [],
+        spawnCriterion: "per item",
+        spawnMin: 1,
+        spawnMax: 3,
+      } as WorkflowNode["data"],
+    });
+    const agentA = makeWorkflowNode({
+      id: "agent-a",
+      type: WorkflowNodeType.Agent,
+      data: {
+        type: WorkflowNodeType.Agent,
+        label: "Agent A",
+        name: "agent-a",
+        description: "",
+        promptText: "",
+        detectedVariables: [],
+        model: "",
+        memory: SubAgentMemory.Default,
+        temperature: 0,
+        color: "#000000",
+        disabledTools: [],
+        parameterMappings: [],
+        variableMappings: {},
+      } as WorkflowNode["data"],
+    });
+    const agentB = makeWorkflowNode({
+      id: "agent-b",
+      type: WorkflowNodeType.Agent,
+      data: {
+        type: WorkflowNodeType.Agent,
+        label: "Agent B",
+        name: "agent-b",
+        description: "",
+        promptText: "",
+        detectedVariables: [],
+        model: "",
+        memory: SubAgentMemory.Default,
+        temperature: 0,
+        color: "#000000",
+        disabledTools: [],
+        parameterMappings: [],
+        variableMappings: {},
+      } as WorkflowNode["data"],
+    });
+
+    const edges = connect(
+      { source: "parallel-d", target: "agent-b", sourceHandle: "output" },
+      [parallelAgent, agentA, agentB],
+      [makeWorkflowEdge({ id: "e-prior", source: "parallel-d", target: "agent-a", sourceHandle: "output" })],
+    );
+    expect(edges).toHaveLength(1);
+    expect(edges?.[0]).toMatchObject({ target: "agent-b", sourceHandle: "output" });
   });
 
   it("canonicalizes switch branch handles to the stable branch handle id", () => {

@@ -106,6 +106,7 @@ function pushIncremental(
           options: d?.options as Array<{ label: string }> | undefined,
           multipleSelection: d?.multipleSelection as boolean | undefined,
           aiSuggestOptions: d?.aiSuggestOptions as boolean | undefined,
+          spawnMode: d?.spawnMode as "fixed" | "dynamic" | undefined,
         };
         nodeTypeMap.set(nodeId, branchInfo);
       }
@@ -476,6 +477,7 @@ export async function generate(set: StoreSet, get: StoreGet): Promise<void> {
               options: d?.options as Array<{ label: string }> | undefined,
               multipleSelection: d?.multipleSelection as boolean | undefined,
               aiSuggestOptions: d?.aiSuggestOptions as boolean | undefined,
+              spawnMode: d?.spawnMode as "fixed" | "dynamic" | undefined,
             };
             nodeTypeMap.set(n.id as string, branchInfo);
           }
