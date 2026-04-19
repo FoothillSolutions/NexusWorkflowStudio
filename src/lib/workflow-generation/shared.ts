@@ -9,6 +9,7 @@ import { generator as subWorkflowGen } from "@/nodes/sub-workflow/generator";
 import { generator as skillGen } from "@/nodes/skill/generator";
 import { generator as documentGen } from "@/nodes/document/generator";
 import { generator as mcpToolGen } from "@/nodes/mcp-tool/generator";
+import { generator as handoffGen } from "@/nodes/handoff/generator";
 import { generator as ifElseGen } from "@/nodes/if-else/generator";
 import { generator as switchGen } from "@/nodes/switch/generator";
 import { generator as askUserGen } from "@/nodes/ask-user/generator";
@@ -32,6 +33,7 @@ export const NODE_GENERATORS: Record<NodeType, NodeGeneratorModule> = {
   [WorkflowNodeType.Skill]: skillGen,
   [WorkflowNodeType.Document]: documentGen,
   [WorkflowNodeType.McpTool]: mcpToolGen,
+  [WorkflowNodeType.Handoff]: handoffGen,
   [WorkflowNodeType.IfElse]: ifElseGen,
   [WorkflowNodeType.Switch]: switchGen,
   [WorkflowNodeType.AskUser]: askUserGen,

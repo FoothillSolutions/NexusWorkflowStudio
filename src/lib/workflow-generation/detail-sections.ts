@@ -2,6 +2,11 @@ import { WorkflowNodeType, type NodeType, type WorkflowEdge, type WorkflowNode }
 import { mermaidId } from "@/nodes/shared/mermaid-utils";
 import { getDocumentRelativePath } from "@/nodes/document/utils";
 import {
+  buildHandoffPayloadTemplate,
+  resolveHandoffFilePath,
+} from "@/nodes/handoff/generator";
+import type { HandoffNodeData } from "@/nodes/handoff/types";
+import {
   DEFAULT_GENERATION_TARGET,
   getGenerationTarget,
   type GenerationTargetId,
@@ -319,6 +324,67 @@ export function buildSubWorkflowDetailsSection(
   );
 }
 
+export function buildHandoffDetailsSection(
+  nodes: WorkflowNode[],
+  edges: WorkflowEdge[],
+  _target: GenerationTargetId = DEFAULT_GENERATION_TARGET,
+): string {
+  const order = topologicalOrder(nodes, edges);
+  const nodeById = new Map<string, WorkflowNode>(nodes.map((node) => [node.id, node]));
+  const sections: string[] = [];
+
+  for (const id of order) {
+    const node = nodeById.get(id);
+    if (!node || node.data.type !== WorkflowNodeType.Handoff) continue;
+
+    const d = node.data as HandoffNodeData;
+    const mode = d.mode ?? "file";
+
+    const upstreamEdge = edges.find(
+      (edge) => edge.target === node.id && (edge.targetHandle ?? "input") === "input",
+    );
+    const downstreamEdge = edges.find(
+      (edge) => edge.source === node.id && (edge.sourceHandle ?? "output") === "output",
+    );
+
+    const upstreamId = upstreamEdge?.source ?? null;
+    const downstreamId = downstreamEdge?.target ?? null;
+
+    const lines: string[] = [`#### ${node.id} (Handoff — ${mode})`, ""];
+
+    if (!upstreamId || !downstreamId) {
+      lines.push(`<!-- WARNING: handoff ${node.id} is missing an upstream/downstream agent -->`, "");
+    }
+
+    if (mode === "file") {
+      const resolvedPath = resolveHandoffFilePath(node.id, d);
+      const upstreamLabel = upstreamId ?? "<upstream>";
+      const downstreamLabel = downstreamId ?? "<downstream>";
+      lines.push(
+        `- Upstream agent \`${upstreamLabel}\` MUST write the handoff payload to \`${resolvedPath}\` before finishing.`,
+        `- Downstream agent \`${downstreamLabel}\` MUST read \`${resolvedPath}\` at startup before doing anything else.`,
+      );
+    } else {
+      const downstreamLabel = downstreamId ?? "<downstream>";
+      lines.push(
+        `- The handoff payload below is inlined directly into downstream agent \`${downstreamLabel}\`'s system prompt. No file is written.`,
+      );
+    }
+
+    lines.push(
+      "",
+      "**Handoff payload template:**",
+      "```",
+      buildHandoffPayloadTemplate(node.id, d),
+      "```",
+    );
+
+    sections.push(lines.join("\n"));
+  }
+
+  return buildSectionBlock("### Handoff Node Details", sections);
+}
+
 export function buildDetailsSection(
   nodes: WorkflowNode[],
   edges: WorkflowEdge[],
@@ -331,6 +397,7 @@ export function buildDetailsSection(
     WorkflowNodeType.ParallelAgent,
     WorkflowNodeType.Skill,
     WorkflowNodeType.Document,
+    WorkflowNodeType.Handoff,
     WorkflowNodeType.IfElse,
     WorkflowNodeType.Switch,
     WorkflowNodeType.AskUser,

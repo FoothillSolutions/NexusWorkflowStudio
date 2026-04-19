@@ -8,6 +8,7 @@ export enum WorkflowNodeType {
   Skill = "skill",
   Document = "document",
   McpTool = "mcp-tool",
+  Handoff = "handoff",
   IfElse = "if-else",
   Switch = "switch",
   AskUser = "ask-user",

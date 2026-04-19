@@ -6,9 +6,14 @@
  * lives in src/nodes/<type>/generator.ts.
  */
 import { WorkflowNodeType, type WorkflowEdge, type WorkflowJSON, type WorkflowNode } from "@/types/workflow";
-import type { NodeGeneratorModule } from "@/nodes/shared/registry-types";
+import type { AgentHandoffContext, NodeGeneratorModule } from "@/nodes/shared/registry-types";
 import { mermaidId } from "@/nodes/shared/mermaid-utils";
 import { getDocumentRelativePath } from "@/nodes/document/utils";
+import {
+  buildHandoffPayloadTemplate,
+  resolveHandoffFilePath,
+} from "@/nodes/handoff/generator";
+import type { HandoffNodeData } from "@/nodes/handoff/types";
 import {
   buildGeneratedCommandFilePath,
   buildGeneratedSkillScriptFilePath,
@@ -21,6 +26,7 @@ import { generateRunScriptFiles } from "@/lib/run-script-generator";
 import {
   buildAskUserDetailsSection,
   buildDetailsSection,
+  buildHandoffDetailsSection,
   buildIfElseDetailsSection,
   buildParallelAgentDetailsSection,
   buildPromptDetailsSection,
@@ -46,6 +52,81 @@ function collectConnectedNodeIds(nodesByTarget: Map<string, string[]>): Set<stri
     for (const id of connectedIds) ids.add(id);
   }
   return ids;
+}
+
+/**
+ * For a given agent-like node, look up any directly-connected handoff neighbours
+ * (upstream: handoff → agent; downstream: agent → handoff) and build an
+ * AgentHandoffContext describing them. Returns undefined when the agent has
+ * no handoff neighbours.
+ */
+function buildAgentHandoffContext(
+  agentNodeId: string,
+  nodes: WorkflowNode[],
+  edges: WorkflowEdge[],
+): AgentHandoffContext | undefined {
+  const nodeById = new Map<string, WorkflowNode>(nodes.map((node) => [node.id, node]));
+  let context: AgentHandoffContext | undefined;
+
+  // Upstream: edge whose target is the agent and whose source is a handoff node.
+  const upstreamEdge = edges.find(
+    (edge) =>
+      edge.target === agentNodeId &&
+      (edge.targetHandle ?? "input") === "input" &&
+      nodeById.get(edge.source)?.data.type === WorkflowNodeType.Handoff,
+  );
+  if (upstreamEdge) {
+    const handoffNode = nodeById.get(upstreamEdge.source);
+    if (handoffNode?.data.type === WorkflowNodeType.Handoff) {
+      const d = handoffNode.data as HandoffNodeData;
+      const mode = d.mode ?? "file";
+      const filePath = resolveHandoffFilePath(handoffNode.id, d);
+      const payloadTemplate = buildHandoffPayloadTemplate(handoffNode.id, d);
+      // The "other agent" across the handoff is the handoff's upstream source.
+      const intoHandoffEdge = edges.find(
+        (edge) => edge.target === handoffNode.id && (edge.targetHandle ?? "input") === "input",
+      );
+      context ??= {};
+      context.upstream = {
+        handoffNodeId: handoffNode.id,
+        mode,
+        filePath,
+        payloadTemplate,
+        otherAgentId: intoHandoffEdge?.source,
+      };
+    }
+  }
+
+  // Downstream: edge whose source is the agent and whose target is a handoff node.
+  const downstreamEdge = edges.find(
+    (edge) =>
+      edge.source === agentNodeId &&
+      (edge.sourceHandle ?? "output") === "output" &&
+      nodeById.get(edge.target)?.data.type === WorkflowNodeType.Handoff,
+  );
+  if (downstreamEdge) {
+    const handoffNode = nodeById.get(downstreamEdge.target);
+    if (handoffNode?.data.type === WorkflowNodeType.Handoff) {
+      const d = handoffNode.data as HandoffNodeData;
+      const mode = d.mode ?? "file";
+      const filePath = resolveHandoffFilePath(handoffNode.id, d);
+      const payloadTemplate = buildHandoffPayloadTemplate(handoffNode.id, d);
+      // The "other agent" across the handoff is the handoff's downstream target.
+      const outOfHandoffEdge = edges.find(
+        (edge) => edge.source === handoffNode.id && (edge.sourceHandle ?? "output") === "output",
+      );
+      context ??= {};
+      context.downstream = {
+        handoffNodeId: handoffNode.id,
+        mode,
+        filePath,
+        payloadTemplate,
+        otherAgentId: outOfHandoffEdge?.target,
+      };
+    }
+  }
+
+  return context;
 }
 
 function collectAgentFiles(
@@ -126,6 +207,7 @@ function collectAgentFiles(
       return relativePath ? [relativePath] : [];
     });
 
+    const handoffContext = buildAgentHandoffContext(node.id, nodes, edges);
     const generator = NODE_GENERATORS[node.data.type];
     const file = generator?.getAgentFile?.(
       node.id,
@@ -133,6 +215,7 @@ function collectAgentFiles(
       connectedSkillNames,
       connectedDocNames,
       target,
+      handoffContext,
     );
     if (file) files.push(file);
   }
@@ -328,6 +411,7 @@ Workflow arguments are **comma-separated and trimmed**. For example \`/workflow 
   const switchDetails = buildSwitchDetailsSection(nodes, edges);
   const askUserDetails = buildAskUserDetailsSection(nodes, edges);
   const subWorkflowDetails = buildSubWorkflowDetailsSection(nodes, edges);
+  const handoffDetails = buildHandoffDetailsSection(nodes, edges, target);
   const otherDetails = buildDetailsSection(nodes, edges);
 
   const frontmatter = `---\ndescription: ${name}\n---`;
@@ -340,6 +424,7 @@ Workflow arguments are **comma-separated and trimmed**. For example \`/workflow 
   if (ifElseDetails) parts.push("", ifElseDetails);
   if (switchDetails) parts.push("", switchDetails);
   if (askUserDetails) parts.push("", askUserDetails);
+  if (handoffDetails) parts.push("", handoffDetails);
   if (otherDetails) parts.push("", otherDetails);
 
   return `${parts.join("\n")}\n`;

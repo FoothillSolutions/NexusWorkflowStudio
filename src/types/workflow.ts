@@ -133,6 +133,36 @@ export interface McpToolNodeData extends BaseNodeData {
   paramsText: string;
 }
 
+export type HandoffMode = "file" | "context";
+
+export type HandoffPayloadStyle = "structured" | "freeform";
+
+export type HandoffPayloadSection =
+  | "summary"
+  | "artifacts"
+  | "nextSteps"
+  | "blockers"
+  | "openQuestions"
+  | "filePaths"
+  | "state"
+  | "notes";
+
+export interface HandoffNodeData extends BaseNodeData {
+  type: WorkflowNodeType.Handoff;
+  /** Handoff delivery mode */
+  mode: HandoffMode;
+  /** Only used when mode === "file". Blank means "use the node id". */
+  fileName: string;
+  /** Which payload composition to use. "structured" picks from payloadSections; "freeform" uses payloadPrompt. */
+  payloadStyle: HandoffPayloadStyle;
+  /** Which payload sections to include in the generated handoff (structured mode) */
+  payloadSections: HandoffPayloadSection[];
+  /** Freeform description of what to hand off (freeform mode) */
+  payloadPrompt: string;
+  /** Freeform extra instructions / notes appended to the payload */
+  notes: string;
+}
+
 export interface IfElseBranch {
   label: string;
   condition: string;
@@ -184,6 +214,7 @@ export type WorkflowNodeData =
   | SkillNodeData
   | DocumentNodeData
   | McpToolNodeData
+  | HandoffNodeData
   | IfElseNodeData
   | SwitchNodeData
   | AskUserNodeData

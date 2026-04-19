@@ -1,4 +1,4 @@
-import type { NodeGeneratorModule } from "@/nodes/shared/registry-types";
+import type { AgentHandoffContext, NodeGeneratorModule } from "@/nodes/shared/registry-types";
 import { mermaidId, mermaidLabel } from "@/nodes/shared/mermaid-utils";
 import type { WorkflowNodeData } from "@/types/workflow";
 import { NODE_ACCENT } from "@/lib/node-colors";
@@ -36,6 +36,7 @@ export function buildAgentFile(
   connectedSkillNames?: string[],
   connectedDocNames?: string[],
   target: GenerationTargetId = DEFAULT_GENERATION_TARGET,
+  handoff?: AgentHandoffContext,
 ): string {
   const agentName = d.name || `agent-${nodeId}`;
 
@@ -91,6 +92,32 @@ export function buildAgentFile(
   lines.push("---");
   lines.push("");
 
+  // Startup Handoff — upstream handoff feeding INTO this agent.
+  if (handoff?.upstream) {
+    const { mode, filePath, payloadTemplate, handoffNodeId } = handoff.upstream;
+    lines.push("## Startup Handoff");
+    lines.push("");
+    if (mode === "file") {
+      lines.push(
+        `Before doing anything else, READ \`${filePath}\` (produced by the upstream handoff node \`${handoffNodeId}\`).`,
+      );
+      lines.push("The expected schema is:");
+      lines.push("```");
+      lines.push(payloadTemplate);
+      lines.push("```");
+      lines.push("If the file is missing, stop and report the missing handoff.");
+    } else {
+      lines.push(
+        `An upstream agent has prepended a Handoff Payload to your prompt via handoff node \`${handoffNodeId}\`. Read it before doing anything else.`,
+      );
+      lines.push("The expected schema is:");
+      lines.push("```");
+      lines.push(payloadTemplate);
+      lines.push("```");
+    }
+    lines.push("");
+  }
+
   // Emit variable mappings section if any static variables are mapped to resources
   const varMappings = d.variableMappings ?? {};
   const mappedEntries = Object.entries(varMappings).filter(([, v]) => v?.trim());
@@ -114,6 +141,34 @@ export function buildAgentFile(
 
   if (d.promptText) lines.push(d.promptText);
 
+  // Outgoing Handoff — downstream handoff flowing OUT of this agent.
+  if (handoff?.downstream) {
+    const { mode, filePath, payloadTemplate, handoffNodeId, otherAgentId } = handoff.downstream;
+    const downstreamLabel = otherAgentId ?? "<downstream>";
+    if (d.promptText) lines.push("");
+    lines.push("## Outgoing Handoff");
+    lines.push("");
+    if (mode === "file") {
+      lines.push(
+        `Before finishing, WRITE your handoff payload to \`${filePath}\` so downstream agent \`${downstreamLabel}\` can pick it up (handoff node \`${handoffNodeId}\`).`,
+      );
+      lines.push("Use this template:");
+      lines.push("```");
+      lines.push(payloadTemplate);
+      lines.push("```");
+    } else {
+      lines.push(
+        `Your final response MUST end with a section titled "Handoff Payload" using this template:`,
+      );
+      lines.push("```");
+      lines.push(payloadTemplate);
+      lines.push("```");
+      lines.push(
+        `The orchestrator will inline this section into downstream agent \`${downstreamLabel}\`'s prompt (handoff node \`${handoffNodeId}\`).`,
+      );
+    }
+  }
+
   return lines.join("\n");
 }
 
@@ -124,6 +179,7 @@ export const generator: NodeGeneratorModule & {
     connectedSkillNames?: string[],
     connectedDocNames?: string[],
     target?: GenerationTargetId,
+    handoff?: AgentHandoffContext,
   ): { path: string; content: string } | null;
 } = {
   getMermaidShape(nodeId: string, data: WorkflowNodeData): string {
@@ -156,12 +212,13 @@ export const generator: NodeGeneratorModule & {
     connectedSkillNames?: string[],
     connectedDocNames?: string[],
     target: GenerationTargetId = DEFAULT_GENERATION_TARGET,
+    handoff?: AgentHandoffContext,
   ) {
     const d = data as SubAgentNodeData;
     const agentName = d.name || `agent-${nodeId}`;
     return {
       path: buildGeneratedAgentFilePath(agentName, target),
-      content: buildAgentFile(nodeId, d, connectedSkillNames, connectedDocNames, target),
+      content: buildAgentFile(nodeId, d, connectedSkillNames, connectedDocNames, target, handoff),
     };
   },
 };

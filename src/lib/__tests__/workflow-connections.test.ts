@@ -388,6 +388,240 @@ describe("workflow connections", () => {
     expect(edges?.[0]).toMatchObject({ target: "agent-b", sourceHandle: "output" });
   });
 
+  it("allows an agent → handoff flow edge with the default output/input handles", () => {
+    const agent = makeWorkflowNode({
+      id: "agent-1",
+      type: WorkflowNodeType.Agent,
+      data: {
+        type: WorkflowNodeType.Agent,
+        label: "Agent",
+        name: "agent-1",
+        description: "",
+        promptText: "",
+        detectedVariables: [],
+        model: "",
+        memory: SubAgentMemory.Default,
+        temperature: 0,
+        color: "#000000",
+        disabledTools: [],
+        parameterMappings: [],
+        variableMappings: {},
+      } as WorkflowNode["data"],
+    });
+    const handoff = makeWorkflowNode({
+      id: "handoff-1",
+      type: WorkflowNodeType.Handoff,
+      data: {
+        type: WorkflowNodeType.Handoff,
+        label: "Handoff",
+        name: "handoff-1",
+        mode: "file",
+        fileName: "",
+        payloadStyle: "structured",
+        payloadSections: ["summary"],
+        payloadPrompt: "",
+        notes: "",
+      } as WorkflowNode["data"],
+    });
+
+    const next = connect(
+      { source: "agent-1", target: "handoff-1", sourceHandle: "output", targetHandle: "input" },
+      [agent, handoff],
+    );
+    expect(next).toHaveLength(1);
+    expect(next?.[0]).toMatchObject({ sourceHandle: "output", targetHandle: "input" });
+  });
+
+  it("allows a prompt → handoff flow edge", () => {
+    const prompt = makeWorkflowNode({
+      id: "prompt-1",
+      type: WorkflowNodeType.Prompt,
+      data: { type: WorkflowNodeType.Prompt, label: "Prompt", name: "prompt-1", promptText: "", detectedVariables: [], brainDocId: null },
+    });
+    const handoff = makeWorkflowNode({
+      id: "handoff-1",
+      type: WorkflowNodeType.Handoff,
+      data: {
+        type: WorkflowNodeType.Handoff,
+        label: "Handoff",
+        name: "handoff-1",
+        mode: "file",
+        fileName: "",
+        payloadStyle: "structured",
+        payloadSections: [],
+        payloadPrompt: "",
+        notes: "",
+      } as WorkflowNode["data"],
+    });
+
+    const next = connect(
+      { source: "prompt-1", target: "handoff-1", sourceHandle: "output", targetHandle: "input" },
+      [prompt, handoff],
+    );
+    expect(next).toHaveLength(1);
+  });
+
+  it("allows a handoff → agent flow edge with the default output/input handles", () => {
+    const handoff = makeWorkflowNode({
+      id: "handoff-1",
+      type: WorkflowNodeType.Handoff,
+      data: {
+        type: WorkflowNodeType.Handoff,
+        label: "Handoff",
+        name: "handoff-1",
+        mode: "file",
+        fileName: "",
+        payloadStyle: "structured",
+        payloadSections: [],
+        payloadPrompt: "",
+        notes: "",
+      } as WorkflowNode["data"],
+    });
+    const agent = makeWorkflowNode({
+      id: "agent-2",
+      type: WorkflowNodeType.Agent,
+      data: {
+        type: WorkflowNodeType.Agent,
+        label: "Agent",
+        name: "agent-2",
+        description: "",
+        promptText: "",
+        detectedVariables: [],
+        model: "",
+        memory: SubAgentMemory.Default,
+        temperature: 0,
+        color: "#000000",
+        disabledTools: [],
+        parameterMappings: [],
+        variableMappings: {},
+      } as WorkflowNode["data"],
+    });
+
+    const next = connect(
+      { source: "handoff-1", target: "agent-2", sourceHandle: "output", targetHandle: "input" },
+      [handoff, agent],
+    );
+    expect(next).toHaveLength(1);
+    expect(next?.[0]).toMatchObject({ sourceHandle: "output", targetHandle: "input" });
+  });
+
+  it("allows a handoff → end flow edge", () => {
+    const handoff = makeWorkflowNode({
+      id: "handoff-1",
+      type: WorkflowNodeType.Handoff,
+      data: {
+        type: WorkflowNodeType.Handoff,
+        label: "Handoff",
+        name: "handoff-1",
+        mode: "context",
+        fileName: "",
+        payloadStyle: "structured",
+        payloadSections: [],
+        payloadPrompt: "",
+        notes: "",
+      } as WorkflowNode["data"],
+    });
+    const endNode = makeWorkflowNode({
+      id: "end-1",
+      type: WorkflowNodeType.End,
+      data: { type: WorkflowNodeType.End, label: "End", name: "end-1" },
+    });
+
+    const next = connect(
+      { source: "handoff-1", target: "end-1", sourceHandle: "output", targetHandle: "input" },
+      [handoff, endNode],
+    );
+    expect(next).toHaveLength(1);
+  });
+
+  it("rejects skill → handoff and document → handoff connections", () => {
+    const skill = makeWorkflowNode({
+      id: "skill-1",
+      type: WorkflowNodeType.Skill,
+      data: { type: WorkflowNodeType.Skill, label: "Skill", name: "skill-1", skillName: "", description: "", promptText: "", detectedVariables: [], variableMappings: {}, metadata: [] },
+    });
+    const document = makeWorkflowNode({
+      id: "doc-1",
+      type: WorkflowNodeType.Document,
+      data: {
+        type: WorkflowNodeType.Document,
+        label: "Document",
+        name: "doc-1",
+        docName: "guide",
+        docSubfolder: "",
+        contentMode: "inline",
+        fileExtension: "md",
+        contentText: "",
+        linkedFileName: null,
+        linkedFileContent: null,
+        description: "",
+        brainDocId: null,
+      },
+    });
+    const handoff = makeWorkflowNode({
+      id: "handoff-1",
+      type: WorkflowNodeType.Handoff,
+      data: {
+        type: WorkflowNodeType.Handoff,
+        label: "Handoff",
+        name: "handoff-1",
+        mode: "file",
+        fileName: "",
+        payloadStyle: "structured",
+        payloadSections: [],
+        payloadPrompt: "",
+        notes: "",
+      } as WorkflowNode["data"],
+    });
+
+    expect(connect({ source: "skill-1", target: "handoff-1" }, [skill, handoff])).toBeNull();
+    expect(connect({ source: "doc-1", target: "handoff-1" }, [document, handoff])).toBeNull();
+  });
+
+  it("rejects handoff → skill and handoff → document connections", () => {
+    const handoff = makeWorkflowNode({
+      id: "handoff-1",
+      type: WorkflowNodeType.Handoff,
+      data: {
+        type: WorkflowNodeType.Handoff,
+        label: "Handoff",
+        name: "handoff-1",
+        mode: "file",
+        fileName: "",
+        payloadStyle: "structured",
+        payloadSections: [],
+        payloadPrompt: "",
+        notes: "",
+      } as WorkflowNode["data"],
+    });
+    const skill = makeWorkflowNode({
+      id: "skill-1",
+      type: WorkflowNodeType.Skill,
+      data: { type: WorkflowNodeType.Skill, label: "Skill", name: "skill-1", skillName: "", description: "", promptText: "", detectedVariables: [], variableMappings: {}, metadata: [] },
+    });
+    const document = makeWorkflowNode({
+      id: "doc-1",
+      type: WorkflowNodeType.Document,
+      data: {
+        type: WorkflowNodeType.Document,
+        label: "Document",
+        name: "doc-1",
+        docName: "guide",
+        docSubfolder: "",
+        contentMode: "inline",
+        fileExtension: "md",
+        contentText: "",
+        linkedFileName: null,
+        linkedFileContent: null,
+        description: "",
+        brainDocId: null,
+      },
+    });
+
+    expect(connect({ source: "handoff-1", target: "skill-1" }, [handoff, skill])).toBeNull();
+    expect(connect({ source: "handoff-1", target: "doc-1" }, [handoff, document])).toBeNull();
+  });
+
   it("canonicalizes switch branch handles to the stable branch handle id", () => {
     const branches = [
       createSwitchBranch({ id: "switch-branch-case-1", label: "Pending", condition: "" }),

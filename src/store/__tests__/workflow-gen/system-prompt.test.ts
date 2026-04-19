@@ -61,3 +61,31 @@ describe("buildSystemPrompt parallel-agent clarifications", () => {
     expect(prompt).not.toContain('"spawnCount":null');
   });
 });
+
+describe("buildSystemPrompt handoff catalogue", () => {
+  it("includes a handoff entry in the node catalogue", () => {
+    const prompt = buildSystemPrompt();
+    expect(prompt).toContain("handoff");
+  });
+
+  it("documents both file and context handoff modes", () => {
+    const prompt = buildSystemPrompt();
+    expect(prompt).toContain('"file"');
+    expect(prompt).toContain('"context"');
+  });
+
+  it("mentions the fileName field and explains blank means the node id is used", () => {
+    const prompt = buildSystemPrompt();
+    expect(prompt).toContain("fileName");
+    expect(prompt).toContain("node id");
+    expect(prompt).toContain("./tmp/handoff-");
+  });
+
+  it("documents both structured and freeform payload styles", () => {
+    const prompt = buildSystemPrompt();
+    expect(prompt).toContain("payloadStyle");
+    expect(prompt).toContain('"structured"');
+    expect(prompt).toContain('"freeform"');
+    expect(prompt).toContain("payloadPrompt");
+  });
+});

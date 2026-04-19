@@ -12,6 +12,7 @@ import { Fields as SubWorkflowFields } from "@/nodes/sub-workflow/fields";
 import { Fields as SkillFields }        from "@/nodes/skill/fields";
 import { Fields as DocumentFields }     from "@/nodes/document/fields";
 import { Fields as McpToolFields }      from "@/nodes/mcp-tool/fields";
+import { Fields as HandoffFields }      from "@/nodes/handoff/fields";
 import { Fields as IfElseFields }       from "@/nodes/if-else/fields";
 import { Fields as SwitchFields }       from "@/nodes/switch/fields";
 import { Fields as AskUserFields }      from "@/nodes/ask-user/fields";
@@ -35,6 +36,7 @@ export function TypeSpecificFields({ nodeType, register, control, setValue, sele
     case WorkflowNodeType.Skill:          return <SkillFields register={register} control={control} setValue={setValue} nodeId={selectedNodeId} />;
     case WorkflowNodeType.Document:       return <DocumentFields register={register} control={control} setValue={setValue} />;
     case WorkflowNodeType.McpTool:        return <McpToolFields register={register} />;
+    case WorkflowNodeType.Handoff:        return <HandoffFields register={register} control={control} setValue={setValue} />;
     case WorkflowNodeType.IfElse:         return <IfElseFields register={register} control={control} />;
     case WorkflowNodeType.Switch:         return <SwitchFields register={register} control={control} />;
     case WorkflowNodeType.AskUser:        return <AskUserFields register={register} control={control} setValue={setValue} />;

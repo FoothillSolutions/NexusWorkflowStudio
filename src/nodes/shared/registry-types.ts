@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import type { NodeType, WorkflowNodeData } from "@/types/workflow";
+import type { HandoffMode, NodeType, WorkflowNodeData } from "@/types/workflow";
 import type { GenerationTargetId } from "@/lib/generation-targets";
 import type { NodeSize } from "./node-size";
 
@@ -48,6 +48,23 @@ export interface NodeRegistryEntry {
   aiGenerationPrompt?: AiGenerationPrompt;
 }
 
+// ── Handoff context passed to agent generators ─────────────────────────────
+/** Descriptor for a handoff neighbour attached to an agent-like node.
+ *  Populated in `collectAgentFiles` and passed to `getAgentFile`. */
+export interface AgentHandoffDescriptor {
+  handoffNodeId: string;
+  mode: HandoffMode;
+  filePath: string;
+  payloadTemplate: string;
+  /** Id of the opposite agent-like node across the handoff, when present. */
+  otherAgentId?: string;
+}
+
+export interface AgentHandoffContext {
+  upstream?: AgentHandoffDescriptor;
+  downstream?: AgentHandoffDescriptor;
+}
+
 // ── Generator contract ──────────────────────────────────────────────────────
 /** Each node module exposes an object satisfying this interface. */
 export interface NodeGeneratorModule {
@@ -73,6 +90,7 @@ export interface NodeGeneratorModule {
     connectedSkillNames?: string[],
     connectedDocNames?: string[],
     target?: GenerationTargetId,
+    handoff?: AgentHandoffContext,
   ): { path: string; content: string } | null;
 
   /**
