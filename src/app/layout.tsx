@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
+import { isAuthEnabled, auth } from "@/lib/auth";
+import { AuthSessionProvider } from "@/components/auth/session-provider-wrapper";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -20,11 +22,20 @@ export const metadata: Metadata = {
   description: "Your first AI agentic workflow website editor",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const authEnabled = isAuthEnabled();
+  const session = authEnabled ? await auth() : null;
+
+  const content = authEnabled ? (
+    <AuthSessionProvider session={session}>{children}</AuthSessionProvider>
+  ) : (
+    children
+  );
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body
@@ -36,7 +47,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <TooltipProvider delayDuration={300}>
-            {children}
+            {content}
           </TooltipProvider>
           <Toaster />
         </ThemeProvider>
