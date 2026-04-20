@@ -3,7 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
-import { isAuthEnabled, auth } from "@/lib/auth";
+import { getServerSession } from "next-auth";
+import { isAuthEnabled, authOptions } from "@/lib/auth";
 import { AuthSessionProvider } from "@/components/auth/session-provider-wrapper";
 import "./globals.css";
 
@@ -28,7 +29,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const authEnabled = isAuthEnabled();
-  const session = authEnabled ? await auth() : null;
+  const session = authEnabled ? await getServerSession(authOptions) : null;
 
   const content = authEnabled ? (
     <AuthSessionProvider session={session}>{children}</AuthSessionProvider>

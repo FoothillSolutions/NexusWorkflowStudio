@@ -12,6 +12,9 @@ const VALID_ENV = {
 describe("isAuthEnabled", () => {
   beforeEach(() => {
     _resetCache();
+    for (const key of Object.keys(VALID_ENV)) {
+      delete process.env[key];
+    }
   });
 
   afterEach(() => {
@@ -62,6 +65,9 @@ describe("isAuthEnabled", () => {
 describe("getAuthEnv", () => {
   beforeEach(() => {
     _resetCache();
+    for (const key of Object.keys(VALID_ENV)) {
+      delete process.env[key];
+    }
   });
 
   afterEach(() => {
