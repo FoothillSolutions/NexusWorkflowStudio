@@ -129,9 +129,10 @@ function buildNoteForNode(type: string, prompt: AiGenerationPrompt): string | nu
     case "parallel-agent":
       return `  NOTE on parallel-agent:
   - This is a rectangular workflow node that spawns connected external agent nodes in parallel.
+  - EVERY outgoing edge from a parallel-agent MUST target a node with \`type === "agent"\`. The connected agent is the one that gets spawned for that branch — there is no other way to say "spawn this kind of agent" except by wiring the branch to an agent node of that type/definition.
   - \`spawnMode\` discriminates behavior:
-    - "fixed" (default): hand-authored list of branches. Each branch has its own output handle \`branch-<index>\` and MUST be connected to exactly one external \`agent\` node. \`spawnCount\` on each branch = parallel runs of that target agent. Branch \`instructions\` describe the lane's focus.
-    - "dynamic": a single output handle \`"output"\` that MUST be connected to exactly ONE external \`agent\` (the template agent cloned at runtime). \`branches\` MUST be an empty array. \`spawnCriterion\` is REQUIRED non-empty. \`spawnMin >= 1\`, \`spawnMax >= spawnMin\` bound the runtime count.
+    - "fixed" (default): hand-authored list of branches. Each branch has its own output handle \`branch-<index>\` and MUST be connected to exactly one external \`agent\` node — that connected agent is the one spawned for the branch. \`spawnCount\` on each branch = parallel runs of that target agent. Branch \`instructions\` describe the lane's focus.
+    - "dynamic": a single output handle \`"output"\` that MUST be connected to exactly ONE external \`agent\` (the template agent cloned at runtime for every spawned instance). \`branches\` MUST be an empty array. \`spawnCriterion\` is REQUIRED non-empty. \`spawnMin >= 1\`, \`spawnMax >= spawnMin\` bound the runtime count.
   - In dynamic spawn mode the parallel-agent node has EXACTLY ONE outgoing edge to ONE template Agent node — never emit branch-N handles in dynamic mode.
   - CRITICAL — branch instructions vs agent promptText:
     - branch instructions live on the branch object. The branch's \`instructions\` field is an upstream descriptor that the runtime surfaces to the connected agent.
@@ -253,6 +254,12 @@ CRITICAL — EVERY branch output handle MUST be connected:
 - Every parallel-agent node MUST have its outputs fully connected. In fixed mode (default), ALL branch handles ("branch-0", "branch-1", ...) must be connected — if you define 3 branches, you need 3 outgoing edges. In dynamic spawn mode the parallel-agent node has EXACTLY ONE outgoing edge to ONE template Agent node — never emit branch-N handles in dynamic mode.
 - Every ask-user node (in single-select mode) MUST have ALL option handles ("option-0", "option-1", ...) connected. If you define 3 options, you need 3 outgoing edges.
 - No branching node output handle may be left unconnected. This is a hard requirement.
+
+CRITICAL — PARALLEL-AGENT BRANCHES MUST TARGET AGENT NODES:
+- Each branch of a parallel-agent node SPAWNS the \`agent\` node it's connected to. The connected agent IS the type/definition that gets cloned/spawned for that branch.
+- Therefore every edge out of a parallel-agent ("branch-0", "branch-1", ... in fixed mode, or "output" in dynamic mode) MUST target a node whose \`type\` is exactly \`"agent"\`. It is INVALID for a branch to target prompt, script, sub-workflow, if-else, switch, ask-user, parallel-agent, handoff, end, skill, document, or mcp-tool.
+- Never connect a parallel-agent branch to another parallel-agent — a parallel-agent cannot spawn another parallel-agent. If you need nested fan-out, connect each branch to an agent and let that agent drive further work.
+- If you want different work per branch, create a distinct agent node per branch and wire each branch handle to its own agent. In dynamic mode, the single connected agent is the template cloned N times.
 
 ## Available Node Types
 
