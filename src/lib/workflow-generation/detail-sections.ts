@@ -82,27 +82,11 @@ export function buildSubAgentDetailsSection(
   edges: WorkflowEdge[],
   allNodes: WorkflowNode[],
   allEdges: WorkflowEdge[],
+  target: GenerationTargetId = DEFAULT_GENERATION_TARGET,
 ): string {
   const order = topologicalOrder(nodes, edges);
   const allNodeById = new Map<string, WorkflowNode>(allNodes.map((node) => [node.id, node]));
-  const skillEdgesByTarget = new Map<string, string[]>();
-
-  for (const edge of allEdges) {
-    if (edge.sourceHandle !== "skill-out") continue;
-
-    if (!skillEdgesByTarget.has(edge.target)) {
-      skillEdgesByTarget.set(edge.target, []);
-    }
-    skillEdgesByTarget.get(edge.target)?.push(edge.source);
-  }
-
-  const topoIndex = new Map<string, number>(order.map((id, index) => [id, index]));
-  for (const [targetId, sourceIds] of skillEdgesByTarget) {
-    skillEdgesByTarget.set(
-      targetId,
-      sourceIds.sort((a, b) => (topoIndex.get(a) ?? 0) - (topoIndex.get(b) ?? 0)),
-    );
-  }
+  const rootDir = getGenerationTarget(target).rootDir;
 
   const sections: string[] = [];
   for (const id of order) {
@@ -114,28 +98,52 @@ export function buildSubAgentDetailsSection(
     const lines: string[] = [
       `#### ${node.id}(Agent: ${agentName})`,
       "",
-      "```",
-      `delegate agent: @${agentName}`,
     ];
 
+    const inputs: string[] = [];
+
+    // Connected skill edges (preserve natural edge order)
+    const skillEdges = allEdges.filter(
+      (edge) => edge.sourceHandle === "skill-out" && edge.target === node.id,
+    );
+    for (const edge of skillEdges) {
+      const skillNode = allNodeById.get(edge.source);
+      if (skillNode?.data.type !== WorkflowNodeType.Skill) continue;
+      const skillData = skillNode.data as import("@/nodes/skill/types").SkillNodeData;
+      const skillName = resolveSkillReferenceName(skillData);
+      if (!skillName) continue;
+      inputs.push(`- \`${skillName}\`: \`${rootDir}/skills/${skillName}/SKILL.md\``);
+    }
+
+    // Connected document edges
+    const docEdges = allEdges.filter(
+      (edge) => edge.sourceHandle === "doc-out" && edge.target === node.id,
+    );
+    for (const edge of docEdges) {
+      const docNode = allNodeById.get(edge.source);
+      if (docNode?.data.type !== WorkflowNodeType.Document) continue;
+      const docData = docNode.data as import("@/nodes/document/types").DocumentNodeData;
+      const relativePath = getDocumentRelativePath(docData);
+      if (!relativePath) continue;
+      const displayLabel = getDocDisplayLabel(relativePath);
+      inputs.push(`- \`${displayLabel}\`: \`${rootDir}/docs/${relativePath}\``);
+    }
+
+    // Positional parameter mappings
     const mappings = (d.parameterMappings ?? [])
       .map((value) => value.trim())
       .filter(Boolean);
     if (mappings.length > 0) {
-      lines.push(`params: ${mappings.join(", ")}`);
+      inputs.push(`- \`params\`: \`${mappings.join(", ")}\``);
     }
 
-    const skillIds = skillEdgesByTarget.get(node.id) ?? [];
-    for (const skillId of skillIds) {
-      const skillNode = allNodeById.get(skillId);
-      if (skillNode?.data.type !== WorkflowNodeType.Skill) continue;
-
-      const skillData = skillNode.data as import("@/nodes/skill/types").SkillNodeData;
-      const skillName = skillData.skillName?.trim() || skillData.name?.trim() || skillId;
-      lines.push(`skill: ${skillName}`);
+    if (inputs.length === 0) {
+      lines.push(`Dispatch \`${agentName}\` using the \`Agent\` tool.`);
+    } else {
+      lines.push(`Dispatch \`${agentName}\` using the \`Agent\` tool with inputs:`);
+      lines.push(...inputs);
     }
 
-    lines.push("```");
     sections.push(lines.join("\n"));
   }
 

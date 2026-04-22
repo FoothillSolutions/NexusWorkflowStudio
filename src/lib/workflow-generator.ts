@@ -405,6 +405,7 @@ Workflow arguments are **comma-separated and trimmed**. For example \`/workflow 
     edges,
     workflow.nodes,
     workflow.edges,
+    target,
   );
   const parallelAgentDetails = buildParallelAgentDetailsSection(nodes, edges, target);
   const ifElseDetails = buildIfElseDetailsSection(nodes, edges);
