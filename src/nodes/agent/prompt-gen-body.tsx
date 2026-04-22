@@ -507,7 +507,7 @@ export function PromptGenBody() {
       )}
 
       {/* ── Action buttons ─────────────────────────────────────── */}
-      <div className="flex items-center gap-2">
+      <div className="mt-3 flex items-center gap-2">
         {!hasResult && !isGenerating && (
           <Button
             type="button"

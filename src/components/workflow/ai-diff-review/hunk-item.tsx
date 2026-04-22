@@ -66,7 +66,7 @@ export function HunkItem({
 
         <div className="flex-1" />
 
-        {hunk.splittable && (
+        {hunk.splittable && hunk.lines.filter((l) => l.kind !== "unchanged").length > 1 && (
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); setPerLineOpen((v) => !v); if (!perLineOpen) onResetLines(); }}

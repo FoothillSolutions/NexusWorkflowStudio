@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, X, GitCompareArrows, HelpCircle } from "lucide-react";
+import { Check, X, GitCompareArrows, HelpCircle, Columns2, Rows3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { applyDecisions, computeHunks } from "@/lib/diff/compute";
+import { alignRows } from "@/lib/diff/align";
 import type { HunkDecision } from "@/lib/diff/types";
 import { usePromptGenStore } from "@/store/prompt-gen";
 import { useWorkflowStore } from "@/store/workflow";
@@ -18,7 +19,21 @@ import { WorkflowNodeType } from "@/types/workflow";
 import { getScriptEditorLanguage } from "@/nodes/skill/script-utils";
 import { HunkList } from "./hunk-list";
 import { MergedPreview } from "./merged-preview";
+import { SideBySideView } from "./side-by-side-view";
 import { useDiffKeyboard } from "./use-diff-keyboard";
+
+// ── View mode ──────────────────────────────────────────────────────────────
+// Side-by-side is the default for new sessions; the last choice is persisted
+// to localStorage under `nexus-diff-view-mode`. Rendering is SSR-safe: the
+// first render uses the default, then the effect re-hydrates from storage.
+
+type DiffViewMode = "sidebyside" | "unified";
+const VIEW_MODE_KEY = "nexus-diff-view-mode";
+const LARGE_DIFF_THRESHOLD = 2000;
+
+function isViewMode(v: unknown): v is DiffViewMode {
+  return v === "sidebyside" || v === "unified";
+}
 
 // ── Labels per targetField for the panel title ──────────────────────────────
 
@@ -87,6 +102,37 @@ export function DiffReviewDialog() {
   const [lineDecisions, setLineDecisions] = useState<Map<string, Map<number, boolean>>>(new Map());
   const [selectedHunkId, setSelectedHunkId] = useState<string | null>(null);
   const [sidePanelOpen, setSidePanelOpen] = useState(true);
+  const [viewMode, setViewMode] = useState<DiffViewMode>("sidebyside");
+
+  // Hydrate last-used view mode from localStorage on first mount (client only).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(VIEW_MODE_KEY);
+      if (isViewMode(raw)) setViewMode(raw);
+    } catch {
+      // localStorage may throw in sandboxed contexts — fall back to default.
+    }
+  }, []);
+
+  const changeViewMode = useCallback((next: DiffViewMode) => {
+    setViewMode(next);
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(VIEW_MODE_KEY, next);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // Large-diff fallback: force unified view and show a warning chip when the
+  // aligned row count would exceed the threshold (we bypass virtualization).
+  const alignedRowCount = useMemo(
+    () => (open && viewMode === "sidebyside" ? alignRows(targetPrompt, generatedText, hunks).length : 0),
+    [open, viewMode, targetPrompt, generatedText, hunks],
+  );
+  const isLargeDiff = alignedRowCount > LARGE_DIFF_THRESHOLD;
+  const effectiveViewMode: DiffViewMode = isLargeDiff ? "unified" : viewMode;
 
   // Reset per-session state whenever the panel opens or the hunks change.
   useEffect(() => {
@@ -298,7 +344,7 @@ export function DiffReviewDialog() {
             </span>
           </div>
 
-          {/* Actions (right) */}
+          {/* Actions (right): [actions] | [view toggle] | [utilities] */}
           <div className="ml-auto flex shrink-0 items-center gap-2">
             <Button
               type="button"
@@ -320,6 +366,46 @@ export function DiffReviewDialog() {
             >
               <X size={11} /> Reject all
             </Button>
+            <span className="mx-1 h-5 w-px bg-zinc-800" aria-hidden />
+            {/* View-mode toggle */}
+            <div className="flex items-center rounded-lg border border-zinc-800 bg-zinc-950/40 p-0.5">
+              <button
+                type="button"
+                aria-label="Side-by-side view"
+                aria-pressed={effectiveViewMode === "sidebyside"}
+                onClick={() => changeViewMode("sidebyside")}
+                disabled={isLargeDiff}
+                title={isLargeDiff ? "Large diff — unified view" : "Side-by-side view"}
+                className={cn(
+                  "flex h-6 items-center gap-1 rounded-md px-2 text-[10px] font-medium transition-colors",
+                  effectiveViewMode === "sidebyside"
+                    ? "bg-violet-600/20 text-violet-200"
+                    : "text-zinc-500 hover:text-zinc-200",
+                  isLargeDiff && "cursor-not-allowed opacity-50",
+                )}
+              >
+                <Columns2 size={11} /> Side-by-side
+              </button>
+              <button
+                type="button"
+                aria-label="Unified view"
+                aria-pressed={effectiveViewMode === "unified"}
+                onClick={() => changeViewMode("unified")}
+                className={cn(
+                  "flex h-6 items-center gap-1 rounded-md px-2 text-[10px] font-medium transition-colors",
+                  effectiveViewMode === "unified"
+                    ? "bg-violet-600/20 text-violet-200"
+                    : "text-zinc-500 hover:text-zinc-200",
+                )}
+              >
+                <Rows3 size={11} /> Unified
+              </button>
+            </div>
+            {isLargeDiff && (
+              <span className="rounded-md border border-amber-700/40 bg-amber-950/30 px-2 py-0.5 text-[10px] text-amber-300">
+                Large diff — unified view
+              </span>
+            )}
             <span className="mx-1 h-5 w-px bg-zinc-800" aria-hidden />
             <TooltipProvider>
               <Tooltip>
@@ -357,25 +443,43 @@ export function DiffReviewDialog() {
         </div>
 
         {/* ── Body (two columns) ───────────────────────────────────
-            Left: hunk list (scrollable). Right: merged-preview side panel.
-            `min-h-0` on every flex ancestor so the ScrollArea can actually
-            bound itself (feedback #1).
+            Left: unified hunk list or side-by-side view (scrollable).
+            Right: merged-preview side panel.
+            `min-h-0` on every flex ancestor so scroll containers can bound.
         */}
         <div className="flex min-h-0 flex-1 overflow-hidden">
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-            <div className="min-h-0 flex-1 overflow-hidden px-5 py-3">
-              <HunkList
-                hunks={hunks}
-                decisions={decisions}
-                lineDecisions={lineDecisions}
-                selectedHunkId={selectedHunkId}
-                onSelect={setSelectedHunkId}
-                onAccept={(id) => setDecision(id, "accepted")}
-                onReject={(id) => setDecision(id, "rejected")}
-                onToggleLine={toggleLine}
-                onResetLines={resetLines}
-              />
-            </div>
+            {effectiveViewMode === "unified" ? (
+              <div className="min-h-0 flex-1 overflow-hidden px-5 py-3">
+                <HunkList
+                  hunks={hunks}
+                  decisions={decisions}
+                  lineDecisions={lineDecisions}
+                  selectedHunkId={selectedHunkId}
+                  onSelect={setSelectedHunkId}
+                  onAccept={(id) => setDecision(id, "accepted")}
+                  onReject={(id) => setDecision(id, "rejected")}
+                  onToggleLine={toggleLine}
+                  onResetLines={resetLines}
+                />
+              </div>
+            ) : (
+              <div className="min-h-0 flex-1 overflow-hidden">
+                <SideBySideView
+                  oldText={targetPrompt}
+                  newText={generatedText}
+                  hunks={hunks}
+                  decisions={decisions}
+                  lineDecisions={lineDecisions}
+                  selectedHunkId={selectedHunkId}
+                  onSelect={setSelectedHunkId}
+                  onAccept={(id) => setDecision(id, "accepted")}
+                  onReject={(id) => setDecision(id, "rejected")}
+                  onToggleLine={toggleLine}
+                  onResetLines={resetLines}
+                />
+              </div>
+            )}
           </div>
           <MergedPreview
             merged={merged}
