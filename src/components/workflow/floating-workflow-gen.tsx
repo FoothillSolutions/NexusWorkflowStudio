@@ -1,13 +1,20 @@
 "use client";
 
 import { useEffect, useRef, useCallback, useMemo, useState } from "react";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Lightbulb } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import UnsavedChangesDialog from "./unsaved-changes-dialog";
 import { FloatingWorkflowGenActionsRow } from "./floating-workflow-gen/actions-row";
 import { FloatingWorkflowGenCollapsedStatus } from "./floating-workflow-gen/collapsed-status";
+import { FloatingWorkflowGenSuggestionsSection } from "./floating-workflow-gen/suggestions-section";
 import {
   TEXTAREA_FOCUS_DELAY_MS,
   VISIBLE_EXAMPLE_COUNT,
@@ -39,7 +46,6 @@ export default function FloatingWorkflowGen() {
   const prompt = useWorkflowGenStore((s) => s.prompt);
   const selectedModel = useWorkflowGenStore((s) => s.selectedModel);
   const parsedNodeCount = useWorkflowGenStore((s) => s.parsedNodeCount);
-  const tokenCount = useWorkflowGenStore((s) => s.tokenCount);
   const error = useWorkflowGenStore((s) => s.error);
   const streamedText = useWorkflowGenStore((s) => s.streamedText);
 
@@ -51,6 +57,8 @@ export default function FloatingWorkflowGen() {
   const reset = useWorkflowGenStore((s) => s.reset);
   const close = useWorkflowGenStore((s) => s.close);
   const toggleCollapsed = useWorkflowGenStore((s) => s.toggleCollapsed);
+  const openSuggestions = useWorkflowGenStore((s) => s.openSuggestions);
+  const suggestionsOpen = useWorkflowGenStore((s) => s.suggestionsOpen);
 
   // AI-generated examples
   const aiExamples = useWorkflowGenStore((s) => s.aiExamples);
@@ -232,7 +240,6 @@ export default function FloatingWorkflowGen() {
         collapsed={collapsed}
         isStreaming={isStreaming}
         isDone={isDone}
-        tokenCount={tokenCount}
         parsedNodeCount={parsedNodeCount}
         mode={mode}
         onToggleCollapsed={() => {
@@ -268,7 +275,6 @@ export default function FloatingWorkflowGen() {
           isStreaming={isStreaming}
           isDone={isDone}
           isError={isError}
-          tokenCount={tokenCount}
           parsedNodeCount={parsedNodeCount}
           mode={mode}
         />
@@ -296,98 +302,129 @@ export default function FloatingWorkflowGen() {
             </div>
           )}
 
-          {/* ── Project folder context toggle ──────────────────── */}
-          {isConnected && (
-            <FloatingWorkflowGenProjectContextToggle
-              isStreaming={isStreaming}
-              useProjectContext={useProjectContext}
-              projectContextStatus={projectContextStatus}
-              currentProjectName={currentProjectName}
-              onToggle={() => {
-                const next = !useProjectContext;
-                setUseProjectContext(next);
-                if (next && projectContextStatus === "idle") {
-                  fetchProjectContext();
-                }
-              }}
-              onRetry={() => fetchProjectContext()}
-            />
+          {suggestionsOpen ? (
+            <FloatingWorkflowGenSuggestionsSection />
+          ) : (
+            <>
+              {/* ── Project folder context toggle ──────────────────── */}
+              {isConnected && (
+                <FloatingWorkflowGenProjectContextToggle
+                  isStreaming={isStreaming}
+                  useProjectContext={useProjectContext}
+                  projectContextStatus={projectContextStatus}
+                  currentProjectName={currentProjectName}
+                  onToggle={() => {
+                    const next = !useProjectContext;
+                    setUseProjectContext(next);
+                    if (next && projectContextStatus === "idle") {
+                      fetchProjectContext();
+                    }
+                  }}
+                  onRetry={() => fetchProjectContext()}
+                />
+              )}
+
+              {/* ── Mode toggle (Generate / Edit) ──────────────────── */}
+              <FloatingWorkflowGenModeToggle
+                mode={mode}
+                onChange={setMode}
+                disabled={isStreaming}
+                editDisabled={!hasContent}
+                editDisabledReason="Add or load a workflow to enable Edit"
+              />
+
+              {/* ── Suggest Enhancements (AI-powered review of current workflow) ── */}
+              {isConnected && hasContent && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={openSuggestions}
+                      disabled={isStreaming}
+                      className="group w-full justify-start gap-2 rounded-lg border border-violet-700/25 bg-violet-500/5 px-3 py-2 h-auto text-xs text-violet-200/90 hover:border-violet-500/50 hover:bg-violet-500/10 hover:text-violet-100 disabled:opacity-40"
+                    >
+                      <Lightbulb className="h-3.5 w-3.5 text-violet-400 shrink-0" />
+                      <div className="flex flex-col items-start gap-0.5 min-w-0">
+                        <span className="font-medium leading-none">Suggest Enhancements</span>
+                        <span className="text-[10px] text-violet-300/60 leading-none">
+                          Review this workflow and propose improvements
+                        </span>
+                      </div>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-xs">
+                    AI analyzes your current workflow and proposes concrete enhancements you can apply with one click.
+                  </TooltipContent>
+                </Tooltip>
+              )}
+
+              {/* ── Prompt input ───────────────────────────────────── */}
+              <div className="space-y-1.5">
+                <Label className="text-zinc-400 text-[11px] font-medium">
+                  {mode === "edit" ? "Describe your change" : "Describe your workflow"}
+                </Label>
+                <Textarea
+                  ref={textareaRef}
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={
+                    mode === "edit"
+                      ? "e.g. Add a skill node that connects to the reviewer agent…"
+                      : "e.g. A multi-agent code review workflow…"
+                  }
+                  className="min-h-20 bg-zinc-800/50 border-zinc-700/50 text-zinc-100 placeholder:text-zinc-600 resize-none text-xs focus:border-violet-500/50 focus:ring-violet-500/20"
+                  disabled={isStreaming}
+                />
+                <p className="text-[10px] text-zinc-600">
+                  <kbd className="px-1 py-0.5 rounded bg-zinc-800 text-zinc-500 text-[9px]">Ctrl+Enter</kbd>
+                  {mode === "edit" ? " to edit" : " to generate"}
+                </p>
+              </div>
+
+              {/* ── Example prompts ────────────────────────────────── */}
+              {!isStreaming && !isDone && (
+                <FloatingWorkflowGenExamplesSection
+                  visibleExamples={visibleExamples}
+                  showShimmers={showShimmers}
+                  aiExamplesStatus={aiExamplesStatus}
+                  hasRefresh={isConnected && aiExamplesStatus === "done" && aiExamples.length > 0}
+                  onRefresh={() => {
+                    useWorkflowGenStore.setState({ aiExamples: [], aiExamplesStatus: "idle", _examplesSessionId: null });
+                    fetchAiExamples();
+                  }}
+                  onExampleClick={handleExampleClick}
+                />
+              )}
+
+              {/* ── Streaming progress ─────────────────────────────── */}
+              {(isStreaming || isDone || isError) && (
+                <FloatingWorkflowGenStatusPanel
+                  isStreaming={isStreaming}
+                  isDone={isDone}
+                  isError={isError}
+                  status={status}
+                  parsedNodeCount={parsedNodeCount}
+                  error={error}
+                  streamedText={streamedText}
+                />
+              )}
+
+              {/* ── Actions ────────────────────────────────────────── */}
+              <FloatingWorkflowGenActionsRow
+                isConnected={isConnected}
+                isStreaming={isStreaming}
+                isDone={isDone}
+                isError={isError}
+                canGenerate={isConnected && Boolean(prompt.trim()) && Boolean(selectedModel)}
+                mode={mode}
+                onCancel={cancel}
+                onReset={reset}
+                onGenerate={handleGenerate}
+              />
+            </>
           )}
-
-          {/* ── Mode toggle (Generate / Edit) ──────────────────── */}
-          <FloatingWorkflowGenModeToggle
-            mode={mode}
-            onChange={setMode}
-            disabled={isStreaming}
-            editDisabled={!hasContent}
-            editDisabledReason="Add or load a workflow to enable Edit"
-          />
-
-          {/* ── Prompt input ───────────────────────────────────── */}
-          <div className="space-y-1.5">
-            <Label className="text-zinc-400 text-[11px] font-medium">
-              {mode === "edit" ? "Describe your change" : "Describe your workflow"}
-            </Label>
-            <Textarea
-              ref={textareaRef}
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={
-                mode === "edit"
-                  ? "e.g. Add a skill node that connects to the reviewer agent…"
-                  : "e.g. A multi-agent code review workflow…"
-              }
-              className="min-h-20 bg-zinc-800/50 border-zinc-700/50 text-zinc-100 placeholder:text-zinc-600 resize-none text-xs focus:border-violet-500/50 focus:ring-violet-500/20"
-              disabled={isStreaming}
-            />
-            <p className="text-[10px] text-zinc-600">
-              <kbd className="px-1 py-0.5 rounded bg-zinc-800 text-zinc-500 text-[9px]">Ctrl+Enter</kbd>
-              {mode === "edit" ? " to edit" : " to generate"}
-            </p>
-          </div>
-
-          {/* ── Example prompts ────────────────────────────────── */}
-          {!isStreaming && !isDone && (
-            <FloatingWorkflowGenExamplesSection
-              visibleExamples={visibleExamples}
-              showShimmers={showShimmers}
-              aiExamplesStatus={aiExamplesStatus}
-              hasRefresh={isConnected && aiExamplesStatus === "done" && aiExamples.length > 0}
-              onRefresh={() => {
-                useWorkflowGenStore.setState({ aiExamples: [], aiExamplesStatus: "idle", _examplesSessionId: null });
-                fetchAiExamples();
-              }}
-              onExampleClick={handleExampleClick}
-            />
-          )}
-
-          {/* ── Streaming progress ─────────────────────────────── */}
-          {(isStreaming || isDone || isError) && (
-            <FloatingWorkflowGenStatusPanel
-              isStreaming={isStreaming}
-              isDone={isDone}
-              isError={isError}
-              status={status}
-              parsedNodeCount={parsedNodeCount}
-              tokenCount={tokenCount}
-              error={error}
-              streamedText={streamedText}
-            />
-          )}
-
-          {/* ── Actions ────────────────────────────────────────── */}
-          <FloatingWorkflowGenActionsRow
-            isConnected={isConnected}
-            isStreaming={isStreaming}
-            isDone={isDone}
-            isError={isError}
-            canGenerate={isConnected && Boolean(prompt.trim()) && Boolean(selectedModel)}
-            mode={mode}
-            onCancel={cancel}
-            onReset={reset}
-            onGenerate={handleGenerate}
-          />
         </div>
         </>
       )}

@@ -14,15 +14,23 @@
 //   - workflow-generator.ts → Core generate() logic + canvas updates
 
 import { create } from "zustand";
+import { toast } from "sonner";
 import { useOpenCodeStore } from "../opencode";
 import { useWorkflowStore } from "../workflow";
-import type { WorkflowGenState } from "./types";
+import type { WorkflowGenState, WorkflowEnhancementSuggestion } from "./types";
 import { fetchProjectContext } from "./project-context";
 import { fetchAiExamples } from "./examples-generator";
+import { fetchSuggestions } from "./suggestions-generator";
 import { generate } from "./workflow-generator";
 
 // Re-export types for consumers
-export type { WorkflowGenStatus, WorkflowGenState, WorkflowGenMode } from "./types";
+export type {
+  WorkflowGenStatus,
+  WorkflowGenState,
+  WorkflowGenMode,
+  SuggestionsStatus,
+  WorkflowEnhancementSuggestion,
+} from "./types";
 
 // ── Store ────────────────────────────────────────────────────────────────────
 
@@ -58,6 +66,14 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
   aiExamplesStatus: "idle",
   _examplesSessionId: null,
   _examplesAbortController: null,
+
+  // Suggest Enhancements ──
+  suggestionsOpen: false,
+  suggestionsStatus: "idle",
+  suggestions: [],
+  suggestionsError: null,
+  _suggestionsSessionId: null,
+  _suggestionsAbortController: null,
 
   // UI Actions
 
@@ -98,6 +114,73 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
   fetchProjectContext: () => fetchProjectContext(set, get),
   generate: () => generate(set, get),
   fetchAiExamples: (opts) => fetchAiExamples(set, get, opts),
+  fetchSuggestions: () => fetchSuggestions(set, get),
+
+  // Suggest Enhancements Actions
+
+  openSuggestions: () => {
+    // Auto-select first model if none is currently selected
+    const currentModel = get().selectedModel;
+    if (!currentModel) {
+      const modelGroups = useOpenCodeStore.getState().modelGroups;
+      const firstModel = modelGroups[0]?.models[0]?.value ?? null;
+      if (firstModel) {
+        set({ selectedModel: firstModel });
+      }
+    }
+
+    // Open + expand the Nexus AI panel so the inline section is visible
+    set({ suggestionsOpen: true, floating: true, collapsed: false });
+
+    const status = get().suggestionsStatus;
+    if (status === "idle" || status === "error") {
+      void get().fetchSuggestions();
+    }
+  },
+
+  closeSuggestions: () => {
+    const { suggestionsStatus, _suggestionsAbortController } = get();
+    if (suggestionsStatus === "loading") {
+      _suggestionsAbortController?.abort();
+    }
+    set({ suggestionsOpen: false });
+  },
+
+  cancelSuggestions: () => {
+    const { _suggestionsAbortController } = get();
+    _suggestionsAbortController?.abort();
+    set({
+      suggestionsStatus: "idle",
+      _suggestionsAbortController: null,
+    });
+  },
+
+  resetSuggestions: () => {
+    set({
+      suggestions: [],
+      suggestionsStatus: "idle",
+      suggestionsError: null,
+    });
+  },
+
+  applySuggestion: async (suggestion: WorkflowEnhancementSuggestion) => {
+    set({
+      suggestionsOpen: false,
+      floating: true,
+      collapsed: true,
+      mode: "edit",
+      prompt: `${suggestion.title}\n\n${suggestion.description}`,
+    });
+
+    await get().generate();
+
+    const finalStatus = get().status;
+    if (finalStatus === "done") {
+      toast.success("Enhancement applied");
+    } else if (finalStatus === "error") {
+      toast.error(get().error ?? "Failed to apply enhancement");
+    }
+  },
 
   // Cancel / Reset / Dispose
 
@@ -140,9 +223,17 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
   },
 
   disposeSession: async () => {
-    const { sessionId, _abortController, _examplesSessionId, _examplesAbortController } = get();
+    const {
+      sessionId,
+      _abortController,
+      _examplesSessionId,
+      _examplesAbortController,
+      _suggestionsSessionId,
+      _suggestionsAbortController,
+    } = get();
     _abortController?.abort();
     _examplesAbortController?.abort();
+    _suggestionsAbortController?.abort();
 
     const client = useOpenCodeStore.getState().client;
     if (client) {
@@ -158,6 +249,14 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
         try {
           await client.sessions.abort(_examplesSessionId).catch(() => {});
           await client.sessions.delete(_examplesSessionId).catch(() => {});
+        } catch {
+          // Ignore cleanup errors
+        }
+      }
+      if (_suggestionsSessionId) {
+        try {
+          await client.sessions.abort(_suggestionsSessionId).catch(() => {});
+          await client.sessions.delete(_suggestionsSessionId).catch(() => {});
         } catch {
           // Ignore cleanup errors
         }
@@ -184,6 +283,12 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
       _examplesAbortController: null,
       projectContext: null,
       projectContextStatus: "idle",
+      suggestionsOpen: false,
+      suggestionsStatus: "idle",
+      suggestions: [],
+      suggestionsError: null,
+      _suggestionsSessionId: null,
+      _suggestionsAbortController: null,
     });
   },
 }));

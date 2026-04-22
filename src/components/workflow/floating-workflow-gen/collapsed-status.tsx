@@ -5,7 +5,6 @@ interface FloatingWorkflowGenCollapsedStatusProps {
   isStreaming: boolean;
   isDone: boolean;
   isError: boolean;
-  tokenCount: number;
   parsedNodeCount: number;
   mode: WorkflowGenMode;
 }
@@ -14,7 +13,6 @@ export function FloatingWorkflowGenCollapsedStatus({
   isStreaming,
   isDone,
   isError,
-  tokenCount,
   parsedNodeCount,
   mode,
 }: FloatingWorkflowGenCollapsedStatusProps) {
@@ -24,12 +22,12 @@ export function FloatingWorkflowGenCollapsedStatus({
       {isStreaming ? (
         <>
           <Loader2 size={11} className="text-violet-400 animate-spin" />
-          {streamingVerb}… ~{tokenCount} tokens · {parsedNodeCount} nodes
+          {streamingVerb}… {parsedNodeCount} nodes
         </>
       ) : isDone ? (
         <>
           <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400" />
-          Complete — ~{tokenCount} tokens · {parsedNodeCount} nodes
+          Complete — {parsedNodeCount} nodes
         </>
       ) : isError ? (
         <>
@@ -45,4 +43,3 @@ export function FloatingWorkflowGenCollapsedStatus({
     </div>
   );
 }
-
