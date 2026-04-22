@@ -1,4 +1,4 @@
-import { ArrowRightLeft } from "lucide-react";
+import { Handshake } from "lucide-react";
 import { z } from "zod/v4";
 import { NodeCategory } from "@/nodes/shared/registry-types";
 import type { NodeRegistryEntry } from "@/nodes/shared/registry-types";
@@ -40,8 +40,8 @@ export const handoffRegistryEntry: NodeRegistryEntry = {
   type: WorkflowNodeType.Handoff,
   displayName: "Handoff",
   description: "Pass context from one agent to another",
-  icon: ArrowRightLeft,
-  accentColor: "cyan",
+  icon: Handshake,
+  accentColor: "rose",
   accentHex: NODE_ACCENT.handoff,
   category: NodeCategory.ControlFlow,
   size: NodeSize.Medium,

@@ -63,17 +63,17 @@ describe("buildSystemPrompt parallel-agent clarifications", () => {
 });
 
 describe("buildSystemPrompt coming-soon nodes", () => {
-  it("omits handoff from the node catalogue (coming soon)", () => {
-    const prompt = buildSystemPrompt();
-    expect(prompt).not.toContain("### handoff");
-    expect(prompt).not.toContain("handoff:");
-    expect(prompt).not.toContain("./tmp/handoff-");
-    expect(prompt).not.toContain("payloadStyle");
-  });
-
   it("omits mcp-tool from the node catalogue (coming soon)", () => {
     const prompt = buildSystemPrompt();
     expect(prompt).not.toContain("### mcp-tool");
     expect(prompt).not.toContain("mcp-tool:");
+  });
+});
+
+describe("buildSystemPrompt parallel-agent branch rule", () => {
+  it("states that every parallel-agent branch must target an agent node", () => {
+    const prompt = buildSystemPrompt();
+    expect(prompt).toContain("PARALLEL-AGENT BRANCHES MUST TARGET AGENT NODES");
+    expect(prompt).toMatch(/target a node with `type === "agent"`|MUST be connected to exactly one external `agent` node/);
   });
 });
