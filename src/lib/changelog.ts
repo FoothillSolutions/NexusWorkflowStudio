@@ -22,6 +22,42 @@ export interface ChangelogEntry {
 // ─────────────────────────────────────────────────────────────────────────────
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "2.1.0",
+    date: "April 22, 2026",
+    categories: [
+      {
+        category: "New",
+        items: [
+          "Nexus AI: Generate, Edit, and Enhancements across the workflow editor",
+          "Brain for Files — link workflow files to your Brain library for reusable context",
+          "Live Collaboration on workflows",
+          "Workspaces for organizing and switching between multiple projects",
+          "Handoff node for passing control between agents",
+          "Memory customization in agents",
+        ],
+      },
+      {
+        category: "Improved",
+        items: [
+          "Enhanced AI Generate/Edit — now available on Parallel Agent shared instructions and Document nodes, with ⌘/Ctrl+Enter to submit",
+          "Parallel Agent now supports a dynamic number of subagents, cloned at runtime from a single template",
+          "AI Edit now asks for confirmation before proceeding",
+          "Enhanced Claude Code generated output",
+          "Added validation for generated workflows",
+          "Cleared unneeded frontmatter configurations from generated agent files",
+        ],
+      },
+      {
+        category: "Fixed",
+        items: [
+          "Fixed color selection for agents",
+          "Fixed agent dispatching in Claude Code",
+          "Fixed copying text in the fullscreen editor",
+        ],
+      },
+    ],
+  },
+  {
     version: "2.0.0",
     date: "April 2, 2026",
     categories: [
