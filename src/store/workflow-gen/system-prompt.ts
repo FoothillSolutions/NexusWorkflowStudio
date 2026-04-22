@@ -4,7 +4,15 @@
 // aiGenerationPrompt fields. Global/structural rules remain here.
 
 import { NODE_REGISTRY } from "@/lib/node-registry";
-import type { AiGenerationPrompt } from "@/nodes/shared/registry-types";
+import type { AiGenerationPrompt, NodeRegistryEntry } from "@/nodes/shared/registry-types";
+
+/** Only include nodes the AI is allowed to generate — inactive ("coming soon")
+ *  nodes are hidden from the prompt entirely so the LLM never emits them. */
+function activeRegistryEntries(): Array<[string, NodeRegistryEntry]> {
+  return Object.entries(NODE_REGISTRY).filter(
+    ([, entry]) => entry.active !== false,
+  );
+}
 
 // ─── Per-node section builders ───────────────────────────────────────────────
 
@@ -13,7 +21,7 @@ import type { AiGenerationPrompt } from "@/nodes/shared/registry-types";
  *  For nodes without one, falls back to dumping `defaultData()` fields. */
 function buildNodeCatalogue(): string {
   const lines: string[] = [];
-  for (const [type, entry] of Object.entries(NODE_REGISTRY)) {
+  for (const [type, entry] of activeRegistryEntries()) {
     const prompt = entry.aiGenerationPrompt;
     if (prompt) {
       lines.push(`### ${type}
@@ -41,7 +49,7 @@ ${fieldList}
 /** Build per-node edge rules from aiGenerationPrompt.edgeRules. */
 function buildNodeEdgeRules(): string {
   const sections: string[] = [];
-  for (const [, entry] of Object.entries(NODE_REGISTRY)) {
+  for (const [, entry] of activeRegistryEntries()) {
     const prompt = entry.aiGenerationPrompt;
     if (prompt?.edgeRules) {
       sections.push(prompt.edgeRules);
@@ -53,7 +61,7 @@ function buildNodeEdgeRules(): string {
 /** Build a combined "Node Relationships" section from nodes with connectionRules. */
 function buildRelationshipSections(): string {
   const sections: string[] = [];
-  for (const [type, entry] of Object.entries(NODE_REGISTRY)) {
+  for (const [type, entry] of activeRegistryEntries()) {
     const prompt = entry.aiGenerationPrompt;
     if (prompt?.connectionRules) {
       sections.push(`### ${entry.displayName} (${type})\n${prompt.connectionRules}`);
@@ -66,7 +74,7 @@ function buildRelationshipSections(): string {
 /** Build per-node generation hints. */
 function buildNodeGuidelines(): string {
   const hints: string[] = [];
-  for (const [, entry] of Object.entries(NODE_REGISTRY)) {
+  for (const [, entry] of activeRegistryEntries()) {
     const prompt = entry.aiGenerationPrompt;
     if (prompt?.generationHints?.length) {
       for (const hint of prompt.generationHints) {
@@ -86,7 +94,7 @@ function buildNodeGuidelines(): string {
  *  These are appended directly after the data template line for the node. */
 function buildNodeDataTemplatesWithNotes(): string {
   const lines: string[] = [];
-  for (const [type, entry] of Object.entries(NODE_REGISTRY)) {
+  for (const [type, entry] of activeRegistryEntries()) {
     const prompt = entry.aiGenerationPrompt;
     if (!prompt) continue;
 

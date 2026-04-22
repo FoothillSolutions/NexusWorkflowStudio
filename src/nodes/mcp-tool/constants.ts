@@ -7,7 +7,7 @@ import { WorkflowNodeType } from "@/types/workflow";
 import type { McpToolNodeData } from "./types";
 export const mcpToolRegistryEntry: NodeRegistryEntry = {
   type: WorkflowNodeType.McpTool, displayName: "MCP Tool", description: "Call an MCP tool",
-  icon: Plug, accentColor: "teal", accentHex: NODE_ACCENT["mcp-tool"], category: NodeCategory.Basic,
+  icon: Plug, accentColor: "teal", accentHex: NODE_ACCENT["mcp-tool"], category: NodeCategory.Basic, active: false,
   defaultData: (): McpToolNodeData => ({ type: WorkflowNodeType.McpTool, label: "MCP Tool", name: "", toolName: "", paramsText: "" }),
   aiGenerationPrompt: {
     description: "Call an MCP (Model Context Protocol) tool.",

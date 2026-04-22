@@ -62,30 +62,18 @@ describe("buildSystemPrompt parallel-agent clarifications", () => {
   });
 });
 
-describe("buildSystemPrompt handoff catalogue", () => {
-  it("includes a handoff entry in the node catalogue", () => {
+describe("buildSystemPrompt coming-soon nodes", () => {
+  it("omits handoff from the node catalogue (coming soon)", () => {
     const prompt = buildSystemPrompt();
-    expect(prompt).toContain("handoff");
+    expect(prompt).not.toContain("### handoff");
+    expect(prompt).not.toContain("handoff:");
+    expect(prompt).not.toContain("./tmp/handoff-");
+    expect(prompt).not.toContain("payloadStyle");
   });
 
-  it("documents both file and context handoff modes", () => {
+  it("omits mcp-tool from the node catalogue (coming soon)", () => {
     const prompt = buildSystemPrompt();
-    expect(prompt).toContain('"file"');
-    expect(prompt).toContain('"context"');
-  });
-
-  it("mentions the fileName field and explains blank means the node id is used", () => {
-    const prompt = buildSystemPrompt();
-    expect(prompt).toContain("fileName");
-    expect(prompt).toContain("node id");
-    expect(prompt).toContain("./tmp/handoff-");
-  });
-
-  it("documents both structured and freeform payload styles", () => {
-    const prompt = buildSystemPrompt();
-    expect(prompt).toContain("payloadStyle");
-    expect(prompt).toContain('"structured"');
-    expect(prompt).toContain('"freeform"');
-    expect(prompt).toContain("payloadPrompt");
+    expect(prompt).not.toContain("### mcp-tool");
+    expect(prompt).not.toContain("mcp-tool:");
   });
 });

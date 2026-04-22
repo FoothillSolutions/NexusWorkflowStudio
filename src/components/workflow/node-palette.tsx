@@ -2,7 +2,7 @@
 
 import { forwardRef, type ButtonHTMLAttributes, type ComponentType, type DragEvent } from "react";
 import { useWorkflowStore } from "@/store/workflow";
-import { BASIC_NODES, CONTROL_FLOW_NODES, type NodeRegistryEntry } from "@/lib/node-registry";
+import { BASIC_NODES, CONTROL_FLOW_NODES, NODE_REGISTRY, type NodeRegistryEntry } from "@/lib/node-registry";
 import {
   Menu,
   X,
@@ -33,8 +33,12 @@ import {
 import { cn } from "@/lib/utils";
 import { WorkflowNodeType, type NodeType } from "@/types/workflow";
 
-/** Node types that are disabled / coming soon */
-const COMING_SOON_TYPES = new Set<NodeType>([WorkflowNodeType.McpTool]);
+/** Node types that are disabled / coming soon — sourced from each registry entry's `active` flag. */
+const COMING_SOON_TYPES = new Set<NodeType>(
+  Object.values(NODE_REGISTRY)
+    .filter((entry) => entry.active === false)
+    .map((entry) => entry.type),
+);
 
 const COMING_SOON_BASIC = [
   { key: "variable", label: "Variable", description: "Store variables across nodes", icon: Braces, hex: "#84cc16" },
