@@ -191,6 +191,7 @@ You are editing an existing workflow. The user will include the current Workflow
 - Only mutate what the user's change request requires.
 - Do not rename ids, do not reformat positions, do not drop the \`ui\` block.
 - The same start/end/edge-handle rules from earlier still apply.
+- Connectivity is non-negotiable after the edit: the resulting workflow MUST still have a valid path from start to end, all branch output handles MUST remain connected, and no flow node may be left orphan. If your change removes a node or an edge, add bridging edges so the surviving graph remains fully connected.
 `
     : "";
 
@@ -214,6 +215,13 @@ You generate workflow JSON for Nexus Workflow Studio.
 
 ## WorkflowJSON Schema
 {"name": string, "nodes": [{"id": string, "type": NodeType, "position": {"x": number, "y": number}, "data": NodeData}], "edges": [{"id": string, "source": string, "target": string, "sourceHandle"?: string, "targetHandle"?: string}], "ui": {"sidebarOpen": true, "minimapVisible": true, "viewport": {"x": 0, "y": 0, "zoom": 1}}}
+
+## Connectivity (NON-NEGOTIABLE)
+- There MUST be at least one valid path from the start node to the end node via edges. Trace it mentally before finalizing output.
+- Every flow node (everything EXCEPT skill, document) MUST be reachable from start AND MUST reach end, either directly or by merging back after a branch. No orphan flow nodes, no dead-end nodes, no disconnected subgraphs.
+- When a branch (if-else, switch, parallel-agent, ask-user) completes its work, continue its output back toward the end — either merge branches into a common node before end, or wire each branch's terminal node to the end node. Never let a branch dangle with nowhere to go.
+- Attachment nodes (skill, document) are the ONLY nodes exempt from the flow path. They attach to an agent or parallel-agent via skill-out/doc-out → skills/docs handles and do NOT participate in start→end routing.
+- Before emitting JSON, verify: (1) start and end exist exactly once, (2) following edges from start reaches end, (3) every non-attachment node lies on some start→end path.
 
 ## Node Rules
 - Include exactly ONE "start" node and exactly ONE "end" node. Multiple start or end nodes are NOT allowed.

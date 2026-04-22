@@ -28,7 +28,16 @@ Rules:
 - Favor concrete structural improvements: add missing branches, error handling, validation, parallelism, sub-workflow extraction, better prompts/models, memory/tool tightening, skill/document attachments.
 - Do NOT propose suggestions that require new external systems or user-provided secrets.
 - Do NOT repeat suggestions.
-- Prefer improvements that change at most 2-3 nodes at a time.`;
+- Prefer improvements that change at most 2-3 nodes at a time.
+
+Structural requirements for every suggestion (non-negotiable — the applier will strictly enforce them):
+- The workflow must keep exactly ONE start node and ONE end node.
+- After your suggestion is applied, there MUST still be a valid path from start to end through edges.
+- Every flow node (everything except skill/document attachments) must remain reachable from start AND reach end. Never propose changes that would leave nodes dangling.
+- All branch output handles must remain connected: if-else true/false, switch branches, parallel-agent branch-N (fixed) or single output (dynamic), ask-user option-N.
+- Attachment nodes (skill, document) only connect to agent or parallel-agent via skill-out/doc-out → skills/docs handles — never place them on the main flow.
+- Parallel-agent branches must always target an \`agent\` node; do not suggest wiring them to anything else.
+- If you suggest adding a node mid-flow, explicitly describe how it is spliced in (which existing edge is redirected) so the applier keeps the graph connected.`;
 
 /** Generate a stable-ish id for each suggestion. */
 function newSuggestionId(): string {

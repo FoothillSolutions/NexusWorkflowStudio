@@ -3,11 +3,16 @@
 // response via SSE, incrementally parses the JSON, and pushes nodes/edges
 // to the canvas in real-time.
 
+import { toast } from "sonner";
 import { useOpenCodeStore } from "../opencode";
 import { useWorkflowStore } from "../workflow";
 import { useSavedWorkflowsStore } from "../library";
 import { AGENT_TOOLS } from "@/nodes/agent/constants";
 import { validateWorkflowJson } from "@/lib/workflow-validation";
+import {
+  summarizeStructuralIssues,
+  validateWorkflowStructure,
+} from "@/lib/workflow-structure-validator";
 import { WorkflowNodeType, type NodeType, type WorkflowNode, type WorkflowJSON } from "@/types/workflow";
 import type { StoreGet, StoreSet } from "./types";
 import { estimateTokens } from "./types";
@@ -515,6 +520,23 @@ export async function generate(set: StoreSet, get: StoreGet): Promise<void> {
 
       const finalNodes = useWorkflowStore.getState().nodes;
       const finalEdges = useWorkflowStore.getState().edges;
+
+      // Structural validation — warn when the generated/edited workflow lacks
+      // a valid start→end path or leaves flow nodes orphan. Non-blocking: the
+      // canvas already reflects the AI output, but the user should know.
+      try {
+        const finalWorkflow = useWorkflowStore.getState().getWorkflowJSON();
+        const structuralIssues = validateWorkflowStructure(finalWorkflow);
+        const errors = structuralIssues.filter((i) => i.severity === "error");
+        if (errors.length > 0) {
+          console.warn("AI-generated workflow has structural issues:", structuralIssues);
+          const bullets = errors.slice(0, 3).map((e) => `• ${e.message}`).join("\n");
+          toast.warning(
+            `Workflow may be incomplete: ${summarizeStructuralIssues(structuralIssues)}`,
+            { description: bullets, duration: 8000 },
+          );
+        }
+      } catch { /* validator must never crash generation */ }
 
       set({
         status: "done",
