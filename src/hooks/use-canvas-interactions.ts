@@ -258,6 +258,8 @@ export function useCanvasInteractions(callbacks: CanvasInteractionCallbacks) {
 
       if (isMod && !e.shiftKey && lowerKey === "c") {
         if (copyableSelected.length === 0) return;
+        const docSelection = typeof window !== "undefined" ? window.getSelection() : null;
+        if (docSelection && !docSelection.isCollapsed && docSelection.toString().length > 0) return;
         e.preventDefault();
         const copiedCount = copySelectedNodes();
         if (copiedCount > 0) {
