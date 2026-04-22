@@ -292,8 +292,21 @@ export function PromptGenBody() {
     editWithAi({ currentPrompt: targetPrompt, editInstruction, modelId, providerId, connectedResourceNames, nodeType, connectedNodeContext });
   }, [targetPrompt, editInstruction, genModel, editWithAi]);
 
+  // Cmd+Enter (macOS) / Ctrl+Enter (Windows/Linux) submits from any input inside the panel.
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== "Enter") return;
+    if (!(e.metaKey || e.ctrlKey)) return;
+    if (isGenerating || !canSubmit || !isConnected) return;
+    e.preventDefault();
+    if (isEditMode) {
+      handleEdit();
+    } else {
+      handleGenerate();
+    }
+  }, [isGenerating, canSubmit, isConnected, isEditMode, handleEdit, handleGenerate]);
+
   return (
-    <>
+    <div className="contents" onKeyDown={handleKeyDown}>
       {/* Model selector */}
       <div className="space-y-1.5">
         <Label className="text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Generation Model</Label>
@@ -506,6 +519,7 @@ export function PromptGenBody() {
             type="button"
             onClick={isEditMode ? handleEdit : handleGenerate}
             disabled={isGenerating || !canSubmit || !isConnected}
+            title={typeof navigator !== "undefined" && /Mac|iPhone|iPod|iPad/i.test(navigator.platform) ? "⌘ + Enter" : "Ctrl + Enter"}
             className={cn(
               "flex-1 h-9 rounded-lg text-xs font-medium gap-2 transition-all",
               isEditMode ? "bg-amber-600 hover:bg-amber-500 text-white" : "bg-violet-600 hover:bg-violet-500 text-white",
@@ -570,7 +584,7 @@ export function PromptGenBody() {
           }}
         />
       )}
-    </>
+    </div>
   );
 }
 
