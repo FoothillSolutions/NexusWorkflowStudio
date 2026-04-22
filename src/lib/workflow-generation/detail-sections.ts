@@ -204,10 +204,16 @@ export function buildParallelAgentDetailsSection(
             candidate.sourceHandle === `branch-${index}`,
         );
         const targetNode = edge ? nodeById.get(edge.target) : null;
-        const targetLabel = targetNode?.id || "Unconnected";
+        const targetAgentName = targetNode
+          ? ((targetNode.data as { name?: string })?.name || `agent-${targetNode.id}`)
+          : null;
         const spawnCount = Math.max(1, Number(branch.spawnCount ?? 1));
+        const branchLabel = branch.label || `Branch ${index + 1}`;
+        const dispatchClause = targetAgentName
+          ? `dispatch \`${targetAgentName}\` using the \`Agent\` tool x${spawnCount}`
+          : `(no agent connected — wire this branch to an \`agent\` node)`;
         lines.push(
-          `- **branch-${index}** (${branch.label || `Branch ${index + 1}`}) → spawn **${targetLabel}** x${spawnCount}`,
+          `- **branch-${index}** (${branchLabel}) → ${dispatchClause}`,
         );
         if (branch.instructions?.trim()) {
           lines.push(`  - Notes: ${branch.instructions.trim()}`);
@@ -216,7 +222,7 @@ export function buildParallelAgentDetailsSection(
 
       lines.push(
         "",
-        "**Execution method**: Spawn the connected downstream agent for each branch handle in parallel using the configured branch counts.",
+        "**Execution method**: For each branch, dispatch the connected agent using the `Agent` tool the configured number of times; run the branches in parallel. Follow the per-agent dispatch details under `## Agent Node Details`.",
       );
       sections.push(lines.join("\n"));
       continue;
@@ -238,6 +244,9 @@ export function buildParallelAgentDetailsSection(
     const templateTarget = outgoingEdge ? nodeById.get(outgoingEdge.target) : null;
     const templateId = templateTarget?.id ?? "<agent-not-connected>";
     const templateConnected = templateTarget !== null && templateTarget !== undefined;
+    const templateAgentName = templateTarget
+      ? ((templateTarget.data as { name?: string })?.name || `agent-${templateTarget.id}`)
+      : templateId;
 
     const lines: string[] = [`#### ${mermaidId(node.id)}`, ""];
 
@@ -253,9 +262,9 @@ export function buildParallelAgentDetailsSection(
     }
 
     lines.push(
-      `Spawn \`${templateId}\` ${rangePhrase} based on: ${criterion}. For each spawned instance, dispatch it as follows:`,
+      `Spawn \`${templateAgentName}\` ${rangePhrase} based on: ${criterion}. For each spawned instance, dispatch it as follows:`,
       "",
-      `#### ${templateId} (Agent: ${templateId})`,
+      `#### ${templateId}(Agent: ${templateAgentName})`,
       "",
     );
 
@@ -295,9 +304,9 @@ export function buildParallelAgentDetailsSection(
     }
 
     if (inputs.length === 0) {
-      lines.push(`Dispatch \`${templateId}\` using the \`Agent\` tool.`);
+      lines.push(`Dispatch \`${templateAgentName}\` using the \`Agent\` tool.`);
     } else {
-      lines.push(`Dispatch \`${templateId}\` using the \`Agent\` tool with inputs:`);
+      lines.push(`Dispatch \`${templateAgentName}\` using the \`Agent\` tool with inputs:`);
       lines.push(...inputs);
     }
 
