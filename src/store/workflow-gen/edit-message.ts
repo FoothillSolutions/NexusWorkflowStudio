@@ -26,7 +26,7 @@ export function buildEditUserMessage(current: WorkflowJSON, userPrompt: string):
 
 Editing an existing workflow. Preserve IDs, positions, and data fields of nodes and edges that the user did NOT explicitly ask to change. Only modify what is required by the edit request. Return the COMPLETE updated WorkflowJSON (not a diff).
 
-Connectivity (mandatory): the edited workflow MUST still have a valid path from the start node to the end node, and every flow node (everything except skill/document attachments) MUST lie on some start→end path. If your edit removes or rewires a node, add bridging edges so nothing is left orphan. All branch output handles (if-else true/false, switch branches, parallel-agent branch-N, ask-user option-N) must remain connected.
+Connectivity (mandatory): the edited workflow MUST still have EXACTLY ONE start node and EXACTLY ONE end node. Never add a second "end" — converge all outcomes on the existing single end. There MUST be a valid path from start to that single end, and every flow node (everything except skill/document attachments) MUST lie on some start→end path. If your edit removes or rewires a node, add bridging edges so nothing is left orphan. All branch output handles (if-else true/false, switch branches, parallel-agent branch-N, ask-user option-N) must remain connected and must ultimately lead to the single end node.
 
 Current workflow:
 \`\`\`json

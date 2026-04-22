@@ -31,13 +31,13 @@ Rules:
 - Prefer improvements that change at most 2-3 nodes at a time.
 
 Structural requirements for every suggestion (non-negotiable — the applier will strictly enforce them):
-- The workflow must keep exactly ONE start node and ONE end node.
-- After your suggestion is applied, there MUST still be a valid path from start to end through edges.
-- Every flow node (everything except skill/document attachments) must remain reachable from start AND reach end. Never propose changes that would leave nodes dangling.
-- All branch output handles must remain connected: if-else true/false, switch branches, parallel-agent branch-N (fixed) or single output (dynamic), ask-user option-N.
+- The workflow must keep EXACTLY ONE start node and EXACTLY ONE end node. NEVER suggest adding a second "end" node, a per-branch end, or an alternate terminal. If multiple outcomes need to finish, converge them on the existing single end node.
+- After your suggestion is applied, there MUST still be a valid path from start to that single end node through edges.
+- Every flow node (everything except skill/document attachments) must remain reachable from start AND reach the one end. Never propose changes that would leave nodes dangling or introduce a parallel terminal.
+- All branch output handles must remain connected and must ultimately lead to the single end node: if-else true/false, switch branches, parallel-agent branch-N (fixed) or single output (dynamic), ask-user option-N.
 - Attachment nodes (skill, document) only connect to agent or parallel-agent via skill-out/doc-out → skills/docs handles — never place them on the main flow.
 - Parallel-agent branches must always target an \`agent\` node; do not suggest wiring them to anything else.
-- If you suggest adding a node mid-flow, explicitly describe how it is spliced in (which existing edge is redirected) so the applier keeps the graph connected.`;
+- If you suggest adding a node mid-flow, explicitly describe how it is spliced in (which existing edge is redirected) so the applier keeps the graph connected and the single end intact.`;
 
 /** Generate a stable-ish id for each suggestion. */
 function newSuggestionId(): string {
