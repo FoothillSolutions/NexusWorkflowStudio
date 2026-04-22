@@ -50,15 +50,17 @@ export const usePromptGenStore = create<PromptGenState>((set, get) => ({
   expandedSections: new Set<string>(),
   targetNodeId: null,
   targetNodeType: null,
+  targetField: "promptText",
   targetPrompt: "",
   floating: false,
   collapsed: false,
 
-  open: (nodeId, currentPrompt, view, nodeType) => {
+  open: (nodeId, currentPrompt, view, nodeType, targetField) => {
     set({
       view,
       targetNodeId: nodeId,
       targetNodeType: nodeType ?? DEFAULT_PROMPT_GEN_NODE_TYPE,
+      targetField: targetField ?? "promptText",
       targetPrompt: currentPrompt,
       floating: false,
       collapsed: false,
@@ -110,22 +112,23 @@ export const usePromptGenStore = create<PromptGenState>((set, get) => ({
   registerFormSetValue: (sv) => set({ _formSetValue: sv }),
 
   applyResult: () => {
-    const { generatedText, _formSetValue, targetNodeId } = get();
+    const { generatedText, _formSetValue, targetNodeId, targetField } = get();
     if (!generatedText.trim()) return;
 
     // Use the form's setValue (updates react-hook-form → triggers watchedValues → workflow store sync)
     if (_formSetValue) {
-      _formSetValue("promptText" as never, generatedText as never, { shouldDirty: true });
+      _formSetValue(targetField as never, generatedText as never, { shouldDirty: true });
     } else if (targetNodeId) {
       // Fallback: when floating/undocked and the properties panel is closed,
       // _formSetValue is null. Update the workflow store node data directly.
       const ws = useWorkflowStore.getState();
       const inMain = ws.nodes.some((n: { id: string }) => n.id === targetNodeId);
       const inSub = !inMain && ws.subWorkflowNodes.some((n: { id: string }) => n.id === targetNodeId);
+      const patch = { [targetField]: generatedText } as never;
       if (inMain) {
-        ws.updateNodeData(targetNodeId, { promptText: generatedText } as never);
+        ws.updateNodeData(targetNodeId, patch);
       } else if (inSub) {
-        ws.updateSubNodeData(targetNodeId, { promptText: generatedText } as never);
+        ws.updateSubNodeData(targetNodeId, patch);
       }
     }
 
@@ -295,6 +298,7 @@ export const usePromptGenStore = create<PromptGenState>((set, get) => ({
       collapsed: false,
       targetNodeId: null,
       targetNodeType: null,
+      targetField: "promptText",
       targetPrompt: "",
       editInstruction: "",
       fields: {},

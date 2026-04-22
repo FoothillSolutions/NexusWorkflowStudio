@@ -15,7 +15,9 @@ export type PromptGenNodeType =
   | WorkflowNodeType.Agent
   | WorkflowNodeType.Prompt
   | WorkflowNodeType.Skill
-  | WorkflowNodeType.Script;
+  | WorkflowNodeType.Script
+  | WorkflowNodeType.ParallelAgent
+  | WorkflowNodeType.Document;
 
 export interface PromptGenTemplateFields {
   title?: string;
@@ -75,6 +77,7 @@ export interface PromptGenState {
   expandedSections: Set<string>;
   targetNodeId: string | null;
   targetNodeType: PromptGenNodeType | null;
+  targetField: string;
   targetPrompt: string;
   floating: boolean;
   collapsed: boolean;
@@ -84,6 +87,7 @@ export interface PromptGenState {
     currentPrompt: string,
     view: PromptGenView,
     nodeType?: PromptGenNodeType,
+    targetField?: string,
   ) => void;
   close: () => void;
   setView: (view: PromptGenView) => void;
