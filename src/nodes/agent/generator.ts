@@ -21,11 +21,15 @@ import { SubAgentModel, SubAgentMemory } from "./types";
 /**
  * Build frontmatter lines restricted to Claude Code's supported fields.
  * See https://code.claude.com/docs/en/sub-agents#supported-frontmatter-fields.
+ *
+ * Skills and documents are intentionally NOT emitted here — they are not
+ * part of Claude Code's supported frontmatter schema. Referenced skill/doc
+ * files are still generated alongside the agent and can be read from the
+ * body (e.g. via Variables mappings).
  */
 function buildClaudeCodeFrontmatter(
   agentName: string,
   d: SubAgentNodeData,
-  connectedSkillNames?: string[],
 ): string[] {
   const lines: string[] = [];
   lines.push(`name: ${agentName}`);
@@ -49,13 +53,6 @@ function buildClaudeCodeFrontmatter(
       .filter((t): t is string => t !== null);
     if (mapped.length > 0) {
       lines.push(`disallowedTools: ${mapped.join(", ")}`);
-    }
-  }
-
-  if (connectedSkillNames && connectedSkillNames.length > 0) {
-    lines.push(`skills:`);
-    for (const name of connectedSkillNames) {
-      lines.push(`  - ${name}`);
     }
   }
 
@@ -133,7 +130,7 @@ export function buildAgentFile(
   const lines: string[] = ["---"];
   const frontmatter =
     target === "claude-code"
-      ? buildClaudeCodeFrontmatter(agentName, d, connectedSkillNames)
+      ? buildClaudeCodeFrontmatter(agentName, d)
       : buildOpenCodeFrontmatter(d, agentName, connectedSkillNames, connectedDocNames);
   lines.push(...frontmatter);
   lines.push("---");
