@@ -10,7 +10,6 @@ import {
   TerminalSquare,
   Shield,
   ShieldCheck,
-  Handshake,
   Scale,
   Sparkles,
   Grip,
@@ -46,7 +45,6 @@ const COMING_SOON_CONTROL = [
   { key: "validation", label: "Validation", description: "Check output of a branch", icon: ShieldCheck, hex: "#22d3ee" },
   { key: "guards", label: "Guards", description: "Add protective guardrails", icon: Shield, hex: "#38bdf8" },
   { key: "rules", label: "Rules", description: "Define reusable rules", icon: Scale, hex: "#f59e0b" },
-  { key: "hands-off", label: "Hands Off", description: "Define handing off method", icon: Handshake, hex: "#fb7185" },
 ] as const;
 
 const PANEL_SHELL_CLASS = buildWorkflowPanelShellClass("top-16 left-4");
