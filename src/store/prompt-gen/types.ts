@@ -82,6 +82,9 @@ export interface PromptGenState {
   floating: boolean;
   collapsed: boolean;
 
+  // Diff review dialog state — driven by `openDiffReview` / `closeDiffReview`.
+  diffReviewOpen: boolean;
+
   open: (
     nodeId: string,
     currentPrompt: string,
@@ -102,6 +105,9 @@ export interface PromptGenState {
   setTargetPrompt: (prompt: string) => void;
   registerFormSetValue: (sv: FormSetValue | null) => void;
   applyResult: () => void;
+  openDiffReview: () => void;
+  closeDiffReview: () => void;
+  applyMergedResult: (merged: string) => void;
 
   ensureSession: () => Promise<string | null>;
   generate: (payload: GeneratePayload) => Promise<void>;

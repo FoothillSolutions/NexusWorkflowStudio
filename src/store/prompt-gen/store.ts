@@ -54,6 +54,7 @@ export const usePromptGenStore = create<PromptGenState>((set, get) => ({
   targetPrompt: "",
   floating: false,
   collapsed: false,
+  diffReviewOpen: false,
 
   open: (nodeId, currentPrompt, view, nodeType, targetField) => {
     set({
@@ -144,6 +145,50 @@ export const usePromptGenStore = create<PromptGenState>((set, get) => ({
       editInstruction: "",
       fields: {},
       expandedSections: new Set<string>(),
+    });
+  },
+
+  // ── Diff review flow ──────────────────────────────────────────────────────
+  // `openDiffReview` is gated on a successful generation; it never opens the
+  // dialog when there is nothing to compare. `closeDiffReview` is a pure
+  // cancel — it does not touch `generatedText` or `status`, so the user can
+  // still redo or re-open the dialog after cancelling.
+  openDiffReview: () => {
+    const { status, generatedText } = get();
+    if (status !== "done" || !generatedText.trim()) return;
+    set({ diffReviewOpen: true });
+  },
+  closeDiffReview: () => set({ diffReviewOpen: false }),
+  applyMergedResult: (merged) => {
+    const { _formSetValue, targetNodeId, targetField } = get();
+
+    if (_formSetValue) {
+      _formSetValue(targetField as never, merged as never, { shouldDirty: true });
+    } else if (targetNodeId) {
+      const ws = useWorkflowStore.getState();
+      const inMain = ws.nodes.some((n: { id: string }) => n.id === targetNodeId);
+      const inSub = !inMain && ws.subWorkflowNodes.some((n: { id: string }) => n.id === targetNodeId);
+      const patch = { [targetField]: merged } as never;
+      if (inMain) {
+        ws.updateNodeData(targetNodeId, patch);
+      } else if (inSub) {
+        ws.updateSubNodeData(targetNodeId, patch);
+      }
+    }
+
+    set({
+      status: "idle",
+      generatedText: "",
+      generatedTokens: 0,
+      error: null,
+      view: "closed",
+      floating: false,
+      collapsed: false,
+      freeformText: "",
+      editInstruction: "",
+      fields: {},
+      expandedSections: new Set<string>(),
+      diffReviewOpen: false,
     });
   },
 
@@ -303,6 +348,7 @@ export const usePromptGenStore = create<PromptGenState>((set, get) => ({
       editInstruction: "",
       fields: {},
       expandedSections: new Set<string>(),
+      diffReviewOpen: false,
     });
   },
 

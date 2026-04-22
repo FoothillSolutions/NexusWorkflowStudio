@@ -5,6 +5,7 @@ import {
   Sparkles, Wand2, ChevronDown, Loader2, Check, RotateCcw,
   Layers, FileText, Square, Lightbulb, Eye, Lock, Zap,
   FolderTree, GitBranch, FileCode, TestTubes, Type, Target, Variable, ListChecks,
+  GitCompareArrows,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -165,7 +166,7 @@ export function PromptGenBody() {
   const generate = usePromptGenStore((s) => s.generate);
   const editWithAi = usePromptGenStore((s) => s.editWithAi);
   const cancel = usePromptGenStore((s) => s.cancel);
-  const applyResult = usePromptGenStore((s) => s.applyResult);
+  const openDiffReview = usePromptGenStore((s) => s.openDiffReview);
 
   const isConnected = useOpenCodeStore((s) => s.status) === "connected";
 
@@ -195,13 +196,6 @@ export function PromptGenBody() {
       : isDocumentNode
         ? "Current document"
         : "Current prompt";
-  const applyContentLabel = isScriptNode
-    ? "Apply to Script"
-    : isParallelAgentNode
-      ? "Apply to Shared Instructions"
-      : isDocumentNode
-        ? "Apply to Document"
-        : "Apply to Prompt";
   const editContentLabel = isScriptNode
     ? "Edit Script"
     : isParallelAgentNode
@@ -535,8 +529,8 @@ export function PromptGenBody() {
         )}
         {hasResult && (
           <>
-            <Button type="button" onClick={applyResult} className="flex-1 h-9 rounded-lg text-xs font-medium gap-2 bg-emerald-600 hover:bg-emerald-500 text-white">
-              <Check size={13} /> {applyContentLabel}
+            <Button type="button" onClick={openDiffReview} className="flex-1 h-9 rounded-lg text-xs font-medium gap-2 bg-emerald-600 hover:bg-emerald-500 text-white">
+              <GitCompareArrows size={13} /> Review changes
             </Button>
             <Button type="button" onClick={isEditMode ? handleEdit : handleGenerate} variant="ghost" className="h-9 px-3 rounded-lg text-xs font-medium gap-1.5 text-zinc-400 hover:text-zinc-200">
               <RotateCcw size={12} /> Redo
@@ -563,11 +557,11 @@ export function PromptGenBody() {
           title={generatedContentLabel}
           placeholder="AI-generated Bun script will appear here…"
           onSave={(val) => {
-            const sv = usePromptGenStore.getState()._formSetValue;
-            if (sv) {
-              sv("promptText" as never, val as never, { shouldDirty: true });
-            }
             setViewOpen(false);
+            const current = usePromptGenStore.getState().targetPrompt;
+            if (val === current) return;
+            usePromptGenStore.setState({ generatedText: val, status: "done" });
+            usePromptGenStore.getState().openDiffReview();
           }}
         />
       ) : (
@@ -576,11 +570,11 @@ export function PromptGenBody() {
           onOpenChange={setViewOpen}
           value={generatedText}
           onSave={(val) => {
-            const sv = usePromptGenStore.getState()._formSetValue;
-            if (sv) {
-              sv("promptText" as never, val as never, { shouldDirty: true });
-            }
             setViewOpen(false);
+            const current = usePromptGenStore.getState().targetPrompt;
+            if (val === current) return;
+            usePromptGenStore.setState({ generatedText: val, status: "done" });
+            usePromptGenStore.getState().openDiffReview();
           }}
         />
       )}

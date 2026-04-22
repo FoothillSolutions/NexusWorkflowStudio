@@ -28,6 +28,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       {
         category: "New",
         items: [
+          "AI Diff Review — review AI-generated changes hunk-by-hunk with accept/reject controls in an in-editor diff viewer before committing to the node",
           "Nexus AI: Generate, Edit, and Enhancements across the workflow editor",
           "Brain for Files — link workflow files to your Brain library for reusable context",
           "Live Collaboration on workflows",
