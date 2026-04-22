@@ -388,6 +388,13 @@ function buildCommandMarkdown(
 Follow the Mermaid flowchart above to execute the workflow starting from \`${mermaidId(startNodeId)}\` node. Each node type has specific execution methods as described below.
 Split each flow path into a todo item using todowrite and todoread tools, and update the todo list correspondingly.
 
+### Context Isolation Between Steps
+Each dispatched Agent step runs in an isolated context. **Do NOT pass results, output, or context from one step into the next** by default. Exceptions:
+- **Handoff nodes** on the edge between two steps — follow the handoff node's payload template to carry exactly the declared fields forward (file-mode: read/write the handoff file; context-mode: inline the "Handoff Payload" section into the next agent's prompt).
+- **Parallel Agent dispatches** — the shared instructions and each branch's per-instance inputs define what every spawned agent receives; no additional context flows in beyond those.
+
+If neither a Handoff node nor a Parallel Agent dispatch is present, treat the next step as a fresh dispatch with only the inputs declared in its own dispatch block.
+
 ### Positional Arguments
 Workflow arguments are **comma-separated and trimmed**. For example \`/workflow 2, 5, 10\` yields \`$1=2\`, \`$2=5\`, \`$3=10\`.
 
