@@ -4,11 +4,16 @@ import { useMemo } from "react";
 import { useStore } from "@xyflow/react";
 import { useAwarenessStore } from "@/store/collaboration";
 import { useCollabStore } from "@/store/collaboration";
+import { isPeerActive, useIdleTicker } from "./peer-activity";
+
+// Cursor opacity while a peer is idle — still visible so you know where they
+// last were, but clearly de-emphasized compared to active peers.
+const IDLE_CURSOR_OPACITY = 0.35;
 
 /**
  * Renders remote peer cursors Excalidraw-style. Each cursor is positioned
  * via the React Flow viewport transform so it tracks pan/zoom without
- * having to re-broadcast on scroll.
+ * having to re-broadcast on scroll. Idle peers are dimmed and marked.
  *
  * Must be rendered inside a ReactFlowProvider.
  */
@@ -19,8 +24,14 @@ export function CollabCursors() {
   // Subscribing to transform keeps cursor positions in sync with pan/zoom.
   const [tx, ty, tz] = useStore((s) => s.transform);
 
+  // Re-render periodically so cursors dim without an awareness update.
+  useIdleTicker();
+
   const visible = useMemo(
-    () => peers.filter((p) => p.cursor && typeof p.cursor.x === "number" && typeof p.cursor.y === "number"),
+    () =>
+      peers.filter(
+        (p) => p.cursor && typeof p.cursor.x === "number" && typeof p.cursor.y === "number",
+      ),
     [peers],
   );
 
@@ -34,14 +45,16 @@ export function CollabCursors() {
       {visible.map((peer) => {
         const screenX = peer.cursor!.x * tz + tx;
         const screenY = peer.cursor!.y * tz + ty;
+        const active = isPeerActive(peer.lastActiveAt);
         return (
           <div
             key={peer.clientId}
             className="absolute"
             style={{
               transform: `translate3d(${screenX}px, ${screenY}px, 0)`,
-              transition: "transform 60ms linear",
+              transition: "transform 60ms linear, opacity 200ms ease-out",
               willChange: "transform",
+              opacity: active ? 1 : IDLE_CURSOR_OPACITY,
             }}
           >
             <CursorSvg color={peer.user.color} />
@@ -50,6 +63,7 @@ export function CollabCursors() {
               style={{ backgroundColor: peer.user.color }}
             >
               {peer.user.name}
+              {!active && <span className="ml-1 opacity-75">· idle</span>}
             </div>
           </div>
         );

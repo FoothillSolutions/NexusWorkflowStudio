@@ -60,6 +60,7 @@ interface RemoteAwarenessState {
   selectedNodeId?: string | null;
   cursor?: CursorPosition | null;
   kickRequest?: KickRequest | null;
+  lastActiveAt?: number | null;
 }
 
 // How long to wait for initial connection before declaring failure.
@@ -134,6 +135,12 @@ export class CollabDoc {
   // sees the same authoritative ownership record on the server.
   private _yMeta: Y.Map<string>;
   private _claimOwnershipOnSync = false;
+
+  // Gate Zustand → Y.Doc subscribers until after the initial sync.
+  // Writing local state into the shared doc before the remote snapshot has
+  // loaded causes CRDT merge to concatenate both clients' inserts (e.g. the
+  // workflow name doubling to "AlphaAlpha" on every guest join).
+  private _initialSyncApplied = false;
 
   // Track peers for join/leave toasts
   private _prevPeerNames = new Map<number, string>();
@@ -237,6 +244,13 @@ export class CollabDoc {
           this._clearConnectTimer();
           this._claimOwnershipIfRequested();
           this._recomputeOwnerStatus();
+
+          // First sync is done — safe to start mirroring local Zustand
+          // state into the Y.Doc. Subsequent syncs (reconnects) are no-ops.
+          if (!this._initialSyncApplied) {
+            this._initialSyncApplied = true;
+            this._registerLocalSubscribers();
+          }
         }
       },
       onDisconnect: () => {
@@ -260,6 +274,7 @@ export class CollabDoc {
     this._provider.setAwarenessField("selectedNodeId", null);
     this._provider.setAwarenessField("cursor", null);
     this._provider.setAwarenessField("kickRequest", null);
+    this._provider.setAwarenessField("lastActiveAt", Date.now());
 
     // Watchdog — if we still haven't connected after CONNECT_TIMEOUT_MS,
     // clear the initializing state and surface the problem so the UI stops
@@ -277,7 +292,27 @@ export class CollabDoc {
     this._yDocs.observe(this._onRemoteBrainChange);
     this._yMeta.observe(this._onMetaChange);
 
-    // Register subscriber: Zustand changes → Y.Doc
+    // Zustand → Y.Doc subscribers are registered *after* the initial sync
+    // fires (see `_registerLocalSubscribers`). Registering them here would
+    // race the remote snapshot and cause CRDT merge to duplicate local text
+    // inserts into the shared doc.
+    this._initialSyncApplied = false;
+  }
+
+  private _registerLocalSubscribers(): void {
+    if (this._storeUnsub || this._brainStoreUnsub) return;
+
+    // Initialize the "last synced" reference cache from the *post-sync*
+    // Zustand state so the subscriber's equality check doesn't flag an
+    // artificial change on the first tick.
+    const currentWorkflow = useWorkflowStore.getState();
+    this._lastSyncedNodes = currentWorkflow.nodes;
+    this._lastSyncedEdges = currentWorkflow.edges;
+    this._lastSyncedName = currentWorkflow.name;
+
+    const currentKnowledge = useKnowledgeStore.getState();
+    this._lastSyncedDocs = currentKnowledge.docs;
+
     this._storeUnsub = useWorkflowStore.subscribe((state) => {
       if (_isApplyingRemote) return;
 
@@ -298,7 +333,6 @@ export class CollabDoc {
       });
     });
 
-    // Brain: Zustand knowledge store → Y.Doc
     this._brainStoreUnsub = useKnowledgeStore.subscribe((state) => {
       if (_isApplyingRemoteBrain) return;
       if (state.docs === this._lastSyncedDocs) return;
@@ -309,7 +343,6 @@ export class CollabDoc {
         this._syncDocsToYjs(state.docs);
       });
     });
-
   }
 
   private _clearConnectTimer(): void {
@@ -354,6 +387,7 @@ export class CollabDoc {
     useAwarenessStore.getState()._setPeers([]);
 
     this._claimOwnershipOnSync = false;
+    this._initialSyncApplied = false;
 
     CollabDoc._instance = null;
   }
@@ -402,6 +436,7 @@ export class CollabDoc {
   updateAwareness(patch: {
     selectedNodeId?: string | null;
     cursor?: CursorPosition | null;
+    lastActiveAt?: number | null;
   }): void {
     if (!this._provider) return;
     for (const [key, value] of Object.entries(patch)) {
@@ -670,6 +705,7 @@ export class CollabDoc {
         },
         selectedNodeId: state.selectedNodeId ?? null,
         cursor: state.cursor ?? null,
+        lastActiveAt: state.lastActiveAt ?? null,
       });
       currentNames.set(clientId, state.user.name);
     }

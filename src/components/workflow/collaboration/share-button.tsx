@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Share2, Copy, Check, Loader2, Users, X, UserX, Pencil } from "lucide-react";
+import { useReactFlow } from "@xyflow/react";
+import { Share2, Copy, Check, Loader2, Users, X, UserX, Pencil, Crosshair } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,6 +16,7 @@ import { useCollabStore, createRoomId, useAwarenessStore } from "@/store/collabo
 import { useWorkflowStore } from "@/store/workflow";
 import { toast } from "sonner";
 import { TEXT_MUTED } from "@/lib/theme";
+import { isPeerActive, useIdleTicker } from "./peer-activity";
 
 interface ShareButtonProps {
   shareUrlOverride?: string;
@@ -92,6 +94,16 @@ export function ShareButton({ shareUrlOverride }: ShareButtonProps = {}) {
     setTimeout(() => setCopied(false), 2000);
   }, [collabUrl]);
 
+  const { setCenter, getZoom } = useReactFlow();
+  const handleFocusPeer = useCallback(
+    (cursor: { x: number; y: number }) => {
+      const zoom = Math.max(getZoom(), 0.75);
+      void setCenter(cursor.x, cursor.y, { zoom, duration: 400 });
+      setOpen(false);
+    },
+    [setCenter, getZoom],
+  );
+
   // Workspace mode: share button always copies workspace URL
   if (shareUrlOverride) {
     const activeToneClass = isReconnecting
@@ -137,6 +149,7 @@ export function ShareButton({ shareUrlOverride }: ShareButtonProps = {}) {
           showStop={false}
           onStop={() => { /* workspace mode has no owner */ }}
           onLeave={handleLeave}
+          onFocusPeer={handleFocusPeer}
           isConnected={isConnected}
           isInitializing={isInitializing}
           isReconnecting={isReconnecting}
@@ -199,6 +212,7 @@ export function ShareButton({ shareUrlOverride }: ShareButtonProps = {}) {
         showStop={isOwner}
         onStop={handleStop}
         onLeave={handleLeave}
+        onFocusPeer={handleFocusPeer}
         isConnected={isConnected}
         isInitializing={isInitializing}
         isReconnecting={isReconnecting}
@@ -238,6 +252,7 @@ interface ShareDialogProps {
   showStop: boolean;
   onStop: () => void;
   onLeave: () => void;
+  onFocusPeer: (cursor: { x: number; y: number }) => void;
   isConnected: boolean;
   isInitializing: boolean;
   isReconnecting: boolean;
@@ -254,6 +269,7 @@ function ShareDialog({
   showStop,
   onStop,
   onLeave,
+  onFocusPeer,
   isConnected,
   isInitializing,
   isReconnecting,
@@ -262,6 +278,11 @@ function ShareDialog({
   const selfClientId = useAwarenessStore((s) => s.selfClientId);
   const selfName = useAwarenessStore((s) => s.selfName);
   const selfColor = useAwarenessStore((s) => s.selfColor);
+
+  // Re-render while mounted so "Active" flips to "Idle" automatically once
+  // a peer's `lastActiveAt` ages past the idle threshold — awareness
+  // updates alone wouldn't redraw the row.
+  useIdleTicker();
 
   const handleKick = useCallback((clientId: number, name: string) => {
     if (!isOwner) return;
@@ -342,7 +363,9 @@ function ShareDialog({
                   name={peer.user.name}
                   color={peer.user.color}
                   isSelf={false}
-                  clientId={peer.clientId}
+                  lastActiveAt={peer.lastActiveAt}
+                  cursor={peer.cursor}
+                  onFocusPeer={onFocusPeer}
                   onKick={
                     isOwner ? () => handleKick(peer.clientId, peer.user.name) : undefined
                   }
@@ -429,25 +452,45 @@ function UserRow({
   name,
   color,
   isSelf,
-  clientId,
+  lastActiveAt,
+  cursor,
+  onFocusPeer,
   onKick,
 }: {
   name: string;
   color: string;
   isSelf: boolean;
-  clientId: number;
+  lastActiveAt?: number | null;
+  cursor?: { x: number; y: number } | null;
+  onFocusPeer?: (cursor: { x: number; y: number }) => void;
   onKick?: () => void;
 }) {
+  const active = isPeerActive(lastActiveAt ?? null);
   const initials = name.slice(0, 2).toUpperCase();
+  const canFocus = !isSelf && !!cursor && !!onFocusPeer;
+
   return (
     <div className="flex items-center gap-2.5 px-3 py-2 group">
-      <div
-        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white select-none"
-        style={{ backgroundColor: color }}
-        aria-hidden="true"
+      <button
+        type="button"
+        onClick={canFocus && cursor && onFocusPeer ? () => onFocusPeer(cursor) : undefined}
+        disabled={!canFocus}
+        title={canFocus ? `Jump to ${name}'s cursor` : undefined}
+        aria-label={canFocus ? `Jump to ${name}'s cursor` : undefined}
+        className={`relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white select-none ${
+          canFocus ? "cursor-pointer transition-transform hover:scale-110" : "cursor-default"
+        }`}
+        style={{ backgroundColor: color, opacity: active ? 1 : 0.6 }}
       >
         {initials}
-      </div>
+        <span
+          aria-hidden="true"
+          className={`absolute -right-0.5 -bottom-0.5 h-2 w-2 rounded-full border border-zinc-900 ${
+            active ? "bg-emerald-500" : "bg-zinc-500"
+          }`}
+        />
+      </button>
+
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-xs font-medium text-zinc-100">
           {name}
@@ -456,9 +499,22 @@ function UserRow({
           )}
         </span>
         <span className="text-[10px] text-zinc-500">
-          {isSelf ? "Host controls" : `ID · ${clientId}`}
+          {isSelf ? "Host controls" : active ? "Active" : "Idle"}
         </span>
       </div>
+
+      {canFocus && cursor && onFocusPeer && (
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => onFocusPeer(cursor)}
+          title={`Jump to ${name}'s cursor`}
+          className="h-7 w-7 shrink-0 rounded-md text-zinc-500 opacity-0 transition-opacity hover:bg-zinc-800 hover:text-zinc-200 group-hover:opacity-100 focus-visible:opacity-100"
+        >
+          <Crosshair className="h-3.5 w-3.5" />
+        </Button>
+      )}
+
       {!isSelf && onKick && (
         <Button
           variant="ghost"

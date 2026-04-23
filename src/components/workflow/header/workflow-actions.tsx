@@ -33,6 +33,9 @@ interface HeaderWorkflowActionsProps {
   onExport: () => void;
   onPreview: () => void;
   showPreview: boolean;
+  /** Disable workflow-mutating actions (New, Import). Used when the local
+   *  user is a guest in a live collab session. */
+  disableMutation?: boolean;
 }
 
 export function HeaderWorkflowActions({
@@ -42,6 +45,7 @@ export function HeaderWorkflowActions({
   onExport,
   onPreview,
   showPreview,
+  disableMutation = false,
 }: HeaderWorkflowActionsProps) {
   return (
     <ActionRail>
@@ -60,7 +64,11 @@ export function HeaderWorkflowActions({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
-          <DropdownMenuItem onClick={onRequestNewWorkflow}>
+          <DropdownMenuItem
+            onClick={onRequestNewWorkflow}
+            disabled={disableMutation}
+            title={disableMutation ? "Only the session owner can create a new workflow" : undefined}
+          >
             <FilePlus className="mr-2 h-4 w-4" />
             New Workflow
           </DropdownMenuItem>
@@ -69,7 +77,11 @@ export function HeaderWorkflowActions({
             Save
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={onOpenImport}>
+          <DropdownMenuItem
+            onClick={onOpenImport}
+            disabled={disableMutation}
+            title={disableMutation ? "Only the session owner can import into this workflow" : undefined}
+          >
             <Upload className="mr-2 h-4 w-4" />
             Import…
           </DropdownMenuItem>

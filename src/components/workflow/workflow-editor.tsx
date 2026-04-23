@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { ReactFlowProvider } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useWorkflowStore } from "@/store/workflow";
+import { useCollabStore } from "@/store/collaboration";
 import { useSavedWorkflowsStore } from "@/store/library";
 import { throttledSave, exportWorkflow, stripTransientProperties } from "@/lib/persistence";
 import { isModKey } from "@/lib/platform";
@@ -25,6 +26,7 @@ import { DiffReviewDialog } from "./ai-diff-review";
 import WhatsNewDialog from "./whats-new-dialog";
 import { useWhatsNew } from "@/hooks/use-whats-new";
 import { useCollaboration } from "./collaboration/use-collaboration";
+import { useActivityBroadcast } from "./collaboration/use-activity-broadcast";
 import { CollabDoc } from "@/lib/collaboration";
 import { buildWorkspaceRoomId } from "@/lib/collaboration/config";
 import { useWorkspaceAutosave } from "@/hooks/use-workspace-autosave";
@@ -85,6 +87,9 @@ export default function WorkflowEditor({
 
   // Standalone mode: collaboration via ?room= URL
   useCollaboration({ skip: isWorkspaceMode });
+
+  // Broadcast active/idle status to peers via awareness.
+  useActivityBroadcast();
 
   // Auto-save to server in workspace mode
   useWorkspaceAutosave(
@@ -152,6 +157,11 @@ export default function WorkflowEditor({
       // ── Mod+Alt+N → New workflow ──────────────────────────────────
       if (mod && e.altKey && e.code === "KeyN") {
         e.preventDefault();
+        const collab = useCollabStore.getState();
+        if (collab.roomId && !collab.isOwner && !isWorkspaceMode) {
+          toast.error("Only the session owner can create a new workflow");
+          return;
+        }
         window.dispatchEvent(new CustomEvent("nexus:new-workflow-request"));
         return;
       }
@@ -203,7 +213,7 @@ export default function WorkflowEditor({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [closePropertiesPanel, getWorkflowJSON]);
+  }, [closePropertiesPanel, getWorkflowJSON, isWorkspaceMode]);
 
   // Auto-save subscription — only reacts to data changes, not high-frequency
   // position updates. In workspace mode, skip localStorage persistence (server

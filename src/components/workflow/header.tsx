@@ -16,6 +16,7 @@ import { HeaderWorkflowActions } from "./header/workflow-actions";
 import { WorkflowNameCard } from "./header/workflow-name-card";
 import { ShareButton } from "./collaboration/share-button";
 import { PresenceAvatars } from "./collaboration/presence-avatars";
+import { useCollabStore } from "@/store/collaboration";
 
 export interface WorkspaceContext {
   workspaceId: string;
@@ -87,6 +88,12 @@ export default function Header({ workspaceContext }: HeaderProps) {
     ? buildWorkspaceCollabShareUrl(workspaceContext.workspaceId, workspaceContext.workflowId)
     : undefined;
 
+  // Guests in a live standalone collab session can't rename the workflow or
+  // create a new one — those actions belong to the session owner.
+  const collabRoomId = useCollabStore((s) => s.roomId);
+  const collabIsOwner = useCollabStore((s) => s.isOwner);
+  const isCollabGuest = Boolean(collabRoomId) && !workspaceContext && !collabIsOwner;
+
   return (
     <header
       className={`nexus-no-select z-10 shrink-0 border-b ${BORDER_DEFAULT} ${BG_SURFACE}/90 px-3 py-2 backdrop-blur-sm`}
@@ -115,6 +122,7 @@ export default function Header({ workspaceContext }: HeaderProps) {
           activeWorkflowId={activeWorkflowId}
           generationTargetLabel={generationTargetLabel}
           onRename={workspaceContext ? handleWorkspaceRename : undefined}
+          renameDisabled={isCollabGuest}
         />
 
         <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-2">
@@ -131,6 +139,7 @@ export default function Header({ workspaceContext }: HeaderProps) {
             onExport={handleExport}
             onPreview={handleView}
             showPreview={process.env.NODE_ENV === "development"}
+            disableMutation={isCollabGuest}
           />
 
           <HeaderGenerateMenu

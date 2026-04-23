@@ -16,6 +16,9 @@ export interface PeerAwareness {
   };
   selectedNodeId: string | null;
   cursor: CursorPosition | null;
+  /** Last activity timestamp (ms since epoch). Peers without recent
+   *  activity are rendered as idle. `null` means unknown. */
+  lastActiveAt: number | null;
 }
 
 export interface AwarenessStoreState {
