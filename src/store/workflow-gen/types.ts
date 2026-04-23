@@ -10,6 +10,16 @@ export type WorkflowGenStatus =
 /** Generation mode — either create a new workflow or edit the current one. */
 export type WorkflowGenMode = "generate" | "edit";
 
+/** Status of the Suggest Enhancements AI flow. */
+export type SuggestionsStatus = "idle" | "loading" | "done" | "error";
+
+/** One enhancement suggestion card returned by the LLM. */
+export interface WorkflowEnhancementSuggestion {
+  id: string;
+  title: string;
+  description: string;
+}
+
 export interface WorkflowGenState {
   /** Whether the floating panel is visible */
   floating: boolean;
@@ -64,6 +74,20 @@ export interface WorkflowGenState {
   /** AbortController for the examples request */
   _examplesAbortController: AbortController | null;
 
+  // ── Suggest Enhancements (AI) ──
+  /** Whether the Suggest Enhancements modal is open */
+  suggestionsOpen: boolean;
+  /** Status of the suggestions fetch */
+  suggestionsStatus: SuggestionsStatus;
+  /** The list of AI-generated enhancement suggestions */
+  suggestions: WorkflowEnhancementSuggestion[];
+  /** Error message for the suggestions flow */
+  suggestionsError: string | null;
+  /** Session ID used for generating suggestions (separate from the main gen session) */
+  _suggestionsSessionId: string | null;
+  /** AbortController for the suggestions request */
+  _suggestionsAbortController: AbortController | null;
+
   // Actions
   setFloating: (open: boolean) => void;
   toggleCollapsed: () => void;
@@ -82,6 +106,14 @@ export interface WorkflowGenState {
    *  When `prepend` is true, new examples are added before existing ones
    *  instead of replacing them (keeps the UI populated while loading). */
   fetchAiExamples: (opts?: { prepend?: boolean }) => Promise<void>;
+
+  // ── Suggest Enhancements actions ──
+  openSuggestions: () => void;
+  closeSuggestions: () => void;
+  fetchSuggestions: () => Promise<void>;
+  cancelSuggestions: () => void;
+  resetSuggestions: () => void;
+  applySuggestion: (suggestion: WorkflowEnhancementSuggestion) => Promise<void>;
 }
 
 /** Result of incrementally extracting workflow data from a partial JSON stream. */

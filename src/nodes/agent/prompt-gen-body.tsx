@@ -5,6 +5,7 @@ import {
   Sparkles, Wand2, ChevronDown, Loader2, Check, RotateCcw,
   Layers, FileText, Square, Lightbulb, Eye, Lock, Zap,
   FolderTree, GitBranch, FileCode, TestTubes, Type, Target, Variable, ListChecks,
+  GitCompareArrows,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -88,6 +89,28 @@ const PROMPT_EXAMPLES = [
   "A prompt that generates interview questions based on a job description and candidate level",
 ];
 
+const PARALLEL_AGENT_EXAMPLES = [
+  "Shared instructions for three agents that each audit a different slice of a codebase (security, performance, style) and hand back a single merged report",
+  "A parallel group where every cloned agent investigates one customer complaint independently and returns a structured root-cause summary",
+  "Shared goal for agents splitting a research task by topic — no overlap, consistent output schema, citations mandatory",
+  "Coordination rules for agents translating a long document into multiple languages in parallel while preserving formatting",
+  "Shared execution guide for agents that each exercise one route of an API and return pass/fail with evidence",
+  "A parallel group where each agent drafts one section of a proposal and the group maintains a consistent voice and glossary",
+  "Shared instructions for agents scanning different log sources to triage an incident, with a unified incident-report schema",
+  "Coordination rules for agents running the same refactor across different packages, ensuring no shared files are touched twice",
+];
+
+const DOCUMENT_EXAMPLES = [
+  "A Markdown cheatsheet that lists the coding conventions downstream agents must follow when editing this repo",
+  "A JSON reference file mapping feature flag names to owning teams, rollout stages, and expiration dates",
+  "A YAML document describing environment variables, defaults, and which services read each one",
+  "A Markdown onboarding doc for AI agents joining this workflow — what data is available, what downstream nodes expect, and how to cite sources",
+  "A Markdown style guide for generated PR descriptions — structure, tone, required sections, and forbidden phrases",
+  "A JSON taxonomy of support ticket categories with descriptions, priority defaults, and example phrasings",
+  "A Markdown glossary of domain terms so every agent in the workflow uses consistent names and definitions",
+  "A YAML configuration file that downstream agents read to decide which tools and skills to enable per run",
+];
+
 const SCRIPT_EXAMPLES = [
   "Create a Bun TypeScript script that lints changed files and exits non-zero when issues are found",
   "Write a Bun script that reads a JSON file, transforms the records, and writes a cleaned output file",
@@ -143,13 +166,15 @@ export function PromptGenBody() {
   const generate = usePromptGenStore((s) => s.generate);
   const editWithAi = usePromptGenStore((s) => s.editWithAi);
   const cancel = usePromptGenStore((s) => s.cancel);
-  const applyResult = usePromptGenStore((s) => s.applyResult);
+  const openDiffReview = usePromptGenStore((s) => s.openDiffReview);
 
   const isConnected = useOpenCodeStore((s) => s.status) === "connected";
 
   const isPromptNode = targetNodeType === WorkflowNodeType.Prompt;
   const isSkillNode = targetNodeType === WorkflowNodeType.Skill;
   const isScriptNode = targetNodeType === WorkflowNodeType.Script;
+  const isParallelAgentNode = targetNodeType === WorkflowNodeType.ParallelAgent;
+  const isDocumentNode = targetNodeType === WorkflowNodeType.Document;
   const scriptLanguage = useMemo(() => {
     if (!isScriptNode || !targetNodeId) return "typescript";
     const state = useWorkflowStore.getState();
@@ -157,15 +182,42 @@ export function PromptGenBody() {
       ?? state.subWorkflowNodes.find((node) => node.id === targetNodeId);
     return getScriptEditorLanguage(targetNode?.data as { label?: string; name?: string } | undefined);
   }, [isScriptNode, targetNodeId]);
-  const generatedContentLabel = isScriptNode ? "Generated Script" : "Generated Prompt";
-  const currentContentLabel = isScriptNode ? "Current script" : "Current prompt";
-  const applyContentLabel = isScriptNode ? "Apply to Script" : "Apply to Prompt";
-  const editContentLabel = isScriptNode ? "Edit Script" : "Edit Prompt";
+  const generatedContentLabel = isScriptNode
+    ? "Generated Script"
+    : isParallelAgentNode
+      ? "Generated Shared Instructions"
+      : isDocumentNode
+        ? "Generated Document"
+        : "Generated Prompt";
+  const currentContentLabel = isScriptNode
+    ? "Current script"
+    : isParallelAgentNode
+      ? "Current shared instructions"
+      : isDocumentNode
+        ? "Current document"
+        : "Current prompt";
+  const editContentLabel = isScriptNode
+    ? "Edit Script"
+    : isParallelAgentNode
+      ? "Edit Shared Instructions"
+      : isDocumentNode
+        ? "Edit Document"
+        : "Edit Prompt";
 
   // ── Dynamic example prompts ──────────────────────────────
   const examplePool = useMemo(
-    () => isScriptNode ? SCRIPT_EXAMPLES : isSkillNode ? SKILL_EXAMPLES : isPromptNode ? PROMPT_EXAMPLES : AGENT_EXAMPLES,
-    [isScriptNode, isSkillNode, isPromptNode],
+    () => isScriptNode
+      ? SCRIPT_EXAMPLES
+      : isSkillNode
+        ? SKILL_EXAMPLES
+        : isPromptNode
+          ? PROMPT_EXAMPLES
+          : isParallelAgentNode
+            ? PARALLEL_AGENT_EXAMPLES
+            : isDocumentNode
+              ? DOCUMENT_EXAMPLES
+              : AGENT_EXAMPLES,
+    [isScriptNode, isSkillNode, isPromptNode, isParallelAgentNode, isDocumentNode],
   );
 
   const [exampleTick, setExampleTick] = useState(0);
@@ -234,8 +286,21 @@ export function PromptGenBody() {
     editWithAi({ currentPrompt: targetPrompt, editInstruction, modelId, providerId, connectedResourceNames, nodeType, connectedNodeContext });
   }, [targetPrompt, editInstruction, genModel, editWithAi]);
 
+  // Cmd+Enter (macOS) / Ctrl+Enter (Windows/Linux) submits from any input inside the panel.
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== "Enter") return;
+    if (!(e.metaKey || e.ctrlKey)) return;
+    if (isGenerating || !canSubmit || !isConnected) return;
+    e.preventDefault();
+    if (isEditMode) {
+      handleEdit();
+    } else {
+      handleGenerate();
+    }
+  }, [isGenerating, canSubmit, isConnected, isEditMode, handleEdit, handleGenerate]);
+
   return (
-    <>
+    <div className="contents" onKeyDown={handleKeyDown}>
       {/* Model selector */}
       <div className="space-y-1.5">
         <Label className="text-[11px] text-zinc-500 uppercase tracking-wider font-medium">Generation Model</Label>
@@ -266,7 +331,17 @@ export function PromptGenBody() {
           {mode === "freeform" && (
             <div className="space-y-1.5">
               <Label className="text-[11px] text-zinc-500 uppercase tracking-wider font-medium">
-                  {isScriptNode ? "Describe the Bun script you want" : isSkillNode ? "Describe what this skill teaches" : isPromptNode ? "Describe the prompt you want" : "Describe the prompt you need"}
+                  {isScriptNode
+                    ? "Describe the Bun script you want"
+                    : isSkillNode
+                      ? "Describe what this skill teaches"
+                      : isPromptNode
+                        ? "Describe the prompt you want"
+                        : isParallelAgentNode
+                          ? "Describe what the parallel group should do together"
+                          : isDocumentNode
+                            ? "Describe the document you want to produce"
+                            : "Describe the prompt you need"}
               </Label>
               <Textarea
                 value={freeformText}
@@ -277,7 +352,11 @@ export function PromptGenBody() {
                   ? "e.g. A skill that teaches the agent how to write clean unit tests with proper mocking, assertions, and edge case coverage…"
                   : isPromptNode
                     ? "e.g. Write a prompt that takes a topic and generates a structured blog post with an intro, 3 key points, and a conclusion…"
-                    : "e.g. Create an agent that triages support tickets, categorizes by priority, and generates a daily report…"}
+                    : isParallelAgentNode
+                      ? "e.g. Shared instructions for three agents auditing a codebase — one covers security, one performance, one style — and returning one merged report…"
+                      : isDocumentNode
+                        ? "e.g. A Markdown style guide that downstream agents must follow when generating PR descriptions…"
+                        : "e.g. Create an agent that triages support tickets, categorizes by priority, and generates a daily report…"}
                 className="bg-zinc-800/40 border-zinc-700/40 rounded-lg text-sm min-h-20 resize-none focus-visible:ring-violet-600/40 placeholder:text-zinc-600"
                 rows={3}
                 disabled={isGenerating}
@@ -428,12 +507,13 @@ export function PromptGenBody() {
       )}
 
       {/* ── Action buttons ─────────────────────────────────────── */}
-      <div className="flex items-center gap-2">
+      <div className="mt-3 flex items-center gap-2">
         {!hasResult && !isGenerating && (
           <Button
             type="button"
             onClick={isEditMode ? handleEdit : handleGenerate}
             disabled={isGenerating || !canSubmit || !isConnected}
+            title={typeof navigator !== "undefined" && /Mac|iPhone|iPod|iPad/i.test(navigator.platform) ? "⌘ + Enter" : "Ctrl + Enter"}
             className={cn(
               "flex-1 h-9 rounded-lg text-xs font-medium gap-2 transition-all",
               isEditMode ? "bg-amber-600 hover:bg-amber-500 text-white" : "bg-violet-600 hover:bg-violet-500 text-white",
@@ -449,8 +529,8 @@ export function PromptGenBody() {
         )}
         {hasResult && (
           <>
-            <Button type="button" onClick={applyResult} className="flex-1 h-9 rounded-lg text-xs font-medium gap-2 bg-emerald-600 hover:bg-emerald-500 text-white">
-              <Check size={13} /> {applyContentLabel}
+            <Button type="button" onClick={openDiffReview} className="flex-1 h-9 rounded-lg text-xs font-medium gap-2 bg-emerald-600 hover:bg-emerald-500 text-white">
+              <GitCompareArrows size={13} /> Review changes
             </Button>
             <Button type="button" onClick={isEditMode ? handleEdit : handleGenerate} variant="ghost" className="h-9 px-3 rounded-lg text-xs font-medium gap-1.5 text-zinc-400 hover:text-zinc-200">
               <RotateCcw size={12} /> Redo
@@ -477,11 +557,11 @@ export function PromptGenBody() {
           title={generatedContentLabel}
           placeholder="AI-generated Bun script will appear here…"
           onSave={(val) => {
-            const sv = usePromptGenStore.getState()._formSetValue;
-            if (sv) {
-              sv("promptText" as never, val as never, { shouldDirty: true });
-            }
             setViewOpen(false);
+            const current = usePromptGenStore.getState().targetPrompt;
+            if (val === current) return;
+            usePromptGenStore.setState({ generatedText: val, status: "done" });
+            usePromptGenStore.getState().openDiffReview();
           }}
         />
       ) : (
@@ -490,15 +570,15 @@ export function PromptGenBody() {
           onOpenChange={setViewOpen}
           value={generatedText}
           onSave={(val) => {
-            const sv = usePromptGenStore.getState()._formSetValue;
-            if (sv) {
-              sv("promptText" as never, val as never, { shouldDirty: true });
-            }
             setViewOpen(false);
+            const current = usePromptGenStore.getState().targetPrompt;
+            if (val === current) return;
+            usePromptGenStore.setState({ generatedText: val, status: "done" });
+            usePromptGenStore.getState().openDiffReview();
           }}
         />
       )}
-    </>
+    </div>
   );
 }
 

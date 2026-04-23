@@ -21,6 +21,7 @@ import { BrainPanel } from "./brain-panel";
 import SubWorkflowCanvas from "./sub-workflow-canvas";
 import FloatingPromptGen from "./floating-prompt-gen";
 import FloatingWorkflowGen from "./floating-workflow-gen";
+import { DiffReviewDialog } from "./ai-diff-review";
 import WhatsNewDialog from "./whats-new-dialog";
 import { useWhatsNew } from "@/hooks/use-whats-new";
 import { useCollaboration } from "./collaboration/use-collaboration";
@@ -264,6 +265,7 @@ export default function WorkflowEditor({
             <BrainPanel />
           </div>
         </div>
+        <DiffReviewDialog />
         <DeleteDialog />
         <WhatsNewDialog open={whatsNew.open} onDismiss={whatsNew.dismiss} />
         {/* Sub-workflow editor overlay */}

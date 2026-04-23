@@ -16,6 +16,8 @@ interface AiPromptGeneratorProps {
   currentPrompt: string;
   nodeId?: string;
   nodeType?: PromptGenNodeType;
+  /** Form field name the generated output should be written to. Defaults to "promptText". */
+  fieldName?: string;
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -25,6 +27,7 @@ export function AiPromptGenerator({
   currentPrompt,
   nodeId,
   nodeType = WorkflowNodeType.Agent,
+  fieldName = "promptText",
 }: AiPromptGeneratorProps) {
   const isConnected = useOpenCodeStore((s) => s.status) === "connected";
   const view = usePromptGenStore((s) => s.view);
@@ -129,7 +132,7 @@ export function AiPromptGenerator({
     <div className="flex items-center gap-1.5">
       <button
         type="button"
-        onClick={() => nodeId && storeOpen(nodeId, currentPrompt, "generate", nodeType)}
+        onClick={() => nodeId && storeOpen(nodeId, currentPrompt, "generate", nodeType, fieldName)}
         disabled={!isConnected || !nodeId}
         className={cn(
           "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 border border-dashed",
@@ -144,7 +147,7 @@ export function AiPromptGenerator({
       {hasPrompt && (
         <button
           type="button"
-          onClick={() => nodeId && storeOpen(nodeId, currentPrompt, "edit", nodeType)}
+          onClick={() => nodeId && storeOpen(nodeId, currentPrompt, "edit", nodeType, fieldName)}
           disabled={!isConnected || !nodeId}
           className={cn(
             "flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 border border-dashed",

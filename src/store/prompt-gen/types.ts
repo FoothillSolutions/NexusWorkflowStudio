@@ -15,7 +15,9 @@ export type PromptGenNodeType =
   | WorkflowNodeType.Agent
   | WorkflowNodeType.Prompt
   | WorkflowNodeType.Skill
-  | WorkflowNodeType.Script;
+  | WorkflowNodeType.Script
+  | WorkflowNodeType.ParallelAgent
+  | WorkflowNodeType.Document;
 
 export interface PromptGenTemplateFields {
   title?: string;
@@ -75,15 +77,20 @@ export interface PromptGenState {
   expandedSections: Set<string>;
   targetNodeId: string | null;
   targetNodeType: PromptGenNodeType | null;
+  targetField: string;
   targetPrompt: string;
   floating: boolean;
   collapsed: boolean;
+
+  // Diff review dialog state — driven by `openDiffReview` / `closeDiffReview`.
+  diffReviewOpen: boolean;
 
   open: (
     nodeId: string,
     currentPrompt: string,
     view: PromptGenView,
     nodeType?: PromptGenNodeType,
+    targetField?: string,
   ) => void;
   close: () => void;
   setView: (view: PromptGenView) => void;
@@ -98,6 +105,9 @@ export interface PromptGenState {
   setTargetPrompt: (prompt: string) => void;
   registerFormSetValue: (sv: FormSetValue | null) => void;
   applyResult: () => void;
+  openDiffReview: () => void;
+  closeDiffReview: () => void;
+  applyMergedResult: (merged: string) => void;
 
   ensureSession: () => Promise<string | null>;
   generate: (payload: GeneratePayload) => Promise<void>;

@@ -4,7 +4,15 @@
 // aiGenerationPrompt fields. Global/structural rules remain here.
 
 import { NODE_REGISTRY } from "@/lib/node-registry";
-import type { AiGenerationPrompt } from "@/nodes/shared/registry-types";
+import type { AiGenerationPrompt, NodeRegistryEntry } from "@/nodes/shared/registry-types";
+
+/** Only include nodes the AI is allowed to generate — inactive ("coming soon")
+ *  nodes are hidden from the prompt entirely so the LLM never emits them. */
+function activeRegistryEntries(): Array<[string, NodeRegistryEntry]> {
+  return Object.entries(NODE_REGISTRY).filter(
+    ([, entry]) => entry.active !== false,
+  );
+}
 
 // ─── Per-node section builders ───────────────────────────────────────────────
 
@@ -13,7 +21,7 @@ import type { AiGenerationPrompt } from "@/nodes/shared/registry-types";
  *  For nodes without one, falls back to dumping `defaultData()` fields. */
 function buildNodeCatalogue(): string {
   const lines: string[] = [];
-  for (const [type, entry] of Object.entries(NODE_REGISTRY)) {
+  for (const [type, entry] of activeRegistryEntries()) {
     const prompt = entry.aiGenerationPrompt;
     if (prompt) {
       lines.push(`### ${type}
@@ -41,7 +49,7 @@ ${fieldList}
 /** Build per-node edge rules from aiGenerationPrompt.edgeRules. */
 function buildNodeEdgeRules(): string {
   const sections: string[] = [];
-  for (const [, entry] of Object.entries(NODE_REGISTRY)) {
+  for (const [, entry] of activeRegistryEntries()) {
     const prompt = entry.aiGenerationPrompt;
     if (prompt?.edgeRules) {
       sections.push(prompt.edgeRules);
@@ -53,7 +61,7 @@ function buildNodeEdgeRules(): string {
 /** Build a combined "Node Relationships" section from nodes with connectionRules. */
 function buildRelationshipSections(): string {
   const sections: string[] = [];
-  for (const [type, entry] of Object.entries(NODE_REGISTRY)) {
+  for (const [type, entry] of activeRegistryEntries()) {
     const prompt = entry.aiGenerationPrompt;
     if (prompt?.connectionRules) {
       sections.push(`### ${entry.displayName} (${type})\n${prompt.connectionRules}`);
@@ -66,7 +74,7 @@ function buildRelationshipSections(): string {
 /** Build per-node generation hints. */
 function buildNodeGuidelines(): string {
   const hints: string[] = [];
-  for (const [, entry] of Object.entries(NODE_REGISTRY)) {
+  for (const [, entry] of activeRegistryEntries()) {
     const prompt = entry.aiGenerationPrompt;
     if (prompt?.generationHints?.length) {
       for (const hint of prompt.generationHints) {
@@ -86,7 +94,7 @@ function buildNodeGuidelines(): string {
  *  These are appended directly after the data template line for the node. */
 function buildNodeDataTemplatesWithNotes(): string {
   const lines: string[] = [];
-  for (const [type, entry] of Object.entries(NODE_REGISTRY)) {
+  for (const [type, entry] of activeRegistryEntries()) {
     const prompt = entry.aiGenerationPrompt;
     if (!prompt) continue;
 
@@ -121,9 +129,10 @@ function buildNoteForNode(type: string, prompt: AiGenerationPrompt): string | nu
     case "parallel-agent":
       return `  NOTE on parallel-agent:
   - This is a rectangular workflow node that spawns connected external agent nodes in parallel.
+  - EVERY outgoing edge from a parallel-agent MUST target a node with \`type === "agent"\`. The connected agent is the one that gets spawned for that branch — there is no other way to say "spawn this kind of agent" except by wiring the branch to an agent node of that type/definition.
   - \`spawnMode\` discriminates behavior:
-    - "fixed" (default): hand-authored list of branches. Each branch has its own output handle \`branch-<index>\` and MUST be connected to exactly one external \`agent\` node. \`spawnCount\` on each branch = parallel runs of that target agent. Branch \`instructions\` describe the lane's focus.
-    - "dynamic": a single output handle \`"output"\` that MUST be connected to exactly ONE external \`agent\` (the template agent cloned at runtime). \`branches\` MUST be an empty array. \`spawnCriterion\` is REQUIRED non-empty. \`spawnMin >= 1\`, \`spawnMax >= spawnMin\` bound the runtime count.
+    - "fixed" (default): hand-authored list of branches. Each branch has its own output handle \`branch-<index>\` and MUST be connected to exactly one external \`agent\` node — that connected agent is the one spawned for the branch. \`spawnCount\` on each branch = parallel runs of that target agent. Branch \`instructions\` describe the lane's focus.
+    - "dynamic": a single output handle \`"output"\` that MUST be connected to exactly ONE external \`agent\` (the template agent cloned at runtime for every spawned instance). \`branches\` MUST be an empty array. \`spawnCriterion\` is REQUIRED non-empty. \`spawnMin >= 1\`, \`spawnMax >= spawnMin\` bound the runtime count.
   - In dynamic spawn mode the parallel-agent node has EXACTLY ONE outgoing edge to ONE template Agent node — never emit branch-N handles in dynamic mode.
   - CRITICAL — branch instructions vs agent promptText:
     - branch instructions live on the branch object. The branch's \`instructions\` field is an upstream descriptor that the runtime surfaces to the connected agent.
@@ -182,6 +191,7 @@ You are editing an existing workflow. The user will include the current Workflow
 - Only mutate what the user's change request requires.
 - Do not rename ids, do not reformat positions, do not drop the \`ui\` block.
 - The same start/end/edge-handle rules from earlier still apply.
+- Connectivity is non-negotiable after the edit: the resulting workflow MUST still have EXACTLY ONE start and EXACTLY ONE end node, a valid path from start to that single end, all branch output handles connected, and no flow node orphan. NEVER introduce a second "end" node while editing — if the user's change request asks for multiple outcomes, converge them on the existing shared end node. If your change removes a node or an edge, add bridging edges so the surviving graph remains fully connected to the single end.
 `
     : "";
 
@@ -206,8 +216,16 @@ You generate workflow JSON for Nexus Workflow Studio.
 ## WorkflowJSON Schema
 {"name": string, "nodes": [{"id": string, "type": NodeType, "position": {"x": number, "y": number}, "data": NodeData}], "edges": [{"id": string, "source": string, "target": string, "sourceHandle"?: string, "targetHandle"?: string}], "ui": {"sidebarOpen": true, "minimapVisible": true, "viewport": {"x": 0, "y": 0, "zoom": 1}}}
 
+## Connectivity (NON-NEGOTIABLE)
+- EXACTLY ONE start node AND EXACTLY ONE end node. Never emit two or more "end" nodes under any circumstances — not one per branch, not one per outcome, not one per lane. The workflow has a SINGLE terminal end node that every path eventually reaches.
+- There MUST be at least one valid path from the start node to the end node via edges. Trace it mentally before finalizing output.
+- Every flow node (everything EXCEPT skill, document) MUST be reachable from start AND MUST reach THE ONE end, either directly or by merging back after a branch. No orphan flow nodes, no dead-end nodes, no disconnected subgraphs.
+- When a branch (if-else, switch, parallel-agent, ask-user) completes its work, continue its output back toward THE SAME single end node — either merge branches into a common node before that end, or wire every branch's terminal node directly to the one shared end node. Do NOT create a second end node for an alternate outcome; all outcomes converge on the single end.
+- Attachment nodes (skill, document) are the ONLY nodes exempt from the flow path. They attach to an agent or parallel-agent via skill-out/doc-out → skills/docs handles and do NOT participate in start→end routing.
+- Before emitting JSON, verify: (1) the "end" node appears exactly once in the nodes array, (2) start and end each exist exactly once, (3) following edges from start reaches the single end, (4) every non-attachment node lies on some path to that single end.
+
 ## Node Rules
-- Include exactly ONE "start" node and exactly ONE "end" node. Multiple start or end nodes are NOT allowed.
+- Include exactly ONE "start" node and exactly ONE "end" node. Multiple start or end nodes are NOT allowed. If a branch needs to terminate, point its final edge at the SHARED single end node — never create another "end" node.
 - Node IDs: "<type>-<random8chars>" (e.g. "agent-xK9mPq2w")
 - data.type MUST match the node type field
 - data.name MUST equal the node id
@@ -245,6 +263,12 @@ CRITICAL — EVERY branch output handle MUST be connected:
 - Every parallel-agent node MUST have its outputs fully connected. In fixed mode (default), ALL branch handles ("branch-0", "branch-1", ...) must be connected — if you define 3 branches, you need 3 outgoing edges. In dynamic spawn mode the parallel-agent node has EXACTLY ONE outgoing edge to ONE template Agent node — never emit branch-N handles in dynamic mode.
 - Every ask-user node (in single-select mode) MUST have ALL option handles ("option-0", "option-1", ...) connected. If you define 3 options, you need 3 outgoing edges.
 - No branching node output handle may be left unconnected. This is a hard requirement.
+
+CRITICAL — PARALLEL-AGENT BRANCHES MUST TARGET AGENT NODES:
+- Each branch of a parallel-agent node SPAWNS the \`agent\` node it's connected to. The connected agent IS the type/definition that gets cloned/spawned for that branch.
+- Therefore every edge out of a parallel-agent ("branch-0", "branch-1", ... in fixed mode, or "output" in dynamic mode) MUST target a node whose \`type\` is exactly \`"agent"\`. It is INVALID for a branch to target prompt, script, sub-workflow, if-else, switch, ask-user, parallel-agent, handoff, end, skill, document, or mcp-tool.
+- Never connect a parallel-agent branch to another parallel-agent — a parallel-agent cannot spawn another parallel-agent. If you need nested fan-out, connect each branch to an agent and let that agent drive further work.
+- If you want different work per branch, create a distinct agent node per branch and wire each branch handle to its own agent. In dynamic mode, the single connected agent is the template cloned N times.
 
 ## Available Node Types
 

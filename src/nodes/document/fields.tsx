@@ -14,6 +14,8 @@ import {
   getDocumentDisplayPath,
   normalizeDocSubfolder,
 } from "./utils";
+import { AiPromptGenerator } from "@/nodes/agent/ai-prompt-generator";
+import { WorkflowNodeType } from "@/types/workflow";
 import { DocumentContentSection } from "./fields/document-content-section";
 import { DocumentIdentitySection } from "./fields/document-identity-section";
 import { PlainTextEditorDialog } from "./fields/plain-text-editor-dialog";
@@ -26,9 +28,10 @@ interface DocumentFieldsProps {
   register: FormRegister;
   control: FormControl;
   setValue: FormSetValue;
+  nodeId?: string;
 }
 
-export function Fields({ control, setValue }: DocumentFieldsProps) {
+export function Fields({ control, setValue, nodeId }: DocumentFieldsProps) {
   const docName: string = useWatch({ control, name: "docName" }) ?? "";
   const docSubfolder: string = useWatch({ control, name: "docSubfolder" }) ?? "";
   const contentMode: DocumentContentMode = useWatch({ control, name: "contentMode" }) ?? "inline";
@@ -183,6 +186,16 @@ export function Fields({ control, setValue }: DocumentFieldsProps) {
         onClearLinkedFile={clearLinkedFile}
         onSetValue={(name, value, options) => setValue(name as never, value as never, options)}
       />
+
+      {contentMode === "inline" && (
+        <AiPromptGenerator
+          setValue={setValue}
+          currentPrompt={contentText}
+          nodeId={nodeId}
+          nodeType={WorkflowNodeType.Document}
+          fieldName="contentText"
+        />
+      )}
 
       {/* Fullscreen Content Editor Dialog */}
       {contentMode === "inline" && fileExtension === "md" && (

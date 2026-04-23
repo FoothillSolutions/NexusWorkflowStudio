@@ -50,15 +50,18 @@ export const usePromptGenStore = create<PromptGenState>((set, get) => ({
   expandedSections: new Set<string>(),
   targetNodeId: null,
   targetNodeType: null,
+  targetField: "promptText",
   targetPrompt: "",
   floating: false,
   collapsed: false,
+  diffReviewOpen: false,
 
-  open: (nodeId, currentPrompt, view, nodeType) => {
+  open: (nodeId, currentPrompt, view, nodeType, targetField) => {
     set({
       view,
       targetNodeId: nodeId,
       targetNodeType: nodeType ?? DEFAULT_PROMPT_GEN_NODE_TYPE,
+      targetField: targetField ?? "promptText",
       targetPrompt: currentPrompt,
       floating: false,
       collapsed: false,
@@ -110,22 +113,23 @@ export const usePromptGenStore = create<PromptGenState>((set, get) => ({
   registerFormSetValue: (sv) => set({ _formSetValue: sv }),
 
   applyResult: () => {
-    const { generatedText, _formSetValue, targetNodeId } = get();
+    const { generatedText, _formSetValue, targetNodeId, targetField } = get();
     if (!generatedText.trim()) return;
 
     // Use the form's setValue (updates react-hook-form → triggers watchedValues → workflow store sync)
     if (_formSetValue) {
-      _formSetValue("promptText" as never, generatedText as never, { shouldDirty: true });
+      _formSetValue(targetField as never, generatedText as never, { shouldDirty: true });
     } else if (targetNodeId) {
       // Fallback: when floating/undocked and the properties panel is closed,
       // _formSetValue is null. Update the workflow store node data directly.
       const ws = useWorkflowStore.getState();
       const inMain = ws.nodes.some((n: { id: string }) => n.id === targetNodeId);
       const inSub = !inMain && ws.subWorkflowNodes.some((n: { id: string }) => n.id === targetNodeId);
+      const patch = { [targetField]: generatedText } as never;
       if (inMain) {
-        ws.updateNodeData(targetNodeId, { promptText: generatedText } as never);
+        ws.updateNodeData(targetNodeId, patch);
       } else if (inSub) {
-        ws.updateSubNodeData(targetNodeId, { promptText: generatedText } as never);
+        ws.updateSubNodeData(targetNodeId, patch);
       }
     }
 
@@ -141,6 +145,50 @@ export const usePromptGenStore = create<PromptGenState>((set, get) => ({
       editInstruction: "",
       fields: {},
       expandedSections: new Set<string>(),
+    });
+  },
+
+  // ── Diff review flow ──────────────────────────────────────────────────────
+  // `openDiffReview` is gated on a successful generation; it never opens the
+  // dialog when there is nothing to compare. `closeDiffReview` is a pure
+  // cancel — it does not touch `generatedText` or `status`, so the user can
+  // still redo or re-open the dialog after cancelling.
+  openDiffReview: () => {
+    const { status, generatedText } = get();
+    if (status !== "done" || !generatedText.trim()) return;
+    set({ diffReviewOpen: true });
+  },
+  closeDiffReview: () => set({ diffReviewOpen: false }),
+  applyMergedResult: (merged) => {
+    const { _formSetValue, targetNodeId, targetField } = get();
+
+    if (_formSetValue) {
+      _formSetValue(targetField as never, merged as never, { shouldDirty: true });
+    } else if (targetNodeId) {
+      const ws = useWorkflowStore.getState();
+      const inMain = ws.nodes.some((n: { id: string }) => n.id === targetNodeId);
+      const inSub = !inMain && ws.subWorkflowNodes.some((n: { id: string }) => n.id === targetNodeId);
+      const patch = { [targetField]: merged } as never;
+      if (inMain) {
+        ws.updateNodeData(targetNodeId, patch);
+      } else if (inSub) {
+        ws.updateSubNodeData(targetNodeId, patch);
+      }
+    }
+
+    set({
+      status: "idle",
+      generatedText: "",
+      generatedTokens: 0,
+      error: null,
+      view: "closed",
+      floating: false,
+      collapsed: false,
+      freeformText: "",
+      editInstruction: "",
+      fields: {},
+      expandedSections: new Set<string>(),
+      diffReviewOpen: false,
     });
   },
 
@@ -295,10 +343,12 @@ export const usePromptGenStore = create<PromptGenState>((set, get) => ({
       collapsed: false,
       targetNodeId: null,
       targetNodeType: null,
+      targetField: "promptText",
       targetPrompt: "",
       editInstruction: "",
       fields: {},
       expandedSections: new Set<string>(),
+      diffReviewOpen: false,
     });
   },
 

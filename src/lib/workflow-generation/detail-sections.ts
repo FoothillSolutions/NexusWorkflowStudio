@@ -82,27 +82,11 @@ export function buildSubAgentDetailsSection(
   edges: WorkflowEdge[],
   allNodes: WorkflowNode[],
   allEdges: WorkflowEdge[],
+  target: GenerationTargetId = DEFAULT_GENERATION_TARGET,
 ): string {
   const order = topologicalOrder(nodes, edges);
   const allNodeById = new Map<string, WorkflowNode>(allNodes.map((node) => [node.id, node]));
-  const skillEdgesByTarget = new Map<string, string[]>();
-
-  for (const edge of allEdges) {
-    if (edge.sourceHandle !== "skill-out") continue;
-
-    if (!skillEdgesByTarget.has(edge.target)) {
-      skillEdgesByTarget.set(edge.target, []);
-    }
-    skillEdgesByTarget.get(edge.target)?.push(edge.source);
-  }
-
-  const topoIndex = new Map<string, number>(order.map((id, index) => [id, index]));
-  for (const [targetId, sourceIds] of skillEdgesByTarget) {
-    skillEdgesByTarget.set(
-      targetId,
-      sourceIds.sort((a, b) => (topoIndex.get(a) ?? 0) - (topoIndex.get(b) ?? 0)),
-    );
-  }
+  const rootDir = getGenerationTarget(target).rootDir;
 
   const sections: string[] = [];
   for (const id of order) {
@@ -114,28 +98,52 @@ export function buildSubAgentDetailsSection(
     const lines: string[] = [
       `#### ${node.id}(Agent: ${agentName})`,
       "",
-      "```",
-      `delegate agent: @${agentName}`,
     ];
 
+    const inputs: string[] = [];
+
+    // Connected skill edges (preserve natural edge order)
+    const skillEdges = allEdges.filter(
+      (edge) => edge.sourceHandle === "skill-out" && edge.target === node.id,
+    );
+    for (const edge of skillEdges) {
+      const skillNode = allNodeById.get(edge.source);
+      if (skillNode?.data.type !== WorkflowNodeType.Skill) continue;
+      const skillData = skillNode.data as import("@/nodes/skill/types").SkillNodeData;
+      const skillName = resolveSkillReferenceName(skillData);
+      if (!skillName) continue;
+      inputs.push(`- \`${skillName}\`: \`${rootDir}/skills/${skillName}/SKILL.md\``);
+    }
+
+    // Connected document edges
+    const docEdges = allEdges.filter(
+      (edge) => edge.sourceHandle === "doc-out" && edge.target === node.id,
+    );
+    for (const edge of docEdges) {
+      const docNode = allNodeById.get(edge.source);
+      if (docNode?.data.type !== WorkflowNodeType.Document) continue;
+      const docData = docNode.data as import("@/nodes/document/types").DocumentNodeData;
+      const relativePath = getDocumentRelativePath(docData);
+      if (!relativePath) continue;
+      const displayLabel = getDocDisplayLabel(relativePath);
+      inputs.push(`- \`${displayLabel}\`: \`${rootDir}/docs/${relativePath}\``);
+    }
+
+    // Positional parameter mappings
     const mappings = (d.parameterMappings ?? [])
       .map((value) => value.trim())
       .filter(Boolean);
     if (mappings.length > 0) {
-      lines.push(`params: ${mappings.join(", ")}`);
+      inputs.push(`- \`params\`: \`${mappings.join(", ")}\``);
     }
 
-    const skillIds = skillEdgesByTarget.get(node.id) ?? [];
-    for (const skillId of skillIds) {
-      const skillNode = allNodeById.get(skillId);
-      if (skillNode?.data.type !== WorkflowNodeType.Skill) continue;
-
-      const skillData = skillNode.data as import("@/nodes/skill/types").SkillNodeData;
-      const skillName = skillData.skillName?.trim() || skillData.name?.trim() || skillId;
-      lines.push(`skill: ${skillName}`);
+    if (inputs.length === 0) {
+      lines.push(`Dispatch \`${agentName}\` using the \`Agent\` tool.`);
+    } else {
+      lines.push(`Dispatch \`${agentName}\` using the \`Agent\` tool with inputs:`);
+      lines.push(...inputs);
     }
 
-    lines.push("```");
     sections.push(lines.join("\n"));
   }
 
@@ -196,10 +204,16 @@ export function buildParallelAgentDetailsSection(
             candidate.sourceHandle === `branch-${index}`,
         );
         const targetNode = edge ? nodeById.get(edge.target) : null;
-        const targetLabel = targetNode?.id || "Unconnected";
+        const targetAgentName = targetNode
+          ? ((targetNode.data as { name?: string })?.name || `agent-${targetNode.id}`)
+          : null;
         const spawnCount = Math.max(1, Number(branch.spawnCount ?? 1));
+        const branchLabel = branch.label || `Branch ${index + 1}`;
+        const dispatchClause = targetAgentName
+          ? `dispatch \`${targetAgentName}\` using the \`Agent\` tool x${spawnCount}`
+          : `(no agent connected — wire this branch to an \`agent\` node)`;
         lines.push(
-          `- **branch-${index}** (${branch.label || `Branch ${index + 1}`}) → spawn **${targetLabel}** x${spawnCount}`,
+          `- **branch-${index}** (${branchLabel}) → ${dispatchClause}`,
         );
         if (branch.instructions?.trim()) {
           lines.push(`  - Notes: ${branch.instructions.trim()}`);
@@ -208,7 +222,7 @@ export function buildParallelAgentDetailsSection(
 
       lines.push(
         "",
-        "**Execution method**: Spawn the connected downstream agent for each branch handle in parallel using the configured branch counts.",
+        "**Execution method**: For each branch, dispatch the connected agent using the `Agent` tool the configured number of times; run the branches in parallel. Follow the per-agent dispatch details under `## Agent Node Details`.",
       );
       sections.push(lines.join("\n"));
       continue;
@@ -230,6 +244,9 @@ export function buildParallelAgentDetailsSection(
     const templateTarget = outgoingEdge ? nodeById.get(outgoingEdge.target) : null;
     const templateId = templateTarget?.id ?? "<agent-not-connected>";
     const templateConnected = templateTarget !== null && templateTarget !== undefined;
+    const templateAgentName = templateTarget
+      ? ((templateTarget.data as { name?: string })?.name || `agent-${templateTarget.id}`)
+      : templateId;
 
     const lines: string[] = [`#### ${mermaidId(node.id)}`, ""];
 
@@ -245,9 +262,9 @@ export function buildParallelAgentDetailsSection(
     }
 
     lines.push(
-      `Spawn \`${templateId}\` ${rangePhrase} based on: ${criterion}. For each spawned instance, dispatch it as follows:`,
+      `Spawn \`${templateAgentName}\` ${rangePhrase} based on: ${criterion}. For each spawned instance, dispatch it as follows:`,
       "",
-      `#### ${templateId} (Agent: ${templateId})`,
+      `#### ${templateId}(Agent: ${templateAgentName})`,
       "",
     );
 
@@ -287,9 +304,9 @@ export function buildParallelAgentDetailsSection(
     }
 
     if (inputs.length === 0) {
-      lines.push(`Dispatch \`${templateId}\` using the \`Agent\` tool.`);
+      lines.push(`Dispatch \`${templateAgentName}\` using the \`Agent\` tool.`);
     } else {
-      lines.push(`Dispatch \`${templateId}\` using the \`Agent\` tool with inputs:`);
+      lines.push(`Dispatch \`${templateAgentName}\` using the \`Agent\` tool with inputs:`);
       lines.push(...inputs);
     }
 

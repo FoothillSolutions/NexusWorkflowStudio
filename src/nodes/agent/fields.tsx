@@ -10,8 +10,8 @@ import type { FormControl, FormSetValue } from "@/nodes/shared/form-types";
 import { RequiredIndicator } from "@/nodes/shared/required-indicator";
 import { NODE_ACCENT } from "@/lib/node-colors";
 import { ModelSelect } from "@/nodes/shared/model-select";
+import { MemorySelect } from "@/nodes/shared/memory-select";
 import { useTools } from "@/hooks/use-tools";
-import { SubAgentMemory } from "./types";
 import { AiPromptGenerator } from "./ai-prompt-generator";
 import { UploadAgentButton } from "./properties/upload-agent-button";
 import { ColorPicker } from "@/nodes/shared/color-picker";
@@ -23,16 +23,6 @@ import { ParameterMapping } from "./properties/parameter-mapping";
 import { useAutoResourceVariableMapping } from "@/nodes/shared/use-auto-resource-variable-mapping";
 import { useDetectedVariables } from "@/nodes/shared/use-detected-variables";
 import { useParameterMappingSync } from "@/nodes/shared/use-parameter-mapping-sync";
-
-const MEMORY_OPTIONS = [
-  { value: SubAgentMemory.Default, label: "- (default)" },
-  { value: SubAgentMemory.Local, label: "local" },
-  { value: SubAgentMemory.User, label: "user" },
-  { value: SubAgentMemory.Project, label: "project" },
-];
-
-const SELECT_CLASS =
-  "w-full rounded-xl bg-zinc-800/60 border border-zinc-700/60 text-sm text-zinc-100 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-zinc-600";
 
 interface SubAgentFieldsProps {
   control: FormControl;
@@ -176,21 +166,14 @@ export function Fields({ control, setValue, nodeId }: SubAgentFieldsProps) {
         />
       </div>
 
-      {/* Memory (coming soon) */}
-      <div className="space-y-2 opacity-40 pointer-events-none">
-        <div className="flex items-center gap-2">
-          <Label htmlFor="memory">Memory</Label>
-          <span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider">Coming soon</span>
-        </div>
+      {/* Memory */}
+      <div className="space-y-2">
+        <Label htmlFor="memory">Memory</Label>
         <Controller
           name="memory"
           control={control}
           render={({ field }) => (
-            <select id="memory" className={SELECT_CLASS} value={field.value} onChange={field.onChange} disabled>
-              {MEMORY_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
+            <MemorySelect value={field.value} onChange={field.onChange} />
           )}
         />
       </div>

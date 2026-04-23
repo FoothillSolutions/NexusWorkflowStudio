@@ -8,6 +8,11 @@ import {
   type GenerationTargetId,
 } from "@/lib/generation-targets";
 import { SubAgentModel } from "@/nodes/agent/enums";
+import {
+  mapColorForClaudeCode,
+  mapModelForClaudeCode,
+  mapToolForClaudeCode,
+} from "@/nodes/shared/claude-code-frontmatter";
 import type { SubWorkflowNodeData } from "./types";
 
 /** Sanitise a human label into a safe kebab-case slug. */
@@ -33,33 +38,64 @@ function toWorkflowJSON(d: SubWorkflowNodeData): WorkflowJSON {
 }
 
 /**
- * Build a `.opencode/agents/<name>.md` frontmatter + body for agent mode.
+ * Build a `<root>/agents/<name>.md` frontmatter + body for agent mode.
  * The body tells the agent to "Call /workflow-name".
  */
-function buildSubWorkflowAgentFile(d: SubWorkflowNodeData): string {
+function buildSubWorkflowAgentFile(
+  d: SubWorkflowNodeData,
+  target: GenerationTargetId = DEFAULT_GENERATION_TARGET,
+): string {
   const workflowSlug = toSafeName(d.label || "Sub Workflow");
+  const description = `Execute the ${d.label || "Sub Workflow"} workflow`;
+  const accent = d.color || NODE_ACCENT["sub-workflow"];
 
   const lines: string[] = ["---"];
-  lines.push(`description: Execute the ${d.label || "Sub Workflow"} workflow`);
-  lines.push(`mode: subagent`);
-  lines.push(`hidden: true`);
 
-  if (d.model && d.model !== SubAgentModel.Inherit) {
-    lines.push(`model: ${d.model}`);
-  }
+  if (target === "claude-code") {
+    // Claude Code's frontmatter only accepts the fields documented at
+    // https://code.claude.com/docs/en/sub-agents#supported-frontmatter-fields.
+    lines.push(`name: ${workflowSlug}`);
+    lines.push(`description: ${description}`);
 
-  if (Array.isArray(d.disabledTools) && d.disabledTools.length > 0) {
-    lines.push(`tools:`);
-    for (const tool of d.disabledTools) {
-      lines.push(`  ${tool}: false`);
+    if (d.model && d.model !== SubAgentModel.Inherit) {
+      const mapped = mapModelForClaudeCode(d.model);
+      if (mapped) lines.push(`model: ${mapped}`);
     }
+
+    if (Array.isArray(d.disabledTools) && d.disabledTools.length > 0) {
+      const mapped = d.disabledTools
+        .map(mapToolForClaudeCode)
+        .filter((t): t is string => t !== null);
+      if (mapped.length > 0) {
+        lines.push(`disallowedTools: ${mapped.join(", ")}`);
+      }
+    }
+
+    const color = mapColorForClaudeCode(accent);
+    if (color) lines.push(`color: ${color}`);
+  } else {
+    lines.push(`description: ${description}`);
+    lines.push(`mode: subagent`);
+    lines.push(`hidden: true`);
+
+    if (d.model && d.model !== SubAgentModel.Inherit) {
+      lines.push(`model: ${d.model}`);
+    }
+
+    if (Array.isArray(d.disabledTools) && d.disabledTools.length > 0) {
+      lines.push(`tools:`);
+      for (const tool of d.disabledTools) {
+        lines.push(`  ${tool}: false`);
+      }
+    }
+
+    if (d.temperature && d.temperature > 0) {
+      lines.push(`temperature: ${parseFloat(d.temperature.toFixed(1))}`);
+    }
+
+    lines.push(`color: "${accent}"`);
   }
 
-  if (d.temperature && d.temperature > 0) {
-    lines.push(`temperature: ${parseFloat(d.temperature.toFixed(1))}`);
-  }
-
-  lines.push(`color: "${d.color || NODE_ACCENT["sub-workflow"]}"`);
   lines.push("---");
   lines.push("");
   lines.push(`Call /${workflowSlug}`);
@@ -138,7 +174,7 @@ export const generator: NodeGeneratorModule & {
     const agentSlug = toSafeName(d.label || "Sub Workflow");
     return {
       path: buildGeneratedAgentFilePath(agentSlug, target),
-      content: buildSubWorkflowAgentFile(d),
+      content: buildSubWorkflowAgentFile(d, target),
     };
   },
 };

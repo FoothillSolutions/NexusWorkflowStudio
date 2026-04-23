@@ -5,7 +5,6 @@ interface FloatingWorkflowGenHeaderProps {
   collapsed: boolean;
   isStreaming: boolean;
   isDone: boolean;
-  tokenCount: number;
   parsedNodeCount: number;
   mode: WorkflowGenMode;
   onToggleCollapsed: () => void;
@@ -17,7 +16,6 @@ export function FloatingWorkflowGenHeader({
   collapsed,
   isStreaming,
   isDone,
-  tokenCount,
   parsedNodeCount,
   mode,
   onToggleCollapsed,
@@ -43,7 +41,7 @@ export function FloatingWorkflowGenHeader({
           </span>
           {(isStreaming || isDone) && (
             <span className={isDone ? "text-[10px] text-emerald-400/80 block" : "text-[10px] text-violet-400/80 block"}>
-              ~{tokenCount} tokens · {parsedNodeCount} nodes
+              {parsedNodeCount} nodes
             </span>
           )}
         </div>

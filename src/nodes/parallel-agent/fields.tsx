@@ -8,11 +8,12 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { AiPromptGenerator } from "@/nodes/agent/ai-prompt-generator";
 import { ConnectedNodesList } from "@/nodes/shared/connected-nodes-list";
 import type { FormControl, FormRegister, FormSetValue } from "@/nodes/shared/form-types";
 import { RequiredIndicator } from "@/nodes/shared/required-indicator";
 import { useConnectedResources } from "@/nodes/shared/use-connected-resources";
-import type { ParallelAgentSpawnMode } from "@/types/workflow";
+import { WorkflowNodeType, type ParallelAgentSpawnMode } from "@/types/workflow";
 import { createParallelAgentBranch } from "./constants";
 
 interface ParallelAgentFieldsProps {
@@ -31,6 +32,7 @@ export function Fields({ register, control, setValue, nodeId }: ParallelAgentFie
   const { connectedSkills, connectedDocs, deleteEdge } = useConnectedResources(nodeId);
 
   const spawnMode: ParallelAgentSpawnMode = (useWatch({ control, name: "spawnMode" }) as ParallelAgentSpawnMode | undefined) ?? "fixed";
+  const sharedInstructions: string = (useWatch({ control, name: "sharedInstructions" }) as string | undefined) ?? "";
 
   const handleAddBranch = () => append(createParallelAgentBranch(fields.length) as never);
 
@@ -109,6 +111,13 @@ export function Fields({ register, control, setValue, nodeId }: ParallelAgentFie
           placeholder="Explain the shared goal, how the agents should coordinate, and what they all have in common."
           className="bg-zinc-800/60 border-zinc-700/60 rounded-xl focus-visible:ring-zinc-600 min-h-24 resize-y text-sm"
           {...register("sharedInstructions")}
+        />
+        <AiPromptGenerator
+          setValue={setValue}
+          currentPrompt={sharedInstructions}
+          nodeId={nodeId}
+          nodeType={WorkflowNodeType.ParallelAgent}
+          fieldName="sharedInstructions"
         />
       </div>
 

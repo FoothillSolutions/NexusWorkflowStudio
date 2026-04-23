@@ -108,10 +108,10 @@ describe("parallel-agent generator — fixed mode", () => {
       "#### parallel_1(Parallel Agent)",
       "",
       "**Parallel branches:**",
-      "- **branch-0** (Branch 1) → spawn the connected agent x1",
-      "- **branch-1** (Branch 2) → spawn the connected agent x2",
+      "- **branch-0** (Branch 1) → dispatch the connected agent using the `Agent` tool x1",
+      "- **branch-1** (Branch 2) → dispatch the connected agent using the `Agent` tool x2",
       "",
-      "**Execution method**: Spawn the connected downstream agent for each branch handle in parallel using the configured branch counts.",
+      "**Execution method**: For each branch, dispatch the connected agent using the `Agent` tool the configured number of times; run the branches in parallel. Follow the per-agent dispatch details under `## Agent Node Details`.",
     ].join("\n");
     expect(output).toBe(expected);
   });
@@ -131,11 +131,11 @@ describe("parallel-agent generator — fixed mode", () => {
       "**Shared instructions**: Coordinate findings",
       "",
       "**Parallel branches:**",
-      "- **branch-0** (Scan A) → spawn the connected agent x1",
+      "- **branch-0** (Scan A) → dispatch the connected agent using the `Agent` tool x1",
       "  - Notes: Scan competitor A",
-      "- **branch-1** (Scan B) → spawn the connected agent x3",
+      "- **branch-1** (Scan B) → dispatch the connected agent using the `Agent` tool x3",
       "",
-      "**Execution method**: Spawn the connected downstream agent for each branch handle in parallel using the configured branch counts.",
+      "**Execution method**: For each branch, dispatch the connected agent using the `Agent` tool the configured number of times; run the branches in parallel. Follow the per-agent dispatch details under `## Agent Node Details`.",
     ].join("\n");
     expect(output).toBe(expected);
   });
@@ -156,10 +156,10 @@ describe("buildParallelAgentDetailsSection — fixed mode byte-stable", () => {
       "#### parallel_1(Parallel Agent)",
       "",
       "**Parallel branches:**",
-      "- **branch-0** (Branch 1) → spawn **Unconnected** x1",
-      "- **branch-1** (Branch 2) → spawn **Unconnected** x2",
+      "- **branch-0** (Branch 1) → (no agent connected — wire this branch to an `agent` node)",
+      "- **branch-1** (Branch 2) → (no agent connected — wire this branch to an `agent` node)",
       "",
-      "**Execution method**: Spawn the connected downstream agent for each branch handle in parallel using the configured branch counts.",
+      "**Execution method**: For each branch, dispatch the connected agent using the `Agent` tool the configured number of times; run the branches in parallel. Follow the per-agent dispatch details under `## Agent Node Details`.",
     ].join("\n");
     expect(output).toBe(expected);
   });
@@ -196,7 +196,7 @@ describe("buildParallelAgentDetailsSection — dynamic mode dispatch format", ()
       "",
       "Spawn `agent-tmpl` between 1 and 3 times based on: one per detected topic. For each spawned instance, dispatch it as follows:",
       "",
-      "#### agent-tmpl (Agent: agent-tmpl)",
+      "#### agent-tmpl(Agent: agent-tmpl)",
       "",
       "Dispatch `agent-tmpl` using the `Agent` tool.",
     ].join("\n");
@@ -247,7 +247,7 @@ describe("buildParallelAgentDetailsSection — dynamic mode dispatch format", ()
       "",
       "Spawn `agent-worker` exactly 2 times based on: one per input item. For each spawned instance, dispatch it as follows:",
       "",
-      "#### agent-worker (Agent: agent-worker)",
+      "#### agent-worker(Agent: agent-worker)",
       "",
       "Dispatch `agent-worker` using the `Agent` tool with inputs:",
       "- `data-extract`: `.pi/skills/data-extract/SKILL.md`",
@@ -331,7 +331,7 @@ describe("buildParallelAgentDetailsSection — dynamic mode dispatch format", ()
       "",
       "Spawn `agent-analyze` between 1 and 5 times based on: one per file in input. For each spawned instance, dispatch it as follows:",
       "",
-      "#### agent-analyze (Agent: agent-analyze)",
+      "#### agent-analyze(Agent: agent-analyze)",
       "",
       "Dispatch `agent-analyze` using the `Agent` tool with inputs:",
       "- `lint-check`: `.claude/skills/lint-check/SKILL.md`",
@@ -366,7 +366,7 @@ describe("buildParallelAgentDetailsSection — dynamic mode dispatch format", ()
       "",
       "Spawn `<agent-not-connected>` exactly 1 times based on: <criterion>. For each spawned instance, dispatch it as follows:",
       "",
-      "#### <agent-not-connected> (Agent: <agent-not-connected>)",
+      "#### <agent-not-connected>(Agent: <agent-not-connected>)",
       "",
       "Dispatch `<agent-not-connected>` using the `Agent` tool.",
     ].join("\n");

@@ -9,22 +9,109 @@ import {
   DEFAULT_GENERATION_TARGET,
   type GenerationTargetId,
 } from "@/lib/generation-targets";
+import {
+  mapColorForClaudeCode,
+  mapMemoryForClaudeCode,
+  mapModelForClaudeCode,
+  mapToolForClaudeCode,
+} from "@/nodes/shared/claude-code-frontmatter";
 import type { SubAgentNodeData } from "./types";
 import { SubAgentModel, SubAgentMemory } from "./types";
 
 /**
- * Claude Code's `.claude/agents/*.md` frontmatter expects the short names
- * `sonnet`, `opus`, `haiku`, or `inherit` — not the provider-prefixed ids
- * (e.g. `github-copilot/claude-sonnet-4.6`) used elsewhere in the app.
- * Returns null when the model can't be mapped to a Claude Code tier
- * (non-Claude models) so the caller can omit the line.
+ * Build frontmatter lines restricted to Claude Code's supported fields.
+ * See https://code.claude.com/docs/en/sub-agents#supported-frontmatter-fields.
+ *
+ * Skills and documents are intentionally NOT emitted here — they are not
+ * part of Claude Code's supported frontmatter schema. Referenced skill/doc
+ * files are still generated alongside the agent and can be read from the
+ * body (e.g. via Variables mappings).
  */
-function mapModelForClaudeCode(model: string): string | null {
-  const lower = model.toLowerCase();
-  if (lower.includes("haiku")) return "haiku";
-  if (lower.includes("opus")) return "opus";
-  if (lower.includes("sonnet")) return "sonnet";
-  return null;
+function buildClaudeCodeFrontmatter(
+  agentName: string,
+  d: SubAgentNodeData,
+): string[] {
+  const lines: string[] = [];
+  lines.push(`name: ${agentName}`);
+  lines.push(`description: ${d.description || d.label || agentName}`);
+
+  if (d.model && d.model !== SubAgentModel.Inherit) {
+    const mapped = mapModelForClaudeCode(d.model);
+    if (mapped) lines.push(`model: ${mapped}`);
+  }
+
+  const memory = mapMemoryForClaudeCode(d.memory);
+  if (memory) lines.push(`memory: ${memory}`);
+
+  // Claude Code uses an allow/deny list of capitalized tool names, not a
+  // `tools: { <tool>: false }` map. Translate to `disallowedTools` and
+  // drop any app-only tools (e.g. `lsp`, `patch`) that don't map to a
+  // Claude Code tool name.
+  if (Array.isArray(d.disabledTools) && d.disabledTools.length > 0) {
+    const mapped = d.disabledTools
+      .map(mapToolForClaudeCode)
+      .filter((t): t is string => t !== null);
+    if (mapped.length > 0) {
+      lines.push(`disallowedTools: ${mapped.join(", ")}`);
+    }
+  }
+
+  const color = mapColorForClaudeCode(d.color || NODE_ACCENT.agent);
+  if (color) lines.push(`color: ${color}`);
+
+  return lines;
+}
+
+/**
+ * Build frontmatter lines for OpenCode/PI targets (the app's native format).
+ */
+function buildOpenCodeFrontmatter(
+  d: SubAgentNodeData,
+  agentName: string,
+  connectedSkillNames?: string[],
+  connectedDocNames?: string[],
+): string[] {
+  const lines: string[] = [];
+  lines.push(`description: ${d.description || d.label || agentName}`);
+  lines.push(`mode: subagent`);
+  lines.push(`hidden: true`);
+
+  if (d.model && d.model !== SubAgentModel.Inherit) {
+    lines.push(`model: ${d.model}`);
+  }
+
+  if (d.memory && d.memory !== SubAgentMemory.Default) {
+    lines.push(`memory: ${d.memory}`);
+  }
+
+  if (Array.isArray(d.disabledTools) && d.disabledTools.length > 0) {
+    lines.push(`tools:`);
+    for (const tool of d.disabledTools) {
+      lines.push(`  ${tool}: false`);
+    }
+  }
+
+  if (connectedSkillNames && connectedSkillNames.length > 0) {
+    lines.push(`skills:`);
+    for (const name of connectedSkillNames) {
+      lines.push(`  - ${name}`);
+    }
+  }
+
+  if (connectedDocNames && connectedDocNames.length > 0) {
+    lines.push(`docs:`);
+    for (const name of connectedDocNames) {
+      lines.push(`  - ${name}`);
+    }
+  }
+
+  if (d.temperature && d.temperature > 0) {
+    lines.push(`temperature: ${parseFloat(d.temperature.toFixed(1))}`);
+  }
+
+  lines.push(`color: "${d.color || NODE_ACCENT.agent}"`);
+
+  return lines;
 }
 
 /**
@@ -40,55 +127,12 @@ export function buildAgentFile(
 ): string {
   const agentName = d.name || `agent-${nodeId}`;
 
-  // --- frontmatter ---
   const lines: string[] = ["---"];
-  lines.push(`description: ${d.description || d.label || agentName}`);
-  lines.push(`mode: subagent`);
-  lines.push(`hidden: true`);
-
-  if (d.model && d.model !== SubAgentModel.Inherit) {
-    if (target === "claude-code") {
-      const mapped = mapModelForClaudeCode(d.model);
-      if (mapped) lines.push(`model: ${mapped}`);
-    } else {
-      lines.push(`model: ${d.model}`);
-    }
-  }
-
-  if (d.memory && d.memory !== SubAgentMemory.Default) {
-    lines.push(`memory: ${d.memory}`);
-  }
-
-  // Only emit tools block if some are disabled
-  if (Array.isArray(d.disabledTools) && d.disabledTools.length > 0) {
-    lines.push(`tools:`);
-    for (const tool of d.disabledTools) {
-      lines.push(`  ${tool}: false`);
-    }
-  }
-
-  // Emit connected skills
-  if (connectedSkillNames && connectedSkillNames.length > 0) {
-    lines.push(`skills:`);
-    for (const name of connectedSkillNames) {
-      lines.push(`  - ${name}`);
-    }
-  }
-
-  // Emit connected documents
-  if (connectedDocNames && connectedDocNames.length > 0) {
-    lines.push(`docs:`);
-    for (const name of connectedDocNames) {
-      lines.push(`  - ${name}`);
-    }
-  }
-
-  if (d.temperature && d.temperature > 0) {
-    lines.push(`temperature: ${parseFloat(d.temperature.toFixed(1))}`);
-  }
-
-  lines.push(`color: "${d.color || NODE_ACCENT.agent}"`);
-
+  const frontmatter =
+    target === "claude-code"
+      ? buildClaudeCodeFrontmatter(agentName, d)
+      : buildOpenCodeFrontmatter(d, agentName, connectedSkillNames, connectedDocNames);
+  lines.push(...frontmatter);
   lines.push("---");
   lines.push("");
 
