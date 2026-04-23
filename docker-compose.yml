@@ -15,6 +15,12 @@ services:
       PORT: "3000"
       NEXUS_BRAIN_DATA_DIR: /data/brain
       NEXT_PUBLIC_COLLAB_SERVER_URL: ws://localhost:1234
+      # ── Authentication (uncomment to enable OIDC/OAuth2 SSO) ──
+      # AUTH_ISSUER: https://login.microsoftonline.com/your-tenant-id/v2.0
+      # AUTH_CLIENT_ID: your-client-id
+      # AUTH_CLIENT_SECRET: your-client-secret
+      # AUTH_SECRET: generate-with-openssl-rand-base64-33
+      # AUTH_PROVIDER_NAME: Microsoft
     expose:
       - "3000"
     volumes:
