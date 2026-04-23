@@ -10,18 +10,10 @@ const VALID_ENV = {
   AUTH_PROVIDER_NAME: "TestProvider",
 };
 
-/**
- * Dynamically import the config module to pick up the current env state.
- * Each test must set env vars BEFORE importing, because authOptions is built
- * at module-evaluation time.
- */
-async function loadConfig() {
-  // Bust the module cache so the config re-evaluates with current env
-  const modulePath = require.resolve("../config");
-  delete require.cache[modulePath];
-  // Also bust env cache
+function loadConfig() {
   _resetCache();
-  return import("../config");
+  const { _buildAuthOptions } = require("../config") as typeof import("../config");
+  return { authOptions: _buildAuthOptions() };
 }
 
 describe("auth config", () => {
@@ -33,18 +25,18 @@ describe("auth config", () => {
   });
 
   describe("when auth is disabled", () => {
-    it("exports authOptions", async () => {
-      const config = await loadConfig();
+    it("exports authOptions", () => {
+      const config = loadConfig();
       expect(config.authOptions).toBeDefined();
     });
 
-    it("authOptions has empty providers array", async () => {
-      const config = await loadConfig();
+    it("authOptions has empty providers array", () => {
+      const config = loadConfig();
       expect(config.authOptions.providers).toEqual([]);
     });
 
-    it("authOptions has a placeholder secret", async () => {
-      const config = await loadConfig();
+    it("authOptions has a placeholder secret", () => {
+      const config = loadConfig();
       expect(config.authOptions.secret).toBeDefined();
       expect(typeof config.authOptions.secret).toBe("string");
     });
@@ -55,41 +47,41 @@ describe("auth config", () => {
       Object.assign(process.env, VALID_ENV);
     });
 
-    it("exports authOptions", async () => {
-      const config = await loadConfig();
+    it("exports authOptions", () => {
+      const config = loadConfig();
       expect(config.authOptions).toBeDefined();
     });
 
-    it("authOptions has one OIDC provider with type oauth", async () => {
-      const config = await loadConfig();
+    it("authOptions has one OIDC provider with type oauth", () => {
+      const config = loadConfig();
       expect(config.authOptions.providers).toHaveLength(1);
       const provider = config.authOptions.providers[0] as unknown as Record<string, unknown>;
       expect(provider.id).toBe("oidc");
       expect(provider.type).toBe("oauth");
     });
 
-    it("provider uses wellKnown discovery URL derived from AUTH_ISSUER", async () => {
-      const config = await loadConfig();
+    it("provider uses wellKnown discovery URL derived from AUTH_ISSUER", () => {
+      const config = loadConfig();
       const provider = config.authOptions.providers[0] as unknown as Record<string, unknown>;
       expect(provider.wellKnown).toBe(
         `${VALID_ENV.AUTH_ISSUER}/.well-known/openid-configuration`,
       );
     });
 
-    it("provider uses AUTH_PROVIDER_NAME as display name", async () => {
-      const config = await loadConfig();
+    it("provider uses AUTH_PROVIDER_NAME as display name", () => {
+      const config = loadConfig();
       const provider = config.authOptions.providers[0] as unknown as Record<string, unknown>;
       expect(provider.name).toBe(VALID_ENV.AUTH_PROVIDER_NAME);
     });
 
-    it("session strategy is jwt with 8-hour maxAge", async () => {
-      const config = await loadConfig();
+    it("session strategy is jwt with 8-hour maxAge", () => {
+      const config = loadConfig();
       expect(config.authOptions.session?.strategy).toBe("jwt");
       expect(config.authOptions.session?.maxAge).toBe(8 * 60 * 60);
     });
 
-    it("authOptions secret matches AUTH_SECRET", async () => {
-      const config = await loadConfig();
+    it("authOptions secret matches AUTH_SECRET", () => {
+      const config = loadConfig();
       expect(config.authOptions.secret).toBe(VALID_ENV.AUTH_SECRET);
     });
   });

@@ -44,3 +44,10 @@ function buildAuthOptions(): NextAuthOptions {
 }
 
 export const authOptions = buildAuthOptions();
+
+/**
+ * Build a fresh `NextAuthOptions` from the current environment.
+ * Intended for tests that need to re-evaluate config after changing env vars.
+ * @internal
+ */
+export { buildAuthOptions as _buildAuthOptions };
