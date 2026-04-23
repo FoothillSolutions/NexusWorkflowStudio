@@ -65,6 +65,37 @@ interface RemoteAwarenessState {
 // How long to wait for initial connection before declaring failure.
 const CONNECT_TIMEOUT_MS = 8000;
 
+const OWNER_TOKEN_STORAGE_PREFIX = "nexus:collab-owner-token:";
+
+function localOwnerTokenKey(roomId: string): string {
+  return `${OWNER_TOKEN_STORAGE_PREFIX}${roomId}`;
+}
+
+function readLocalOwnerToken(roomId: string): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return localStorage.getItem(localOwnerTokenKey(roomId));
+  } catch {
+    return null;
+  }
+}
+
+function writeLocalOwnerToken(roomId: string, token: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(localOwnerTokenKey(roomId), token);
+  } catch {
+    /* quota / private mode — ownership will silently not persist */
+  }
+}
+
+function generateOwnerToken(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `tok-${Math.random().toString(36).slice(2)}-${Date.now().toString(36)}`;
+}
+
 // ── CollabDoc singleton ───────────────────────────────────────────────────
 
 // Module-level mutex flag — prevents the Y.js→Zustand observer from
@@ -99,6 +130,11 @@ export class CollabDoc {
   private _lastSyncedDocs: KnowledgeDoc[] = [];
   private _brainStoreUnsub: (() => void) | null = null;
 
+  // Room-level metadata (ownerToken etc). Shared via Y.Doc so every peer
+  // sees the same authoritative ownership record on the server.
+  private _yMeta: Y.Map<string>;
+  private _claimOwnershipOnSync = false;
+
   // Track peers for join/leave toasts
   private _prevPeerNames = new Map<number, string>();
 
@@ -119,6 +155,7 @@ export class CollabDoc {
     this._yEdges = this._ydoc.getMap<WorkflowEdge>("edges");
     this._yName = this._ydoc.getText("name");
     this._yDocs = this._ydoc.getMap<KnowledgeDoc>("brain");
+    this._yMeta = this._ydoc.getMap<string>("meta");
   }
 
   static getInstance(): CollabDoc | null {
@@ -132,7 +169,11 @@ export class CollabDoc {
     return CollabDoc._instance;
   }
 
-  start(roomId: string, initialState?: WorkflowJSON): void {
+  start(
+    roomId: string,
+    initialState?: WorkflowJSON,
+    opts: { asOwner?: boolean } = {},
+  ): void {
     if (typeof window === "undefined") return;
 
     // Idempotency guard — if we're already running, bail out instead of
@@ -150,6 +191,16 @@ export class CollabDoc {
     this._roomId = roomId;
     useCollabStore.getState()._setRoomId(roomId);
     useCollabStore.getState()._setInitializing(true);
+    useCollabStore.getState()._setIsOwner(false);
+
+    // If caller claims ownership, ensure a local owner token exists. We
+    // stamp it onto Y.Doc `meta` once we've synced (so we don't overwrite a
+    // prior owner). Peers who hold the matching localStorage token are
+    // recognized as the owner across reloads.
+    if (opts.asOwner && !readLocalOwnerToken(roomId)) {
+      writeLocalOwnerToken(roomId, generateOwnerToken());
+    }
+    this._claimOwnershipOnSync = !!opts.asOwner;
 
     // Set up self identity
     const selfName = getOrCreateUserName();
@@ -184,6 +235,8 @@ export class CollabDoc {
           useCollabStore.getState()._setConnected(true);
           useCollabStore.getState()._setInitializing(false);
           this._clearConnectTimer();
+          this._claimOwnershipIfRequested();
+          this._recomputeOwnerStatus();
         }
       },
       onDisconnect: () => {
@@ -222,6 +275,7 @@ export class CollabDoc {
     this._yEdges.observe(this._onRemoteChange);
     this._yName.observe(this._onRemoteChange);
     this._yDocs.observe(this._onRemoteBrainChange);
+    this._yMeta.observe(this._onMetaChange);
 
     // Register subscriber: Zustand changes → Y.Doc
     this._storeUnsub = useWorkflowStore.subscribe((state) => {
@@ -278,6 +332,7 @@ export class CollabDoc {
     this._brainStoreUnsub?.();
     this._brainStoreUnsub = null;
     this._yDocs.unobserve(this._onRemoteBrainChange);
+    this._yMeta.unobserve(this._onMetaChange);
 
     if (this._provider) {
       this._provider.destroy();
@@ -294,11 +349,54 @@ export class CollabDoc {
     useCollabStore.getState()._setRoomId(null);
     useCollabStore.getState()._setConnected(false);
     useCollabStore.getState()._setInitializing(false);
+    useCollabStore.getState()._setIsOwner(false);
     useCollabStore.getState()._setPeerCount(0);
     useAwarenessStore.getState()._setPeers([]);
 
+    this._claimOwnershipOnSync = false;
+
     CollabDoc._instance = null;
   }
+
+  // ── Ownership ─────────────────────────────────────────────────────────
+
+  /** True iff the local client is recognized as the room owner. */
+  get isOwner(): boolean {
+    return useCollabStore.getState().isOwner;
+  }
+
+  private _claimOwnershipIfRequested(): void {
+    if (!this._claimOwnershipOnSync || !this._roomId) return;
+    this._claimOwnershipOnSync = false;
+
+    const localToken = readLocalOwnerToken(this._roomId);
+    if (!localToken) return;
+
+    // Only claim if nobody else already owns the room — Y.js merge semantics
+    // would otherwise let two "first movers" overwrite each other.
+    if (!this._yMeta.has("ownerToken")) {
+      this._ydoc.transact(() => {
+        this._yMeta.set("ownerToken", localToken);
+      });
+    }
+  }
+
+  private _recomputeOwnerStatus(): void {
+    if (!this._roomId) {
+      useCollabStore.getState()._setIsOwner(false);
+      return;
+    }
+    const remoteToken = this._yMeta.get("ownerToken");
+    const localToken = readLocalOwnerToken(this._roomId);
+    const isOwner = Boolean(remoteToken && localToken && remoteToken === localToken);
+    if (useCollabStore.getState().isOwner !== isOwner) {
+      useCollabStore.getState()._setIsOwner(isOwner);
+    }
+  }
+
+  private _onMetaChange = (): void => {
+    this._recomputeOwnerStatus();
+  };
 
   /** Update the local user's ephemeral awareness state. */
   updateAwareness(patch: {
