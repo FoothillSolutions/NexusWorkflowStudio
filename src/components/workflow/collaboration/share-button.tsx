@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { Share2, Copy, Check, Loader2, Users, X, UserX } from "lucide-react";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { Share2, Copy, Check, Loader2, Users, X, UserX, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -267,10 +267,9 @@ function ShareDialog({
             </div>
 
             <div className="max-h-64 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-900/40 divide-y divide-zinc-800/80">
-              <UserRow
+              <SelfRow
                 name={selfName || "You"}
                 color={selfColor}
-                isSelf
                 clientId={selfClientId ?? 0}
               />
               {peers.map((peer) => (
@@ -384,6 +383,101 @@ function UserRow({
           className="h-7 w-7 shrink-0 rounded-md text-zinc-500 opacity-0 transition-opacity hover:bg-rose-500/10 hover:text-rose-400 group-hover:opacity-100 focus-visible:opacity-100"
         >
           <UserX className="h-3.5 w-3.5" />
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function SelfRow({
+  name,
+  color,
+  clientId,
+}: {
+  name: string;
+  color: string;
+  clientId: number;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const editing = draft !== null;
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (editing) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [editing]);
+
+  const startEditing = useCallback(() => setDraft(name), [name]);
+  const cancel = useCallback(() => setDraft(null), []);
+
+  const commit = useCallback(() => {
+    if (draft === null) return;
+    const next = draft.trim();
+    if (next && next !== name) {
+      CollabDoc.getInstance()?.setUserName(next);
+    }
+    setDraft(null);
+  }, [draft, name]);
+
+  const initials = name.slice(0, 2).toUpperCase();
+
+  return (
+    <div className="flex items-center gap-2.5 px-3 py-2 group">
+      <div
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white select-none"
+        style={{ backgroundColor: color }}
+        aria-hidden="true"
+      >
+        {initials}
+      </div>
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        {editing ? (
+          <Input
+            ref={inputRef}
+            value={draft ?? ""}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                commit();
+              } else if (e.key === "Escape") {
+                e.preventDefault();
+                cancel();
+              }
+            }}
+            maxLength={32}
+            aria-label="Your display name"
+            className="h-6 bg-zinc-900 border-zinc-700 px-1.5 text-xs text-zinc-100 focus-visible:ring-1 focus-visible:ring-zinc-600"
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={startEditing}
+            title="Rename yourself"
+            className="flex items-center gap-1.5 truncate text-left text-xs font-medium text-zinc-100 hover:text-white"
+          >
+            <span className="truncate">{name}</span>
+            <span className="text-[10px] font-normal text-zinc-500">(you)</span>
+          </button>
+        )}
+        <span className="text-[10px] text-zinc-500">
+          {editing ? "Enter to save · Esc to cancel" : `ID · ${clientId}`}
+        </span>
+      </div>
+
+      {!editing && (
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={startEditing}
+          title="Rename"
+          className="h-7 w-7 shrink-0 rounded-md text-zinc-500 opacity-0 transition-opacity hover:bg-zinc-800 hover:text-zinc-200 group-hover:opacity-100 focus-visible:opacity-100"
+        >
+          <Pencil className="h-3.5 w-3.5" />
         </Button>
       )}
     </div>

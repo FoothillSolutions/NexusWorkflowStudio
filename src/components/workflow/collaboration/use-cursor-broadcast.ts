@@ -9,13 +9,12 @@ const BROADCAST_INTERVAL_MS = 40;
 
 /**
  * Broadcasts the local pointer position (in React Flow coordinates) via
- * Y.js awareness so remote peers can render a live cursor. Positions are
- * throttled to ~25 updates/sec.
+ * Y.js awareness so remote peers can render a live cursor.
  *
- * The listener is scoped to the given canvas container — that keeps
- * off-canvas pointer moves (header, panels, dialogs) out of the broadcast
- * and means remote cursors only appear when peers are actually hovering
- * over the workflow.
+ * Listens on `window` in the capture phase — that way we still receive
+ * pointer events while React Flow has captured them for a node drag or
+ * selection box. A bounding-rect guard discards moves outside the canvas
+ * so cursors don't leak from the header / side panels.
  *
  * Must be called inside a ReactFlowProvider.
  */
@@ -30,19 +29,17 @@ export function useCursorBroadcast(
   const lastSentAtRef = useRef(0);
   const pendingRef = useRef<{ x: number; y: number } | null>(null);
   const timerRef = useRef<number | null>(null);
+  const insideRef = useRef(false);
 
   useEffect(() => {
     activeRef.current = enabled && isConnected;
     if (!activeRef.current) {
-      // Clear stale cursor when disabled so peers don't see a ghost.
       CollabDoc.getInstance()?.updateAwareness({ cursor: null });
     }
   }, [enabled, isConnected]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const container = containerRef.current;
-    if (!container) return;
 
     const flush = () => {
       timerRef.current = null;
@@ -60,25 +57,7 @@ export function useCursorBroadcast(
       timerRef.current = window.setTimeout(flush, wait);
     };
 
-    const handleMove = (event: MouseEvent) => {
-      if (!activeRef.current) return;
-      // Ignore moves that originate outside this container (e.g. bubbled
-      // from floating children positioned outside the canvas bounds).
-      const rect = container.getBoundingClientRect();
-      if (
-        event.clientX < rect.left ||
-        event.clientX > rect.right ||
-        event.clientY < rect.top ||
-        event.clientY > rect.bottom
-      ) {
-        return;
-      }
-      pendingRef.current = screenToFlowPosition({ x: event.clientX, y: event.clientY });
-      schedule();
-    };
-
-    const handleLeave = () => {
-      if (!activeRef.current) return;
+    const clearCursor = () => {
       pendingRef.current = null;
       if (timerRef.current !== null) {
         clearTimeout(timerRef.current);
@@ -87,14 +66,46 @@ export function useCursorBroadcast(
       CollabDoc.getInstance()?.updateAwareness({ cursor: null });
     };
 
-    container.addEventListener("mousemove", handleMove, { passive: true });
-    container.addEventListener("mouseleave", handleLeave);
-    window.addEventListener("blur", handleLeave);
+    const handleMove = (event: PointerEvent | MouseEvent) => {
+      if (!activeRef.current) return;
+      const container = containerRef.current;
+      if (!container) return;
+
+      const rect = container.getBoundingClientRect();
+      const x = event.clientX;
+      const y = event.clientY;
+      const isInside =
+        x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+
+      if (!isInside) {
+        if (insideRef.current) {
+          insideRef.current = false;
+          clearCursor();
+        }
+        return;
+      }
+
+      insideRef.current = true;
+      pendingRef.current = screenToFlowPosition({ x, y });
+      schedule();
+    };
+
+    const handleBlur = () => {
+      insideRef.current = false;
+      clearCursor();
+    };
+
+    // Capture phase on window — receives events even while React Flow has
+    // pointer capture during a drag. `pointermove` covers both mouse and
+    // touch / stylus. `mousemove` is a safety net for older browsers.
+    window.addEventListener("pointermove", handleMove, { capture: true, passive: true });
+    window.addEventListener("mousemove", handleMove, { capture: true, passive: true });
+    window.addEventListener("blur", handleBlur);
 
     return () => {
-      container.removeEventListener("mousemove", handleMove);
-      container.removeEventListener("mouseleave", handleLeave);
-      window.removeEventListener("blur", handleLeave);
+      window.removeEventListener("pointermove", handleMove, { capture: true });
+      window.removeEventListener("mousemove", handleMove, { capture: true });
+      window.removeEventListener("blur", handleBlur);
       if (timerRef.current !== null) {
         clearTimeout(timerRef.current);
         timerRef.current = null;

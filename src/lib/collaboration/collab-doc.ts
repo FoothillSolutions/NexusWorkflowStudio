@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { useWorkflowStore } from "@/store/workflow";
 import { useCollabStore } from "@/store/collaboration/collab-store";
 import { useAwarenessStore } from "@/store/collaboration/awareness-store";
-import { getOrCreateUserName, getColorForClientId } from "./awareness-names";
+import { getOrCreateUserName, getColorForClientId, saveUserName } from "./awareness-names";
 import { getCollabServerUrl } from "./config";
 import type { WorkflowJSON, WorkflowNode, WorkflowEdge } from "@/types/workflow";
 import { WorkflowNodeType } from "@/types/workflow";
@@ -285,6 +285,26 @@ export class CollabDoc {
     for (const [key, value] of Object.entries(patch)) {
       this._provider.setAwarenessField(key, value);
     }
+  }
+
+  /**
+   * Update the local user's display name. Persists to sessionStorage and
+   * rebroadcasts the `user` awareness field so peers see the new name.
+   */
+  setUserName(name: string): void {
+    if (!this._provider) return;
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    saveUserName(trimmed);
+    const selfColors = getColorForClientId(this._ydoc.clientID);
+    this._provider.setAwarenessField("user", {
+      name: trimmed,
+      color: selfColors.color,
+      colorLight: selfColors.colorLight,
+    });
+    useAwarenessStore
+      .getState()
+      ._setSelf(this._ydoc.clientID, trimmed, selfColors.color, selfColors.colorLight);
   }
 
   /**
