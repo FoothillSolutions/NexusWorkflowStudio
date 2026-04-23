@@ -1,15 +1,27 @@
 const DEFAULT_COLLAB_PORT = "1234";
+const COLLAB_PATH = "/collab";
 
+/**
+ * Resolve the WebSocket URL for the collab server.
+ *
+ * Resolution order:
+ * 1. `NEXT_PUBLIC_COLLAB_SERVER_URL` — explicit override (used by local dev
+ *    to point at a separately-running Hocuspocus on port 1234).
+ * 2. Same-origin `/collab` path — works in any deployment where the Next.js
+ *    server also handles WebSocket upgrades at `/collab` (see `server.ts`).
+ *    This is what production hosts (HTTPS behind a reverse proxy) should use
+ *    because it needs no per-deploy configuration.
+ */
 export function getCollabServerUrl(): string {
   const configured = process.env.NEXT_PUBLIC_COLLAB_SERVER_URL?.trim();
   if (configured) return configured;
 
   if (typeof window === "undefined") {
-    return `ws://localhost:${DEFAULT_COLLAB_PORT}`;
+    return `ws://localhost:${DEFAULT_COLLAB_PORT}${COLLAB_PATH}`;
   }
 
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  return `${protocol}//${window.location.hostname}:${DEFAULT_COLLAB_PORT}`;
+  return `${protocol}//${window.location.host}${COLLAB_PATH}`;
 }
 
 export function buildCollabRoomUrl(roomId: string): string {

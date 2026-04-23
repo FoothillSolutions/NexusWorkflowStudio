@@ -1,5 +1,8 @@
 services:
-  # Bun service (default — runs with: docker compose up --build)
+  # Single service — Next.js HTTP and Hocuspocus WebSocket run in one process
+  # on port 3000. See server.ts. Collab traffic rides over the same origin
+  # at `/collab`, so any reverse proxy / CDN / LB that already forwards
+  # HTTP+WS to 3000 carries it automatically.
   nexus-workflow-studio:
     build:
       context: .
@@ -13,8 +16,12 @@ services:
     environment:
       NODE_ENV: production
       PORT: "3000"
+      HOSTNAME: "0.0.0.0"
       NEXUS_BRAIN_DATA_DIR: /data/brain
-      NEXT_PUBLIC_COLLAB_SERVER_URL: ws://localhost:1234
+      NEXUS_COLLAB_DATA_DIR: /data/collab
+      # Do NOT set NEXT_PUBLIC_COLLAB_SERVER_URL — leave unset so the browser
+      # auto-resolves to same-origin `wss://<host>/collab`. Setting it bakes
+      # a fixed URL into the JS bundle at build time.
       # ── Authentication (uncomment to enable OIDC/OAuth2 SSO) ──
       # AUTH_ISSUER: https://login.microsoftonline.com/your-tenant-id/v2.0
       # AUTH_CLIENT_ID: your-client-id
@@ -25,25 +32,6 @@ services:
       - "3000"
     volumes:
       - nexus_brain_data:/data/brain
-    restart: unless-stopped
-  nexus-collab:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        GIT_SHA: ${GIT_SHA:-unknown}
-        BUILD_TIMESTAMP: ${BUILD_TIMESTAMP:-unknown}
-    pull_policy: build
-    image: nexus-workflow-studio:latest
-    container_name: nexus-workflow-studio-collab
-    command: ["bun", "scripts/collab-server.ts"]
-    environment:
-      NODE_ENV: production
-      NEXUS_COLLAB_SERVER_PORT: "1234"
-      NEXUS_COLLAB_DATA_DIR: /data/collab
-    ports:
-      - "1234:1234"
-    volumes:
       - nexus_collab_data:/data/collab
     restart: unless-stopped
 
