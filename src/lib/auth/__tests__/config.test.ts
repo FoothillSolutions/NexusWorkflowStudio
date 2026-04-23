@@ -12,6 +12,7 @@ const VALID_ENV = {
 
 function loadConfig() {
   _resetCache();
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { _buildAuthOptions } = require("../config") as typeof import("../config");
   return { authOptions: _buildAuthOptions() };
 }

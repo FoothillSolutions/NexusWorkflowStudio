@@ -41,6 +41,16 @@ function cleanEdgeForSync(edge: WorkflowEdge): WorkflowEdge {
 
 // ── Awareness state shape ─────────────────────────────────────────────────
 
+export interface CursorPosition {
+  x: number;
+  y: number;
+}
+
+export interface KickRequest {
+  targetClientId: number;
+  at: number;
+}
+
 interface RemoteAwarenessState {
   user?: {
     name: string;
@@ -48,7 +58,12 @@ interface RemoteAwarenessState {
     colorLight: string;
   };
   selectedNodeId?: string | null;
+  cursor?: CursorPosition | null;
+  kickRequest?: KickRequest | null;
 }
+
+// How long to wait for initial connection before declaring failure.
+const CONNECT_TIMEOUT_MS = 8000;
 
 // ── CollabDoc singleton ───────────────────────────────────────────────────
 
@@ -80,6 +95,17 @@ export class CollabDoc {
   // Track peers for join/leave toasts
   private _prevPeerNames = new Map<number, string>();
 
+  // Connect-watchdog — clears a stuck "Connecting…" state when the server
+  // never responds (e.g. collab server not running).
+  private _connectTimer: ReturnType<typeof setTimeout> | null = null;
+  private _hasEverConnected = false;
+
+  // Kick tracking — clientIds this session has already asked to kick, so a
+  // single `kickRequest` stays in awareness without being re-broadcast.
+  private _pendingKicks = new Map<number, number>();
+
+  private _isKicked = false;
+
   private constructor() {
     this._ydoc = new Y.Doc();
     this._yNodes = this._ydoc.getMap<WorkflowNode>("nodes");
@@ -109,14 +135,24 @@ export class CollabDoc {
     // Set up self identity
     const selfName = getOrCreateUserName();
     const selfColors = getColorForClientId(this._ydoc.clientID);
-    useAwarenessStore.getState()._setSelf(selfName, selfColors.color, selfColors.colorLight);
+    useAwarenessStore
+      .getState()
+      ._setSelf(this._ydoc.clientID, selfName, selfColors.color, selfColors.colorLight);
 
     this._provider = new HocuspocusProvider({
       url: getCollabServerUrl(),
       name: roomId,
       document: this._ydoc,
       onStatus: ({ status }) => {
-        useCollabStore.getState()._setConnected(status === WebSocketStatus.Connected);
+        const connected = status === WebSocketStatus.Connected;
+        useCollabStore.getState()._setConnected(connected);
+        if (connected) {
+          this._hasEverConnected = true;
+          // As soon as the socket is up we can stop showing "Connecting…".
+          // onSynced will still run and seed state, but the UI should move on.
+          useCollabStore.getState()._setInitializing(false);
+          this._clearConnectTimer();
+        }
       },
       onSynced: ({ state }) => {
         if (state && initialState) {
@@ -128,10 +164,16 @@ export class CollabDoc {
         if (state) {
           useCollabStore.getState()._setConnected(true);
           useCollabStore.getState()._setInitializing(false);
+          this._clearConnectTimer();
         }
       },
       onDisconnect: () => {
         useCollabStore.getState()._setConnected(false);
+        // If we never got a connection and the watchdog hasn't fired yet,
+        // let it run — otherwise clear initializing so UI unsticks.
+        if (this._hasEverConnected) {
+          useCollabStore.getState()._setInitializing(false);
+        }
       },
       onAwarenessChange: () => {
         this._onAwarenessChange();
@@ -144,6 +186,17 @@ export class CollabDoc {
       colorLight: selfColors.colorLight,
     });
     this._provider.setAwarenessField("selectedNodeId", null);
+    this._provider.setAwarenessField("cursor", null);
+    this._provider.setAwarenessField("kickRequest", null);
+
+    // Watchdog — if we still haven't connected after CONNECT_TIMEOUT_MS,
+    // clear the initializing state and surface the problem so the UI stops
+    // showing "Connecting…" forever.
+    this._connectTimer = setTimeout(() => {
+      if (this._hasEverConnected) return;
+      useCollabStore.getState()._setInitializing(false);
+      toast.error("Collaboration server unreachable — retrying in the background");
+    }, CONNECT_TIMEOUT_MS);
 
     // Register observers: Y.Doc changes → Zustand
     this._yNodes.observe(this._onRemoteChange);
@@ -186,8 +239,16 @@ export class CollabDoc {
 
   }
 
+  private _clearConnectTimer(): void {
+    if (this._connectTimer) {
+      clearTimeout(this._connectTimer);
+      this._connectTimer = null;
+    }
+  }
+
   /** Disconnect and clean up everything. */
   destroy(): void {
+    this._clearConnectTimer();
     this._storeUnsub?.();
     this._storeUnsub = null;
 
@@ -216,11 +277,30 @@ export class CollabDoc {
   }
 
   /** Update the local user's ephemeral awareness state. */
-  updateAwareness(patch: { selectedNodeId?: string | null }): void {
+  updateAwareness(patch: {
+    selectedNodeId?: string | null;
+    cursor?: CursorPosition | null;
+  }): void {
     if (!this._provider) return;
     for (const [key, value] of Object.entries(patch)) {
       this._provider.setAwarenessField(key, value);
     }
+  }
+
+  /**
+   * Ask a remote peer to leave by broadcasting a `kickRequest` via our own
+   * awareness state. The targeted client self-destructs when it observes the
+   * request, since we can't forcibly close their socket from here.
+   */
+  kick(clientId: number): void {
+    if (!this._provider) return;
+    const at = Date.now();
+    this._pendingKicks.set(clientId, at);
+    this._provider.setAwarenessField("kickRequest", { targetClientId: clientId, at });
+  }
+
+  get clientId(): number {
+    return this._ydoc.clientID;
   }
 
   get roomId(): string | null {
@@ -391,6 +471,30 @@ export class CollabDoc {
 
     const selfId = this._ydoc.clientID;
 
+    // Detect kick requests targeting self — any peer broadcasting
+    // { kickRequest: { targetClientId: selfId } } causes us to disconnect.
+    if (!this._isKicked) {
+      for (const [clientId, state] of allStates) {
+        if (clientId === selfId) continue;
+        const req = state.kickRequest;
+        if (req && req.targetClientId === selfId) {
+          this._isKicked = true;
+          toast.error("You were removed from this collaboration session");
+          // Remove ?room= from URL so a reload doesn't rejoin.
+          if (typeof window !== "undefined") {
+            const url = new URL(window.location.href);
+            if (url.searchParams.has("room")) {
+              url.searchParams.delete("room");
+              window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+            }
+          }
+          // Defer destroy so we don't tear down mid-observer.
+          queueMicrotask(() => this.destroy());
+          return;
+        }
+      }
+    }
+
     const peers = [];
     const currentNames = new Map<number, string>();
 
@@ -405,6 +509,7 @@ export class CollabDoc {
           colorLight: state.user.colorLight ?? colors.colorLight,
         },
         selectedNodeId: state.selectedNodeId ?? null,
+        cursor: state.cursor ?? null,
       });
       currentNames.set(clientId, state.user.name);
     }

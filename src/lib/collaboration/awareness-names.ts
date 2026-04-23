@@ -28,16 +28,18 @@ export function generateAnimalName(): string {
 
 export function getOrCreateUserName(): string {
   if (typeof window === "undefined") return generateAnimalName();
-  const stored = localStorage.getItem(COLLAB_NAME_KEY);
+  // Use sessionStorage — scoped per tab, so two tabs in the same browser
+  // get distinct names instead of both reading the same localStorage key.
+  const stored = sessionStorage.getItem(COLLAB_NAME_KEY);
   if (stored) return stored;
   const name = generateAnimalName();
-  localStorage.setItem(COLLAB_NAME_KEY, name);
+  sessionStorage.setItem(COLLAB_NAME_KEY, name);
   return name;
 }
 
 export function saveUserName(name: string): void {
   if (typeof window !== "undefined") {
-    localStorage.setItem(COLLAB_NAME_KEY, name);
+    sessionStorage.setItem(COLLAB_NAME_KEY, name);
   }
 }
 
