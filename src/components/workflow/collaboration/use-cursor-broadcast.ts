@@ -6,6 +6,9 @@ import { CollabDoc } from "@/lib/collaboration";
 import { useCollabStore } from "@/store/collaboration";
 
 const BROADCAST_INTERVAL_MS = 40;
+// Sub-pixel moves don't matter visually — swallow them to cut idle chatter
+// and Hocuspocus awareness bandwidth.
+const MIN_FLOW_DELTA = 0.5;
 
 /**
  * Broadcasts the local pointer position (in React Flow coordinates) via
@@ -27,6 +30,7 @@ export function useCursorBroadcast(
 
   const activeRef = useRef(enabled && isConnected);
   const lastSentAtRef = useRef(0);
+  const lastSentPosRef = useRef<{ x: number; y: number } | null>(null);
   const pendingRef = useRef<{ x: number; y: number } | null>(null);
   const timerRef = useRef<number | null>(null);
   const insideRef = useRef(false);
@@ -46,6 +50,17 @@ export function useCursorBroadcast(
       const pos = pendingRef.current;
       pendingRef.current = null;
       if (!pos) return;
+
+      const prev = lastSentPosRef.current;
+      if (
+        prev &&
+        Math.abs(prev.x - pos.x) < MIN_FLOW_DELTA &&
+        Math.abs(prev.y - pos.y) < MIN_FLOW_DELTA
+      ) {
+        return;
+      }
+
+      lastSentPosRef.current = pos;
       CollabDoc.getInstance()?.updateAwareness({ cursor: pos });
       lastSentAtRef.current = performance.now();
     };
@@ -59,6 +74,7 @@ export function useCursorBroadcast(
 
     const clearCursor = () => {
       pendingRef.current = null;
+      lastSentPosRef.current = null;
       if (timerRef.current !== null) {
         clearTimeout(timerRef.current);
         timerRef.current = null;

@@ -88,6 +88,13 @@ export class CollabDoc {
   private _lastSyncedEdges: WorkflowEdge[] = [];
   private _lastSyncedName: string = "";
 
+  // Per-id reference cache — lets `_syncNodesToYjs` / `_syncEdgesToYjs` skip
+  // unchanged items by identity, avoiding O(N) JSON.stringify on every drag
+  // frame. React Flow updates only mutated nodes immutably, so ref-eq is a
+  // reliable "nothing changed" signal.
+  private _prevNodeRefs = new Map<string, WorkflowNode>();
+  private _prevEdgeRefs = new Map<string, WorkflowEdge>();
+
   private _yDocs: Y.Map<KnowledgeDoc>;
   private _lastSyncedDocs: KnowledgeDoc[] = [];
   private _brainStoreUnsub: (() => void) | null = null;
@@ -127,6 +134,18 @@ export class CollabDoc {
 
   start(roomId: string, initialState?: WorkflowJSON): void {
     if (typeof window === "undefined") return;
+
+    // Idempotency guard — if we're already running, bail out instead of
+    // stacking a second provider + observers + store subscribers on top of
+    // the existing ones (which would leak the originals until tab close).
+    if (this._provider) {
+      if (this._roomId !== roomId) {
+        console.warn(
+          `[collab] start("${roomId}") ignored — already connected to "${this._roomId}". Call destroy() first.`,
+        );
+      }
+      return;
+    }
 
     this._roomId = roomId;
     useCollabStore.getState()._setRoomId(roomId);
@@ -265,6 +284,11 @@ export class CollabDoc {
       this._provider = null;
     }
 
+    this._prevNodeRefs.clear();
+    this._prevEdgeRefs.clear();
+    this._prevPeerNames.clear();
+    this._pendingKicks.clear();
+
     this._ydoc.destroy();
 
     useCollabStore.getState()._setRoomId(null);
@@ -361,38 +385,56 @@ export class CollabDoc {
   // ── Private: sync Zustand → Y.Map ──────────────────────────────────────
 
   private _syncNodesToYjs(nodes: WorkflowNode[]): void {
-    const newIds = new Set(nodes.map((n) => n.id));
+    const newIds = new Set<string>();
+    for (const n of nodes) newIds.add(n.id);
 
     // Remove deleted nodes
     for (const id of this._yNodes.keys()) {
       if (!newIds.has(id)) this._yNodes.delete(id);
     }
 
-    // Upsert changed nodes
+    // Upsert — reference-equal nodes are skipped outright (fast path during
+    // node drags where only the dragged node's ref changes).
+    const nextRefs = new Map<string, WorkflowNode>();
     for (const node of nodes) {
+      const prev = this._prevNodeRefs.get(node.id);
+      if (prev === node) {
+        nextRefs.set(node.id, node);
+        continue;
+      }
       const cleaned = cleanNodeForSync(node);
       const existing = this._yNodes.get(node.id);
-      // Simple JSON comparison for change detection
       if (!existing || JSON.stringify(existing) !== JSON.stringify(cleaned)) {
         this._yNodes.set(node.id, cleaned);
       }
+      nextRefs.set(node.id, node);
     }
+    this._prevNodeRefs = nextRefs;
   }
 
   private _syncEdgesToYjs(edges: WorkflowEdge[]): void {
-    const newIds = new Set(edges.map((e) => e.id));
+    const newIds = new Set<string>();
+    for (const e of edges) newIds.add(e.id);
 
     for (const id of this._yEdges.keys()) {
       if (!newIds.has(id)) this._yEdges.delete(id);
     }
 
+    const nextRefs = new Map<string, WorkflowEdge>();
     for (const edge of edges) {
+      const prev = this._prevEdgeRefs.get(edge.id);
+      if (prev === edge) {
+        nextRefs.set(edge.id, edge);
+        continue;
+      }
       const cleaned = cleanEdgeForSync(edge);
       const existing = this._yEdges.get(edge.id);
       if (!existing || JSON.stringify(existing) !== JSON.stringify(cleaned)) {
         this._yEdges.set(edge.id, cleaned);
       }
+      nextRefs.set(edge.id, edge);
     }
+    this._prevEdgeRefs = nextRefs;
   }
 
   private _syncNameToYjs(name: string): void {

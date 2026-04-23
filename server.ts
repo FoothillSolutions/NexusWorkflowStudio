@@ -24,8 +24,34 @@ const COLLAB_PATH = "/collab";
 const collabDataDir =
   process.env.NEXUS_COLLAB_DATA_DIR ?? path.join(process.cwd(), ".nexus-collab");
 const collabDebounceMs = Number(process.env.NEXUS_COLLAB_STORE_DEBOUNCE_MS ?? 1000);
+const collabTtlDays = Number(process.env.NEXUS_COLLAB_ROOM_TTL_DAYS ?? 3);
 
 const objectStore = new CollabObjectStore(collabDataDir);
+
+// ── Idle-room pruning ────────────────────────────────────────────────────
+// Every distinct Share URL mints a new room, so disk grows forever unless
+// we prune. Defaults to 3 days; set NEXUS_COLLAB_ROOM_TTL_DAYS=0 to disable.
+const PRUNE_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+async function prune(): Promise<void> {
+  if (collabTtlDays <= 0) return;
+  const maxAgeMs = collabTtlDays * 24 * 60 * 60 * 1000;
+  try {
+    const { pruned, kept } = await objectStore.pruneOlderThan(maxAgeMs);
+    if (pruned > 0) {
+      console.log(
+        `[collab] pruned ${pruned} idle rooms older than ${collabTtlDays}d (kept ${kept})`,
+      );
+    }
+  } catch (err) {
+    console.error("[collab] prune failed:", err);
+  }
+}
+
+if (collabTtlDays > 0) {
+  void prune();
+  setInterval(prune, PRUNE_INTERVAL_MS).unref();
+}
 
 // Configure Hocuspocus without calling .listen() — we attach its internal
 // WebSocketServer to our own HTTP server below so it shares the Next port.
