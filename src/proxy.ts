@@ -1,12 +1,12 @@
 import { getToken } from "next-auth/jwt";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { isAuthEnabled } from "@/lib/auth";
+import { isAuthEnabled, getAuthEnv } from "@/lib/auth";
 
 export async function proxy(req: NextRequest) {
   if (!isAuthEnabled()) return NextResponse.next();
 
-  const token = await getToken({ req, secret: process.env.AUTH_SECRET });
+  const token = await getToken({ req, secret: getAuthEnv().AUTH_SECRET });
   if (token) return NextResponse.next();
 
   // API routes: return 401 instead of an HTML redirect
