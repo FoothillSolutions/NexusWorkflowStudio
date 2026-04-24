@@ -3,6 +3,7 @@ import type { BridgeConfig, GenerateTextRequest } from "../types";
 export function makeBridgeConfig(overrides: Partial<BridgeConfig> = {}): BridgeConfig {
   return {
     adapterMode: "mock",
+    selectedTool: null,
     host: "127.0.0.1",
     port: 4080,
     corsOrigin: "http://localhost:3000",
@@ -18,22 +19,9 @@ export function makeBridgeConfig(overrides: Partial<BridgeConfig> = {}): BridgeC
     agentArgs: [],
     agentCwd: null,
     acpProtocol: "newline",
-    acpMethods: {
-      initialize: "initialize",
-      health: "health",
-      models: "models/list",
-      tools: "tools/list",
-      resources: "resources/list",
-      mcpStatus: "mcp/status",
-      generate: "message/send",
-      cancel: "message/cancel",
-    },
-    acpNotifications: {
-      textDelta: "message/delta",
-      completed: "message/completed",
-      failed: "message/error",
-    },
+    acpProtocolVersion: 1,
     mockStreamDelayMs: 0,
+    maxFileReadBytes: 2 * 1024 * 1024,
     ...overrides,
   };
 }

@@ -1,7 +1,14 @@
 import { spawn } from "node:child_process";
+import {
+  buildDefaultConfigProviders,
+  buildDefaultMcpStatus,
+  buildDefaultResources,
+  buildDefaultTools,
+} from "./default-provider";
 import type {
   ACPAdapter,
   BridgeConfig,
+  Command,
   ConfigProviders,
   GenerateTextRequest,
   HealthInfo,
@@ -10,62 +17,6 @@ import type {
   Project,
   ToolListItem,
 } from "./types";
-
-function createConfigProviders(config: BridgeConfig): ConfigProviders {
-  const providerId = config.defaultProviderId;
-  const modelId = config.defaultModelId;
-
-  return {
-    providers: [
-      {
-        id: providerId,
-        name: config.defaultProviderName,
-        source: "api",
-        env: [],
-        options: {},
-        models: {
-          [modelId]: {
-            id: modelId,
-            providerID: providerId,
-            api: {
-              id: providerId,
-              url: "https://example.invalid/acp-stdio",
-              npm: "nexus-acp-bridge",
-            },
-            name: config.defaultModelName,
-            family: "claude",
-            capabilities: {
-              temperature: true,
-              reasoning: true,
-              attachment: false,
-              toolcall: true,
-              input: { text: true, audio: false, image: false, video: false, pdf: false },
-              output: { text: true, audio: false, image: false, video: false, pdf: false },
-              interleaved: false,
-            },
-            cost: { input: 0, output: 0, cache: { read: 0, write: 0 } },
-            limit: { output: 8192, context: 200000 },
-            status: "active",
-            options: {},
-            headers: {},
-            release_date: new Date().toISOString(),
-          },
-        },
-      },
-    ],
-    default: {
-      [providerId]: modelId,
-    },
-  };
-}
-
-function createTools(config: BridgeConfig): ToolListItem[] {
-  return config.defaultTools.map((tool) => ({
-    id: tool,
-    description: `Bridge-exposed tool: ${tool}`,
-    parameters: { type: "object", properties: {} },
-  }));
-}
 
 export class StdioACPAdapter implements ACPAdapter {
   constructor(private readonly config: BridgeConfig) {}
@@ -78,28 +29,27 @@ export class StdioACPAdapter implements ACPAdapter {
   }
 
   async getConfigProviders(): Promise<ConfigProviders> {
-    return createConfigProviders(this.config);
+    return buildDefaultConfigProviders(this.config, "acp-stdio");
+  }
+
+  async listCommands(_input: { project: Project }): Promise<Command[]> {
+    return [];
   }
 
   async listTools(_input: { provider: string; model: string; project: Project }): Promise<ToolListItem[]> {
-    return createTools(this.config);
+    return buildDefaultTools(this.config);
   }
 
   async getMcpStatus(_input: { project: Project }): Promise<Record<string, MCPStatus>> {
-    return {
-      [this.config.defaultProviderId]: { status: "connected" },
-    };
+    return buildDefaultMcpStatus(this.config);
   }
 
   async listResources(input: { project: Project }): Promise<Record<string, McpResource>> {
-    return {
-      project: {
-        name: `${input.project.name ?? "project"} root`,
-        uri: `file://${input.project.worktree}`,
-        client: this.config.defaultProviderId,
-        description: "Current project root exposed by the stdio bridge adapter.",
-      },
-    };
+    return buildDefaultResources(
+      this.config,
+      input.project,
+      "Current project root exposed by the stdio bridge adapter.",
+    );
   }
 
   async *generateText(request: GenerateTextRequest): AsyncIterable<string> {

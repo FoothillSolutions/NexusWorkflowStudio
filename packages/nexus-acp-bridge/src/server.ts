@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { z } from "zod";
 import type {
   ACPAdapter,
   AssistantMessage,
@@ -16,6 +17,101 @@ import type {
   SessionRecord,
   UserMessage,
 } from "./types";
+
+const PromptPartSchema = z.object({
+  id: z.string().optional(),
+  type: z.literal("text"),
+  text: z.string(),
+});
+
+const FilePartSchema = z.object({
+  id: z.string().optional(),
+  type: z.literal("file"),
+  mime: z.string(),
+  filename: z.string().optional(),
+  url: z.string(),
+});
+
+const ModelRefSchema = z.object({
+  providerID: z.string(),
+  modelID: z.string(),
+});
+
+const PromptPayloadSchema = z.object({
+  messageID: z.string().optional(),
+  model: ModelRefSchema.optional(),
+  agent: z.string().optional(),
+  noReply: z.boolean().optional(),
+  tools: z.record(z.string(), z.boolean()).optional(),
+  format: z.object({ type: z.string() }).optional(),
+  system: z.string().optional(),
+  variant: z.string().optional(),
+  parts: z.array(PromptPartSchema).min(1, "At least one prompt part is required"),
+});
+
+const CreateSessionSchema = z.object({
+  title: z.string().optional(),
+}).partial();
+
+const CommandPayloadSchema = z.object({
+  messageID: z.string().optional(),
+  agent: z.string().optional(),
+  model: z.string().optional(),
+  arguments: z.string().optional().default(""),
+  command: z.string().min(1, "command is required"),
+  variant: z.string().optional(),
+  parts: z.array(FilePartSchema).optional(),
+});
+
+const MIME_BY_EXTENSION: Record<string, string> = {
+  ".txt": "text/plain",
+  ".md": "text/markdown",
+  ".json": "application/json",
+  ".yaml": "application/yaml",
+  ".yml": "application/yaml",
+  ".toml": "application/toml",
+  ".ts": "text/typescript",
+  ".tsx": "text/typescript",
+  ".js": "text/javascript",
+  ".jsx": "text/javascript",
+  ".html": "text/html",
+  ".css": "text/css",
+  ".xml": "application/xml",
+  ".csv": "text/csv",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".pdf": "application/pdf",
+  ".zip": "application/zip",
+  ".gz": "application/gzip",
+  ".tar": "application/x-tar",
+  ".wasm": "application/wasm",
+};
+
+const BINARY_EXTENSIONS = new Set([
+  ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".ico",
+  ".pdf", ".zip", ".gz", ".tar", ".7z", ".rar",
+  ".mp3", ".mp4", ".wav", ".mov", ".avi", ".webm", ".ogg",
+  ".woff", ".woff2", ".ttf", ".otf", ".eot",
+  ".exe", ".dll", ".dylib", ".so", ".wasm",
+  ".db", ".sqlite", ".sqlite3",
+]);
+
+function mimeTypeFor(extension: string, isBinary: boolean): string {
+  return MIME_BY_EXTENSION[extension] ?? (isBinary ? "application/octet-stream" : "text/plain");
+}
+
+function detectIsBinary(buffer: Buffer, extension: string): boolean {
+  if (BINARY_EXTENSIONS.has(extension)) return true;
+  const sample = buffer.subarray(0, Math.min(buffer.byteLength, 8192));
+  for (let index = 0; index < sample.byteLength; index += 1) {
+    if (sample[index] === 0) return true;
+  }
+  return false;
+}
 
 function createId(prefix: string): string {
   return `${prefix}_${crypto.randomUUID()}`;
@@ -66,6 +162,39 @@ function withCors(response: Response, config: BridgeConfig): Response {
 
 function normalizePath(input: string): string {
   return path.resolve(input);
+}
+
+function parseCommandModel(model: string | undefined): PromptPayload["model"] | undefined {
+  const trimmed = model?.trim();
+  if (!trimmed) return undefined;
+
+  const separator = trimmed.indexOf("/");
+  if (separator <= 0 || separator >= trimmed.length - 1) {
+    return undefined;
+  }
+
+  return {
+    providerID: trimmed.slice(0, separator),
+    modelID: trimmed.slice(separator + 1),
+  };
+}
+
+function toCommandPrompt(payload: z.infer<typeof CommandPayloadSchema>): PromptPayload {
+  const args = payload.arguments.trim();
+  const attachments = payload.parts?.length
+    ? `\n\nAttached files:\n${payload.parts.map((part) => `- ${part.filename ?? part.url} (${part.url})`).join("\n")}`
+    : "";
+
+  return {
+    messageID: payload.messageID,
+    agent: payload.agent,
+    variant: payload.variant,
+    ...(parseCommandModel(payload.model) ? { model: parseCommandModel(payload.model) } : {}),
+    parts: [{
+      type: "text",
+      text: `/${payload.command}${args ? ` ${args}` : ""}${attachments}`,
+    }],
+  };
 }
 
 function isPathInside(rootPath: string, candidatePath: string): boolean {
@@ -181,6 +310,11 @@ export class NexusACPBridgeServer {
         return withCors(json(await this.adapter.getConfigProviders()), this.config);
       }
 
+      if (request.method === "GET" && pathname === "/command") {
+        const project = await this.resolveProject(url.searchParams);
+        return withCors(json(await this.adapter.listCommands({ project })), this.config);
+      }
+
       if (request.method === "GET" && pathname === "/project") {
         return withCors(json(await this.listProjects()), this.config);
       }
@@ -243,9 +377,9 @@ export class NexusACPBridgeServer {
       }
 
       if (request.method === "POST" && pathname === "/session") {
-        const payload = await this.readJson<{ title?: string }>(request);
+        const payload = await this.readJsonWithSchema(request, CreateSessionSchema);
         const project = await this.resolveProject(new URL(request.url).searchParams);
-        const session = this.createSession(project, payload?.title);
+        const session = this.createSession(project, payload.title);
         return withCors(json(session), this.config);
       }
 
@@ -263,17 +397,27 @@ export class NexusACPBridgeServer {
 
       if (request.method === "POST" && sessionMessageMatch) {
         const sessionId = decodeURIComponent(sessionMessageMatch[1] ?? "");
-        const payload = await this.readJson<PromptPayload>(request);
+        const payload = await this.readJsonWithSchema(request, PromptPayloadSchema);
         const message = await this.runPromptAsync(sessionId, payload);
+        return withCors(json(message), this.config);
+      }
+
+      const sessionCommandMatch = pathname.match(/^\/session\/([^/]+)\/command$/);
+      if (request.method === "POST" && sessionCommandMatch) {
+        const sessionId = decodeURIComponent(sessionCommandMatch[1] ?? "");
+        const payload = await this.readJsonWithSchema(request, CommandPayloadSchema);
+        const message = await this.runPromptAsync(sessionId, toCommandPrompt(payload));
         return withCors(json(message), this.config);
       }
 
       const promptAsyncMatch = pathname.match(/^\/session\/([^/]+)\/prompt_async$/);
       if (request.method === "POST" && promptAsyncMatch) {
         const sessionId = decodeURIComponent(promptAsyncMatch[1] ?? "");
-        const payload = await this.readJson<PromptPayload>(request);
+        const payload = await this.readJsonWithSchema(request, PromptPayloadSchema);
         this.requireSession(sessionId);
-        void this.runPromptAsync(sessionId, payload);
+        void this.runPromptAsync(sessionId, payload).catch((error) => {
+          console.error("[nexus-acp-bridge] async prompt failed:", error);
+        });
         return withCors(json(true), this.config);
       }
 
@@ -305,12 +449,32 @@ export class NexusACPBridgeServer {
     }
   }
 
-  private async readJson<T>(request: Request): Promise<T> {
+  private async readJsonWithSchema<T extends z.ZodTypeAny>(
+    request: Request,
+    schema: T,
+  ): Promise<z.infer<T>> {
     const text = await request.text();
+    let parsed: unknown;
     if (!text.trim()) {
-      return {} as T;
+      parsed = {};
+    } else {
+      try {
+        parsed = JSON.parse(text);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Invalid JSON body";
+        throw new HttpBridgeError(400, `Invalid JSON: ${message}`);
+      }
     }
-    return JSON.parse(text) as T;
+
+    const result = schema.safeParse(parsed);
+    if (!result.success) {
+      const message = result.error.issues
+        .map((issue) => `${issue.path.join(".") || "body"}: ${issue.message}`)
+        .join("; ");
+      throw new HttpBridgeError(400, message);
+    }
+
+    return result.data;
   }
 
   private async listProjects(): Promise<Project[]> {
@@ -376,7 +540,7 @@ export class NexusACPBridgeServer {
     const entries = await fs.readdir(absolutePath, { withFileTypes: true });
 
     return entries
-      .filter((entry) => !entry.name.startsWith("."))
+      .filter((entry) => entry.name !== ".git" && entry.name !== "node_modules")
       .sort((left, right) => {
         if (left.isDirectory() === right.isDirectory()) {
           return left.name.localeCompare(right.name);
@@ -397,12 +561,35 @@ export class NexusACPBridgeServer {
 
   private async readFile(project: Project, requestedPath: string | null): Promise<FileContent> {
     const absolutePath = await this.resolveFilePath(project, requestedPath);
+    const stat = await fs.stat(absolutePath);
+    if (!stat.isFile()) {
+      throw new HttpBridgeError(400, `Path is not a regular file: ${requestedPath}`);
+    }
+    if (stat.size > this.config.maxFileReadBytes) {
+      throw new HttpBridgeError(
+        413,
+        `File exceeds size cap (${stat.size} bytes > ${this.config.maxFileReadBytes} bytes)`,
+      );
+    }
+
     const buffer = await fs.readFile(absolutePath);
-    const content = buffer.toString("utf8");
+    const extension = path.extname(absolutePath).toLowerCase();
+    const isBinary = detectIsBinary(buffer, extension);
+    const mimeType = mimeTypeFor(extension, isBinary);
+
+    if (isBinary) {
+      return {
+        type: "binary",
+        content: buffer.toString("base64"),
+        encoding: "base64",
+        mimeType,
+      };
+    }
+
     return {
       type: "text",
-      content,
-      mimeType: "text/plain",
+      content: buffer.toString("utf8"),
+      mimeType,
     };
   }
 

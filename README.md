@@ -136,6 +136,22 @@ The repository also includes a minimal ACP bridge under `packages/nexus-acp-brid
 bun run bridge:acp
 ```
 
+That command auto-loads the checked-in defaults in `packages/nexus-acp-bridge/.env.defaults`, which currently select the `claude-code` preset. You can also start a specific preset directly:
+
+```bash
+bun run bridge:acp:claude
+bun run bridge:acp:codex
+bun run bridge:acp:opencode
+```
+
+Or choose one ad hoc:
+
+```bash
+bun run bridge:acp --tool codex
+```
+
+You can still override any setting with environment variables.
+
 By default the bridge listens on:
 
 ```text

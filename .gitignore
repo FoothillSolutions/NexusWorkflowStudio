@@ -67,6 +67,12 @@ storage.json
 .dev.log
 .dev.pid
 /run.sh
-/.claude/
 /temp_examples/
 /test-results/
+_workspace*
+/graphify-out
+
+# nexus-acp-bridge vendored agent installs
+/packages/nexus-acp-bridge/vendor/
+.nexus-collab/*
+.nexus-brain/*

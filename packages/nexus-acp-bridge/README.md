@@ -5,6 +5,7 @@
 ## What it provides
 
 - `GET /global/health`
+- `GET /command`
 - `GET /config/providers`
 - `GET /project`
 - `GET /project/current`
@@ -18,6 +19,7 @@
 - `GET /session`
 - `POST /session`
 - `GET /session/:id/message`
+- `POST /session/:id/command`
 - `POST /session/:id/message`
 - `POST /session/:id/prompt_async`
 - `POST /session/:id/abort`
@@ -38,6 +40,41 @@ From the repo root:
 bun run bridge:acp
 ```
 
+By default, the bridge auto-loads bundled defaults from `packages/nexus-acp-bridge/.env.defaults`. Those defaults currently select the `claude-code` tool preset.
+
+### One-time setup for the `claude-code` preset
+
+`acp-claude-code@0.8.0` imports `@anthropic-ai/claude-code` as a Node module, but Claude Code ≥ 2.1 ships a native binary only and can no longer be `import`ed. To work around this, vendor a pinned install once:
+
+```bash
+bun run bridge:setup-claude
+```
+
+This creates `packages/nexus-acp-bridge/vendor/claude-code/` with `@anthropic-ai/claude-code` pinned to `2.0.35` (the last SDK-exposing version). The `claude-code` preset automatically picks up this vendored binary when it exists and falls back to `npx --yes acp-claude-code` (with a warning) when it does not.
+
+Re-run with `--force` to reinstall:
+
+```bash
+bun run bridge:setup-claude -- --force
+```
+
+### Start a preset directly
+
+```bash
+bun run bridge:acp:claude
+bun run bridge:acp:codex
+bun run bridge:acp:opencode
+```
+
+Or choose a preset dynamically:
+
+```bash
+bun run bridge:acp --tool codex
+NEXUS_ACP_BRIDGE_TOOL=opencode bun run bridge:acp
+```
+
+Explicit shell environment variables still override both bundled defaults and preset values.
+
 Then point Nexus to the bridge URL, usually:
 
 ```text
@@ -46,10 +83,19 @@ http://127.0.0.1:4080
 
 ## Environment
 
-Use `examples/.env.claude.example` as a starting point.
+Use the example files in `examples/` as starting points.
+
+Bundled tool presets currently include:
+
+- `claude-code` → `npx --yes acp-claude-code`
+- `codex` → `npx --yes @zed-industries/codex-acp`
+- `opencode` → `opencode acp`
+
+You can select one with `--tool <id>` or `NEXUS_ACP_BRIDGE_TOOL=<id>`, and then override any individual setting with the standard bridge environment variables.
 
 Important variables:
 
+- `NEXUS_ACP_BRIDGE_TOOL` (`claude-code`, `codex`, `opencode`, or unset for custom env-only config)
 - `NEXUS_ACP_BRIDGE_ADAPTER` (`mock`, `stdio`, or `acp`)
 - `NEXUS_ACP_BRIDGE_HOST`
 - `NEXUS_ACP_BRIDGE_PORT`
@@ -65,22 +111,13 @@ Important variables:
 - `NEXUS_ACP_BRIDGE_AGENT_COMMAND`
 - `NEXUS_ACP_BRIDGE_AGENT_ARGS`
 - `NEXUS_ACP_BRIDGE_AGENT_CWD`
-- `NEXUS_ACP_BRIDGE_ACP_PROTOCOL` (`content-length` or `newline`)
-- `NEXUS_ACP_BRIDGE_ACP_METHOD_INITIALIZE`
-- `NEXUS_ACP_BRIDGE_ACP_METHOD_HEALTH`
-- `NEXUS_ACP_BRIDGE_ACP_METHOD_MODELS`
-- `NEXUS_ACP_BRIDGE_ACP_METHOD_TOOLS`
-- `NEXUS_ACP_BRIDGE_ACP_METHOD_RESOURCES`
-- `NEXUS_ACP_BRIDGE_ACP_METHOD_MCP_STATUS`
-- `NEXUS_ACP_BRIDGE_ACP_METHOD_GENERATE`
-- `NEXUS_ACP_BRIDGE_ACP_METHOD_CANCEL`
-- `NEXUS_ACP_BRIDGE_ACP_NOTIFICATION_DELTA`
-- `NEXUS_ACP_BRIDGE_ACP_NOTIFICATION_COMPLETED`
-- `NEXUS_ACP_BRIDGE_ACP_NOTIFICATION_FAILED`
+- `NEXUS_ACP_BRIDGE_ACP_PROTOCOL` (`newline` — default, matches Zed ACP; or `content-length`)
+- `NEXUS_ACP_BRIDGE_ACP_PROTOCOL_VERSION` (integer, default `1`)
+- `NEXUS_ACP_BRIDGE_MAX_FILE_READ_BYTES` (default `2097152` — size cap for `/file/content` and `fs/read_text_file`)
 
 ## Adapter shape
 
-The mock adapter lives in `src/mock-acp-adapter.ts`, the one-shot process-backed adapter lives in `src/stdio-acp-adapter.ts`, and the persistent JSON-RPC ACP adapter lives in `src/real-acp-adapter.ts`. All implement the `ACPAdapter` interface from `src/types.ts`.
+The mock adapter lives in `src/mock-acp-adapter.ts`, the one-shot process-backed adapter lives in `src/stdio-acp-adapter.ts`, and the persistent JSON-RPC ACP adapter lives in `src/acp-protocol-adapter.ts`. All implement the `ACPAdapter` interface from `src/types.ts`.
 
 To integrate a real ACP backend later, replace or extend the adapter selection in `src/index.ts` with an adapter that:
 
@@ -115,19 +152,21 @@ This is intentionally lightweight: it is a practical process adapter for now, no
 When `NEXUS_ACP_BRIDGE_ADAPTER=acp`, the bridge:
 
 1. starts a persistent child process using `NEXUS_ACP_BRIDGE_AGENT_COMMAND`
-2. speaks JSON-RPC over stdio
-3. supports either `Content-Length` framing or newline-delimited JSON
-4. maps configured ACP methods and notifications into the bridge contract Nexus expects
+2. speaks the real [Agent Client Protocol](https://agentclientprotocol.com) over stdio (JSON-RPC 2.0, newline-framed by default, `Content-Length`-framed on request)
+3. negotiates via `initialize` with `protocolVersion: 1` and advertises `fs.readTextFile` + `fs.writeTextFile` client capabilities
+4. creates an ACP session per bridge session via `session/new`, keyed by the bridge session id
+5. streams agent output from `session/update` notifications with the `agent_message_chunk` variant (text content blocks)
+6. caches slash-command advertisements from `session/update` notifications with the `available_commands_update` variant and exposes them via `GET /command`
+7. sends `session/cancel` when Nexus aborts a prompt
 
-This mode is the recommended starting point for a real ACP runtime.
+The bridge responds to agent-initiated requests:
 
-The bridge currently assumes:
+- `fs/read_text_file` — reads files inside configured project roots, honoring optional `line` / `limit` parameters
+- `fs/write_text_file` — writes files inside configured project roots
+- `session/request_permission` — auto-approves with the first `allow_once` / `allow_always` option (or the first option if none are explicitly "allow")
 
-- request/response methods for health, models, tools, resources, MCP status, and generate
-- notifications for streamed text deltas, completion, and failure
-- a correlation token passed in `params.metadata.requestId`
-
-If your ACP runtime uses different method names or notification names, override them via environment variables instead of changing Nexus frontend code.
+Tools, MCP status, provider metadata, and resources are served locally from the bridge's configured defaults — ACP does not expose discovery endpoints for these.
+Slash commands are the exception: ACP advertises them dynamically through `session/update`, and the bridge normalizes those into an OpenCode-style `GET /command` response. `POST /session/:id/command` is translated into a slash-command prompt like `/plan add tests` before it is forwarded to ACP.
 
 ## Current behavior
 

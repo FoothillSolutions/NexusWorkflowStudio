@@ -48,6 +48,17 @@ export interface ToolListItem {
   parameters: unknown;
 }
 
+export interface Command {
+  name: string;
+  description?: string;
+  agent?: string;
+  model?: string;
+  source?: "command" | "mcp" | "skill";
+  template: string;
+  subtask?: boolean;
+  hints: string[];
+}
+
 export type MCPStatus =
   | { status: "connected" }
   | { status: "disabled" }
@@ -185,25 +196,9 @@ export interface FileStatus {
 
 export type ACPTransportProtocol = "content-length" | "newline";
 
-export interface ACPMethodMap {
-  initialize: string | null;
-  health: string | null;
-  models: string;
-  tools: string;
-  resources: string;
-  mcpStatus: string;
-  generate: string;
-  cancel: string | null;
-}
-
-export interface ACPNotificationMap {
-  textDelta: string;
-  completed: string;
-  failed: string;
-}
-
 export interface BridgeConfig {
   adapterMode: "mock" | "stdio" | "acp";
+  selectedTool: string | null;
   host: string;
   port: number;
   corsOrigin: string;
@@ -219,9 +214,9 @@ export interface BridgeConfig {
   agentArgs: string[];
   agentCwd: string | null;
   acpProtocol: ACPTransportProtocol;
-  acpMethods: ACPMethodMap;
-  acpNotifications: ACPNotificationMap;
+  acpProtocolVersion: number;
   mockStreamDelayMs: number;
+  maxFileReadBytes: number;
 }
 
 export interface GenerateTextRequest {
@@ -234,6 +229,7 @@ export interface GenerateTextRequest {
 export interface ACPAdapter {
   getHealth(): Promise<HealthInfo>;
   getConfigProviders(): Promise<ConfigProviders>;
+  listCommands(input: { project: Project }): Promise<Command[]>;
   listTools(input: { provider: string; model: string; project: Project }): Promise<ToolListItem[]>;
   getMcpStatus(input: { project: Project }): Promise<Record<string, MCPStatus>>;
   listResources(input: { project: Project }): Promise<Record<string, McpResource>>;

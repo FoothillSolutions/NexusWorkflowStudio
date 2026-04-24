@@ -10,6 +10,10 @@
   "scripts": {
     "dev": "next dev",
     "bridge:acp": "bun run packages/nexus-acp-bridge/src/index.ts",
+    "bridge:acp:claude": "bun run packages/nexus-acp-bridge/src/index.ts --tool claude-code",
+    "bridge:acp:codex": "bun run packages/nexus-acp-bridge/src/index.ts --tool codex",
+    "bridge:acp:opencode": "bun run packages/nexus-acp-bridge/src/index.ts --tool opencode",
+    "bridge:setup-claude": "bun run packages/nexus-acp-bridge/scripts/setup-claude-acp.ts",
     "build": "next build",
     "start": "next start",
     "lint": "eslint . --cache --cache-location .eslintcache --max-warnings=0",
