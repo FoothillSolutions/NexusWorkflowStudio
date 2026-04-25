@@ -29,7 +29,6 @@ import {
 import { toast } from "sonner";
 import { TEXT_MUTED } from "@/lib/theme";
 import type { Project } from "@/lib/opencode/types";
-import { useWorkflowGenStore } from "@/store/workflow-gen";
 
 /* ── Helpers ──────────────────────────────────────────────────────────────── */
 
@@ -61,6 +60,7 @@ export function ProjectSwitcher({
   const client = useOpenCodeStore((s) => s.client);
   const currentProject = useOpenCodeStore((s) => s.currentProject);
   const fetchCurrentProject = useOpenCodeStore((s) => s.fetchCurrentProject);
+  const reload = useOpenCodeStore((s) => s.reload);
   const isConnected = status === "connected";
 
   const [projects, setProjects] = useState<Project[]>([]);
@@ -117,18 +117,20 @@ export function ProjectSwitcher({
   const switchToProject = useCallback(
     (worktree: string) => {
       if (!client) return;
+      // Mutating defaultParams rotates the HttpClient's clientToken; this is
+      // what `useTools` (and any future per-connector cache) keys off.
       client.http.defaultParams = { directory: worktree };
       setActiveProjectDir(worktree);
       setActiveDir(worktree);
       setPanelOpen(false);
       toast.success(`Switched to ${folderName(worktree)}`);
-      // Update the store's current project
-      fetchCurrentProject();
-      // Dispose any existing AI workflow generation session so the new
-      // directory gets a fresh context
-      useWorkflowGenStore.getState().disposeSession();
+      // `reload({ projectScopeOnly: true })` notifies the connector-change
+      // bus → prompt-gen + workflow-gen dispose their stale per-project
+      // session ids, AND forces a models refetch (the new project may
+      // expose a different provider set).
+      void reload({ projectScopeOnly: true });
     },
-    [client, fetchCurrentProject],
+    [client, reload],
   );
 
   // Browse folder via hidden <input webkitdirectory>

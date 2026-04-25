@@ -45,15 +45,32 @@ export interface RequestOptions {
 
 // ── Client ───────────────────────────────────────────────────────────────────
 
+/**
+ * Generate a short, opaque token used to detect "logical" client changes
+ * (URL change OR `defaultParams` mutation). Consumers (stores, hooks) can
+ * compare tokens to know when cached state tied to the previous connector
+ * must be invalidated.
+ */
+function genClientToken(): string {
+  // Use crypto.randomUUID when available (browsers, Node 19+); fall back to
+  // a short random hex otherwise (older test envs / SSR).
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `t_${Math.random().toString(36).slice(2)}_${Date.now().toString(36)}`;
+}
+
 export class HttpClient {
   private _baseUrl: string;
   private _timeout: number;
   private _defaultParams: InstanceParams;
+  private _clientToken: string;
 
   constructor(opts: HttpClientOptions) {
     this._baseUrl = opts.baseUrl.replace(/\/+$/, "");
     this._timeout = opts.timeout ?? 30_000;
     this._defaultParams = opts.defaultParams ?? {};
+    this._clientToken = genClientToken();
   }
 
   // ── Accessors ──────────────────────────────────────────────────────────
@@ -64,6 +81,7 @@ export class HttpClient {
 
   set baseUrl(url: string) {
     this._baseUrl = url.replace(/\/+$/, "");
+    this._clientToken = genClientToken();
   }
 
   get defaultParams() {
@@ -72,6 +90,16 @@ export class HttpClient {
 
   set defaultParams(p: InstanceParams) {
     this._defaultParams = p;
+    this._clientToken = genClientToken();
+  }
+
+  /**
+   * Stable token that rotates whenever the logical connector identity changes
+   * (`baseUrl` or `defaultParams` mutation, or fresh construction).
+   * Used by downstream caches/sessions to invalidate stale per-connector state.
+   */
+  get clientToken(): string {
+    return this._clientToken;
   }
 
   // ── Public verbs ───────────────────────────────────────────────────────

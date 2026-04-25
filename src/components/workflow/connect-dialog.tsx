@@ -151,9 +151,14 @@ export default function ConnectDialog({
   const handlePresetSelect = useCallback((presetId: ConnectionPresetId) => {
     setManualPresetId(presetId);
     const preset = presets.find((item) => item.id === presetId);
-    if (preset) {
-      setUrl(preset.url);
-    }
+    if (!preset) return;
+
+    // Stage the URL only. Picking a preset should NOT auto-reconnect — the
+    // user explicitly clicks Connect after selecting. `setUrl` itself tears
+    // down the existing client + disposes downstream sessions via the
+    // connector-change bus, so the badge correctly flips to "Disconnected"
+    // when the staged URL differs from the active connection.
+    setUrl(preset.url);
   }, [presets, setUrl]);
 
   return (

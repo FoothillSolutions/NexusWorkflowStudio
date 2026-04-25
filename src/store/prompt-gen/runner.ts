@@ -32,6 +32,13 @@ export async function runPromptGenRequest({
   onText,
 }: RunPromptGenRequestOptions): Promise<RunPromptGenRequestResult> {
   let fullText = "";
+  const partTexts = new Map<string, string>();
+  const recomputeFullText = () => {
+    let combined = "";
+    for (const t of partTexts.values()) combined += t;
+    fullText = combined;
+    onText(fullText, estimateTokens(fullText));
+  };
 
   try {
     await client.messages.sendAsync(sessionId, request, { signal });
@@ -44,12 +51,31 @@ export async function runPromptGenRequest({
       if (event.type === "message.part.delta") {
         const props = event.properties as {
           sessionID: string;
+          messageID: string;
+          partID: string;
           field: string;
           delta: string;
         };
         if (props.sessionID === sessionId && props.field === "text") {
-          fullText += props.delta;
-          onText(fullText, estimateTokens(fullText));
+          partTexts.set(props.partID, (partTexts.get(props.partID) ?? "") + props.delta);
+          recomputeFullText();
+        }
+        continue;
+      }
+
+      if (event.type === "message.part.updated") {
+        const props = event.properties as {
+          part: {
+            id: string;
+            sessionID: string;
+            type: string;
+            text?: string;
+          };
+        };
+        const part = props.part;
+        if (part.sessionID === sessionId && part.type === "text" && typeof part.text === "string") {
+          partTexts.set(part.id, part.text);
+          recomputeFullText();
         }
         continue;
       }

@@ -320,7 +320,17 @@ export class ACPProtocolAdapter implements ACPAdapter {
     const unsubscribe = this.client.onSessionUpdate?.(acpSessionId, (body) => {
       const update = asRecord(body);
       if (!update) return;
-      if (update.sessionUpdate !== "agent_message_chunk") return;
+      // Accept both `agent_message_chunk` (final response stream) AND
+      // `agent_thought_chunk` (reasoning/plan stream). Agents differ in which
+      // they use: Claude Code emits message_chunk, OpenCode emits its
+      // workflow JSON via thought_chunk during the plan phase. Treating both
+      // as text content surfaces visible streaming for every agent backend
+      // without losing fidelity — the downstream JSON parser ignores
+      // non-JSON prose anyway.
+      if (
+        update.sessionUpdate !== "agent_message_chunk" &&
+        update.sessionUpdate !== "agent_thought_chunk"
+      ) return;
 
       const content = asRecord(update.content);
       if (!content) return;

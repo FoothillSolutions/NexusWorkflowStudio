@@ -16,6 +16,7 @@
 import { create } from "zustand";
 import { toast } from "sonner";
 import { useOpenCodeStore } from "../opencode";
+import { subscribeToConnectorChange } from "../opencode/connector-bus";
 import { useWorkflowStore } from "../workflow";
 import type { WorkflowGenState, WorkflowEnhancementSuggestion } from "./types";
 import { fetchProjectContext } from "./project-context";
@@ -292,4 +293,13 @@ export const useWorkflowGenStore = create<WorkflowGenState>((set, get) => ({
     });
   },
 }));
+
+// ── Connector-change subscription ────────────────────────────────────────────
+// Dispose all three cached session ids (main + examples + suggestions) when
+// the active OpenCode connector changes — otherwise the next request reuses
+// a session id the new server/project has never seen and fails with
+// "invalid session id". Registered once at module load.
+subscribeToConnectorChange(() => {
+  void useWorkflowGenStore.getState().disposeSession();
+});
 

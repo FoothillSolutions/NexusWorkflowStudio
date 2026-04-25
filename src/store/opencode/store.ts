@@ -7,6 +7,7 @@ import {
 import { loadOpenCodeUrl, saveOpenCodeUrl } from "@/lib/opencode/config";
 import type { Project } from "@/lib/opencode/types";
 import { buildModelGroups, type ModelGroup } from "./models";
+import { notifyConnectorChange } from "./connector-bus";
 
 type ConnectionStatus = "disconnected" | "connecting" | "connected" | "error";
 
@@ -80,8 +81,24 @@ interface OpenCodeState {
   setUrl: (url: string) => void;
   connect: () => Promise<void>;
   disconnect: () => void;
-  /** Fetch model groups from the connected instance. No-ops if already cached or not connected. */
-  fetchModelGroups: () => Promise<void>;
+  /**
+   * Atomic "switch connector" action. Persists the new URL, tears down any
+   * existing client + downstream sessions (via the connector-change bus),
+   * then opens a fresh connection. Use this from the connect dialog.
+   */
+  switchUrl: (url: string) => Promise<void>;
+  /**
+   * Re-fetch providers (force) + current project against the existing
+   * client and notify downstream stores so they dispose stale sessions.
+   * Use after a project switch (`projectScopeOnly: true`) or to manually
+   * refresh everything.
+   */
+  reload: (opts?: { projectScopeOnly?: boolean }) => Promise<void>;
+  /**
+   * Fetch model groups from the connected instance.
+   * @param opts.force - bypass the cached `modelGroups.length > 0` guard.
+   */
+  fetchModelGroups: (opts?: { force?: boolean }) => Promise<void>;
   /** Fetch the current project from the connected instance. */
   fetchCurrentProject: () => Promise<void>;
 }
@@ -108,12 +125,22 @@ export const useOpenCodeStore = create<OpenCodeState>((set, get) => ({
 
   setUrl: (url) => {
     stopHeartbeat();
+    // Notify BEFORE clearing client so downstream listeners can dispose
+    // sessions against the still-live client snapshot.
+    if (get().client) {
+      notifyConnectorChange("url");
+    }
     persistUrl(url);
     set({ url, client: null, status: "disconnected", version: null, error: null, modelGroups: [], modelGroupsLoading: false, currentProject: null, connectedAgent: null, connectedAgentId: null });
   },
 
   connect: async () => {
-    const { url } = get();
+    const { url, client: prevClient } = get();
+    // If we already had a client (reconnect / re-attempt), let downstream
+    // stores dispose any sessions tied to it before we replace it.
+    if (prevClient) {
+      notifyConnectorChange("connect");
+    }
     set({ status: "connecting", error: null, version: null, client: null, modelGroups: [], modelGroupsLoading: false, currentProject: null, connectedAgent: null, connectedAgentId: null });
 
     try {
@@ -163,14 +190,36 @@ export const useOpenCodeStore = create<OpenCodeState>((set, get) => ({
 
   disconnect: () => {
     stopHeartbeat();
+    if (get().client) {
+      notifyConnectorChange("disconnect");
+    }
     set({ status: "disconnected", version: null, error: null, client: null, modelGroups: [], modelGroupsLoading: false, currentProject: null, connectedAgent: null, connectedAgentId: null });
   },
 
-  fetchModelGroups: async () => {
+  switchUrl: async (url) => {
+    // setUrl already notifies + clears state; connect() then opens a fresh
+    // session against the new endpoint. Models are fetched by connect().
+    get().setUrl(url);
+    await get().connect();
+  },
+
+  reload: async (opts) => {
+    const { client, status } = get();
+    if (status !== "connected" || !client) return;
+    // Notify downstream so prompt-gen / workflow-gen sessions are disposed
+    // against the current (project-scoped) client BEFORE the next request fires.
+    notifyConnectorChange(opts?.projectScopeOnly ? "project" : "reload");
+    await Promise.all([
+      get().fetchModelGroups({ force: true }),
+      get().fetchCurrentProject(),
+    ]);
+  },
+
+  fetchModelGroups: async (opts) => {
     const { client, status, modelGroups, modelGroupsLoading } = get();
     if (status !== "connected" || !client || modelGroupsLoading) return;
-    // Already fetched
-    if (modelGroups.length > 0) return;
+    // Already fetched — skip unless caller forces a refresh
+    if (!opts?.force && modelGroups.length > 0) return;
 
     set({ modelGroupsLoading: true });
     try {
@@ -192,6 +241,4 @@ export const useOpenCodeStore = create<OpenCodeState>((set, get) => ({
     }
   },
 }));
-
-
 

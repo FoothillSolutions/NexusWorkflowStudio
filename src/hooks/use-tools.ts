@@ -45,6 +45,18 @@ export function useTools(modelValue: string): UseToolsResult {
   // Track the latest request to avoid acting on stale responses.
   const requestIdRef = useRef(0);
 
+  // ── Connector-change cache invalidation ───────────────────────────────
+  // The OpenCode HttpClient rotates `clientToken` whenever its baseUrl or
+  // defaultParams change (i.e. URL switch or project switch). Drop the
+  // per-connector tools cache and bump the request id so any in-flight
+  // response is discarded.
+  const clientToken = client?.http.clientToken ?? null;
+  useEffect(() => {
+    requestIdRef.current++;
+    setCache({});
+    setIsLoading(false);
+  }, [clientToken]);
+
   // Determine whether we should fetch dynamically
   const parsed = useMemo(() => parseModelValue(modelValue), [modelValue]);
   const shouldFetch = isConnected && !!client && parsed !== null;

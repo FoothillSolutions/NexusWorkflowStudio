@@ -404,6 +404,19 @@ export async function generate(set: StoreSet, get: StoreGet): Promise<void> {
     let lastParsedNodeCount = 0;
     let lastParsedEdgeCount = 0;
 
+    // Per-text-part cumulative state. OpenCode native server streams via
+    // `message.part.updated` events (cumulative `Part` per update); the
+    // ACP/Claude Code bridge streams via `message.part.delta` events
+    // (incremental string fragments). Support BOTH: deltas append, updated
+    // events overwrite. `fullText` is the concatenation of all entries in
+    // insertion order so multi-part assistant messages render correctly.
+    const partTexts = new Map<string, string>();
+    const recomputeFullText = () => {
+      let combined = "";
+      for (const t of partTexts.values()) combined += t;
+      fullText = combined;
+    };
+
     /** Run a parse and push results to the canvas. */
     const doParse = () => {
       const parsed = extractStreamedWorkflow(fullText);
@@ -436,12 +449,31 @@ export async function generate(set: StoreSet, get: StoreGet): Promise<void> {
       }
 
       if (event.type === "message.part.delta") {
-        const props = event.properties as { sessionID: string; field: string; delta: string };
+        const props = event.properties as { sessionID: string; messageID: string; partID: string; field: string; delta: string };
         if (props.sessionID !== sid || props.field !== "text") {
+          nextEvent = eventStream.next();
           continue;
         }
 
-        fullText += props.delta;
+        partTexts.set(props.partID, (partTexts.get(props.partID) ?? "") + props.delta);
+        recomputeFullText();
+        set({
+          streamedText: fullText,
+          tokenCount: estimateTokens(fullText),
+        });
+        doParse();
+      } else if (event.type === "message.part.updated") {
+        const props = event.properties as {
+          part: { id: string; sessionID: string; type: string; text?: string };
+        };
+        const part = props.part;
+        if (part.sessionID !== sid || part.type !== "text" || typeof part.text !== "string") {
+          nextEvent = eventStream.next();
+          continue;
+        }
+
+        partTexts.set(part.id, part.text);
+        recomputeFullText();
         set({
           streamedText: fullText,
           tokenCount: estimateTokens(fullText),
@@ -575,7 +607,7 @@ export async function generate(set: StoreSet, get: StoreGet): Promise<void> {
         const structuralIssues = validateWorkflowStructure(finalWorkflow);
         const errors = structuralIssues.filter((i) => i.severity === "error");
         if (errors.length > 0) {
-          console.warn("AI-generated workflow has structural issues:", structuralIssues);
+          console.warn("AI-generated workflow has issues:", structuralIssues);
           const bullets = errors.slice(0, 3).map((e) => `• ${e.message}`).join("\n");
           toast.warning(
             `Workflow may be incomplete: ${summarizeStructuralIssues(structuralIssues)}`,

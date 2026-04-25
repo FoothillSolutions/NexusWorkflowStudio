@@ -5,6 +5,7 @@
 
 import { create } from "zustand";
 import { useOpenCodeStore } from "../opencode";
+import { subscribeToConnectorChange } from "../opencode/connector-bus";
 import { useWorkflowStore } from "../workflow";
 import {
   buildEditUserMessage,
@@ -365,6 +366,20 @@ export const usePromptGenStore = create<PromptGenState>((set, get) => ({
     set({ status: "idle", generatedText: "", generatedTokens: 0, error: null });
   },
 }));
+
+// ── Connector-change subscription ────────────────────────────────────────────
+// When the active OpenCode connector changes (URL, project, reconnect, …),
+// the cached `sessionId` is no longer valid against the new server/project.
+// Dispose it eagerly so the next `ensureSession()` call mints a fresh one
+// instead of failing with "invalid session id".
+//
+// Registered once at module load. Capture the live client snapshot inside
+// `disposeSession()` (which reads `useOpenCodeStore.getState().client` at
+// call time) — the bus fires synchronously BEFORE the store nulls `client`,
+// so the abort/delete fire-and-forget calls hit the still-live endpoint.
+subscribeToConnectorChange(() => {
+  void usePromptGenStore.getState().disposeSession();
+});
 
 
 
