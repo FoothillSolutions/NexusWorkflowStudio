@@ -174,6 +174,7 @@ interface ConnectButtonProps {
 export function ConnectButton({ className, variant = "default" }: ConnectButtonProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const status = useOpenCodeStore((s) => s.status);
+  const connectedAgent = useOpenCodeStore((s) => s.connectedAgent);
   const isCompact = variant === "compact";
 
   const isConnected = status === "connected";
@@ -205,7 +206,7 @@ export function ConnectButton({ className, variant = "default" }: ConnectButtonP
         : "text-zinc-400 group-hover:text-zinc-200";
 
   const label = isConnected
-    ? "Connected"
+    ? (connectedAgent ?? "Connected")
     : isConnecting
       ? "Connecting"
       : isError
@@ -242,7 +243,9 @@ export function ConnectButton({ className, variant = "default" }: ConnectButtonP
         </TooltipTrigger>
         <TooltipContent side="bottom">
           {isConnected
-            ? "Connected to AI server"
+            ? connectedAgent
+              ? `Connected to ${connectedAgent}`
+              : "Connected to AI server"
             : isError
               ? "Connection failed, click to retry"
               : "Connect to an AI endpoint"}

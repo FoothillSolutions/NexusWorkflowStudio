@@ -25,8 +25,9 @@ describe("generation-targets", () => {
   });
 
   it("builds command, agent, skill, script, and docs paths per target", () => {
+    // Default target is now claude-code (.claude/...)
     expect(buildGeneratedCommandFilePath("review-workflow")).toBe(
-      ".opencode/commands/review-workflow.md",
+      ".claude/commands/review-workflow.md",
     );
     expect(buildGeneratedCommandFilePath("review-workflow", "pi")).toBe(
       ".pi/commands/review-workflow.md",

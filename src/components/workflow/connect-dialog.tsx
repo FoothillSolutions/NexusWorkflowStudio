@@ -56,6 +56,7 @@ export default function ConnectDialog({
   const status = useOpenCodeStore((s) => s.status);
   const version = useOpenCodeStore((s) => s.version);
   const error = useOpenCodeStore((s) => s.error);
+  const connectedAgent = useOpenCodeStore((s) => s.connectedAgent);
   const setUrl = useOpenCodeStore((s) => s.setUrl);
   const connect = useOpenCodeStore((s) => s.connect);
   const disconnect = useOpenCodeStore((s) => s.disconnect);
@@ -65,6 +66,30 @@ export default function ConnectDialog({
   const isError = status === "error";
   const [manualPresetId, setManualPresetId] = useState<ConnectionPresetId | null>(null);
   const selectedPresetId = manualPresetId ?? inferPresetId(url);
+  const isClaudeSelected = selectedPresetId === "claude-code-bridge";
+
+  // Claude Code uses Anthropic's signature amber/orange. Other presets use blue.
+  const accent = isClaudeSelected
+    ? {
+        cardActive: "border-amber-500/40 bg-amber-500/10",
+        badgeActive: "border-amber-500/30 bg-amber-500/15 text-amber-200",
+        iconBg: "from-amber-600/20 to-orange-900/20 border-amber-700/30 shadow-amber-900/20",
+        iconText: "text-amber-400",
+        ring: "from-amber-600/8",
+        glow: "bg-amber-500/5",
+        button: "bg-amber-600 hover:bg-amber-500 shadow-amber-900/30",
+        focus: "focus-visible:border-amber-600 focus-visible:ring-amber-600/20",
+      }
+    : {
+        cardActive: "border-blue-500/40 bg-blue-500/10",
+        badgeActive: "border-blue-500/30 bg-blue-500/15 text-blue-200",
+        iconBg: "from-blue-600/20 to-blue-900/20 border-blue-700/30 shadow-blue-900/20",
+        iconText: "text-blue-400",
+        ring: "from-blue-600/8",
+        glow: "bg-blue-500/5",
+        button: "bg-blue-600 hover:bg-blue-500 shadow-blue-900/30",
+        focus: "focus-visible:border-blue-600 focus-visible:ring-blue-600/20",
+      };
 
   const presets = useMemo(
     () => getAIConnectionPresets(typeof window === "undefined" ? undefined : window.location.origin),
@@ -133,11 +158,14 @@ export default function ConnectDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl bg-zinc-900 border-zinc-800 p-0 overflow-hidden gap-0">
         <div className="relative px-6 pt-8 pb-6 text-center overflow-hidden">
-          <div className="absolute inset-0 bg-linear-to-b from-blue-600/8 via-transparent to-transparent pointer-events-none" />
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-32 bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />
+          <div className={cn("absolute inset-0 bg-linear-to-b via-transparent to-transparent pointer-events-none", accent.ring)} />
+          <div className={cn("absolute top-0 left-1/2 -translate-x-1/2 w-64 h-32 rounded-full blur-3xl pointer-events-none", accent.glow)} />
 
-          <div className="relative mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-linear-to-br from-blue-600/20 to-blue-900/20 border border-blue-700/30 shadow-lg shadow-blue-900/20">
-            <Radio className="h-8 w-8 text-blue-400" />
+          <div className={cn(
+            "relative mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-linear-to-br border shadow-lg",
+            accent.iconBg,
+          )}>
+            <Radio className={cn("h-8 w-8", accent.iconText)} />
           </div>
 
           <DialogHeader className="items-center gap-1">
@@ -153,7 +181,7 @@ export default function ConnectDialog({
             <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-3 py-1">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
               <span className="text-xs font-medium text-emerald-300">
-                Connected{version ? ` · v${version}` : ""}
+                {connectedAgent ?? "Connected"}{version ? ` · v${version}` : ""}
               </span>
             </div>
           )}
@@ -189,7 +217,7 @@ export default function ConnectDialog({
                   className={cn(
                     "rounded-xl border px-3 py-3 text-left transition-colors",
                     isActive
-                      ? "border-blue-500/40 bg-blue-500/10"
+                      ? accent.cardActive
                       : "border-zinc-800 bg-zinc-950/60 hover:border-zinc-700 hover:bg-zinc-900",
                   )}
                 >
@@ -200,7 +228,7 @@ export default function ConnectDialog({
                         className={cn(
                           "rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide",
                           isActive
-                            ? "border-blue-500/30 bg-blue-500/15 text-blue-200"
+                            ? accent.badgeActive
                             : "border-zinc-700 bg-zinc-900 text-zinc-400",
                         )}
                       >
@@ -266,7 +294,10 @@ export default function ConnectDialog({
               }}
               placeholder={DEFAULT_ACP_BRIDGE_URL}
               disabled={isConnecting}
-              className="bg-zinc-950 border-zinc-800 text-zinc-200 placeholder:text-zinc-600 focus-visible:border-blue-600 focus-visible:ring-blue-600/20 h-10 font-mono text-sm"
+              className={cn(
+                "bg-zinc-950 border-zinc-800 text-zinc-200 placeholder:text-zinc-600 h-10 font-mono text-sm",
+                accent.focus,
+              )}
             />
           </div>
 
@@ -283,7 +314,7 @@ export default function ConnectDialog({
             <div className="flex items-start gap-2 rounded-lg bg-emerald-500/5 border border-emerald-500/15 px-3 py-2.5">
               <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
               <p className="text-xs text-emerald-300/80 leading-relaxed">
-                Successfully connected to the AI agent through
+                Successfully connected{connectedAgent ? ` to ${connectedAgent}` : ""}
                 {version ? ` (v${version})` : ""}.
               </p>
             </div>
@@ -294,7 +325,10 @@ export default function ConnectDialog({
               <Button
                 onClick={handleConnect}
                 disabled={isConnecting || !url.trim()}
-                className="flex-1 h-9 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium shadow-sm shadow-blue-900/30 disabled:opacity-50"
+                className={cn(
+                  "flex-1 h-9 text-white text-sm font-medium shadow-sm disabled:opacity-50",
+                  accent.button,
+                )}
               >
                 {isConnecting ? (
                   <>

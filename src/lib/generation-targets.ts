@@ -8,7 +8,7 @@ export interface GenerationTarget {
   description: string;
 }
 
-export const DEFAULT_GENERATION_TARGET: GenerationTargetId = "opencode";
+export const DEFAULT_GENERATION_TARGET: GenerationTargetId = "claude-code";
 
 export const GENERATION_TARGETS: GenerationTarget[] = [
   {

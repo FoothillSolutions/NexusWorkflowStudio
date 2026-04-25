@@ -73,6 +73,10 @@ interface OpenCodeState {
   modelGroupsLoading: boolean;
   /** The currently active project from the connected instance */
   currentProject: Project | null;
+  /** Display name of the agent currently connected (e.g. "Claude Code", "OpenCode"). */
+  connectedAgent: string | null;
+  /** Provider id of the agent currently connected (e.g. "claude-code", "opencode"). */
+  connectedAgentId: string | null;
   setUrl: (url: string) => void;
   connect: () => Promise<void>;
   disconnect: () => void;
@@ -99,16 +103,18 @@ export const useOpenCodeStore = create<OpenCodeState>((set, get) => ({
   modelGroups: [],
   modelGroupsLoading: false,
   currentProject: null,
+  connectedAgent: null,
+  connectedAgentId: null,
 
   setUrl: (url) => {
     stopHeartbeat();
     persistUrl(url);
-    set({ url, client: null, status: "disconnected", version: null, error: null, modelGroups: [], modelGroupsLoading: false, currentProject: null });
+    set({ url, client: null, status: "disconnected", version: null, error: null, modelGroups: [], modelGroupsLoading: false, currentProject: null, connectedAgent: null, connectedAgentId: null });
   },
 
   connect: async () => {
     const { url } = get();
-    set({ status: "connecting", error: null, version: null, client: null, modelGroups: [], modelGroupsLoading: false, currentProject: null });
+    set({ status: "connecting", error: null, version: null, client: null, modelGroups: [], modelGroupsLoading: false, currentProject: null, connectedAgent: null, connectedAgentId: null });
 
     try {
       const client = createOpenCodeClient(url, { timeout: 8_000 });
@@ -130,6 +136,20 @@ export const useOpenCodeStore = create<OpenCodeState>((set, get) => ({
       }).catch(() => {
         // Silently ignore — project info is optional
       });
+
+      // Fetch the connected agent's display name from /config/providers.
+      client.config.getProviders().then((res) => {
+        const provider = res.providers[0];
+        if (provider) {
+          set({
+            connectedAgent: provider.name,
+            connectedAgentId: provider.id,
+            modelGroups: buildModelGroups(res.providers),
+          });
+        }
+      }).catch(() => {
+        // Optional — fall back to no agent label.
+      });
     } catch (err: unknown) {
       const message =
         err instanceof OpenCodeError
@@ -137,13 +157,13 @@ export const useOpenCodeStore = create<OpenCodeState>((set, get) => ({
           : err instanceof Error
             ? err.message
             : "Unknown error";
-      set({ status: "error", error: message, version: null, client: null });
+      set({ status: "error", error: message, version: null, client: null, connectedAgent: null, connectedAgentId: null });
     }
   },
 
   disconnect: () => {
     stopHeartbeat();
-    set({ status: "disconnected", version: null, error: null, client: null, modelGroups: [], modelGroupsLoading: false, currentProject: null });
+    set({ status: "disconnected", version: null, error: null, client: null, modelGroups: [], modelGroupsLoading: false, currentProject: null, connectedAgent: null, connectedAgentId: null });
   },
 
   fetchModelGroups: async () => {
