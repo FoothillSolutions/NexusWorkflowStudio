@@ -58,6 +58,7 @@ function makeWorkflowJson(name: string): WorkflowJSON {
           name: `${name}-prompt`,
           promptText: "hello",
           detectedVariables: [],
+          brainDocId: null,
         },
       }),
     ],

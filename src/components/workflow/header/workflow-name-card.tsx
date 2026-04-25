@@ -14,6 +14,10 @@ interface WorkflowNameCardProps {
   needsSave: boolean;
   activeWorkflowId: string | null;
   generationTargetLabel: string;
+  onRename?: (newName: string) => void;
+  /** Disables rename (e.g. when a collab session is active and the local
+   *  user is not the owner). */
+  renameDisabled?: boolean;
   generationTargetId: GenerationTargetId;
 }
 
@@ -24,6 +28,8 @@ export function WorkflowNameCard({
   needsSave,
   activeWorkflowId,
   generationTargetLabel,
+  onRename,
+  renameDisabled = false,
   generationTargetId,
 }: WorkflowNameCardProps) {
   const [isEditingName, setIsEditingName] = useState(false);
@@ -35,11 +41,21 @@ export function WorkflowNameCard({
     }
   }, [isEditingName]);
 
-  const handleNameBlur = () => setIsEditingName(false);
+  // If the caller flips renameDisabled while editing (e.g. ownership was
+  // revoked), close the editor immediately.
+  if (renameDisabled && isEditingName) {
+    setIsEditingName(false);
+  }
+
+  const handleNameBlur = () => {
+    setIsEditingName(false);
+    if (onRename && name.trim()) onRename(name.trim());
+  };
 
   const handleNameKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Enter") {
       setIsEditingName(false);
+      if (onRename && name.trim()) onRename(name.trim());
     }
   };
 
@@ -80,13 +96,23 @@ export function WorkflowNameCard({
         ) : (
           <button
             type="button"
-            onClick={() => setIsEditingName(true)}
-            className="group flex min-w-0 flex-1 items-center gap-2 rounded-lg text-left"
+            onClick={() => {
+              if (renameDisabled) return;
+              setIsEditingName(true);
+            }}
+            disabled={renameDisabled}
+            title={renameDisabled ? "Only the session owner can rename this workflow" : undefined}
+            aria-label={renameDisabled ? "Renaming is disabled in guest sessions" : "Rename workflow"}
+            className={`group flex min-w-0 flex-1 items-center gap-2 rounded-lg text-left ${
+              renameDisabled ? "cursor-not-allowed opacity-70" : ""
+            }`}
           >
             <span className={`${TEXT_PRIMARY} min-w-0 flex-1 truncate text-sm font-medium sm:text-[15px]`}>
               {name}
             </span>
-            <PencilLine className="h-3.5 w-3.5 shrink-0 text-zinc-600 transition-colors group-hover:text-zinc-400" />
+            {!renameDisabled && (
+              <PencilLine className="h-3.5 w-3.5 shrink-0 text-zinc-600 transition-colors group-hover:text-zinc-400" />
+            )}
           </button>
         )}
 

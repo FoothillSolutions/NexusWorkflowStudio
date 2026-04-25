@@ -3,21 +3,30 @@
 // response via SSE, incrementally parses the JSON, and pushes nodes/edges
 // to the canvas in real-time.
 
+import { toast } from "sonner";
 import { useOpenCodeStore } from "../opencode";
 import { useWorkflowStore } from "../workflow";
 import { useSavedWorkflowsStore } from "../library";
 import { AGENT_TOOLS } from "@/nodes/agent/constants";
 import { validateWorkflowJson } from "@/lib/workflow-validation";
-import { WorkflowNodeType, type NodeType, type WorkflowNode } from "@/types/workflow";
+import {
+  summarizeStructuralIssues,
+  validateWorkflowStructure,
+} from "@/lib/workflow-structure-validator";
+import { WorkflowNodeType, type NodeType, type WorkflowNode, type WorkflowJSON } from "@/types/workflow";
 import type { StoreGet, StoreSet } from "./types";
 import { estimateTokens } from "./types";
 import { buildSystemPrompt } from "./system-prompt";
+import { buildEditUserMessage } from "./edit-message";
 import { extractStreamedWorkflow, tryParseCompleteJSON } from "./streaming-parser";
 import { fixEdgeHandles, type NodeBranchInfo } from "./edge-fixer";
 import { parseSelectedModel } from "./model-utils";
 
 /** Delay before clearing the temporary glow applied to newly streamed nodes. */
 const NODE_GLOW_CLEAR_DELAY_MS = 450;
+
+/** Delay before clearing the completion glow applied to edited nodes (Edit / Apply Suggestion). */
+const EDIT_COMPLETION_GLOW_DURATION_MS = 1800;
 
 /** Delay before dispatching auto-layout after generation completes. */
 const AUTO_LAYOUT_DISPATCH_DELAY_MS = 100;
@@ -112,6 +121,7 @@ function pushIncremental(
           options: d?.options as Array<{ label: string }> | undefined,
           multipleSelection: d?.multipleSelection as boolean | undefined,
           aiSuggestOptions: d?.aiSuggestOptions as boolean | undefined,
+          spawnMode: d?.spawnMode as "fixed" | "dynamic" | undefined,
         };
         nodeTypeMap.set(nodeId, branchInfo);
       }
@@ -222,7 +232,10 @@ function pushIncremental(
 
   if (readyEdges.length > 0) {
     const fixedEdges = fixEdgeHandles(readyEdges, nodeTypeMap);
-    const existingEdges = useWorkflowStore.getState().edges;
+    const fixedEdgeIds = new Set(fixedEdges.map((e) => e.id));
+    const existingEdges = useWorkflowStore
+      .getState()
+      .edges.filter((e) => !fixedEdgeIds.has(e.id));
     useWorkflowStore.setState({ edges: [...existingEdges, ...fixedEdges] });
     for (const e of fixedEdges) addedEdgeIds.add(e.id);
   }
@@ -238,9 +251,14 @@ function pushIncremental(
 
 /** Run the AI workflow generation: send prompt, stream response, update canvas. */
 export async function generate(set: StoreSet, get: StoreGet): Promise<void> {
-  const { prompt, selectedModel } = get();
+  const { prompt, selectedModel, mode } = get();
   if (!prompt.trim()) {
-    set({ error: "Please enter a description of the workflow you want to generate.", status: "error" });
+    set({
+      error: mode === "edit"
+        ? "Please describe the change you want to make."
+        : "Please enter a description of the workflow you want to generate.",
+      status: "error",
+    });
     return;
   }
 
@@ -258,10 +276,24 @@ export async function generate(set: StoreSet, get: StoreGet): Promise<void> {
 
   const abortController = new AbortController();
 
-  // Clear the canvas completely before starting a new generation
-  useSavedWorkflowsStore.getState().clearActiveId();
-  useWorkflowStore.getState().reset();
-  useWorkflowStore.setState({ nodes: [], edges: [], name: "Untitled Workflow", sidebarOpen: false });
+  // Capture the current workflow snapshot BEFORE any canvas mutation. In Edit
+  // mode this is embedded in the user message; in Generate mode it is unused.
+  let currentJson: WorkflowJSON | null = null;
+  // Per-node data snapshots captured in Edit mode so we can highlight which
+  // nodes were actually changed once the AI completes.
+  let editBeforeSnapshots: Map<string, string> | null = null;
+  if (mode === "edit") {
+    currentJson = useWorkflowStore.getState().getWorkflowJSON();
+    editBeforeSnapshots = new Map<string, string>();
+    for (const n of currentJson.nodes) {
+      editBeforeSnapshots.set(n.id, JSON.stringify(n.data));
+    }
+  } else {
+    // Clear the canvas completely before starting a new generation
+    useSavedWorkflowsStore.getState().clearActiveId();
+    useWorkflowStore.getState().reset();
+    useWorkflowStore.setState({ nodes: [], edges: [], name: "Untitled Workflow", sidebarOpen: false });
+  }
 
   // Pause undo/redo history so incremental adds don't flood the stack
   useWorkflowStore.temporal.getState().pause();
@@ -339,7 +371,12 @@ export async function generate(set: StoreSet, get: StoreGet): Promise<void> {
       projectContext: useProjectContext ? projectContext : null,
       availableModels,
       availableTools,
+      mode,
     });
+
+    const userText = mode === "edit" && currentJson
+      ? buildEditUserMessage(currentJson, prompt)
+      : `Output a WorkflowJSON object for this workflow. Do NOT plan, do NOT explain, do NOT use tools. Start your response with { immediately.\n\nWorkflow description: ${prompt}`;
 
     // Attach the event stream before sending so fast ACP backends do not emit
     // their earliest deltas before the browser has started reading the SSE
@@ -351,7 +388,7 @@ export async function generate(set: StoreSet, get: StoreGet): Promise<void> {
     await client.messages.sendAsync(
       sid,
       {
-        parts: [{ type: "text", text: `Output a WorkflowJSON object for this workflow. Do NOT plan, do NOT explain, do NOT use tools. Start your response with { immediately.\n\nWorkflow description: ${prompt}` }],
+        parts: [{ type: "text", text: userText }],
         ...(providerId && modelId
           ? { model: { providerID: providerId, modelID: modelId } }
           : {}),
@@ -491,6 +528,7 @@ export async function generate(set: StoreSet, get: StoreGet): Promise<void> {
               options: d?.options as Array<{ label: string }> | undefined,
               multipleSelection: d?.multipleSelection as boolean | undefined,
               aiSuggestOptions: d?.aiSuggestOptions as boolean | undefined,
+              spawnMode: d?.spawnMode as "fixed" | "dynamic" | undefined,
             };
             nodeTypeMap.set(n.id as string, branchInfo);
           }
@@ -508,6 +546,10 @@ export async function generate(set: StoreSet, get: StoreGet): Promise<void> {
         if (!result.success) {
           console.warn("Generated workflow has validation issues:", result.error.message);
           // Don't fail — nodes are already on canvas, just warn
+        } else if (mode === "edit") {
+          // Edit mode: atomically replace the canvas with the fully validated
+          // workflow so any half-streamed intermediate state is discarded.
+          useWorkflowStore.getState().loadWorkflow(result.data as WorkflowJSON);
         }
       }
 
@@ -525,13 +567,51 @@ export async function generate(set: StoreSet, get: StoreGet): Promise<void> {
       const finalNodes = useWorkflowStore.getState().nodes;
       const finalEdges = useWorkflowStore.getState().edges;
 
+      // Structural validation — warn when the generated/edited workflow lacks
+      // a valid start→end path or leaves flow nodes orphan. Non-blocking: the
+      // canvas already reflects the AI output, but the user should know.
+      try {
+        const finalWorkflow = useWorkflowStore.getState().getWorkflowJSON();
+        const structuralIssues = validateWorkflowStructure(finalWorkflow);
+        const errors = structuralIssues.filter((i) => i.severity === "error");
+        if (errors.length > 0) {
+          console.warn("AI-generated workflow has structural issues:", structuralIssues);
+          const bullets = errors.slice(0, 3).map((e) => `• ${e.message}`).join("\n");
+          toast.warning(
+            `Workflow may be incomplete: ${summarizeStructuralIssues(structuralIssues)}`,
+            { description: bullets, duration: 8000 },
+          );
+        }
+      } catch { /* validator must never crash generation */ }
+
+      // Edit-mode completion glow — highlight every node the AI actually added
+      // or modified, so the user can visually see what changed on the canvas.
+      const completionGlowIds: string[] = [];
+      if (mode === "edit" && editBeforeSnapshots) {
+        for (const n of finalNodes) {
+          const snapshot = JSON.stringify(n.data);
+          const before = editBeforeSnapshots.get(n.id);
+          if (before === undefined || before !== snapshot) {
+            completionGlowIds.push(n.id);
+          }
+        }
+      }
+
       set({
         status: "done",
         _abortController: null,
-        _glowingNodeIds: [],
+        _glowingNodeIds: completionGlowIds,
         parsedNodeCount: finalNodes.length,
         parsedEdgeCount: finalEdges.length,
       });
+
+      if (completionGlowIds.length > 0) {
+        setTimeout(() => {
+          if (get()._glowingNodeIds === completionGlowIds) {
+            set({ _glowingNodeIds: [] });
+          }
+        }, EDIT_COMPLETION_GLOW_DURATION_MS);
+      }
     } else {
       set({ error: "No response received from the AI model.", status: "error", _abortController: null });
     }

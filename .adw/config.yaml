@@ -1,0 +1,19 @@
+# ADW Configuration
+
+runtime: claude # used for ADW runtime. Choose either claude or opencode
+
+main_branch: main  # used for git diffs, merges, PRs, and worktree creation
+
+models:
+  low: haiku
+  medium: sonnet
+  high: opus
+  # override: opus  # uncomment to force all tiers to this model
+  # For OpenCode, use full provider/model format:
+  # low: anthropic/claude-haiku-4-5
+  # medium: anthropic/claude-sonnet-4-5
+  # high: anthropic/claude-opus-4-1
+
+paths:
+  claude_code: claude
+  opencode: opencode

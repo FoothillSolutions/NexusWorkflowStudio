@@ -192,6 +192,35 @@ CRITICAL RULES:
 - When workflow context (upstream/downstream nodes) is provided, tailor the skill to fit naturally within the pipeline — consider what data arrives from upstream nodes and what downstream nodes expect.`;
   }
 
+  if (nodeType === WorkflowNodeType.ParallelAgent) {
+    return `You are a shared-instructions generator for a parallel-agent node. The parallel-agent spawns multiple downstream agents that all share a common goal. You receive a description of that goal and output **only the shared instruction text** — nothing else.
+
+CRITICAL RULES:
+- Your ENTIRE response must be the shared instruction text itself. No preamble, no "Here is:", no explanation, no commentary before or after.
+- Output raw Markdown or plain prose directly. Do NOT wrap the output in a code block.
+- The instructions are broadcast to every spawned/cloned agent in the parallel group — write for an audience of N agents cooperating on the same task.
+- Make the shared goal explicit: what the group is collectively trying to accomplish, how agents should coordinate, and what every agent has in common.
+- Call out partitioning, non-overlap, or uniqueness rules when the branches are meant to divide work.
+- Fill in concrete, actionable content — never leave placeholder brackets like [text] in the final output.
+- Use {{variable_name}} for static/config values when referencing connected skills or documents.
+- Keep it focused and imperative: "All agents should…", "Each spawned agent must…", "When producing output…".
+- When workflow context (upstream/downstream nodes) is provided, tailor the instructions so the parallel group fits naturally in the pipeline.`;
+  }
+
+  if (nodeType === WorkflowNodeType.Document) {
+    return `You are a document-content generator for a workflow document node. Document nodes emit a file (Markdown, plain text, JSON, or YAML) that other agents and skills in the workflow consume as reference material. You receive a description of the document and output **only the document body** — nothing else.
+
+CRITICAL RULES:
+- Your ENTIRE response must be the document content itself. No preamble, no "Here is the document:", no explanation, no commentary before or after.
+- Output raw content directly in the target format. Do NOT wrap Markdown output in a code block.
+- Write the document as a durable reference — something an agent or human can consult repeatedly. Use clear headings, sections, and structure as appropriate.
+- Fill in concrete, actionable content — never leave placeholder brackets like [text] in the final output.
+- If the document is intended as structured data (JSON/YAML), emit valid syntax with realistic example values.
+- If the document is Markdown, use semantic headings (##, ###) and concise prose; include tables, lists, or fenced code examples when they clarify the content.
+- Use {{variable_name}} for static/config values only when the document template genuinely needs interpolation.
+- When workflow context (upstream/downstream nodes) is provided, shape the document so it serves the agents that will read it — include what they need, skip what they don't.`;
+  }
+
   if (nodeType === WorkflowNodeType.Prompt) {
     return `You are a prompt-text generator. You receive a description of a prompt and you output **only the prompt text** — nothing else.
 
@@ -300,6 +329,32 @@ export function buildGenerateUserMessage(payload: GeneratePayload): string {
     return `Write a useful Bun-compatible script template with realistic runnable code. Output ONLY the script source code.${resourceSection}${contextSection}`;
   }
 
+  if (nodeType === WorkflowNodeType.ParallelAgent) {
+    if (hasFreeform && hasFields) {
+      return `Write the shared instruction text for a parallel-agent group described as:\n${payload.freeformDescription!.trim()}\n\nAdditional details:\n\n${sections.join("\n\n")}${resourceSection}${contextSection}\n\nRemember: output ONLY the shared instruction text — no plan, no explanation. Write for every spawned agent in the group.`;
+    }
+    if (hasFreeform) {
+      return `Write the shared instruction text for a parallel-agent group described as:\n${payload.freeformDescription!.trim()}${resourceSection}${contextSection}\n\nOutput ONLY the shared instruction text. Make the group goal, coordination rules, and what each spawned agent must do explicit.`;
+    }
+    if (hasFields) {
+      return `Write the shared instruction text for a parallel-agent group using these details:\n\n${sections.join("\n\n")}${resourceSection}${contextSection}\n\nOutput ONLY the shared instruction text. Address every spawned agent in the group.`;
+    }
+    return `Write concise, well-structured shared instructions for a parallel-agent group that cooperates on a common task. Make the shared goal, coordination rules, and per-agent expectations explicit. Output ONLY the shared instruction text.${resourceSection}${contextSection}`;
+  }
+
+  if (nodeType === WorkflowNodeType.Document) {
+    if (hasFreeform && hasFields) {
+      return `Write the document body for a workflow document described as:\n${payload.freeformDescription!.trim()}\n\nAdditional details:\n\n${sections.join("\n\n")}${resourceSection}${contextSection}\n\nRemember: output ONLY the document body. Use the appropriate format (Markdown, plain text, JSON, or YAML) and no wrapper text.`;
+    }
+    if (hasFreeform) {
+      return `Write the document body for a workflow document described as:\n${payload.freeformDescription!.trim()}${resourceSection}${contextSection}\n\nOutput ONLY the document body. Structure it as a durable reference that agents or humans will consult repeatedly.`;
+    }
+    if (hasFields) {
+      return `Write the document body using these details:\n\n${sections.join("\n\n")}${resourceSection}${contextSection}\n\nOutput ONLY the document body. No wrapper text.`;
+    }
+    return `Write a well-structured document body that can serve as reference material inside a workflow. Fill in realistic, concrete content. Output ONLY the document body.${resourceSection}${contextSection}`;
+  }
+
   if (nodeType === WorkflowNodeType.Prompt) {
     if (hasFreeform && hasFields) {
       return `Write prompt text based on this description:\n${payload.freeformDescription!.trim()}\n\nAdditional details:\n\n${sections.join("\n\n")}${resourceSection}${contextSection}\n\nRemember: output ONLY the prompt text. No plan, no explanation. Structure the output naturally based on the content — no need to follow a rigid template.`;
@@ -334,7 +389,13 @@ export function buildGenerateUserMessage(payload: GeneratePayload): string {
 export function buildEditUserMessage(payload: EditPayload): string {
   const nodeType = payload.nodeType ?? DEFAULT_PROMPT_GEN_NODE_TYPE;
   const nodeLabel =
-    nodeType === WorkflowNodeType.Agent ? "agent prompt" : getPromptGenNodeLabel(nodeType);
+    nodeType === WorkflowNodeType.Agent
+      ? "agent prompt"
+      : nodeType === WorkflowNodeType.ParallelAgent
+        ? "parallel-agent shared instructions"
+        : nodeType === WorkflowNodeType.Document
+          ? "document content"
+          : getPromptGenNodeLabel(nodeType);
   const outputInstruction = nodeType === WorkflowNodeType.Agent
     ? "Keep the same template structure. Output ONLY the modified agent file content itself — no explanation, no commentary, no wrapper text, and no device-specific commands/settings unless explicitly required by the edit instruction."
     : `Keep a clear structure. Output ONLY the modified ${getPromptGenOutputLabel(nodeType)} text — no explanation, no commentary.`;

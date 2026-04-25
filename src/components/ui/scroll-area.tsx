@@ -24,6 +24,7 @@ function ScrollArea({
         className={cn(
           "focus-visible:ring-ring/50 size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:outline-1",
           viewportClassName,
+          "*:!block",  // Targets the internal div directly and forces block behavior instead of table to prevent horizantal growth
         )}
       >
         {children}

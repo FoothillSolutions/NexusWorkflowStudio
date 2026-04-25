@@ -39,14 +39,13 @@ export function HeaderSessionActions({
             }`}
           >
             <Sparkles className="h-4 w-4 text-violet-400" />
-            <span className="hidden sm:inline">AI Generate</span>
+            <span className="hidden sm:inline">Nexus AI</span>
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom">
-          Generate a workflow from a description <kbd className="ml-1 text-[10px] opacity-60">Ctrl+Alt+A</kbd>
+          Generate workflows and suggest enhancements with AI <kbd className="ml-1 text-[10px] opacity-60">Ctrl+Alt+A</kbd>
         </TooltipContent>
       </Tooltip>
     </ActionRail>
   );
 }
-

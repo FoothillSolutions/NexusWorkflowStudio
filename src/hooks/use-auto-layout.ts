@@ -11,6 +11,7 @@ import {
 } from "@/types/workflow";
 import { NODE_REGISTRY } from "@/lib/node-registry";
 import { NodeSize, NODE_SIZE_DIMENSIONS } from "@/nodes/shared/node-size";
+import { findSwitchBranchIndexByHandle } from "@/nodes/switch/branches";
 
 const LAYOUT_DURATION = 400;
 
@@ -78,22 +79,28 @@ function fixBranchOrdering(
         orderedTargetIds = sorted.map((e) => e.target);
       }
     } else if (nodeType === WorkflowNodeType.Switch) {
-      const branches = d.branches as Array<{ label: string }> | undefined;
+      const branches = d.branches as import("@/types/workflow").SwitchBranch[] | undefined;
       if (branches && branches.length >= 2) {
-        // Build label → edge target lookup
-        const labelToTarget = new Map<string, string>();
-        for (const e of branchEdges) {
-          if (e.sourceHandle) labelToTarget.set(e.sourceHandle, e.target);
-        }
-        // Order targets by branch definition order
         const ordered: string[] = [];
-        for (const branch of branches) {
-          const target = labelToTarget.get(branch.label);
+        const indexedTargets = new Map<number, string>();
+
+        for (const edge of branchEdges) {
+          const branchIndex = findSwitchBranchIndexByHandle(branches, edge.sourceHandle);
+          if (branchIndex !== -1 && !indexedTargets.has(branchIndex)) {
+            indexedTargets.set(branchIndex, edge.target);
+          }
+        }
+
+        for (let index = 0; index < branches.length; index++) {
+          const target = indexedTargets.get(index);
           if (target) ordered.push(target);
         }
+
         if (ordered.length >= 2) orderedTargetIds = ordered;
       }
     } else if (nodeType === WorkflowNodeType.ParallelAgent) {
+      const spawnMode = (d as { spawnMode?: import("@/types/workflow").ParallelAgentSpawnMode }).spawnMode ?? "fixed";
+      if (spawnMode === "dynamic") continue;
       const branches = d.branches as Array<{ label: string }> | undefined;
       if (branches && branches.length >= 2) {
         const ordered: string[] = [];

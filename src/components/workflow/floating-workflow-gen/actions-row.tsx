@@ -1,5 +1,6 @@
 import { RotateCcw, Sparkles, StopCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import type { WorkflowGenMode } from "@/store/workflow-gen";
 
 interface FloatingWorkflowGenActionsRowProps {
   isConnected: boolean;
@@ -7,6 +8,7 @@ interface FloatingWorkflowGenActionsRowProps {
   isDone: boolean;
   isError: boolean;
   canGenerate: boolean;
+  mode: WorkflowGenMode;
   onCancel: () => void;
   onReset: () => void;
   onGenerate: () => void | Promise<void>;
@@ -18,10 +20,12 @@ export function FloatingWorkflowGenActionsRow({
   isDone,
   isError,
   canGenerate,
+  mode,
   onCancel,
   onReset,
   onGenerate,
 }: FloatingWorkflowGenActionsRowProps) {
+  const primaryLabel = mode === "edit" ? "Edit" : "Generate";
   return (
     <div className="flex items-center justify-between gap-2 pt-1">
       <div className="text-[10px] text-zinc-600">
@@ -58,7 +62,7 @@ export function FloatingWorkflowGenActionsRow({
             className="bg-violet-600 hover:bg-violet-500 text-white gap-1 h-7 text-xs px-3 shadow-sm disabled:opacity-50"
           >
             <Sparkles size={12} />
-            Generate
+            {primaryLabel}
           </Button>
         )}
       </div>

@@ -1,0 +1,42 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": [
+    "adw-opencode-plugin"
+  ],
+  "permission": {
+    "read": "allow",
+    "edit": "allow",
+    "write": "allow",
+    "glob": "allow",
+    "list": "allow",
+    "external_directory": "allow",
+    "bash": {
+      "mkdir *": "allow",
+      "uv *": "allow",
+      "find *": "allow",
+      "mv *": "allow",
+      "grep *": "allow",
+      "npm *": "allow",
+      "npx *": "allow",
+      "ls *": "allow",
+      "cp *": "allow",
+      "chmod *": "allow",
+      "touch *": "allow",
+      "git *": "allow",
+      "bun *": "allow",
+      "bunx *": "allow",
+      "node *": "allow",
+      "python *": "allow",
+      "pytest *": "allow",
+      "curl *": "allow",
+      "cat *": "allow",
+      "source *": "allow",
+      "kill *": "allow",
+      "lsof *": "allow",
+      "git push --force *": "deny",
+      "git push -f *": "deny",
+      "rm -rf *": "deny",
+      "rm -fr *": "deny"
+    }
+  }
+}

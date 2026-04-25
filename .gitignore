@@ -72,7 +72,9 @@ storage.json
 _workspace*
 /graphify-out
 
+# Local runtime data stores (Brain / collab)
+.nexus-brain/
+.nexus-collab/
+
 # nexus-acp-bridge vendored agent installs
 /packages/nexus-acp-bridge/vendor/
-.nexus-collab/*
-.nexus-brain/*

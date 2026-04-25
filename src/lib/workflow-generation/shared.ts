@@ -9,11 +9,13 @@ import { generator as subWorkflowGen } from "@/nodes/sub-workflow/generator";
 import { generator as skillGen } from "@/nodes/skill/generator";
 import { generator as documentGen } from "@/nodes/document/generator";
 import { generator as mcpToolGen } from "@/nodes/mcp-tool/generator";
+import { generator as handoffGen } from "@/nodes/handoff/generator";
 import { generator as ifElseGen } from "@/nodes/if-else/generator";
 import { generator as switchGen } from "@/nodes/switch/generator";
 import { generator as askUserGen } from "@/nodes/ask-user/generator";
 import type { NodeGeneratorModule } from "@/nodes/shared/registry-types";
 import { mermaidId, mermaidLabel } from "@/nodes/shared/mermaid-utils";
+import { getSwitchBranchLabelFromHandle } from "@/nodes/switch/branches";
 
 export interface GeneratedFile {
   path: string;
@@ -31,6 +33,7 @@ export const NODE_GENERATORS: Record<NodeType, NodeGeneratorModule> = {
   [WorkflowNodeType.Skill]: skillGen,
   [WorkflowNodeType.Document]: documentGen,
   [WorkflowNodeType.McpTool]: mcpToolGen,
+  [WorkflowNodeType.Handoff]: handoffGen,
   [WorkflowNodeType.IfElse]: ifElseGen,
   [WorkflowNodeType.Switch]: switchGen,
   [WorkflowNodeType.AskUser]: askUserGen,
@@ -93,10 +96,23 @@ export function mermaidEdge(
       const srcNode = nodeById.get(edge.source);
       if (srcNode?.data?.type === WorkflowNodeType.ParallelAgent) {
         const d = srcNode.data as import("@/types/workflow").ParallelAgentNodeData;
-        const idx = Number.parseInt(parallelMatch[1], DECIMAL_RADIX);
-        const branch = d.branches?.[idx];
-        if (branch?.label) {
-          raw = branch.label;
+        if (d.spawnMode !== "dynamic") {
+          const idx = Number.parseInt(parallelMatch[1], DECIMAL_RADIX);
+          const branch = d.branches?.[idx];
+          if (branch?.label) {
+            raw = branch.label;
+          }
+        }
+      }
+    }
+
+    if (nodeById) {
+      const srcNode = nodeById.get(edge.source);
+      if (srcNode?.data?.type === WorkflowNodeType.Switch) {
+        const d = srcNode.data as import("@/types/workflow").SwitchNodeData;
+        const switchLabel = getSwitchBranchLabelFromHandle(d.branches ?? [], raw);
+        if (switchLabel) {
+          raw = switchLabel;
         }
       }
     }

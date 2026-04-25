@@ -16,7 +16,7 @@ RUN --mount=type=cache,target=/root/.bun/install/cache \
     bun install --frozen-lockfile
 
 # ============================================
-# Stage 2: Build Next.js application in standalone mode
+# Stage 2: Build Next.js application
 # ============================================
 
 FROM oven/bun:${BUN_VERSION} AS builder
@@ -32,7 +32,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN bun run build
 
 # ============================================
-# Stage 3: Run Next.js application
+# Stage 3: Run Next.js + Hocuspocus via custom server
 # ============================================
 
 FROM oven/bun:${BUN_VERSION} AS runner
@@ -51,28 +51,30 @@ ENV APP_BUILD_TIMESTAMP=${BUILD_TIMESTAMP}
 
 EXPOSE 3000
 
-COPY --from=builder --chown=bun:bun /app/public ./public
-
 # Install git for marketplace clone/pull operations at runtime.
 RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-RUN mkdir .next && chown bun:bun .next
+# Pre-create marketplace and collab data directories with correct ownership.
+RUN mkdir -p /tmp/nexus-marketplaces /data/brain /data/collab \
+    && chown -R bun:bun /tmp/nexus-marketplaces /data/brain /data/collab
 
-# Pre-create marketplace cache directory with correct ownership.
-RUN mkdir -p /tmp/nexus-marketplaces && chown bun:bun /tmp/nexus-marketplaces
-
-# Automatically leverage output traces to reduce image size.
-# https://nextjs.org/docs/advanced-features/output-file-tracing
-COPY --from=builder --chown=bun:bun /app/.next/standalone ./
-COPY --from=builder --chown=bun:bun /app/.next/static ./.next/static
-
-# Persist the fetch cache generated during the build for faster cold starts.
-COPY --from=builder --chown=bun:bun /app/.next/cache ./.next/cache
+# Full Next.js build + dependencies — the custom server imports `next` and
+# the compiled `.next/` output directly, so we need both.
+COPY --from=dependencies --chown=bun:bun /app/node_modules ./node_modules
+COPY --from=builder --chown=bun:bun /app/.next ./.next
+COPY --from=builder --chown=bun:bun /app/public ./public
+COPY --from=builder --chown=bun:bun /app/package.json ./package.json
+COPY --from=builder --chown=bun:bun /app/next.config.ts ./next.config.ts
+COPY --from=builder --chown=bun:bun /app/server.ts ./server.ts
+COPY --from=builder --chown=bun:bun /app/scripts ./scripts
+COPY --from=builder --chown=bun:bun /app/src/lib/collaboration/object-store.ts \
+    ./src/lib/collaboration/object-store.ts
+COPY --from=builder --chown=bun:bun /app/tsconfig.json ./tsconfig.json
 
 USER bun
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s \
   CMD bun --eval "fetch('http://localhost:3000/livez').then(r=>{if(!r.ok)throw 1})"
 
-CMD ["bun", "server.js"]
+CMD ["bun", "server.ts"]

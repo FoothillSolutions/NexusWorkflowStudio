@@ -2,7 +2,7 @@
 
 import { forwardRef, type ButtonHTMLAttributes, type ComponentType, type DragEvent } from "react";
 import { useWorkflowStore } from "@/store/workflow";
-import { BASIC_NODES, CONTROL_FLOW_NODES, type NodeRegistryEntry } from "@/lib/node-registry";
+import { BASIC_NODES, CONTROL_FLOW_NODES, NODE_REGISTRY, type NodeRegistryEntry } from "@/lib/node-registry";
 import {
   Menu,
   X,
@@ -10,7 +10,6 @@ import {
   TerminalSquare,
   Shield,
   ShieldCheck,
-  Handshake,
   Scale,
   Sparkles,
   Grip,
@@ -34,8 +33,12 @@ import {
 import { cn } from "@/lib/utils";
 import { WorkflowNodeType, type NodeType } from "@/types/workflow";
 
-/** Node types that are disabled / coming soon */
-const COMING_SOON_TYPES = new Set<NodeType>([WorkflowNodeType.McpTool]);
+/** Node types that are disabled / coming soon — sourced from each registry entry's `active` flag. */
+const COMING_SOON_TYPES = new Set<NodeType>(
+  Object.values(NODE_REGISTRY)
+    .filter((entry) => entry.active === false)
+    .map((entry) => entry.type),
+);
 
 const COMING_SOON_BASIC = [
   { key: "variable", label: "Variable", description: "Store variables across nodes", icon: Braces, hex: "#84cc16" },
@@ -46,7 +49,6 @@ const COMING_SOON_CONTROL = [
   { key: "validation", label: "Validation", description: "Check output of a branch", icon: ShieldCheck, hex: "#22d3ee" },
   { key: "guards", label: "Guards", description: "Add protective guardrails", icon: Shield, hex: "#38bdf8" },
   { key: "rules", label: "Rules", description: "Define reusable rules", icon: Scale, hex: "#f59e0b" },
-  { key: "hands-off", label: "Hands Off", description: "Define handing off method", icon: Handshake, hex: "#fb7185" },
 ] as const;
 
 const PANEL_SHELL_CLASS = buildWorkflowPanelShellClass("top-16 left-4");

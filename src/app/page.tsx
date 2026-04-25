@@ -1,5 +1,5 @@
-import WorkflowEditor from "@/components/workflow/workflow-editor";
+import { LandingPage } from "@/components/workspace/landing-page";
 
 export default function Home() {
-  return <WorkflowEditor />;
+  return <LandingPage />;
 }

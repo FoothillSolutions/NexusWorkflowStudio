@@ -26,10 +26,12 @@ import {
   Info,
   Keyboard,
   Radio,
+  Brain,
 } from "lucide-react";
 import { toast } from "sonner";
 import { TEXT_MUTED } from "@/lib/theme";
 import { useOpenCodeStore } from "@/store/opencode";
+import { useKnowledgeStore } from "@/store/knowledge-store";
 import { cn } from "@/lib/utils";
 import ShortcutsDialog from "./shortcuts-dialog";
 import AboutDialog from "./about-dialog";
@@ -84,6 +86,53 @@ export function LibraryToggleButton({ className, variant = "default" }: LibraryT
         </Button>
       </TooltipTrigger>
       <TooltipContent side="bottom">Open Library</TooltipContent>
+    </Tooltip>
+  );
+}
+
+/* ── Brain Toggle Button ─────────────────────────────────────────────────── */
+
+interface BrainToggleButtonProps {
+  className?: string;
+  variant?: "compact" | "default";
+}
+
+export function BrainToggleButton({ className, variant = "default" }: BrainToggleButtonProps) {
+  const panelOpen = useKnowledgeStore((s) => s.panelOpen);
+  const isCompact = variant === "compact";
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => useKnowledgeStore.getState().togglePanel()}
+          aria-label="Toggle brain"
+          aria-pressed={panelOpen}
+          title="Brain"
+          className={cn(
+            chromeButtonClass(isCompact),
+            panelOpen
+              ? "border-sky-500/25 bg-sky-500/10 text-sky-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+              : `${TEXT_MUTED} hover:border-zinc-700/70 hover:bg-zinc-800/80 hover:text-zinc-100`,
+            className,
+          )}
+        >
+          <span
+            className={cn(
+              "flex size-5.5 shrink-0 items-center justify-center transition-colors",
+              panelOpen
+                ? "text-sky-300"
+                : "text-zinc-400 group-hover:text-zinc-200",
+            )}
+          >
+            <Brain className="h-3.5 w-3.5" />
+          </span>
+          <span className={cn(isCompact ? "text-xs font-medium" : "")}>Brain</span>
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">Open Brain</TooltipContent>
     </Tooltip>
   );
 }
