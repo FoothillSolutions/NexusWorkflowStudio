@@ -63,7 +63,7 @@ Keep the mental model high-level:
 - `src/hooks/` — reusable editor and data hooks
 - `src/types/` — shared type definitions
 - `docs/tasks/` — task-specific plans and notes
-- `packages/` — auxiliary packages such as `nexus-acp-bridge`
+- `packages/` — auxiliary packages such as `nexus-acp-bridge` (see `packages/nexus-acp-bridge/CLAUDE.md` for package-scoped guidance)
 
 ---
 
