@@ -17,7 +17,7 @@ const CLAUDE_CODE_VENDOR_BIN = path.resolve(
   "claude-code",
   "node_modules",
   ".bin",
-  "acp-claude-code",
+  "claude-agent-acp",
 );
 
 let warnedAboutMissingVendor = false;
@@ -31,12 +31,12 @@ function resolveClaudeCodeCommand(): { command: string; args: string } {
     warnedAboutMissingVendor = true;
     console.warn(
       "[nexus-acp-bridge] claude-code vendored install not found. " +
-        "Run `bun run bridge:setup-claude` to pin @anthropic-ai/claude-code to a version acp-claude-code can import. " +
-        "Falling back to `npx --yes acp-claude-code`, which may fail against claude-code >= 2.1 native-binary builds.",
+        "Run `bun run bridge:setup-claude` to vendor @agentclientprotocol/claude-agent-acp locally. " +
+        "Falling back to `npx --yes @agentclientprotocol/claude-agent-acp`.",
     );
   }
 
-  return { command: "npx", args: "--yes acp-claude-code" };
+  return { command: "npx", args: "--yes @agentclientprotocol/claude-agent-acp@0.31.0" };
 }
 
 export const BRIDGE_TOOL_PRESETS: Record<string, BridgeToolPreset> = {

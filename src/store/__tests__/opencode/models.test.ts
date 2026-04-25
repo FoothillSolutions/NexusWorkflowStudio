@@ -61,6 +61,10 @@ describe("opencode model helpers", () => {
   });
 
   it("uses known provider colors before cycling through fallback colors", () => {
+    expect(getProviderColors("claude-code", 99)).toEqual({
+      color: "bg-orange-400",
+      textColor: "text-orange-400/70",
+    });
     expect(getProviderColors("github-copilot", 99)).toEqual({
       color: "bg-blue-400",
       textColor: "text-blue-400/70",
@@ -90,6 +94,27 @@ describe("opencode model helpers", () => {
     expect(groups[0].models.map((model) => model.displayName)).toEqual([
       "Claude 3.7",
       "GPT 4.1",
+    ]);
+  });
+
+  it("uses the Claude Code orange color for flat claude-code providers", () => {
+    const groups = buildModelGroups([
+      makeProvider("claude-code", "Claude Code", {
+        sonnet: makeModel("claude-code", "sonnet", "Claude Sonnet", "claude-sonnet"),
+        opus: makeModel("claude-code", "opus", "Claude Opus", "claude-opus"),
+      }),
+    ]);
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0]).toMatchObject({
+      label: "Claude Code",
+      providerId: "claude-code",
+      color: "bg-orange-400",
+      textColor: "text-orange-400/70",
+    });
+    expect(groups[0].models.map((model) => model.displayName)).toEqual([
+      "Claude Opus",
+      "Claude Sonnet",
     ]);
   });
 

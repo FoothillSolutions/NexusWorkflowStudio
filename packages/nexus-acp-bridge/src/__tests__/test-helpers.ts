@@ -6,6 +6,7 @@ export function makeBridgeConfig(overrides: Partial<BridgeConfig> = {}): BridgeC
     selectedTool: null,
     host: "127.0.0.1",
     port: 4080,
+    serverIdleTimeoutSeconds: 120,
     corsOrigin: "http://localhost:3000",
     version: "test",
     projectDirs: [process.cwd()],

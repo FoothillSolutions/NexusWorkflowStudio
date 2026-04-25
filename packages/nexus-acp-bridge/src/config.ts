@@ -174,6 +174,7 @@ export function loadBridgeConfig(argv: string[] = process.argv.slice(2)): Bridge
     selectedTool,
     host: readEnv("NEXUS_ACP_BRIDGE_HOST") ?? "127.0.0.1",
     port: readNumber("NEXUS_ACP_BRIDGE_PORT", 4080),
+    serverIdleTimeoutSeconds: Math.max(0, readNumber("NEXUS_ACP_BRIDGE_IDLE_TIMEOUT_SECONDS", 0)),
     corsOrigin: readEnv("NEXUS_ACP_BRIDGE_CORS_ORIGIN") ?? "http://localhost:3000",
     version: readEnv("NEXUS_ACP_BRIDGE_VERSION") ?? "0.1.0",
     projectDirs,

@@ -17,9 +17,13 @@ import type {
   HealthInfo,
   MCPStatus,
   McpResource,
+  Model,
   Project,
+  Provider,
   ToolListItem,
 } from "./types";
+
+const DISCOVERED_RELEASE_DATE = "1970-01-01T00:00:00Z";
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null && !Array.isArray(value)
@@ -33,6 +37,10 @@ function asString(value: unknown): string | null {
 
 function asStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string" && entry.length > 0) : [];
+}
+
+function asArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
 }
 
 function isPathInside(root: string, candidate: string): boolean {
@@ -82,6 +90,115 @@ function normalizeAvailableCommands(value: unknown): Command[] {
       hints: [...new Set(hints)],
     } satisfies Command];
   });
+}
+
+function splitProviderModel(modelId: string): { providerID: string; modelID: string } | null {
+  const separator = modelId.indexOf("/");
+  if (separator <= 0 || separator >= modelId.length - 1) return null;
+
+  return {
+    providerID: modelId.slice(0, separator),
+    modelID: modelId.slice(separator + 1),
+  };
+}
+
+function humanizeProviderId(providerID: string): string {
+  return providerID
+    .split(/[-_]/g)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function buildDiscoveredModel(providerID: string, modelID: string, name: string): Model {
+  const family = modelID.split("/")[0] ?? modelID;
+  return {
+    id: modelID,
+    providerID,
+    api: {
+      id: providerID,
+      url: "https://example.invalid/acp-discovery",
+      npm: "nexus-acp-bridge",
+    },
+    name,
+    family,
+    capabilities: {
+      temperature: true,
+      reasoning: true,
+      attachment: false,
+      toolcall: true,
+      input: { text: true, audio: false, image: false, video: false, pdf: false },
+      output: { text: true, audio: false, image: false, video: false, pdf: false },
+      interleaved: false,
+    },
+    cost: { input: 0, output: 0, cache: { read: 0, write: 0 } },
+    limit: { output: 8192, context: 200000 },
+    status: "active",
+    options: {},
+    headers: {},
+    release_date: DISCOVERED_RELEASE_DATE,
+  };
+}
+
+function extractConfigProvidersFromSession(result: unknown): ConfigProviders | null {
+  const record = asRecord(result);
+  const modelsRecord = asRecord(record?.models);
+  const availableModels = asArray(modelsRecord?.availableModels);
+  if (availableModels.length === 0) return null;
+
+  const currentModel = splitProviderModel(asString(modelsRecord?.currentModelId) ?? "");
+  const providers = new Map<string, { provider: Provider; firstModelId: string | null }>();
+
+  for (const entry of availableModels) {
+    const modelRecord = asRecord(entry);
+    const fullModelId = asString(modelRecord?.modelId) ?? asString(modelRecord?.value);
+    if (!fullModelId) continue;
+
+    const split = splitProviderModel(fullModelId);
+    if (!split) continue;
+
+    const fullName = asString(modelRecord?.name) ?? fullModelId;
+    const separator = fullName.indexOf("/");
+    const providerName = separator > 0 ? fullName.slice(0, separator).trim() : humanizeProviderId(split.providerID);
+    const modelName = separator > 0 ? fullName.slice(separator + 1).trim() : fullName;
+
+    let bucket = providers.get(split.providerID);
+    if (!bucket) {
+      bucket = {
+        provider: {
+          id: split.providerID,
+          name: providerName,
+          source: "api",
+          env: [],
+          options: {},
+          models: {},
+        },
+        firstModelId: null,
+      };
+      providers.set(split.providerID, bucket);
+    }
+
+    if (!bucket.firstModelId) {
+      bucket.firstModelId = split.modelID;
+    }
+
+    bucket.provider.models[split.modelID] = buildDiscoveredModel(split.providerID, split.modelID, modelName);
+  }
+
+  if (providers.size === 0) return null;
+
+  const defaults: Record<string, string> = {};
+  for (const [providerID, bucket] of providers.entries()) {
+    const currentForProvider = currentModel?.providerID === providerID ? currentModel.modelID : null;
+    defaults[providerID] = currentForProvider && bucket.provider.models[currentForProvider]
+      ? currentForProvider
+      : bucket.firstModelId ?? Object.keys(bucket.provider.models)[0] ?? "default";
+  }
+
+  return {
+    providers: [...providers.values()].map((bucket) => bucket.provider),
+    default: defaults,
+  };
 }
 
 export class ACPProtocolAdapter implements ACPAdapter {
@@ -151,6 +268,21 @@ export class ACPProtocolAdapter implements ACPAdapter {
 
   async getConfigProviders(): Promise<ConfigProviders> {
     await this.ensureInitialized();
+
+    try {
+      const cwd = this.config.agentCwd ?? this.config.projectDirs[0] ?? process.cwd();
+      const discovery = await this.client.request<unknown>("session/new", {
+        cwd,
+        mcpServers: [],
+      });
+      const providers = extractConfigProvidersFromSession(discovery);
+      if (providers) {
+        return providers;
+      }
+    } catch {
+      // Fall back to the synthetic catalog when the ACP agent does not advertise models.
+    }
+
     return buildDefaultConfigProviders(this.config, "acp");
   }
 

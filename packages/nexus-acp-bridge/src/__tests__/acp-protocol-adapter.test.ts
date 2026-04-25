@@ -20,6 +20,7 @@ class FakeACPClient implements ACPJsonRpcClientLike {
   private readonly sessionHandlers = new Map<string, Set<ACPSessionUpdateHandler>>();
   private readonly requestHandlers = new Map<string, ACPRequestHandler>();
   private nextAcpSessionId = 1;
+  sessionNewResult: unknown = null;
 
   requestHandler: ((method: string, params: unknown) => Promise<unknown>) | null = null;
 
@@ -34,6 +35,9 @@ class FakeACPClient implements ACPJsonRpcClientLike {
     }
 
     if (method === "session/new") {
+      if (this.sessionNewResult) {
+        return this.sessionNewResult as T;
+      }
       const sessionId = `acp-session-${this.nextAcpSessionId++}`;
       queueMicrotask(() => this.emitSessionUpdate(sessionId, {
         sessionUpdate: "available_commands_update",
@@ -152,6 +156,52 @@ describe("ACPProtocolAdapter", () => {
       expect((promptCall?.params as { prompt?: unknown[] })?.prompt).toEqual([
         { type: "text", text: "hello from nexus" },
       ]);
+    } finally {
+      await adapter.dispose();
+    }
+  });
+
+  test("discovers real ACP model catalogs from session/new when available", async () => {
+    const client = new FakeACPClient();
+    client.sessionNewResult = {
+      sessionId: "acp-session-config",
+      models: {
+        currentModelId: "github-copilot/claude-sonnet-4.6",
+        availableModels: [
+          { modelId: "github-copilot/claude-sonnet-4.6", name: "GitHub Copilot/Claude Sonnet 4.6" },
+          { modelId: "github-copilot/claude-sonnet-4.6/low", name: "GitHub Copilot/Claude Sonnet 4.6 (low)" },
+          { modelId: "opencode/big-pickle", name: "OpenCode Zen/Big Pickle" },
+        ],
+      },
+    };
+
+    const adapter = new ACPProtocolAdapter(
+      makeBridgeConfig({
+        adapterMode: "acp",
+        selectedTool: "opencode",
+        defaultProviderId: "opencode",
+        defaultProviderName: "OpenCode",
+        defaultModelId: "default",
+      }),
+      client,
+    );
+
+    try {
+      const providers = await adapter.getConfigProviders();
+
+      expect(providers.default).toEqual({
+        "github-copilot": "claude-sonnet-4.6",
+        opencode: "big-pickle",
+      });
+      expect(providers.providers.map((provider) => provider.id)).toEqual([
+        "github-copilot",
+        "opencode",
+      ]);
+      expect(providers.providers[0]?.name).toBe("GitHub Copilot");
+      expect(providers.providers[0]?.models["claude-sonnet-4.6"]?.name).toBe("Claude Sonnet 4.6");
+      expect(providers.providers[0]?.models["claude-sonnet-4.6/low"]?.family).toBe("claude-sonnet-4.6");
+      expect(providers.providers[1]?.name).toBe("OpenCode Zen");
+      expect(providers.providers[1]?.models["big-pickle"]?.name).toBe("Big Pickle");
     } finally {
       await adapter.dispose();
     }

@@ -256,7 +256,7 @@ export default function FloatingWorkflowGen() {
           {!isConnected && (
             <div className="flex items-center gap-2 text-amber-400 bg-amber-950/20 border border-amber-800/30 rounded-lg px-3 py-2 text-xs">
               <AlertCircle size={12} className="shrink-0" />
-              <span>Connect to OpenCode server first.</span>
+              <span>Connect to the ACP bridge or an OpenCode server first.</span>
             </div>
           )}
 

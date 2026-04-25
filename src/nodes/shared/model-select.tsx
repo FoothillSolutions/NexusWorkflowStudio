@@ -3,31 +3,8 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, Check, Sparkles, Lock, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SubAgentModel, MODEL_DISPLAY_NAMES, MODEL_COST_MULTIPLIER } from "@/nodes/agent/enums";
+import { SubAgentModel, MODEL_DISPLAY_NAMES } from "@/nodes/agent/enums";
 import { useModels } from "@/hooks/use-models";
-
-// ── Cost badge ──────────────────────────────────────────────────────────────
-
-function CostBadge({ cost }: { cost: number | undefined }) {
-  const c = cost ?? 1.0;
-  const color =
-    c < 1
-      ? "text-emerald-400"
-      : c <= 1
-        ? "text-zinc-500"
-        : c <= 2
-          ? "text-amber-400"
-          : "text-red-400";
-
-  const label =
-    c < 1 ? `${c}x` : `${c.toFixed(1)}x`;
-
-  return (
-    <span className={cn("text-[11px] font-mono tabular-nums shrink-0", color)}>
-      {label}
-    </span>
-  );
-}
 
 // ── ModelSelect ─────────────────────────────────────────────────────────────
 
@@ -174,9 +151,6 @@ export function ModelSelect({ value, onChange, hideInherit }: ModelSelectProps) 
           <span className={cn("w-2 h-2 rounded-full shrink-0", selectedGroup.color)} />
         ) : null}
         <span className="truncate text-left flex-1">{displayName}</span>
-        {!isDisabled && value !== SubAgentModel.Inherit && (
-          <CostBadge cost={value ? MODEL_COST_MULTIPLIER[value] : undefined} />
-        )}
         {isDisabled ? (
           <span className="text-[10px] text-zinc-500 font-medium shrink-0">Not connected</span>
         ) : isLoading ? (
@@ -250,7 +224,6 @@ export function ModelSelect({ value, onChange, hideInherit }: ModelSelectProps) 
                 {/* Models in this group */}
                 {group.models.map((m) => {
                   const isSelected = value === m.value;
-                  const cost = MODEL_COST_MULTIPLIER[m.value];
                   return (
                     <button
                       key={m.value}
@@ -273,7 +246,6 @@ export function ModelSelect({ value, onChange, hideInherit }: ModelSelectProps) 
                       <span className="flex-1 text-left truncate">
                         {m.displayName}
                       </span>
-                      <CostBadge cost={cost} />
                     </button>
                   );
                 })}

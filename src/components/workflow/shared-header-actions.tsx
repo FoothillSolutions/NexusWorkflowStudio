@@ -164,7 +164,7 @@ export function HelpMenu({ className }: HelpMenuProps) {
   );
 }
 
-/* ── Connect to OpenCode Button ──────────────────────────────────────────── */
+/* ── Connect AI Endpoint Button ──────────────────────────────────────────── */
 
 interface ConnectButtonProps {
   className?: string;
@@ -220,7 +220,7 @@ export function ConnectButton({ className, variant = "default" }: ConnectButtonP
             variant="ghost"
             size="sm"
             onClick={() => setDialogOpen(true)}
-            aria-label={isConnected ? "Connection status" : "Connect to OpenCode"}
+            aria-label={isConnected ? "Connection status" : "Connect to AI endpoint"}
             title={label}
             className={cn(chromeButtonClass(isCompact), buttonStateClass, className)}
           >
@@ -245,7 +245,7 @@ export function ConnectButton({ className, variant = "default" }: ConnectButtonP
             ? "Connected to AI server"
             : isError
               ? "Connection failed, click to retry"
-              : "Connect to AI server"}
+              : "Connect to an AI endpoint"}
         </TooltipContent>
       </Tooltip>
 

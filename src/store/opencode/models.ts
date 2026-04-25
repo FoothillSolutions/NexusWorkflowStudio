@@ -32,6 +32,7 @@ const PROVIDER_COLORS: Array<{ color: string; textColor: string }> = [
 ];
 
 const KNOWN_PROVIDER_COLORS: Record<string, { color: string; textColor: string }> = {
+  "claude-code": { color: "bg-orange-400", textColor: "text-orange-400/70" },
   "github-copilot": { color: "bg-blue-400", textColor: "text-blue-400/70" },
   anthropic: { color: "bg-orange-400", textColor: "text-orange-400/70" },
   google: { color: "bg-cyan-400", textColor: "text-cyan-400/70" },

@@ -239,7 +239,10 @@ export async function generate(set: StoreSet, get: StoreGet): Promise<void> {
 
   const client = useOpenCodeStore.getState().client;
   if (!client) {
-    set({ error: "Not connected to OpenCode server. Please connect first.", status: "error" });
+    set({
+      error: "Not connected to an AI endpoint. Connect to the ACP bridge or an OpenCode server first.",
+      status: "error",
+    });
     return;
   }
 

@@ -30,11 +30,11 @@ describe("bridge config", () => {
 
     expect(config.selectedTool).toBe("claude-code");
     expect(config.adapterMode).toBe("acp");
-    // agentCommand resolves to the vendored acp-claude-code binary when it exists,
-    // otherwise falls back to `npx`. Both forms end in `acp-claude-code`.
-    expect(config.agentCommand).toMatch(/acp-claude-code$|^npx$/);
+    // agentCommand resolves to the vendored claude-agent-acp binary when it exists,
+    // otherwise falls back to `npx`. Both forms end in `claude-agent-acp`.
+    expect(config.agentCommand).toMatch(/claude-agent-acp$|^npx$/);
     if (config.agentCommand === "npx") {
-      expect(config.agentArgs).toEqual(["--yes", "acp-claude-code"]);
+      expect(config.agentArgs).toEqual(["--yes", "@agentclientprotocol/claude-agent-acp@0.31.0"]);
     } else {
       expect(config.agentArgs).toEqual([]);
     }
@@ -63,6 +63,15 @@ describe("bridge config", () => {
     const config = loadBridgeConfig([]);
 
     expect(config.adapterMode).toBe("mock");
+    expect(config.serverIdleTimeoutSeconds).toBe(0);
+  });
+
+  test("allows overriding the Bun server idle timeout", () => {
+    process.env.NEXUS_ACP_BRIDGE_IDLE_TIMEOUT_SECONDS = "45";
+
+    const config = loadBridgeConfig([]);
+
+    expect(config.serverIdleTimeoutSeconds).toBe(45);
   });
 
   test("explicit environment variables override bundled defaults", () => {

@@ -201,6 +201,7 @@ export interface BridgeConfig {
   selectedTool: string | null;
   host: string;
   port: number;
+  serverIdleTimeoutSeconds: number;
   corsOrigin: string;
   version: string;
   projectDirs: string[];

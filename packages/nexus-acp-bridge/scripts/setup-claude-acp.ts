@@ -4,12 +4,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const CLAUDE_CODE_PINNED_VERSION = "2.0.20";
-const ACP_CLAUDE_CODE_VERSION = "^0.8.0";
+const CLAUDE_AGENT_ACP_VERSION = "0.31.0";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const vendorDir = path.resolve(here, "..", "vendor", "claude-code");
-const binPath = path.join(vendorDir, "node_modules", ".bin", "acp-claude-code");
+const binPath = path.join(vendorDir, "node_modules", ".bin", "claude-agent-acp");
 
 function log(message: string): void {
   console.log(`[setup-claude-acp] ${message}`);
@@ -30,11 +29,7 @@ const manifest = {
   private: true,
   version: "0.0.0",
   dependencies: {
-    "acp-claude-code": ACP_CLAUDE_CODE_VERSION,
-    "@anthropic-ai/claude-code": CLAUDE_CODE_PINNED_VERSION,
-  },
-  overrides: {
-    "@anthropic-ai/claude-code": CLAUDE_CODE_PINNED_VERSION,
+    "@agentclientprotocol/claude-agent-acp": CLAUDE_AGENT_ACP_VERSION,
   },
 } as const;
 
@@ -44,7 +39,7 @@ fs.writeFileSync(
   "utf8",
 );
 
-log(`vendoring acp-claude-code + @anthropic-ai/claude-code@${CLAUDE_CODE_PINNED_VERSION} in ${vendorDir}`);
+log(`vendoring @agentclientprotocol/claude-agent-acp@${CLAUDE_AGENT_ACP_VERSION} in ${vendorDir}`);
 log("running npm install...");
 
 const installResult = spawnSync("npm", ["install", "--no-audit", "--no-fund", "--loglevel=error"], {

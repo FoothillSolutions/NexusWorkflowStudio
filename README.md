@@ -121,12 +121,18 @@ bun run docker:down
 
 AI features require a running [OpenCode](https://github.com/nichochar/opencode) server **or** a compatible bridge endpoint such as the bundled ACP bridge.
 
+Nexus now defaults its connection UI to the bundled ACP bridge endpoint (`http://127.0.0.1:4080`). The connect dialog includes quick-start presets for:
+
+- Claude Code via the ACP bridge
+- OpenCode via the ACP bridge
+- Direct OpenCode server mode
+
 ```bash
 bun add -g opencode-ai
 opencode serve --cors http://localhost:3000
 ```
 
-Then connect from the Nexus header.
+Then connect from the Nexus header. If you prefer the bundled bridge, use one of the ACP presets below instead.
 
 ### Optional: run the bundled ACP bridge
 

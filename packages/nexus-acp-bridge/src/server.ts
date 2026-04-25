@@ -213,15 +213,26 @@ class EventBroker {
     const stream = new TransformStream<string, string>();
     const writer = stream.writable.getWriter();
     const encoder = new TextEncoder();
+    let isClosed = false;
+
+    const safeWrite = (chunk: string) => {
+      if (isClosed) return;
+      void writer.write(chunk).catch(() => {
+        close();
+      });
+    };
+
     const heartbeat = setInterval(() => {
-      void writer.write(": ping\n\n");
-    }, 15_000);
+      safeWrite(": ping\n\n");
+    }, 5_000);
 
     const send = (event: OpenCodeEvent) => {
-      void writer.write(`data: ${JSON.stringify(event)}\n\n`);
+      safeWrite(`data: ${JSON.stringify(event)}\n\n`);
     };
 
     const close = () => {
+      if (isClosed) return;
+      isClosed = true;
       clearInterval(heartbeat);
       void writer.close().catch(() => {});
       this.subscribers.delete(subscriber);
@@ -229,7 +240,7 @@ class EventBroker {
 
     const subscriber = { directory, send, close };
     this.subscribers.add(subscriber);
-    void writer.write(": connected\n\n");
+    safeWrite(": connected\n\n");
 
     const readable = stream.readable.pipeThrough(new TransformStream<string, Uint8Array>({
       transform(chunk, controller) {
@@ -268,6 +279,7 @@ export class NexusACPBridgeServer {
   private readonly sessions = new Map<string, SessionRecord>();
   private readonly projectIds = new Map<string, string>();
   private server: Bun.Server<unknown> | null = null;
+  private didFallbackToRandomPort = false;
 
   constructor(
     private readonly config: BridgeConfig,
@@ -277,20 +289,47 @@ export class NexusACPBridgeServer {
   start(): Bun.Server<unknown> {
     if (this.server) return this.server;
 
-    this.server = Bun.serve({
-      hostname: this.config.host,
-      port: this.config.port,
-      fetch: (request) => this.handleRequest(request),
-    });
+    try {
+      this.server = this.startServer(this.config.port);
+      this.didFallbackToRandomPort = false;
+    } catch (error) {
+      if (!this.shouldFallbackToRandomPort(error)) {
+        throw error;
+      }
+
+      this.server = this.startServer(0);
+      this.didFallbackToRandomPort = true;
+    }
 
     return this.server;
+  }
+
+  usedRandomPortFallback(): boolean {
+    return this.didFallbackToRandomPort;
   }
 
   stop(): void {
     this.server?.stop();
     this.server = null;
+    this.didFallbackToRandomPort = false;
     this.eventBroker.dispose();
     void this.adapter.dispose?.();
+  }
+
+  private startServer(port: number): Bun.Server<unknown> {
+    return Bun.serve({
+      hostname: this.config.host,
+      port,
+      idleTimeout: this.config.serverIdleTimeoutSeconds,
+      fetch: (request) => this.handleRequest(request),
+    });
+  }
+
+  private shouldFallbackToRandomPort(error: unknown): boolean {
+    return this.config.port !== 0
+      && error instanceof Error
+      && "code" in error
+      && error.code === "EADDRINUSE";
   }
 
   private async handleRequest(request: Request): Promise<Response> {

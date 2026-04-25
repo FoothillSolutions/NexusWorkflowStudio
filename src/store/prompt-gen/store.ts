@@ -1,6 +1,6 @@
 // ─── AI Prompt Generation Session Store ─────────────────────────────────────
 // Manages per-workflow sessions for AI-powered prompt generation/editing.
-// Each workflow gets a dedicated session on the OpenCode server.
+// Each workflow gets a dedicated session on the connected AI endpoint.
 // Sessions are disposed when loading/resetting workflows.
 
 import { create } from "zustand";
@@ -150,7 +150,10 @@ export const usePromptGenStore = create<PromptGenState>((set, get) => ({
 
     const client = useOpenCodeStore.getState().client;
     if (!client) {
-      set({ error: "Not connected to OpenCode server", status: "error" });
+      set({
+        error: "Not connected to an AI endpoint. Connect to the ACP bridge or an OpenCode server first.",
+        status: "error",
+      });
       return null;
     }
 
@@ -170,7 +173,10 @@ export const usePromptGenStore = create<PromptGenState>((set, get) => ({
     const store = get();
     const client = useOpenCodeStore.getState().client;
     if (!client) {
-      set({ error: "Not connected to OpenCode server", status: "error" });
+      set({
+        error: "Not connected to an AI endpoint. Connect to the ACP bridge or an OpenCode server first.",
+        status: "error",
+      });
       return;
     }
 
@@ -214,7 +220,10 @@ export const usePromptGenStore = create<PromptGenState>((set, get) => ({
     const store = get();
     const client = useOpenCodeStore.getState().client;
     if (!client) {
-      set({ error: "Not connected to OpenCode server", status: "error" });
+      set({
+        error: "Not connected to an AI endpoint. Connect to the ACP bridge or an OpenCode server first.",
+        status: "error",
+      });
       return;
     }
 

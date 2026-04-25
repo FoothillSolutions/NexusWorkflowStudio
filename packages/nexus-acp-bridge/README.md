@@ -44,13 +44,13 @@ By default, the bridge auto-loads bundled defaults from `packages/nexus-acp-brid
 
 ### One-time setup for the `claude-code` preset
 
-`acp-claude-code@0.8.0` imports `@anthropic-ai/claude-code` as a Node module, but Claude Code ≥ 2.1 ships a native binary only and can no longer be `import`ed. To work around this, vendor a pinned install once:
+The Claude preset now uses [`@agentclientprotocol/claude-agent-acp`](https://www.npmjs.com/package/@agentclientprotocol/claude-agent-acp). Vendor a local copy once so the bridge can launch a pinned binary from the repo:
 
 ```bash
 bun run bridge:setup-claude
 ```
 
-This creates `packages/nexus-acp-bridge/vendor/claude-code/` with `@anthropic-ai/claude-code` pinned to `2.0.35` (the last SDK-exposing version). The `claude-code` preset automatically picks up this vendored binary when it exists and falls back to `npx --yes acp-claude-code` (with a warning) when it does not.
+This creates `packages/nexus-acp-bridge/vendor/claude-code/` with `@agentclientprotocol/claude-agent-acp@0.31.0`. The `claude-code` preset automatically picks up this vendored binary when it exists and falls back to `npx --yes @agentclientprotocol/claude-agent-acp@0.31.0` (with a warning) when it does not.
 
 Re-run with `--force` to reinstall:
 
@@ -75,6 +75,8 @@ NEXUS_ACP_BRIDGE_TOOL=opencode bun run bridge:acp
 
 Explicit shell environment variables still override both bundled defaults and preset values.
 
+If the configured bridge port is already occupied, the bridge now automatically retries on a random available port and logs the resolved port at startup.
+
 Then point Nexus to the bridge URL, usually:
 
 ```text
@@ -87,7 +89,7 @@ Use the example files in `examples/` as starting points.
 
 Bundled tool presets currently include:
 
-- `claude-code` → `npx --yes acp-claude-code`
+- `claude-code` → `npx --yes @agentclientprotocol/claude-agent-acp@0.31.0`
 - `codex` → `npx --yes @zed-industries/codex-acp`
 - `opencode` → `opencode acp`
 
@@ -99,6 +101,7 @@ Important variables:
 - `NEXUS_ACP_BRIDGE_ADAPTER` (`mock`, `stdio`, or `acp`)
 - `NEXUS_ACP_BRIDGE_HOST`
 - `NEXUS_ACP_BRIDGE_PORT`
+- `NEXUS_ACP_BRIDGE_IDLE_TIMEOUT_SECONDS` (default `0`, which disables Bun's idle timeout; set a positive value to re-enable it)
 - `NEXUS_ACP_BRIDGE_CORS_ORIGIN`
 - `NEXUS_ACP_BRIDGE_PROJECT_DIR`
 - `NEXUS_ACP_BRIDGE_PROJECT_DIRS`
