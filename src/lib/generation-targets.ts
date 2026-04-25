@@ -12,6 +12,13 @@ export const DEFAULT_GENERATION_TARGET: GenerationTargetId = "claude-code";
 
 export const GENERATION_TARGETS: GenerationTarget[] = [
   {
+    id: "claude-code",
+    label: "Claude Code",
+    rootDir: ".claude",
+    compatibility: "claude-code",
+    description: "Generates Claude Code-friendly commands and agents.",
+  },
+  {
     id: "opencode",
     label: "OpenCode",
     rootDir: ".opencode",
@@ -24,13 +31,6 @@ export const GENERATION_TARGETS: GenerationTarget[] = [
     rootDir: ".pi",
     compatibility: "pi",
     description: "Generates the PI workflow folder layout.",
-  },
-  {
-    id: "claude-code",
-    label: "Claude Code",
-    rootDir: ".claude",
-    compatibility: "claude-code",
-    description: "Generates Claude Code-friendly commands and agents.",
   },
 ];
 

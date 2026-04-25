@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Badge } from "@/components/ui/badge";
 import { TEXT_PRIMARY } from "@/lib/theme";
+import type { GenerationTargetId } from "@/lib/generation-targets";
+import { getGenerationTargetVisuals } from "@/lib/generation-target-visuals";
 import { PencilLine } from "lucide-react";
 
 interface WorkflowNameCardProps {
@@ -12,6 +14,7 @@ interface WorkflowNameCardProps {
   needsSave: boolean;
   activeWorkflowId: string | null;
   generationTargetLabel: string;
+  generationTargetId: GenerationTargetId;
 }
 
 export function WorkflowNameCard({
@@ -21,6 +24,7 @@ export function WorkflowNameCard({
   needsSave,
   activeWorkflowId,
   generationTargetLabel,
+  generationTargetId,
 }: WorkflowNameCardProps) {
   const [isEditingName, setIsEditingName] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -92,7 +96,7 @@ export function WorkflowNameCard({
           {statusBadge}
           <Badge
             variant="outline"
-            className="hidden rounded-full border-blue-500/20 bg-blue-500/10 px-2 py-0 text-[10px] font-medium text-blue-200 xl:inline-flex"
+            className={`hidden rounded-full px-2 py-0 text-[10px] font-medium xl:inline-flex ${getGenerationTargetVisuals(generationTargetId).badgeClass}`}
           >
             {generationTargetLabel}
           </Badge>

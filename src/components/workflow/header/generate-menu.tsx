@@ -11,6 +11,7 @@ import {
   GENERATION_TARGETS,
   type GenerationTargetId,
 } from "@/lib/generation-targets";
+import { getGenerationTargetVisuals } from "@/lib/generation-target-visuals";
 import { Check, ChevronDown, Cpu } from "lucide-react";
 
 interface HeaderGenerateMenuProps {
@@ -22,12 +23,14 @@ export function HeaderGenerateMenu({
   generateTarget,
   onOpenGenerateDialog,
 }: HeaderGenerateMenuProps) {
+  const activeVisuals = getGenerationTargetVisuals(generateTarget);
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
           size="sm"
-          className="h-8 rounded-xl bg-emerald-600/90 px-3 text-xs font-medium text-white shadow-sm hover:bg-emerald-500"
+          className={`h-8 rounded-xl px-3 text-xs font-medium shadow-sm ${activeVisuals.primaryButtonClass}`}
           title="Choose a target and export generated workflow artifacts"
         >
           <Cpu className="h-4 w-4" />
@@ -38,6 +41,7 @@ export function HeaderGenerateMenu({
       <DropdownMenuContent align="end" className="w-60">
         {GENERATION_TARGETS.map((target) => {
           const isSelected = generateTarget === target.id;
+          const visuals = getGenerationTargetVisuals(target.id);
 
           return (
             <DropdownMenuItem
@@ -47,7 +51,7 @@ export function HeaderGenerateMenu({
             >
               <div
                 className={`flex h-7 w-7 items-center justify-center rounded-md ${
-                  isSelected ? "bg-emerald-500/15 text-emerald-300" : "bg-zinc-800 text-zinc-400"
+                  isSelected ? visuals.menuActiveClass : "bg-zinc-800 text-zinc-400"
                 }`}
               >
                 {isSelected ? <Check className="h-4 w-4" /> : <Cpu className="h-4 w-4" />}

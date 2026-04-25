@@ -35,6 +35,7 @@ import {
   getGenerationTarget,
   type GenerationTargetId,
 } from "@/lib/generation-targets";
+import { getGenerationTargetVisuals } from "@/lib/generation-target-visuals";
 import {
   downloadGeneratedWorkflowZip,
   exportGeneratedWorkflowToDirectory,
@@ -53,26 +54,7 @@ interface GeneratedExportDialogProps {
   getWorkflow: () => WorkflowJSON;
 }
 
-const TARGET_VISUALS = {
-  opencode: {
-    Icon: Boxes,
-    accentClass: "border-sky-500/25 bg-sky-500/10 text-sky-300",
-    activeClass: "border-sky-500/50 bg-sky-500/12 text-sky-200",
-    badgeClass: "bg-sky-500/10 text-sky-300 border-sky-500/20",
-  },
-  pi: {
-    Icon: Boxes,
-    accentClass: "border-violet-500/25 bg-violet-500/10 text-violet-300",
-    activeClass: "border-violet-500/50 bg-violet-500/12 text-violet-200",
-    badgeClass: "bg-violet-500/10 text-violet-300 border-violet-500/20",
-  },
-  "claude-code": {
-    Icon: Boxes,
-    accentClass: "border-amber-500/25 bg-amber-500/10 text-amber-300",
-    activeClass: "border-amber-500/50 bg-amber-500/12 text-amber-200",
-    badgeClass: "bg-amber-500/10 text-amber-300 border-amber-500/20",
-  },
-} as const;
+const TargetIcon = Boxes;
 
 function truncatePath(path: string, maxLen = 70): string {
   if (path.length <= maxLen) return path;
@@ -98,8 +80,7 @@ export default function GeneratedExportDialog({
     () => getGenerationTarget(target ?? DEFAULT_GENERATION_TARGET),
     [target],
   );
-  const selectedTargetVisuals = TARGET_VISUALS[target ?? DEFAULT_GENERATION_TARGET];
-  const SelectedTargetIcon = selectedTargetVisuals.Icon;
+  const selectedTargetVisuals = getGenerationTargetVisuals(target ?? DEFAULT_GENERATION_TARGET);
   const isTargetFolderSelected = directoryHandle?.name === selectedTarget.rootDir;
 
   const handlePickDirectory = async () => {
@@ -172,8 +153,8 @@ export default function GeneratedExportDialog({
       <DialogContent className={`min-h-0 max-h-[90vh] w-full max-w-[calc(100vw-1rem)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:max-w-[calc(100vw-2rem)] lg:max-w-4xl ${BG_SURFACE} ${BORDER_DEFAULT} ${TEXT_PRIMARY}`}>
         <DialogHeader className="gap-3 border-b border-zinc-800 px-4 py-5 pr-12 sm:px-6 sm:py-6 sm:pr-14">
           <div className="flex items-start gap-4">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-300 shadow-sm shadow-emerald-950/30">
-              <SelectedTargetIcon className="h-5 w-5" />
+            <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border shadow-sm ${selectedTargetVisuals.headerBubbleClass}`}>
+              <TargetIcon className="h-5 w-5" />
             </div>
             <div className="space-y-1">
               <DialogTitle className="text-xl">Generate workflow files</DialogTitle>
@@ -199,8 +180,7 @@ export default function GeneratedExportDialog({
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 xl:auto-rows-fr">
               {GENERATION_TARGETS.map((option) => {
                 const isSelected = option.id === target;
-                const visuals = TARGET_VISUALS[option.id];
-                const TargetIcon = visuals.Icon;
+                const visuals = getGenerationTargetVisuals(option.id);
                 return (
                   <button
                     key={option.id}
@@ -208,7 +188,7 @@ export default function GeneratedExportDialog({
                     onClick={() => onTargetChange(option.id)}
                     className={`group flex h-full flex-col rounded-2xl border p-4 text-left transition-all ${
                       isSelected
-                        ? `bg-zinc-900/90 shadow-lg shadow-black/20 ${visuals.activeClass}`
+                        ? `bg-zinc-900/90 shadow-lg shadow-black/20 ${visuals.activeCardClass}`
                         : `${BORDER_MUTED} ${BG_ELEVATED} hover:border-zinc-700 hover:bg-zinc-800/90`
                     }`}
                   >
@@ -217,7 +197,7 @@ export default function GeneratedExportDialog({
                         <div className="flex min-w-0 items-start gap-3">
                           <div
                             className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${
-                              isSelected ? visuals.accentClass : "border-zinc-800 bg-zinc-900 text-zinc-400"
+                              isSelected ? visuals.activeIconBubbleClass : "border-zinc-800 bg-zinc-900 text-zinc-400"
                             }`}
                           >
                             <TargetIcon className="h-4 w-4" />
@@ -226,7 +206,7 @@ export default function GeneratedExportDialog({
                             <div className="flex flex-wrap items-center gap-2">
                               <div className="text-sm font-semibold text-zinc-100">{option.label}</div>
                               {isSelected ? (
-                                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-300">
+                                <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] ${visuals.activePillClass}`}>
                                   <Check className="h-3 w-3" />
                                   Active
                                 </span>
@@ -248,7 +228,7 @@ export default function GeneratedExportDialog({
 
                       <div className="flex flex-col gap-2 border-t border-zinc-800/80 pt-3 text-xs sm:flex-row sm:items-center sm:justify-between">
                         <span className={TEXT_SUBTLE}>Exports into this folder structure</span>
-                        <span className={`inline-flex items-center gap-1 font-medium ${isSelected ? "text-emerald-300" : "text-zinc-400 transition-colors group-hover:text-zinc-200"}`}>
+                        <span className={`inline-flex items-center gap-1 font-medium ${isSelected ? visuals.selectedTextClass : "text-zinc-400 transition-colors group-hover:text-zinc-200"}`}>
                           {isSelected ? "Selected" : "Select"}
                           <ArrowRight className="h-3.5 w-3.5" />
                         </span>
@@ -344,7 +324,7 @@ export default function GeneratedExportDialog({
               type="button"
               onClick={handleFolderExport}
               disabled={isBusy || !supportsFolderExport || !directoryHandle}
-              className="bg-emerald-600 text-white hover:bg-emerald-500"
+              className={selectedTargetVisuals.primaryButtonClass}
             >
               {isBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FolderOpen className="mr-2 h-4 w-4" />}
               Export to folder

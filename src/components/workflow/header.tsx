@@ -60,6 +60,7 @@ export default function Header() {
           needsSave={needsSave}
           activeWorkflowId={activeWorkflowId}
           generationTargetLabel={generationTargetLabel}
+          generationTargetId={generateTarget}
         />
 
         <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-2">
