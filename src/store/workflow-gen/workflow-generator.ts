@@ -19,9 +19,6 @@ import { parseSelectedModel } from "./model-utils";
 /** Delay before clearing the temporary glow applied to newly streamed nodes. */
 const NODE_GLOW_CLEAR_DELAY_MS = 450;
 
-/** Minimum time between incremental JSON parses while streaming. */
-const STREAM_PARSE_MIN_GAP_MS = 80;
-
 /** Delay before dispatching auto-layout after generation completes. */
 const AUTO_LAYOUT_DISPATCH_DELAY_MS = 100;
 
@@ -30,6 +27,16 @@ const FIT_VIEW_DISPATCH_DELAY_MS = 500;
 
 /** Number of recent assistant messages fetched when SSE streaming returns no text. */
 const MESSAGE_FALLBACK_FETCH_LIMIT = 2;
+
+/** Allow long-running ACP generations to complete even when the shared client uses a short default timeout. */
+const WORKFLOW_GENERATION_TIMEOUT_MS = 5 * 60_000;
+
+function extractTextFromParts(parts: Array<{ type: string; text?: string }>): string {
+  return parts
+    .filter((part): part is { type: "text"; text: string } => part.type === "text" && typeof part.text === "string")
+    .map((part) => part.text)
+    .join("");
+}
 
 function toNodeType(value: unknown): NodeType | null {
   return typeof value === "string" ? (value as NodeType) : null;
@@ -249,6 +256,8 @@ export async function generate(set: StoreSet, get: StoreGet): Promise<void> {
   // Cancel any in-progress generation
   get()._abortController?.abort();
 
+  const abortController = new AbortController();
+
   // Clear the canvas completely before starting a new generation
   useSavedWorkflowsStore.getState().clearActiveId();
   useWorkflowStore.getState().reset();
@@ -257,23 +266,41 @@ export async function generate(set: StoreSet, get: StoreGet): Promise<void> {
   // Pause undo/redo history so incremental adds don't flood the stack
   useWorkflowStore.temporal.getState().pause();
 
+  const parsedModel = parseSelectedModel(selectedModel);
+  if (!parsedModel) {
+    useWorkflowStore.temporal.getState().resume();
+    set({
+      error: "Please select a model before generating a workflow.",
+      status: "error",
+      _abortController: null,
+    });
+    return;
+  }
+
   // Ensure session
   let sid = get().sessionId;
   if (!sid) {
-    set({ status: "creating-session", error: null });
+    set({ status: "creating-session", error: null, _abortController: abortController });
     try {
-      const session = await client.sessions.create({ title: "Nexus Workflow Generator" });
+      const session = await client.sessions.create(
+        { title: "Nexus Workflow Generator" },
+        { signal: abortController.signal, timeout: WORKFLOW_GENERATION_TIMEOUT_MS },
+      );
       sid = session.id;
       set({ sessionId: sid });
     } catch (err) {
+      if (abortController.signal.aborted) {
+        useWorkflowStore.temporal.getState().resume();
+        set({ status: "idle", error: null, _abortController: null });
+        return;
+      }
       const msg = err instanceof Error ? err.message : "Failed to create session";
       useWorkflowStore.temporal.getState().resume();
-      set({ error: msg, status: "error" });
+      set({ error: msg, status: "error", _abortController: null });
       return;
     }
   }
 
-  const abortController = new AbortController();
   const ctx: IncrementalContext = {
     addedNodeIds: new Set<string>(),
     addedEdgeIds: new Set<string>(),
@@ -296,17 +323,6 @@ export async function generate(set: StoreSet, get: StoreGet): Promise<void> {
     _pendingEdges: [],
   });
 
-  const parsedModel = parseSelectedModel(selectedModel);
-  if (!parsedModel) {
-    useWorkflowStore.temporal.getState().resume();
-    set({
-      error: "Please select a model before generating a workflow.",
-      status: "error",
-      _abortController: null,
-    });
-    return;
-  }
-
   const { providerId, modelId } = parsedModel;
 
   try {
@@ -325,7 +341,13 @@ export async function generate(set: StoreSet, get: StoreGet): Promise<void> {
       availableTools,
     });
 
-    // Send the message
+    // Attach the event stream before sending so fast ACP backends do not emit
+    // their earliest deltas before the browser has started reading the SSE
+    // response. The async generator only starts on first next(), so explicitly
+    // prime it here before issuing the prompt request.
+    const eventStream = client.events.subscribe({ signal: abortController.signal });
+    let nextEvent = eventStream.next();
+
     await client.messages.sendAsync(
       sid,
       {
@@ -335,17 +357,17 @@ export async function generate(set: StoreSet, get: StoreGet): Promise<void> {
           : {}),
         system: systemPrompt,
       },
-      { signal: abortController.signal },
+      {
+        signal: abortController.signal,
+        timeout: WORKFLOW_GENERATION_TIMEOUT_MS,
+      },
     );
 
-    // Stream SSE events with rAF-gated parse+push
     let fullText = "";
     let lastParsedNodeCount = 0;
     let lastParsedEdgeCount = 0;
-    let rafPending = false;
-    let lastParseTime = 0;
 
-    /** Run an incremental parse and push results to canvas. */
+    /** Run a parse and push results to the canvas. */
     const doParse = () => {
       const parsed = extractStreamedWorkflow(fullText);
 
@@ -363,75 +385,86 @@ export async function generate(set: StoreSet, get: StoreGet): Promise<void> {
       set({ parsedNodeCount: nodeCount, parsedEdgeCount: edgeCount });
     };
 
-    /** Schedule a parse on the next animation frame, respecting minimum gap. */
-    const scheduleRafParse = () => {
-      if (rafPending) return;
-      rafPending = true;
-      requestAnimationFrame(() => {
-        rafPending = false;
-        const now = performance.now();
-        if (now - lastParseTime < STREAM_PARSE_MIN_GAP_MS) {
-          // Too soon since last parse — schedule a delayed follow-up
-          setTimeout(() => {
-            lastParseTime = performance.now();
-            doParse();
-          }, STREAM_PARSE_MIN_GAP_MS - (now - lastParseTime));
-        } else {
-          lastParseTime = now;
-          doParse();
-        }
-      });
-    };
+    set({
+      streamedText: fullText,
+      tokenCount: estimateTokens(fullText),
+    });
 
-    for await (const event of client.events.subscribe({ signal: abortController.signal })) {
-      if (abortController.signal.aborted) break;
+    while (true) {
+      const { value: event, done } = await nextEvent;
+      if (done) break;
+
+      if (abortController.signal.aborted) {
+        break;
+      }
 
       if (event.type === "message.part.delta") {
         const props = event.properties as { sessionID: string; field: string; delta: string };
-        if (props.sessionID === sid && props.field === "text") {
-          fullText += props.delta;
-
-          // Always update raw counters immediately
-          set({
-            streamedText: fullText,
-            tokenCount: estimateTokens(fullText),
-          });
-
-          // rAF-gated parse — ties to browser paint cycle for smooth updates
-          scheduleRafParse();
+        if (props.sessionID !== sid || props.field !== "text") {
+          continue;
         }
-      } else if (event.type === "session.idle") {
-        const props = event.properties as { sessionID: string };
-        if (props.sessionID === sid) break;
+
+        fullText += props.delta;
+        set({
+          streamedText: fullText,
+          tokenCount: estimateTokens(fullText),
+        });
+        doParse();
       } else if (event.type === "session.error") {
         const props = event.properties as {
           sessionID?: string;
-          error?: { name: string; data?: { message?: string } };
+          error?: { data?: { message?: string } };
         };
         if (props.sessionID === sid) {
           useWorkflowStore.temporal.getState().resume();
-          set({ error: props.error?.data?.message ?? "Generation failed", status: "error" });
+          await eventStream.return?.(undefined).catch(() => {});
+          set({
+            error: props.error?.data?.message ?? "Generation failed",
+            status: "error",
+            _abortController: null,
+          });
           return;
+        }
+      } else if (event.type === "session.idle") {
+        const props = event.properties as { sessionID: string };
+        if (props.sessionID === sid) {
+          break;
+        }
+      }
+
+      nextEvent = eventStream.next();
+    }
+
+    await eventStream.return?.(undefined).catch(() => {});
+
+    if (abortController.signal.aborted) {
+      try { useWorkflowStore.temporal.getState().resume(); } catch { /* ignore */ }
+      set({ status: "idle", error: null, _abortController: null });
+      return;
+    }
+
+    // Reconcile against the final assistant message so we recover from any
+    // missed or partial deltas while preserving the streamed canvas updates.
+    let cleanedForFallbackCheck = fullText.trim();
+    if (cleanedForFallbackCheck.startsWith("```")) {
+      cleanedForFallbackCheck = cleanedForFallbackCheck
+        .replace(/^```(?:json)?\s*\n?/, "")
+        .replace(/\n?```\s*$/, "");
+    }
+
+    if (!cleanedForFallbackCheck || !tryParseCompleteJSON(cleanedForFallbackCheck)) {
+      const messages = await client.messages.list(sid, MESSAGE_FALLBACK_FETCH_LIMIT);
+      const assistantMsg = messages.find((m) => m.info.role === "assistant");
+      if (assistantMsg) {
+        const finalText = extractTextFromParts(assistantMsg.parts as Array<{ type: string; text?: string }>);
+        if (finalText.trim()) {
+          fullText = finalText;
+          set({ streamedText: fullText, tokenCount: estimateTokens(fullText) });
         }
       }
     }
 
-    // Flush any pending parse
     doParse();
-
-    // If streaming produced nothing, fall back to fetching the last message
-    if (!fullText.trim()) {
-      const messages = await client.messages.list(sid, MESSAGE_FALLBACK_FETCH_LIMIT);
-      const assistantMsg = messages.find((m) => m.info.role === "assistant");
-      if (assistantMsg) {
-        const parts = assistantMsg.parts as Array<{ type: string; text?: string }>;
-        fullText = parts
-          .filter((p) => p.type === "text" && p.text)
-          .map((p) => p.text!)
-          .join("");
-        set({ streamedText: fullText, tokenCount: estimateTokens(fullText) });
-      }
-    }
 
     // ── Final parse and load any remaining items ──────────────────
     if (fullText.trim()) {
@@ -494,17 +527,18 @@ export async function generate(set: StoreSet, get: StoreGet): Promise<void> {
 
       set({
         status: "done",
+        _abortController: null,
         _glowingNodeIds: [],
         parsedNodeCount: finalNodes.length,
         parsedEdgeCount: finalEdges.length,
       });
     } else {
-      set({ error: "No response received from the AI model.", status: "error" });
+      set({ error: "No response received from the AI model.", status: "error", _abortController: null });
     }
   } catch (err) {
     if (abortController.signal.aborted) {
       try { useWorkflowStore.temporal.getState().resume(); } catch { /* ignore */ }
-      set({ status: "idle", _abortController: null });
+      set({ status: "idle", error: null, _abortController: null });
       return;
     }
     try { useWorkflowStore.temporal.getState().resume(); } catch { /* ignore */ }

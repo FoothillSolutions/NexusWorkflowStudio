@@ -209,9 +209,7 @@ export class MockACPAdapter implements ACPAdapter {
 
 export const __private__ = {
   buildWorkflowResponse,
-  buildExamplesResponse,
-  buildPromptResponse,
-  buildMockCommands,
+  buildExamplesResponse
 };
 
 

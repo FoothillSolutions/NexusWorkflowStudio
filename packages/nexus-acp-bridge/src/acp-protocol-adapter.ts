@@ -340,9 +340,17 @@ export class ACPProtocolAdapter implements ACPAdapter {
       request.signal.addEventListener("abort", abortHandler, { once: true });
     }
 
-    const promptPrompt = request.payload.parts
-      .filter((part) => part.type === "text" && part.text.length > 0)
-      .map((part) => ({ type: "text" as const, text: part.text }));
+    const promptPrompt = [
+      ...(request.payload.system?.trim()
+        ? [{
+            type: "text" as const,
+            text: `System instructions:\n${request.payload.system.trim()}`,
+          }]
+        : []),
+      ...request.payload.parts
+        .filter((part) => part.type === "text" && part.text.length > 0)
+        .map((part) => ({ type: "text" as const, text: part.text })),
+    ];
 
     const promptPromise = this.client.request<{ stopReason?: string }>("session/prompt", {
       sessionId: acpSessionId,

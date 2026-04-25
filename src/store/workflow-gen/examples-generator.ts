@@ -8,6 +8,9 @@ import { parseSelectedModel } from "./model-utils";
 /** Number of AI examples requested for the floating workflow generator panel. */
 const AI_EXAMPLE_REQUEST_COUNT = 5;
 
+/** Allow slower ACP-backed example generations to complete even when the shared client default is short. */
+const AI_EXAMPLES_TIMEOUT_MS = 2 * 60_000;
+
 function extractTextFromParts(parts: Array<{ type: string; text?: string }>): string {
   return parts
     .filter((part): part is { type: "text"; text: string } => part.type === "text" && typeof part.text === "string")
@@ -66,7 +69,10 @@ export async function fetchAiExamples(
       parts: [{ type: "text", text: `Generate ${AI_EXAMPLE_REQUEST_COUNT} creative and diverse workflow prompt ideas that a user might want to build. Each should involve multiple node types (agents, if-else, switch, ask-user, skills, documents, sub-workflows). Return ONLY a JSON array of ${AI_EXAMPLE_REQUEST_COUNT} strings, no explanation. Example format: [\"prompt 1\", \"prompt 2\", ...]${projectHint}` }],
       model: { providerID: providerId, modelID: modelId },
       system: "You output ONLY valid JSON arrays of strings. No markdown, no code fences, no explanation. Just the JSON array.",
-    }, { signal: abortController.signal });
+    }, {
+      signal: abortController.signal,
+      timeout: AI_EXAMPLES_TIMEOUT_MS,
+    });
 
     if (response.info.role === "assistant" && response.info.error) {
       set({ aiExamplesStatus: "error", _examplesAbortController: null });

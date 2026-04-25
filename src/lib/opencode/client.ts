@@ -106,24 +106,29 @@ export class HttpClient {
     const url = this.buildUrl(path, opts);
     const controller = new AbortController();
     const externalSignal = opts?.signal;
+    const abortFromExternal = () => controller.abort(externalSignal?.reason);
 
     // Link external signal → internal controller
     if (externalSignal) {
       if (externalSignal.aborted) {
         controller.abort(externalSignal.reason);
       } else {
-        externalSignal.addEventListener("abort", () => controller.abort(externalSignal.reason), { once: true });
+        externalSignal.addEventListener("abort", abortFromExternal, { once: true });
       }
     }
 
-    const res = await fetch(url, {
-      headers: { Accept: "text/event-stream", ...opts?.headers },
-      signal: controller.signal,
-    }).catch((err) => {
-      throw err instanceof DOMException && err.name === "AbortError"
-        ? new TimeoutError(this._timeout)
-        : new ConnectionError(err);
-    });
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        headers: { Accept: "text/event-stream", ...opts?.headers },
+        signal: controller.signal,
+      });
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError" && controller.signal.aborted) {
+        return;
+      }
+      throw new ConnectionError(err);
+    }
 
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
@@ -138,7 +143,12 @@ export class HttpClient {
 
     try {
       while (true) {
-        const { done, value } = await reader.read();
+        const { done, value } = await reader.read().catch((err) => {
+          if (err instanceof DOMException && err.name === "AbortError" && controller.signal.aborted) {
+            return { done: true, value: undefined };
+          }
+          throw err;
+        });
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
@@ -159,6 +169,9 @@ export class HttpClient {
         }
       }
     } finally {
+      if (externalSignal) {
+        externalSignal.removeEventListener("abort", abortFromExternal);
+      }
       reader.releaseLock();
     }
   }

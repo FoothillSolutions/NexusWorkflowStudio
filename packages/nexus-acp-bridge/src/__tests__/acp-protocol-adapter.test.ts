@@ -154,6 +154,7 @@ describe("ACPProtocolAdapter", () => {
 
       const promptCall = client.requestsSent.find((r) => r.method === "session/prompt");
       expect((promptCall?.params as { prompt?: unknown[] })?.prompt).toEqual([
+        { type: "text", text: "System instructions:\nsystem prompt" },
         { type: "text", text: "hello from nexus" },
       ]);
     } finally {

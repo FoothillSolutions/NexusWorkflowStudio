@@ -83,6 +83,14 @@ describe("fetchAiExamples", () => {
 
     expect(client.sessions.create).toHaveBeenCalledWith({ title: "Nexus Workflow Examples" });
     expect(client.messages.send).toHaveBeenCalledTimes(1);
+    expect(client.messages.send).toHaveBeenCalledWith(
+      "examples-session-1",
+      expect.any(Object),
+      expect.objectContaining({
+        signal: expect.anything(),
+        timeout: 120_000,
+      }),
+    );
     expect(state._examplesSessionId).toBe("examples-session-1");
     expect(state.aiExamplesStatus).toBe("done");
     expect(state.aiExamples).toEqual([
