@@ -27,7 +27,7 @@ export function getAIConnectionPresets(origin?: string): AIConnectionPreset[] {
       description: "Use the bundled ACP bridge and route prompts to Claude Code.",
       url: DEFAULT_ACP_BRIDGE_URL,
       setupCommand: "bun run bridge:setup-claude",
-      startCommand: `NEXUS_ACP_BRIDGE_CORS_ORIGIN=\"${corsOrigin}\" bun run bridge:acp:claude`,
+      startCommand: `bun run bridge --agent claude --cors "${corsOrigin}"`,
     },
     {
       id: "opencode-bridge",
@@ -36,7 +36,7 @@ export function getAIConnectionPresets(origin?: string): AIConnectionPreset[] {
       description: "Keep Nexus on the ACP bridge while using OpenCode as the backend runtime.",
       url: DEFAULT_ACP_BRIDGE_URL,
       installCommand: "bun add -g opencode-ai",
-      startCommand: `NEXUS_ACP_BRIDGE_CORS_ORIGIN=\"${corsOrigin}\" bun run bridge:acp:opencode`,
+      startCommand: `bun run bridge --agent opencode --cors "${corsOrigin}"`,
     },
     {
       id: "opencode-direct",

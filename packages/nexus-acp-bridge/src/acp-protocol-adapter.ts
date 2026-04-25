@@ -262,7 +262,7 @@ export class ACPProtocolAdapter implements ACPAdapter {
     await this.ensureInitialized();
     return {
       healthy: true,
-      version: `${this.config.version}-acp`,
+      version: `${this.config.version}-nexus-acp`,
     };
   }
 
