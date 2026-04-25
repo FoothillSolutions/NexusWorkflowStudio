@@ -142,10 +142,10 @@ export default function ConnectDialog({
 
           <DialogHeader className="items-center gap-1">
             <DialogTitle className="text-xl font-bold tracking-tight text-zinc-100">
-              Connect AI Endpoint
+              Connect AI Agent
             </DialogTitle>
             <DialogDescription className="text-sm text-zinc-400">
-              Connect Claude Code or OpenCode to Nexus.
+              Connect an AI agent to Nexus.
             </DialogDescription>
           </DialogHeader>
 
@@ -195,19 +195,20 @@ export default function ConnectDialog({
                 >
                   <div className="flex items-start justify-between gap-2">
                     <p className="text-sm font-medium leading-tight text-zinc-100">{preset.label}</p>
-                    <span
-                      className={cn(
-                        "rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide",
-                        isActive
-                          ? "border-blue-500/30 bg-blue-500/15 text-blue-200"
-                          : "border-zinc-700 bg-zinc-900 text-zinc-400",
-                      )}
-                    >
-                      {preset.badge}
-                    </span>
+                    {preset.badge && (
+                      <span
+                        className={cn(
+                          "rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide",
+                          isActive
+                            ? "border-blue-500/30 bg-blue-500/15 text-blue-200"
+                            : "border-zinc-700 bg-zinc-900 text-zinc-400",
+                        )}
+                      >
+                        {preset.badge}
+                      </span>
+                    )}
                   </div>
                   <p className="mt-2 text-xs leading-relaxed text-zinc-500">{preset.description}</p>
-                  <p className="mt-2 text-[11px] font-mono text-zinc-400">{preset.url}</p>
                 </button>
               );
             })}
@@ -282,7 +283,7 @@ export default function ConnectDialog({
             <div className="flex items-start gap-2 rounded-lg bg-emerald-500/5 border border-emerald-500/15 px-3 py-2.5">
               <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
               <p className="text-xs text-emerald-300/80 leading-relaxed">
-                Successfully connected to the configured AI endpoint
+                Successfully connected to the AI agent through
                 {version ? ` (v${version})` : ""}.
               </p>
             </div>

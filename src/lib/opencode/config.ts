@@ -7,7 +7,7 @@ export const DEFAULT_OPENCODE_URL = DEFAULT_ACP_BRIDGE_URL;
 export interface AIConnectionPreset {
   id: string;
   label: string;
-  badge: string;
+  badge?: string;
   description: string;
   url: string;
   startCommand: string;
@@ -21,15 +21,14 @@ export function getAIConnectionPresets(origin?: string): AIConnectionPreset[] {
       id: "claude-code-bridge",
       label: "Claude Code",
       badge: "Recommended",
-      description: "Route prompts to Claude Code. The runtime is auto-installed on first launch.",
+      description: "Route prompts to Claude Code.",
       url: DEFAULT_ACP_BRIDGE_URL,
       startCommand: `bun run bridge --agent claude --cors "${corsOrigin}"`,
     },
     {
       id: "opencode-bridge",
       label: "OpenCode",
-      badge: "Local",
-      description: "Use OpenCode as the local backend runtime. The bridge handles installation for you.",
+      description: "Use OpenCode as the backend runtime.",
       url: DEFAULT_ACP_BRIDGE_URL,
       startCommand: `bun run bridge --agent opencode --cors "${corsOrigin}"`,
     },
