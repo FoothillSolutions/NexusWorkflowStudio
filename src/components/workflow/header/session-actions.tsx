@@ -7,7 +7,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { TEXT_MUTED } from "@/lib/theme";
-import { Sparkles } from "lucide-react";
+import { Library, Sparkles } from "lucide-react";
 import { ConnectButton } from "../shared-header-actions";
 import { ActionRail } from "./primitives";
 
@@ -25,6 +25,22 @@ export function HeaderSessionActions({
   return (
     <ActionRail>
       <ConnectButton variant="compact" />
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => window.dispatchEvent(new CustomEvent("nexus:toggle-documents-panel"))}
+            className={`h-8 rounded-lg px-2.5 text-xs ${TEXT_MUTED} hover:bg-zinc-800/80 hover:text-cyan-300`}
+          >
+            <Library className="h-4 w-4 text-cyan-400" />
+            <span className="hidden sm:inline">Library</span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          Documents Skill Library
+        </TooltipContent>
+      </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
           <Button

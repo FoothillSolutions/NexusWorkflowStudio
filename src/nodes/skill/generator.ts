@@ -1,6 +1,7 @@
 import type { NodeGeneratorModule } from "@/nodes/shared/registry-types";
 import { mermaidId, mermaidLabel } from "@/nodes/shared/mermaid-utils";
 import type { WorkflowNodeData } from "@/types/workflow";
+import type { SkillBundle } from "@/types/library";
 import {
   buildGeneratedSkillFilePath,
   DEFAULT_GENERATION_TARGET,
@@ -111,11 +112,17 @@ function buildSkillFile(
   return lines.join("\n") + "\n";
 }
 
+export interface SkillGeneratorOptions {
+  connectedScripts?: ConnectedSkillScript[];
+  target?: GenerationTargetId;
+  resolvedBundle?: SkillBundle | null;
+}
+
 export const generator: NodeGeneratorModule & {
   getSkillFile?(
     nodeId: string,
     data: WorkflowNodeData,
-    connectedScripts?: ConnectedSkillScript[] | GenerationTargetId,
+    connectedScripts?: ConnectedSkillScript[] | GenerationTargetId | SkillGeneratorOptions,
     target?: GenerationTargetId,
   ): { path: string; content: string } | null;
 } = {
@@ -125,25 +132,47 @@ export const generator: NodeGeneratorModule & {
   },
   getDetailsSection(nodeId: string, data: WorkflowNodeData): string {
     const d = data as SkillNodeData;
-    return [
+    const lines = [
       `#### Skill: ${d.label || d.name}`,
       "",
       `- **Skill Name:** ${d.skillName || "_not set_"}`,
-    ].join("\n");
+    ];
+    if (d.libraryRef) {
+      lines.push(`- **Library Reference:** ${d.libraryRef.scope}/${d.libraryRef.packKey ?? d.libraryRef.packId}@${d.libraryRef.packVersion} → ${d.libraryRef.skillKey ?? d.libraryRef.skillId}`);
+    }
+    return lines.join("\n");
   },
   getSkillFile(
     _nodeId: string,
     data: WorkflowNodeData,
-    connectedScriptsOrTarget?: ConnectedSkillScript[] | GenerationTargetId,
+    connectedScriptsOrTarget?: ConnectedSkillScript[] | GenerationTargetId | SkillGeneratorOptions,
     target: GenerationTargetId = DEFAULT_GENERATION_TARGET,
   ) {
     const d = data as SkillNodeData;
+    let connectedScripts: ConnectedSkillScript[] = [];
+    let resolvedTarget: GenerationTargetId = target ?? DEFAULT_GENERATION_TARGET;
+    let resolvedBundle: SkillBundle | null = null;
+
+    if (Array.isArray(connectedScriptsOrTarget)) {
+      connectedScripts = connectedScriptsOrTarget;
+    } else if (typeof connectedScriptsOrTarget === "string") {
+      resolvedTarget = connectedScriptsOrTarget;
+    } else if (connectedScriptsOrTarget && typeof connectedScriptsOrTarget === "object") {
+      connectedScripts = connectedScriptsOrTarget.connectedScripts ?? [];
+      resolvedTarget = connectedScriptsOrTarget.target ?? resolvedTarget;
+      resolvedBundle = connectedScriptsOrTarget.resolvedBundle ?? null;
+    }
+
+    if (resolvedBundle && d.libraryRef) {
+      const skillName = resolvedBundle.skillKey || resolveSkillSlug(d) || "skill";
+      return {
+        path: buildGeneratedSkillFilePath(skillName, resolvedTarget),
+        content: resolvedBundle.entrypoint.content,
+      };
+    }
+
     const skillName = resolveSkillSlug(d);
     if (!skillName) return null;
-    const connectedScripts = Array.isArray(connectedScriptsOrTarget) ? connectedScriptsOrTarget : [];
-    const resolvedTarget = Array.isArray(connectedScriptsOrTarget)
-      ? target
-      : (connectedScriptsOrTarget ?? target ?? DEFAULT_GENERATION_TARGET);
     return {
       path: buildGeneratedSkillFilePath(skillName, resolvedTarget),
       content: buildSkillFile(skillName, d, connectedScripts, resolvedTarget),

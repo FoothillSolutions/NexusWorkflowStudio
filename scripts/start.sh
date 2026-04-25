@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="$ROOT_DIR/.env.local"
 DEFAULT_BRAIN_DIR="$ROOT_DIR/.nexus-brain"
 DEFAULT_COLLAB_DIR="$ROOT_DIR/.nexus-collab"
+DEFAULT_LIBRARY_DIR="$ROOT_DIR/.nexus-library"
 
 log() {
   printf '[start] %s\n' "$*"
@@ -56,11 +57,14 @@ start_local() {
   local collab_dir="${NEXUS_COLLAB_DATA_DIR:-$DEFAULT_COLLAB_DIR}"
   local collab_port="${NEXUS_COLLAB_SERVER_PORT:-1234}"
   local collab_url="${NEXT_PUBLIC_COLLAB_SERVER_URL:-ws://localhost:${collab_port}}"
+  local library_dir="${NEXUS_LIBRARY_DATA_DIR:-$DEFAULT_LIBRARY_DIR}"
 
   mkdir -p "$brain_dir"
   mkdir -p "$collab_dir"
+  mkdir -p "$library_dir"
   log "Using Brain data directory: $brain_dir"
   log "Using collaboration data directory: $collab_dir"
+  log "Using Library data directory: $library_dir"
 
   if [[ -z "$brain_secret" ]]; then
     brain_secret="$(random_hex)"
@@ -71,12 +75,14 @@ start_local() {
   ensure_env_value "NEXUS_COLLAB_DATA_DIR" "$collab_dir"
   ensure_env_value "NEXUS_COLLAB_SERVER_PORT" "$collab_port"
   ensure_env_value "NEXT_PUBLIC_COLLAB_SERVER_URL" "$collab_url"
+  ensure_env_value "NEXUS_LIBRARY_DATA_DIR" "$library_dir"
 
   export NEXUS_BRAIN_DATA_DIR="$brain_dir"
   export NEXUS_BRAIN_TOKEN_SECRET="$brain_secret"
   export NEXUS_COLLAB_DATA_DIR="$collab_dir"
   export NEXUS_COLLAB_SERVER_PORT="$collab_port"
   export NEXT_PUBLIC_COLLAB_SERVER_URL="$collab_url"
+  export NEXUS_LIBRARY_DATA_DIR="$library_dir"
 
   cd "$ROOT_DIR"
 

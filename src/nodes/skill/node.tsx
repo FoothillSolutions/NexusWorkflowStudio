@@ -5,7 +5,7 @@ import { BaseNode, NodeSize } from "@/nodes/shared/base-node";
 import { detectVarCounts } from "@/nodes/shared/variable-utils";
 import { HANDLE_CLASS } from "@/lib/theme";
 import { NODE_ACCENT } from "@/lib/node-colors";
-import { Braces, DollarSign, FileCode2, Link2, Sparkles, Zap } from "lucide-react";
+import { Braces, DollarSign, FileCode2, Library, Link2, Sparkles, Zap } from "lucide-react";
 import { skillRegistryEntry } from "./constants";
 import type { SkillNodeData } from "./types";
 import { useWorkflowStore } from "@/store/workflow";
@@ -52,6 +52,14 @@ export const SkillNode = memo(function SkillNode({ id, data, selected }: NodePro
   return (
     <BaseNode accentHex={accentHex} selected={selected} label={data.label || displayName} type={data.type} icon={icon} size={NodeSize.Medium} nodeId={id}>
       <div className="flex flex-col gap-2.5">
+        {data.libraryRef && (
+          <div className="inline-flex items-center gap-1.5 rounded-md border border-cyan-800/40 bg-cyan-950/30 px-2 py-1 text-[10px] font-mono text-cyan-200">
+            <Library className="h-3 w-3" />
+            <span className="truncate">
+              {data.libraryRef.scope}/{data.libraryRef.packKey ?? data.libraryRef.packId}@{data.libraryRef.packVersion}
+            </span>
+          </div>
+        )}
         {!!data.description?.trim() && (
           <p className="text-xs leading-relaxed text-zinc-400 line-clamp-2">{data.description}</p>
         )}

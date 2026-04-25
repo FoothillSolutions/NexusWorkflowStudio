@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ReactFlowProvider } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useWorkflowStore } from "@/store/workflow";
@@ -19,6 +19,7 @@ import PropertiesPanel from "./properties-panel";
 import DeleteDialog from "./delete-dialog";
 import LibraryPanel from "./library-panel";
 import { BrainPanel } from "./brain-panel";
+import { DocumentsPanel } from "./documents-panel";
 import SubWorkflowCanvas from "./sub-workflow-canvas";
 import FloatingPromptGen from "./floating-prompt-gen";
 import FloatingWorkflowGen from "./floating-workflow-gen";
@@ -53,7 +54,7 @@ export default function WorkflowEditor({
   initialWorkflow,
 }: WorkflowEditorProps = {}) {
   const isWorkspaceMode = Boolean(workspaceId && workflowId);
-
+  const [documentsPanelOpen, setDocumentsPanelOpen] = useState(false);
   const closePropertiesPanel = useWorkflowStore((s) => s.closePropertiesPanel);
   const getWorkflowJSON = useWorkflowStore((s) => s.getWorkflowJSON);
   const loadWorkflow = useWorkflowStore((s) => s.loadWorkflow);
@@ -113,6 +114,13 @@ export default function WorkflowEditor({
     window.addEventListener("nexus:open-sub-workflow", handler);
     return () => window.removeEventListener("nexus:open-sub-workflow", handler);
   }, [openSubWorkflow]);
+
+  // Listen for documents-panel toggle events
+  useEffect(() => {
+    const handler = () => setDocumentsPanelOpen((open) => !open);
+    window.addEventListener("nexus:toggle-documents-panel", handler);
+    return () => window.removeEventListener("nexus:toggle-documents-panel", handler);
+  }, []);
 
   // Keyboard shortcuts (global — dialogs are managed by Header)
   useEffect(() => {
@@ -273,6 +281,7 @@ export default function WorkflowEditor({
             <FloatingWorkflowGen />
             <LibraryPanel />
             <BrainPanel />
+            <DocumentsPanel open={documentsPanelOpen} onClose={() => setDocumentsPanelOpen(false)} />
           </div>
         </div>
         <DiffReviewDialog />

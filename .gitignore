@@ -74,7 +74,7 @@ _workspace
 /graphify-out
 _workspace*
 
-# Local runtime data stores (Brain / collab)
+# Local runtime data stores (Brain / collab / library)
 /.nexus-brain/
 /.nexus-collab/
-
+/.nexus-library/
