@@ -4,7 +4,7 @@ import {
   buildDefaultMcpStatus,
   buildDefaultResources,
   buildDefaultTools,
-} from "./default-provider";
+} from "../server/default-provider";
 import type {
   ACPAdapter,
   BridgeConfig,
@@ -16,7 +16,7 @@ import type {
   McpResource,
   Project,
   ToolListItem,
-} from "./types";
+} from "../types";
 
 export class StdioACPAdapter implements ACPAdapter {
   constructor(private readonly config: BridgeConfig) {}

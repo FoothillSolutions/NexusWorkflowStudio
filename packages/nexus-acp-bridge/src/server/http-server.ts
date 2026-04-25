@@ -16,7 +16,7 @@ import type {
   Session,
   SessionRecord,
   UserMessage,
-} from "./types";
+} from "../types";
 
 const PromptPartSchema = z.object({
   id: z.string().optional(),

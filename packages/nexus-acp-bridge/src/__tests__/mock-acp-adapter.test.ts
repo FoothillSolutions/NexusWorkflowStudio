@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { MockACPAdapter, __private__ } from "../mock-acp-adapter";
+import { MockACPAdapter, __private__ } from "../adapters/mock";
 import { makeBridgeConfig } from "./test-helpers";
 
 const config = makeBridgeConfig();

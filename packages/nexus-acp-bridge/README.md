@@ -37,19 +37,19 @@ The bridge now supports three adapter modes:
 From the repo root:
 
 ```bash
-bun run bridge
+bun run nexus-acp-bridge
 ```
 
-This is equivalent to `bun run bridge:acp` and starts the bridge with the bundled defaults (which select the `claude-code` preset).
+This starts the bridge with the bundled defaults (which select the `claude-code` preset and the `acp` adapter).
 
 ### CLI flags (recommended)
 
 ```bash
 # Pick an agent and customise the bridge with one command:
-bun run bridge --agent claude --cors http://localhost:3000
+bun run nexus-acp-bridge --agent claude --cors http://localhost:3000
 
 # Other supported flags:
-bun run bridge \
+bun run nexus-acp-bridge \
   --agent claude \              # claude | claude-code | codex | opencode (alias of --tool)
   --cors http://localhost:3000 \
   --port 4080 \
@@ -62,30 +62,30 @@ CLI flags take precedence over both `.env.defaults` and the selected tool preset
 
 ### Auto setup for `--agent claude`
 
-When you use `--agent claude` (or any path that resolves to the `claude-code` preset) and the vendored binary is missing, the bridge will automatically run the equivalent of `bun run bridge:setup-claude` to install `@agentclientprotocol/claude-agent-acp@0.31.0` into `packages/nexus-acp-bridge/vendor/claude-code/` before starting.
+When you use `--agent claude` (or any path that resolves to the `claude-code` preset) and the vendored binary is missing, the bridge will automatically run the equivalent of `bun run nexus-acp-bridge:setup-claude` to install `@agentclientprotocol/claude-agent-acp@0.31.0` into `packages/nexus-acp-bridge/vendor/claude-code/` before starting.
 
 To opt out, pass `--no-auto-setup` or set `NEXUS_ACP_BRIDGE_AUTO_SETUP_CLAUDE=0`. You can still trigger the install manually:
 
 ```bash
-bun run bridge:setup-claude            # install if missing
-bun run bridge:setup-claude -- --force # force reinstall
+bun run nexus-acp-bridge:setup-claude            # install if missing
+bun run nexus-acp-bridge:setup-claude -- --force # force reinstall
 ```
 
 ### Preset shortcuts
 
 ```bash
-bun run bridge:acp:claude
-bun run bridge:acp:codex
-bun run bridge:acp:opencode
+bun run nexus-acp-bridge:claude
+bun run nexus-acp-bridge:codex
+bun run nexus-acp-bridge:opencode
 ```
 
-These are equivalent to `bun run bridge --agent <id>`.
+These are equivalent to `bun run nexus-acp-bridge --agent <id>`.
 
 ### Environment-style usage (still supported)
 
 ```bash
-NEXUS_ACP_BRIDGE_CORS_ORIGIN="http://localhost:3000" bun run bridge:acp:claude
-NEXUS_ACP_BRIDGE_TOOL=opencode bun run bridge
+NEXUS_ACP_BRIDGE_CORS_ORIGIN="http://localhost:3000" bun run nexus-acp-bridge:claude
+NEXUS_ACP_BRIDGE_TOOL=opencode bun run nexus-acp-bridge
 ```
 
 If the configured bridge port is already occupied, the bridge automatically retries on a random available port and logs the resolved port at startup.
@@ -108,33 +108,9 @@ Bundled tool presets currently include:
 
 You can select one with `--tool <id>` or `NEXUS_ACP_BRIDGE_TOOL=<id>`, and then override any individual setting with the standard bridge environment variables.
 
-Important variables:
-
-- `NEXUS_ACP_BRIDGE_TOOL` (`claude-code`, `codex`, `opencode`, or unset for custom env-only config)
-- `NEXUS_ACP_BRIDGE_ADAPTER` (`mock`, `stdio`, or `acp`)
-- `NEXUS_ACP_BRIDGE_HOST`
-- `NEXUS_ACP_BRIDGE_PORT`
-- `NEXUS_ACP_BRIDGE_IDLE_TIMEOUT_SECONDS` (default `0`, which disables Bun's idle timeout; set a positive value to re-enable it)
-- `NEXUS_ACP_BRIDGE_CORS_ORIGIN`
-- `NEXUS_ACP_BRIDGE_PROJECT_DIR`
-- `NEXUS_ACP_BRIDGE_PROJECT_DIRS`
-- `NEXUS_ACP_BRIDGE_ALLOW_ARBITRARY_DIRECTORIES`
-- `NEXUS_ACP_BRIDGE_PROVIDER_ID`
-- `NEXUS_ACP_BRIDGE_PROVIDER_NAME`
-- `NEXUS_ACP_BRIDGE_MODEL_ID`
-- `NEXUS_ACP_BRIDGE_MODEL_NAME`
-- `NEXUS_ACP_BRIDGE_TOOLS`
-- `NEXUS_ACP_BRIDGE_AGENT_COMMAND`
-- `NEXUS_ACP_BRIDGE_AGENT_ARGS`
-- `NEXUS_ACP_BRIDGE_AGENT_CWD`
-- `NEXUS_ACP_BRIDGE_ACP_PROTOCOL` (`newline` — default, matches Zed ACP; or `content-length`)
-- `NEXUS_ACP_BRIDGE_ACP_PROTOCOL_VERSION` (integer, default `1`)
-- `NEXUS_ACP_BRIDGE_MAX_FILE_READ_BYTES` (default `2097152` — size cap for `/file/content` and `fs/read_text_file`)
-- `NEXUS_ACP_BRIDGE_AUTO_SETUP_CLAUDE` (default `1` — set to `0` to opt out of auto-vendoring `claude-agent-acp` when the `claude-code` preset is selected; `--no-auto-setup` does the same)
-
 ## Adapter shape
 
-The mock adapter lives in `src/mock-acp-adapter.ts`, the one-shot process-backed adapter lives in `src/stdio-acp-adapter.ts`, and the persistent JSON-RPC ACP adapter lives in `src/acp-protocol-adapter.ts`. All implement the `ACPAdapter` interface from `src/types.ts`.
+The mock adapter lives in `src/adapters/mock.ts`, the one-shot process-backed adapter lives in `src/adapters/stdio.ts`, and the persistent JSON-RPC ACP adapter lives in `src/adapters/acp-protocol.ts`. All implement the `ACPAdapter` interface from `src/types.ts`. Adapter selection is centralized in `src/index.ts`'s `createAdapter()`.
 
 To integrate a real ACP backend later, replace or extend the adapter selection in `src/index.ts` with an adapter that:
 

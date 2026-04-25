@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { decodeJsonRpcMessages, encodeJsonRpcMessage } from "../acp-jsonrpc";
+import { decodeJsonRpcMessages, encodeJsonRpcMessage } from "../transport/jsonrpc";
 
 describe("acp json-rpc framing", () => {
   test("round-trips content-length framed messages", () => {

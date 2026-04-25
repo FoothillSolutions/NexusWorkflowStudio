@@ -3,9 +3,20 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "bin": {
+    "nexus-acp-bridge": "./src/bin.ts"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./bin": "./src/bin.ts"
+  },
   "scripts": {
-    "dev": "bun run src/index.ts",
-    "start": "bun run src/index.ts",
+    "nexus-acp-bridge": "bun run src/bin.ts",
+    "dev": "bun run src/bin.ts",
+    "start": "bun run src/bin.ts",
+    "setup-claude": "bun run scripts/setup-claude-acp.ts",
     "test": "bun test",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   }

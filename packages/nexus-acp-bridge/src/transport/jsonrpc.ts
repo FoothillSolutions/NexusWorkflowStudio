@@ -1,4 +1,4 @@
-import type { ACPTransportProtocol } from "./types";
+import type { ACPTransportProtocol } from "../types";
 
 export interface JsonRpcRequest {
   jsonrpc: "2.0";

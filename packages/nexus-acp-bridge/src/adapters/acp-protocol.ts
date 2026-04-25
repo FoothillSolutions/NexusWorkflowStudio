@@ -1,13 +1,13 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { AsyncQueue } from "./acp-async-queue";
-import { ACPJsonRpcClient, type ACPJsonRpcClientLike } from "./acp-jsonrpc-client";
+import { AsyncQueue } from "../transport/async-queue";
+import { ACPJsonRpcClient, type ACPJsonRpcClientLike } from "../transport/jsonrpc-client";
 import {
   buildDefaultConfigProviders,
   buildDefaultMcpStatus,
   buildDefaultResources,
   buildDefaultTools,
-} from "./default-provider";
+} from "../server/default-provider";
 import type {
   ACPAdapter,
   BridgeConfig,
@@ -21,7 +21,7 @@ import type {
   Project,
   Provider,
   ToolListItem,
-} from "./types";
+} from "../types";
 
 const DISCOVERED_RELEASE_DATE = "1970-01-01T00:00:00Z";
 

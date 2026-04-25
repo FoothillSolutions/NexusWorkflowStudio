@@ -3,7 +3,7 @@ import {
   buildDefaultMcpStatus,
   buildDefaultResources,
   buildDefaultTools,
-} from "./default-provider";
+} from "../server/default-provider";
 import type {
   ACPAdapter,
   BridgeConfig,
@@ -15,7 +15,7 @@ import type {
   McpResource,
   Project,
   ToolListItem,
-} from "./types";
+} from "../types";
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));

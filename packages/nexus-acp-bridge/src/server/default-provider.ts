@@ -6,7 +6,7 @@ import type {
   Model,
   Project,
   ToolListItem,
-} from "./types";
+} from "../types";
 
 const STABLE_RELEASE_DATE = "1970-01-01T00:00:00Z";
 

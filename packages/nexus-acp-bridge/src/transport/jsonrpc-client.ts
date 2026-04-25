@@ -7,9 +7,9 @@ import {
   type JsonRpcNotification,
   type JsonRpcRequest,
   type JsonRpcSuccess,
-} from "./acp-jsonrpc";
-import { ACPStdioTransport } from "./acp-stdio-transport";
-import type { BridgeConfig } from "./types";
+} from "./jsonrpc";
+import { ACPStdioTransport } from "./stdio-transport";
+import type { BridgeConfig } from "../types";
 
 export type ACPSessionUpdateHandler = (update: unknown, raw: JsonRpcNotification) => void;
 

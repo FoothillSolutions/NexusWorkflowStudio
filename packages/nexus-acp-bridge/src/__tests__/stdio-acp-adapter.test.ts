@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { StdioACPAdapter } from "../stdio-acp-adapter";
+import { StdioACPAdapter } from "../adapters/stdio";
 import { makeBridgeConfig, makeGenerateTextRequest } from "./test-helpers";
 
 describe("StdioACPAdapter", () => {

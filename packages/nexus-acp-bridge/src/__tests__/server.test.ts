@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { MockACPAdapter } from "../mock-acp-adapter";
-import { NexusACPBridgeServer } from "../server";
+import { MockACPAdapter } from "../adapters/mock";
+import { NexusACPBridgeServer } from "../server/http-server";
 import { makeBridgeConfig } from "./test-helpers";
 
 const activeServers: NexusACPBridgeServer[] = [];

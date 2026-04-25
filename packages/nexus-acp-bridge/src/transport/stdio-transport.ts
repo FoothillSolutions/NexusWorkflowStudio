@@ -1,6 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import { decodeJsonRpcMessages, encodeJsonRpcMessage, type JsonRpcMessage } from "./acp-jsonrpc";
-import type { ACPTransportProtocol, BridgeConfig } from "./types";
+import { decodeJsonRpcMessages, encodeJsonRpcMessage, type JsonRpcMessage } from "./jsonrpc";
+import type { ACPTransportProtocol, BridgeConfig } from "../types";
 
 export class ACPStdioTransport {
   private child: ChildProcessWithoutNullStreams | null = null;

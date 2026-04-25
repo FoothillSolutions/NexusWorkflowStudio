@@ -1,31 +1,59 @@
-import { ACPProtocolAdapter } from "./acp-protocol-adapter";
-import { loadBridgeConfig } from "./config";
-import { MockACPAdapter } from "./mock-acp-adapter";
-import { StdioACPAdapter } from "./stdio-acp-adapter";
-import { NexusACPBridgeServer } from "./server";
+/**
+ * Public entrypoint for the `nexus-acp-bridge` package.
+ *
+ * Re-exports the bridge server, adapters, configuration helpers, and shared
+ * types so consumers can embed the bridge programmatically. The CLI lives in
+ * `./bin.ts` and is the intended way to launch the bridge from the command
+ * line (`bun run nexus-acp-bridge`).
+ */
+
+// Server
+export { NexusACPBridgeServer } from "./server/http-server";
+
+// Adapters
+export { MockACPAdapter } from "./adapters/mock";
+export { StdioACPAdapter } from "./adapters/stdio";
+export { ACPProtocolAdapter } from "./adapters/acp-protocol";
+
+// Configuration
+export { loadBridgeConfig } from "./config";
+export {
+  BRIDGE_TOOL_PRESET_IDS,
+  getBridgeToolPreset,
+  type BridgeToolPreset,
+} from "./tool-presets";
+
+// Shared types
+export type {
+  ACPAdapter,
+  BridgeConfig,
+  Command,
+  ConfigProviders,
+  GenerateTextRequest,
+  HealthInfo,
+  MCPStatus,
+  McpResource,
+  Model,
+  Project,
+  Provider,
+  ToolListItem,
+} from "./types";
+
 import type { ACPAdapter, BridgeConfig } from "./types";
+import { MockACPAdapter } from "./adapters/mock";
+import { StdioACPAdapter } from "./adapters/stdio";
+import { ACPProtocolAdapter } from "./adapters/acp-protocol";
 
-function createAdapter(config: BridgeConfig): ACPAdapter {
-  return config.adapterMode === "acp"
-    ? new ACPProtocolAdapter(config)
-    : config.adapterMode === "stdio"
-      ? new StdioACPAdapter(config)
-      : new MockACPAdapter(config);
+/** Construct the adapter implied by `config.adapterMode`. */
+export function createAdapter(config: BridgeConfig): ACPAdapter {
+  switch (config.adapterMode) {
+    case "acp":
+      return new ACPProtocolAdapter(config);
+    case "stdio":
+      return new StdioACPAdapter(config);
+    case "mock":
+    default:
+      return new MockACPAdapter(config);
+  }
 }
-
-const config = loadBridgeConfig();
-const adapter = createAdapter(config);
-const bridge = new NexusACPBridgeServer(config, adapter);
-const server = bridge.start();
-
-console.log(`[nexus-acp-bridge] listening on http://${server.hostname}:${server.port}`);
-if (bridge.usedRandomPortFallback()) {
-  console.warn(
-    `[nexus-acp-bridge] port ${config.port} was already in use; fell back to random port ${server.port}`,
-  );
-}
-console.log(`[nexus-acp-bridge] adapter mode: ${config.adapterMode}`);
-console.log(`[nexus-acp-bridge] selected tool: ${config.selectedTool ?? "custom"}`);
-console.log(`[nexus-acp-bridge] CORS origin: ${config.corsOrigin}`);
-console.log(`[nexus-acp-bridge] Project roots: ${config.projectDirs.join(", ")}`);
 

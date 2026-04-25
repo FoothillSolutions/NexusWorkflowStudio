@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import type { JsonRpcNotification } from "../acp-jsonrpc";
+import type { JsonRpcNotification } from "../transport/jsonrpc";
 import type {
   ACPJsonRpcClientLike,
   ACPRequestHandler,
   ACPSessionUpdateHandler,
-} from "../acp-jsonrpc-client";
-import { ACPProtocolAdapter } from "../acp-protocol-adapter";
+} from "../transport/jsonrpc-client";
+import { ACPProtocolAdapter } from "../adapters/acp-protocol";
 import { makeBridgeConfig, makeGenerateTextRequest } from "./test-helpers";
 
 interface Recorded {
