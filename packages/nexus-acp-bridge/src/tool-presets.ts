@@ -92,8 +92,10 @@ export const BRIDGE_TOOL_PRESETS: Record<string, BridgeToolPreset> = {
       NEXUS_ACP_BRIDGE_PROVIDER_NAME: "OpenCode",
       NEXUS_ACP_BRIDGE_MODEL_ID: "default",
       NEXUS_ACP_BRIDGE_MODEL_NAME: "OpenCode Default Model",
-      NEXUS_ACP_BRIDGE_AGENT_COMMAND: "opencode",
-      NEXUS_ACP_BRIDGE_AGENT_ARGS: "acp",
+      // Use `bunx` so OpenCode is installed/cached on demand — users no longer
+      // need to `bun add -g opencode-ai` manually.
+      NEXUS_ACP_BRIDGE_AGENT_COMMAND: "bunx",
+      NEXUS_ACP_BRIDGE_AGENT_ARGS: "opencode-ai acp",
     }),
   },
 };

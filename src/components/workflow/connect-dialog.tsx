@@ -23,7 +23,6 @@ import {
 } from "lucide-react";
 import {
   DEFAULT_ACP_BRIDGE_URL,
-  DEFAULT_DIRECT_OPENCODE_URL,
   getAIConnectionPresets,
 } from "@/lib/opencode/config";
 import { useOpenCodeStore } from "@/store/opencode";
@@ -35,7 +34,7 @@ interface ConnectDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-type ConnectionPresetId = "claude-code-bridge" | "opencode-bridge" | "opencode-direct" | "custom";
+type ConnectionPresetId = "claude-code-bridge" | "opencode-bridge" | "custom";
 
 interface SetupStep {
   title: string;
@@ -45,7 +44,6 @@ interface SetupStep {
 
 function inferPresetId(url: string): ConnectionPresetId {
   const trimmed = url.trim();
-  if (trimmed === DEFAULT_DIRECT_OPENCODE_URL) return "opencode-direct";
   if (trimmed === DEFAULT_ACP_BRIDGE_URL) return "claude-code-bridge";
   return "custom";
 }
@@ -79,8 +77,8 @@ export default function ConnectDialog({
     if (!selectedPreset) {
       return [
         {
-          title: "Start your endpoint",
-          description: "Launch an OpenCode-compatible server or an ACP bridge endpoint.",
+          title: "Start the local server",
+          description: "Launch the bundled local agent server.",
           command: null,
         },
         {
@@ -92,28 +90,14 @@ export default function ConnectDialog({
     }
 
     return [
-      ...(selectedPreset.installCommand
-        ? [{
-            title: "Install runtime",
-            description: "Install the runtime required for this endpoint preset.",
-            command: selectedPreset.installCommand,
-          } satisfies SetupStep]
-        : []),
-      ...(selectedPreset.setupCommand
-        ? [{
-            title: "One-time setup",
-            description: "Prepare the Claude Code ACP wrapper used by the bridge preset.",
-            command: selectedPreset.setupCommand,
-          } satisfies SetupStep]
-        : []),
       {
-        title: selectedPreset.id === "opencode-direct" ? "Start OpenCode" : "Start the ACP bridge",
+        title: "Start the local server",
         description: selectedPreset.description,
         command: selectedPreset.startCommand,
       },
       {
         title: "Connect below",
-        description: `Use ${selectedPreset.url} as the endpoint URL and click Connect.`,
+        description: "Click Connect to attach Nexus to the running server.",
         command: null,
       },
     ];
@@ -161,7 +145,7 @@ export default function ConnectDialog({
               Connect AI Endpoint
             </DialogTitle>
             <DialogDescription className="text-sm text-zinc-400">
-              Use the bundled ACP bridge for Claude Code or OpenCode, or connect directly to OpenCode
+              Connect Claude Code or OpenCode to Nexus.
             </DialogDescription>
           </DialogHeader>
 
@@ -189,11 +173,11 @@ export default function ConnectDialog({
           <div>
             <p className="text-sm font-medium text-zinc-200">Quick start presets</p>
             <p className="mt-0.5 text-xs text-zinc-500">
-              Claude Code and OpenCode are both supported through the ACP bridge. Direct OpenCode is still available.
+              Pick the agent you want to use.
             </p>
           </div>
 
-          <div className="grid gap-2 sm:grid-cols-3">
+          <div className="grid gap-2 sm:grid-cols-2">
             {presets.map((preset) => {
               const isActive = selectedPresetId === preset.id;
 
@@ -283,9 +267,6 @@ export default function ConnectDialog({
               disabled={isConnecting}
               className="bg-zinc-950 border-zinc-800 text-zinc-200 placeholder:text-zinc-600 focus-visible:border-blue-600 focus-visible:ring-blue-600/20 h-10 font-mono text-sm"
             />
-            <p className="text-[11px] leading-relaxed text-zinc-500">
-              Default bridge endpoint: {DEFAULT_ACP_BRIDGE_URL}. Direct OpenCode default: {DEFAULT_DIRECT_OPENCODE_URL}.
-            </p>
           </div>
 
           {isError && error && (

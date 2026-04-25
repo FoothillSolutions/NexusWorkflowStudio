@@ -120,8 +120,8 @@ describe("bridge config", () => {
     const config = loadBridgeConfig(["--tool=opencode"]);
 
     expect(config.selectedTool).toBe("opencode");
-    expect(config.agentCommand).toBe("opencode");
-    expect(config.agentArgs).toEqual(["acp"]);
+    expect(config.agentCommand).toBe("bunx");
+    expect(config.agentArgs).toEqual(["opencode-ai", "acp"]);
     expect(config.defaultProviderId).toBe("opencode");
   });
 
