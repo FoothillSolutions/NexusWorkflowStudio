@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import {
   DEFAULT_ACP_BRIDGE_URL,
+  DEFAULT_OPENCODE_BRIDGE_URL,
   getAIConnectionPresets,
 } from "@/lib/opencode/config";
 import { useOpenCodeStore } from "@/store/opencode";
@@ -44,6 +45,7 @@ interface SetupStep {
 
 function inferPresetId(url: string): ConnectionPresetId {
   const trimmed = url.trim();
+  if (trimmed === DEFAULT_OPENCODE_BRIDGE_URL) return "opencode-bridge";
   if (trimmed === DEFAULT_ACP_BRIDGE_URL) return "claude-code-bridge";
   return "custom";
 }
@@ -132,13 +134,13 @@ export default function ConnectDialog({
     await connect();
     const newStatus = useOpenCodeStore.getState().status;
     if (newStatus === "connected") {
-      toast.success("Connected to AI endpoint");
+      toast.success("Connected to AI Agent");
     }
   }, [connect]);
 
   const handleDisconnect = useCallback(() => {
     disconnect();
-    toast("Disconnected from AI endpoint", { icon: "🔌" });
+    toast("Disconnected from AI Agent");
   }, [disconnect]);
 
   const handleCopy = useCallback((text: string) => {

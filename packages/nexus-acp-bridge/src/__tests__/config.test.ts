@@ -123,6 +123,8 @@ describe("bridge config", () => {
     expect(config.agentCommand).toBe("bunx");
     expect(config.agentArgs).toEqual(["opencode-ai", "acp"]);
     expect(config.defaultProviderId).toBe("opencode");
+    // OpenCode preset uses 4081 so it can run side-by-side with the Claude bridge on 4080.
+    expect(config.port).toBe(4081);
   });
 
   test("throws for unknown tool presets", () => {

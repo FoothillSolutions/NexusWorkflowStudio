@@ -92,6 +92,9 @@ export const BRIDGE_TOOL_PRESETS: Record<string, BridgeToolPreset> = {
       NEXUS_ACP_BRIDGE_PROVIDER_NAME: "OpenCode",
       NEXUS_ACP_BRIDGE_MODEL_ID: "default",
       NEXUS_ACP_BRIDGE_MODEL_NAME: "OpenCode Default Model",
+      // Default to port 4081 so the OpenCode bridge can run alongside the
+      // Claude Code bridge (which keeps the default 4080).
+      NEXUS_ACP_BRIDGE_PORT: "4081",
       // Use `bunx` so OpenCode is installed/cached on demand — users no longer
       // need to `bun add -g opencode-ai` manually.
       NEXUS_ACP_BRIDGE_AGENT_COMMAND: "bunx",

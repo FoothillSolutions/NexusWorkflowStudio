@@ -52,7 +52,7 @@ export class ConnectionError extends OpenCodeError {
   constructor(cause?: unknown) {
     const detail =
       cause instanceof TypeError
-        ? "Could not reach server — check the URL and make sure the server is running"
+        ? "Could not reach server — please check the port and make sure the server is running"
         : cause instanceof Error
           ? cause.message
           : "Connection failed";
