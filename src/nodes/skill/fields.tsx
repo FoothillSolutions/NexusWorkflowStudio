@@ -17,8 +17,9 @@ import { useAutoResourceVariableMapping } from "@/nodes/shared/use-auto-resource
 import { useDetectedVariables } from "@/nodes/shared/use-detected-variables";
 import { useConnectedResources } from "@/nodes/shared/use-connected-resources";
 import { WorkflowNodeType } from "@/types/workflow";
-import type { SkillMetadataEntry } from "./types";
+import type { SkillMetadataEntry, SkillLibraryRef } from "./types";
 import { buildSkillScriptRelativePath, getSkillScriptBaseName, getSkillScriptFileName } from "./script-utils";
+import { LibraryRefSection } from "@/components/workflow/properties/skill-picker-dialog";
 
 const SLUG_REGEX = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const isValidSlug = (v: string) => { const t = v.trim(); return t === "" || SLUG_REGEX.test(t); };
@@ -44,6 +45,7 @@ export function Fields({ register, control, setValue, nodeId }: SkillFieldsProps
     [rawVariableMappings],
   );
   const metadata: SkillMetadataEntry[] = useWatch({ control, name: "metadata" }) ?? [];
+  const libraryRef = useWatch({ control, name: "libraryRef" }) as SkillLibraryRef | null | undefined;
   const { connectedScripts, availableResources, deleteEdge } = useConnectedResources(nodeId);
   const skillFolder = (skillName.trim() || label.trim() || "skill")
     .toLowerCase()
@@ -89,6 +91,12 @@ export function Fields({ register, control, setValue, nodeId }: SkillFieldsProps
 
   return (
     <div className="space-y-4">
+      <LibraryRefSection
+        value={libraryRef ?? null}
+        onChange={(value) =>
+          setValue("libraryRef" as never, value as never, { shouldDirty: true })
+        }
+      />
       <div className="space-y-2">
         <Label htmlFor="skill-name">
           Skill Name <RequiredIndicator />

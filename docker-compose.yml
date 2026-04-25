@@ -19,6 +19,7 @@ services:
       HOSTNAME: "0.0.0.0"
       NEXUS_BRAIN_DATA_DIR: /data/brain
       NEXUS_COLLAB_DATA_DIR: /data/collab
+      NEXUS_LIBRARY_DATA_DIR: /data/library
       # Do NOT set NEXT_PUBLIC_COLLAB_SERVER_URL — leave unset so the browser
       # auto-resolves to same-origin `wss://<host>/collab`. Setting it bakes
       # a fixed URL into the JS bundle at build time.
@@ -32,9 +33,11 @@ services:
       - "3000"
     volumes:
       - nexus_brain_data:/data/brain
+      - nexus_library_data:/data/library
       - nexus_collab_data:/data/collab
     restart: unless-stopped
 
 volumes:
   nexus_brain_data:
   nexus_collab_data:
+  nexus_library_data:

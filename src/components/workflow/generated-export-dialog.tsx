@@ -41,6 +41,8 @@ import {
   pickExportDirectory,
   supportsDirectoryExport,
 } from "@/lib/generated-workflow-export";
+import { exportNexusArchive } from "@/lib/library-client";
+import { Package } from "lucide-react";
 import { IS_MAC } from "@/lib/platform";
 import { useOpenCodeStore } from "@/store/opencode";
 import type { WorkflowJSON } from "@/types/workflow";
@@ -114,6 +116,30 @@ export default function GeneratedExportDialog({
           ? error.message
           : "Failed to select an export directory",
       );
+    }
+  };
+
+  const handleNexusArchive = async () => {
+    setIsBusy(true);
+    try {
+      const workflow = getWorkflow();
+      const blob = await exportNexusArchive(workflow, workflow.name || "workflow");
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const safeName = (workflow.name || "workflow").replace(/[^a-zA-Z0-9_\-]/g, "-").toLowerCase();
+      a.href = url;
+      a.download = `${safeName}.nexus`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success("Downloaded .nexus archive");
+      onOpenChange(false);
+    } catch (error) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : "Failed to build .nexus archive");
+    } finally {
+      setIsBusy(false);
     }
   };
 
@@ -330,6 +356,17 @@ export default function GeneratedExportDialog({
             Export as a ZIP or write directly into <code className="rounded bg-zinc-950 px-1 py-0.5 text-[11px] text-zinc-300">{selectedTarget.rootDir}</code>.
           </p>
           <div className="flex flex-col-reverse gap-2 sm:flex-row">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleNexusArchive}
+              disabled={isBusy}
+              className="border-cyan-700/50 bg-cyan-950/30 text-cyan-100 hover:bg-cyan-900/40"
+              title="Self-contained archive with referenced library packs"
+            >
+              {isBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Package className="mr-2 h-4 w-4" />}
+              Download .nexus archive
+            </Button>
             <Button
               type="button"
               variant="outline"

@@ -96,6 +96,16 @@ export interface SubWorkflowNodeData extends BaseNodeData {
   disabledTools: string[];
 }
 
+export interface SkillLibraryRef {
+  scope: "workspace" | "user";
+  packId: string;
+  packKey?: string;
+  packVersion: string | "draft";
+  skillId: string;
+  skillKey?: string;
+  skillName?: string;
+}
+
 export interface SkillNodeData extends BaseNodeData {
   type: WorkflowNodeType.Skill;
   skillName: string;
@@ -105,6 +115,8 @@ export interface SkillNodeData extends BaseNodeData {
   /** Static variable mappings: {{varName}} → script ref (e.g. "script:lint-fix.ts") */
   variableMappings: Record<string, string>;
   metadata: Array<{ key: string; value: string }>;
+  /** Optional reference to a library-managed skill */
+  libraryRef?: SkillLibraryRef | null;
 }
 
 export type DocumentContentMode = "inline" | "linked" | "brain";

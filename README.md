@@ -28,6 +28,22 @@ Nexus is a visual workflow editor for designing, composing, and exporting AI wor
 - Export generated files as a ZIP or write them directly into a target folder
 - Include generated `run-<workflow>.sh` and `run-<workflow>.bat` helper scripts with exported workflow artifacts
 
+### 📦 Documents Skill Library
+
+The Documents Skill Library is a versioned, sharable home for Markdown skills:
+
+- **Workspace** and **user-local** library scopes per workspace
+- **Packs** group related skills, references, docs, rules, templates, examples, and assets
+- **Real-time Markdown editing** of skill content through the Documents panel, backed by the same Hocuspocus collaboration server used for the canvas
+- **Branch + fork**: derive a user-local fork from a workspace pack, three-way merge updates from base when needed, and resolve conflicts inline
+- **Publish** at both pack-version (semver) and skill-version granularity; published versions are immutable snapshots
+- **Workflow Skill nodes** can reference a library skill by `scope + packId + packVersion + skillId`. The reference is resolved live from the library or pinned to a published version
+- **`.nexus` archive export**: a self-contained zip including `manifest.json`, `workflow.json`, every reachable pack's `manifest.json`, every referenced document's content, `runtime/resolver-metadata.json`, and `hashes.json` for integrity verification
+- **Import** of `.nexus` archives and best-effort import of Agent Skills folders/zips
+
+Open the **Library** button in the editor header to access the panel. Persistent
+storage lives under `NEXUS_LIBRARY_DATA_DIR` (defaults to `./.nexus-library`).
+
 ### 📝 Content and Agent Authoring
 
 - Fullscreen editing for prompts and documents

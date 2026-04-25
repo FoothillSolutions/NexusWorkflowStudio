@@ -16,6 +16,7 @@ export const skillRegistryEntry: NodeRegistryEntry = {
   defaultData: (): SkillNodeData => ({
     type: WorkflowNodeType.Skill, label: "Skill", name: "", skillName: "",
     description: "", promptText: "", detectedVariables: [], variableMappings: {}, metadata: [],
+    libraryRef: null,
   }),
   aiGenerationPrompt: {
     description: "Reusable knowledge/instruction unit that gets attached to agents. Skills represent specialised capabilities the agent should have. A skill node generates a `.opencode/skills/<skillName>/SKILL.md` file.",
@@ -99,4 +100,16 @@ export const skillSchema = z.object({
       })
     )
     .default([]),
+  libraryRef: z
+    .object({
+      scope: z.enum(["workspace", "user"]),
+      packId: z.string(),
+      packKey: z.string().optional(),
+      packVersion: z.string(),
+      skillId: z.string(),
+      skillKey: z.string().optional(),
+      skillName: z.string().optional(),
+    })
+    .nullable()
+    .default(null),
 });
