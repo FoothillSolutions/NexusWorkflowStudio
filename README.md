@@ -139,15 +139,15 @@ Then connect from the Nexus header. If you prefer the bundled bridge, use one of
 The repository also includes a minimal ACP bridge under `packages/nexus-acp-bridge/`. It exposes the subset of the OpenCode-style HTTP/SSE API that Nexus currently uses, so you can point Nexus at the bridge URL instead of a direct OpenCode server.
 
 ```bash
-bun run bridge
+bun run nexus-acp-bridge
 ```
 
 That command auto-loads the checked-in defaults in `packages/nexus-acp-bridge/.env.defaults`, which currently select the `claude-code` preset. Customise it with simple flags:
 
 ```bash
-bun run bridge --agent claude --cors http://localhost:3000
-bun run bridge --agent codex
-bun run bridge --agent opencode
+bun run nexus-acp-bridge --agent claude --cors http://localhost:3000
+bun run nexus-acp-bridge --agent codex
+bun run nexus-acp-bridge --agent opencode
 ```
 
 The first time you run `--agent claude`, the bridge auto-vendors `@agentclientprotocol/claude-agent-acp`. Pass `--no-auto-setup` to opt out. Other supported flags include `--port`, `--host`, and repeatable `--project-dir`. Environment variables still override everything.

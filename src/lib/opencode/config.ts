@@ -26,14 +26,14 @@ export function getAIConnectionPresets(origin?: string): AIConnectionPreset[] {
       badge: "Recommended",
       description: "Route prompts to Claude Code.",
       url: DEFAULT_ACP_BRIDGE_URL,
-      startCommand: `bun run bridge --agent claude --cors "${corsOrigin}"`,
+      startCommand: `bun run nexus-acp-bridge --agent claude --cors "${corsOrigin}"`,
     },
     {
       id: "opencode-bridge",
       label: "OpenCode",
       description: "Use OpenCode as the backend runtime.",
       url: DEFAULT_OPENCODE_BRIDGE_URL,
-      startCommand: `bun run bridge --agent opencode --cors "${corsOrigin}"`,
+      startCommand: `bun run nexus-acp-bridge --agent opencode --cors "${corsOrigin}"`,
     },
   ];
 }

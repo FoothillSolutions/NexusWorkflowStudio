@@ -41,7 +41,7 @@ function resolveClaudeCodeCommand(): { command: string; args: string } {
     warnedAboutMissingVendor = true;
     console.warn(
       "[nexus-acp-bridge] claude-code vendored install not found. " +
-        "Run `bun run bridge:setup-claude` to vendor @agentclientprotocol/claude-agent-acp locally. " +
+        "Run `bun run nexus-acp-bridge:setup-claude` to vendor @agentclientprotocol/claude-agent-acp locally. " +
         `Falling back to \`npx --yes @agentclientprotocol/claude-agent-acp@${CLAUDE_AGENT_ACP_VERSION}\`.`,
     );
   }

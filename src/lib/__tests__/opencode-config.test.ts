@@ -27,7 +27,7 @@ describe("opencode config", () => {
     // No manual setup or install steps surfaced to the user — the server handles it.
     expect(presets[0]).not.toHaveProperty("setupCommand");
     expect(presets[0]).not.toHaveProperty("installCommand");
-    expect(presets[0]?.startCommand).toBe('bun run bridge --agent claude --cors "http://localhost:3001"');
+    expect(presets[0]?.startCommand).toBe('bun run nexus-acp-bridge --agent claude --cors "http://localhost:3001"');
 
     // OpenCode bridge runs on its own port so it can coexist with the Claude bridge.
     expect(presets[1]).toMatchObject({
@@ -35,7 +35,7 @@ describe("opencode config", () => {
       url: DEFAULT_OPENCODE_BRIDGE_URL,
     });
     expect(presets[1]).not.toHaveProperty("installCommand");
-    expect(presets[1]?.startCommand).toBe('bun run bridge --agent opencode --cors "http://localhost:3001"');
+    expect(presets[1]?.startCommand).toBe('bun run nexus-acp-bridge --agent opencode --cors "http://localhost:3001"');
   });
 });
 
