@@ -60,25 +60,94 @@ function applyBundledEnvDefaults(shellSnapshot: Record<string, string | undefine
   }
 }
 
-function parseCliArgs(argv: string[]): { tool: string | null } {
+function parseCliArgs(argv: string[]): {
+  tool: string | null;
+  cors: string | null;
+  port: string | null;
+  host: string | null;
+  projectDirs: string[];
+  autoSetupClaude: boolean | null;
+} {
   let tool: string | null = null;
+  let cors: string | null = null;
+  let port: string | null = null;
+  let host: string | null = null;
+  let autoSetupClaude: boolean | null = null;
+  const projectDirs: string[] = [];
+
+  const takeValue = (flagName: string, index: number): { value: string | null; consumed: number } => {
+    const current = argv[index] ?? "";
+    const eqPrefix = `${flagName}=`;
+    if (current.startsWith(eqPrefix)) {
+      return { value: current.slice(eqPrefix.length).trim() || null, consumed: 0 };
+    }
+    return { value: argv[index + 1]?.trim() || null, consumed: 1 };
+  };
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (!arg) continue;
 
-    if (arg === "--tool") {
-      tool = argv[index + 1]?.trim() || null;
-      index += 1;
+    // --tool / --agent (aliases)
+    if (arg === "--tool" || arg === "--agent" || arg.startsWith("--tool=") || arg.startsWith("--agent=")) {
+      const flag = arg.startsWith("--agent") ? "--agent" : "--tool";
+      const { value, consumed } = takeValue(flag, index);
+      tool = value;
+      index += consumed;
       continue;
     }
 
-    if (arg.startsWith("--tool=")) {
-      tool = arg.slice("--tool=".length).trim() || null;
+    if (arg === "--cors" || arg.startsWith("--cors=")) {
+      const { value, consumed } = takeValue("--cors", index);
+      cors = value;
+      index += consumed;
+      continue;
+    }
+
+    if (arg === "--port" || arg.startsWith("--port=")) {
+      const { value, consumed } = takeValue("--port", index);
+      port = value;
+      index += consumed;
+      continue;
+    }
+
+    if (arg === "--host" || arg.startsWith("--host=")) {
+      const { value, consumed } = takeValue("--host", index);
+      host = value;
+      index += consumed;
+      continue;
+    }
+
+    if (arg === "--project-dir" || arg.startsWith("--project-dir=")) {
+      const { value, consumed } = takeValue("--project-dir", index);
+      if (value) projectDirs.push(value);
+      index += consumed;
+      continue;
+    }
+
+    if (arg === "--no-auto-setup" || arg === "--no-auto-setup-claude") {
+      autoSetupClaude = false;
+      continue;
+    }
+    if (arg === "--auto-setup" || arg === "--auto-setup-claude") {
+      autoSetupClaude = true;
+      continue;
     }
   }
 
-  return { tool };
+  return { tool, cors, port, host, projectDirs, autoSetupClaude };
+}
+
+const TOOL_ALIASES: Record<string, string> = {
+  claude: "claude-code",
+  "claude-code": "claude-code",
+  codex: "codex",
+  opencode: "opencode",
+};
+
+function resolveToolAlias(tool: string | null): string | null {
+  if (!tool) return null;
+  return TOOL_ALIASES[tool.toLowerCase()] ?? tool;
 }
 
 function applyToolPreset(
@@ -144,10 +213,25 @@ function parseCommandArgs(raw: string | undefined): string[] {
 }
 
 export function loadBridgeConfig(argv: string[] = process.argv.slice(2)): BridgeConfig {
+  const cliArgs = parseCliArgs(argv);
+
+  // Apply CLI flags as the highest-precedence source by writing them into
+  // process.env BEFORE we snapshot, so they override .env.defaults and presets.
+  if (cliArgs.cors) process.env.NEXUS_ACP_BRIDGE_CORS_ORIGIN = cliArgs.cors;
+  if (cliArgs.port) process.env.NEXUS_ACP_BRIDGE_PORT = cliArgs.port;
+  if (cliArgs.host) process.env.NEXUS_ACP_BRIDGE_HOST = cliArgs.host;
+  if (cliArgs.projectDirs.length > 0) {
+    process.env.NEXUS_ACP_BRIDGE_PROJECT_DIRS = cliArgs.projectDirs.join(",");
+  }
+  if (cliArgs.autoSetupClaude !== null) {
+    process.env.NEXUS_ACP_BRIDGE_AUTO_SETUP_CLAUDE = cliArgs.autoSetupClaude ? "1" : "0";
+  }
+
   const shellSnapshot: Record<string, string | undefined> = { ...process.env };
   applyBundledEnvDefaults(shellSnapshot);
-  const cliArgs = parseCliArgs(argv);
-  const selectedTool = cliArgs.tool ?? shellSnapshot.NEXUS_ACP_BRIDGE_TOOL ?? readEnv("NEXUS_ACP_BRIDGE_TOOL") ?? null;
+  const selectedTool = resolveToolAlias(
+    cliArgs.tool ?? shellSnapshot.NEXUS_ACP_BRIDGE_TOOL ?? readEnv("NEXUS_ACP_BRIDGE_TOOL") ?? null,
+  );
   applyToolPreset(selectedTool, shellSnapshot);
 
   const explicitProjectDirs = readCsv("NEXUS_ACP_BRIDGE_PROJECT_DIRS");

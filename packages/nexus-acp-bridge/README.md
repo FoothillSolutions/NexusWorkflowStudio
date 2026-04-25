@@ -37,28 +37,41 @@ The bridge now supports three adapter modes:
 From the repo root:
 
 ```bash
-bun run bridge:acp
+bun run bridge
 ```
 
-By default, the bridge auto-loads bundled defaults from `packages/nexus-acp-bridge/.env.defaults`. Those defaults currently select the `claude-code` tool preset.
+This is equivalent to `bun run bridge:acp` and starts the bridge with the bundled defaults (which select the `claude-code` preset).
 
-### One-time setup for the `claude-code` preset
-
-The Claude preset now uses [`@agentclientprotocol/claude-agent-acp`](https://www.npmjs.com/package/@agentclientprotocol/claude-agent-acp). Vendor a local copy once so the bridge can launch a pinned binary from the repo:
+### CLI flags (recommended)
 
 ```bash
-bun run bridge:setup-claude
+# Pick an agent and customise the bridge with one command:
+bun run bridge --agent claude --cors http://localhost:3000
+
+# Other supported flags:
+bun run bridge \
+  --agent claude \              # claude | claude-code | codex | opencode (alias of --tool)
+  --cors http://localhost:3000 \
+  --port 4080 \
+  --host 127.0.0.1 \
+  --project-dir /path/to/repo \ # may be passed multiple times
+  --no-auto-setup               # opt out of auto-vendoring claude-agent-acp
 ```
 
-This creates `packages/nexus-acp-bridge/vendor/claude-code/` with `@agentclientprotocol/claude-agent-acp@0.31.0`. The `claude-code` preset automatically picks up this vendored binary when it exists and falls back to `npx --yes @agentclientprotocol/claude-agent-acp@0.31.0` (with a warning) when it does not.
+CLI flags take precedence over both `.env.defaults` and the selected tool preset, but explicit shell environment variables still win.
 
-Re-run with `--force` to reinstall:
+### Auto setup for `--agent claude`
+
+When you use `--agent claude` (or any path that resolves to the `claude-code` preset) and the vendored binary is missing, the bridge will automatically run the equivalent of `bun run bridge:setup-claude` to install `@agentclientprotocol/claude-agent-acp@0.31.0` into `packages/nexus-acp-bridge/vendor/claude-code/` before starting.
+
+To opt out, pass `--no-auto-setup` or set `NEXUS_ACP_BRIDGE_AUTO_SETUP_CLAUDE=0`. You can still trigger the install manually:
 
 ```bash
-bun run bridge:setup-claude -- --force
+bun run bridge:setup-claude            # install if missing
+bun run bridge:setup-claude -- --force # force reinstall
 ```
 
-### Start a preset directly
+### Preset shortcuts
 
 ```bash
 bun run bridge:acp:claude
@@ -66,16 +79,16 @@ bun run bridge:acp:codex
 bun run bridge:acp:opencode
 ```
 
-Or choose a preset dynamically:
+These are equivalent to `bun run bridge --agent <id>`.
+
+### Environment-style usage (still supported)
 
 ```bash
-bun run bridge:acp --tool codex
-NEXUS_ACP_BRIDGE_TOOL=opencode bun run bridge:acp
+NEXUS_ACP_BRIDGE_CORS_ORIGIN="http://localhost:3000" bun run bridge:acp:claude
+NEXUS_ACP_BRIDGE_TOOL=opencode bun run bridge
 ```
 
-Explicit shell environment variables still override both bundled defaults and preset values.
-
-If the configured bridge port is already occupied, the bridge now automatically retries on a random available port and logs the resolved port at startup.
+If the configured bridge port is already occupied, the bridge automatically retries on a random available port and logs the resolved port at startup.
 
 Then point Nexus to the bridge URL, usually:
 
@@ -117,6 +130,7 @@ Important variables:
 - `NEXUS_ACP_BRIDGE_ACP_PROTOCOL` (`newline` — default, matches Zed ACP; or `content-length`)
 - `NEXUS_ACP_BRIDGE_ACP_PROTOCOL_VERSION` (integer, default `1`)
 - `NEXUS_ACP_BRIDGE_MAX_FILE_READ_BYTES` (default `2097152` — size cap for `/file/content` and `fs/read_text_file`)
+- `NEXUS_ACP_BRIDGE_AUTO_SETUP_CLAUDE` (default `1` — set to `0` to opt out of auto-vendoring `claude-agent-acp` when the `claude-code` preset is selected; `--no-auto-setup` does the same)
 
 ## Adapter shape
 

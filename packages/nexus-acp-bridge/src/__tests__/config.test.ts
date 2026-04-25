@@ -174,9 +174,51 @@ describe("bridge config", () => {
   });
 
   test("parses CLI tool args helper", () => {
-    expect(__private__.parseCliArgs(["--tool", "codex"])).toEqual({ tool: "codex" });
-    expect(__private__.parseCliArgs(["--tool=opencode"])).toEqual({ tool: "opencode" });
-    expect(__private__.parseCliArgs([])).toEqual({ tool: null });
+    expect(__private__.parseCliArgs(["--tool", "codex"])).toMatchObject({ tool: "codex" });
+    expect(__private__.parseCliArgs(["--tool=opencode"])).toMatchObject({ tool: "opencode" });
+    expect(__private__.parseCliArgs(["--agent", "claude"])).toMatchObject({ tool: "claude" });
+    expect(__private__.parseCliArgs([])).toMatchObject({ tool: null });
+  });
+
+  test("--agent claude resolves to claude-code preset", () => {
+    delete process.env.NEXUS_ACP_BRIDGE_TOOL;
+    delete process.env.NEXUS_ACP_BRIDGE_AGENT_COMMAND;
+    delete process.env.NEXUS_ACP_BRIDGE_AGENT_ARGS;
+    delete process.env.NEXUS_ACP_BRIDGE_PROVIDER_ID;
+
+    const config = loadBridgeConfig(["--agent", "claude"]);
+
+    expect(config.selectedTool).toBe("claude-code");
+    expect(config.defaultProviderId).toBe("claude-code");
+  });
+
+  test("CLI flags override env defaults for cors, port, host, project dirs", () => {
+    delete process.env.NEXUS_ACP_BRIDGE_CORS_ORIGIN;
+    delete process.env.NEXUS_ACP_BRIDGE_PORT;
+    delete process.env.NEXUS_ACP_BRIDGE_HOST;
+    delete process.env.NEXUS_ACP_BRIDGE_PROJECT_DIRS;
+    delete process.env.NEXUS_ACP_BRIDGE_PROJECT_DIR;
+
+    const config = loadBridgeConfig([
+      "--cors", "http://localhost:9999",
+      "--port=5555",
+      "--host", "0.0.0.0",
+      "--project-dir", "/tmp/a",
+      "--project-dir=/tmp/b",
+    ]);
+
+    expect(config.corsOrigin).toBe("http://localhost:9999");
+    expect(config.port).toBe(5555);
+    expect(config.host).toBe("0.0.0.0");
+    expect(config.projectDirs).toEqual(["/tmp/a", "/tmp/b"]);
+  });
+
+  test("--no-auto-setup disables claude vendor auto-install", () => {
+    delete process.env.NEXUS_ACP_BRIDGE_AUTO_SETUP_CLAUDE;
+
+    loadBridgeConfig(["--agent", "claude", "--no-auto-setup"]);
+
+    expect(String(process.env.NEXUS_ACP_BRIDGE_AUTO_SETUP_CLAUDE)).toBe("0");
   });
 });
 

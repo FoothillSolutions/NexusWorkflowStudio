@@ -1,6 +1,5 @@
 import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { CLAUDE_AGENT_ACP_VERSION, CLAUDE_VENDOR_BIN, ensureClaudeAcpVendored } from "./vendor-claude-acp";
 
 export interface BridgeToolPreset {
   id: string;
@@ -9,22 +8,33 @@ export interface BridgeToolPreset {
   resolveEnv(): Record<string, string>;
 }
 
-const here = path.dirname(fileURLToPath(import.meta.url));
-const CLAUDE_CODE_VENDOR_BIN = path.resolve(
-  here,
-  "..",
-  "vendor",
-  "claude-code",
-  "node_modules",
-  ".bin",
-  "claude-agent-acp",
-);
-
 let warnedAboutMissingVendor = false;
 
+function autoSetupEnabled(): boolean {
+  const raw = process.env.NEXUS_ACP_BRIDGE_AUTO_SETUP_CLAUDE?.trim().toLowerCase();
+  // Default ON. Opt-out with NEXUS_ACP_BRIDGE_AUTO_SETUP_CLAUDE=0 / false / off / no.
+  if (!raw) return true;
+  return !["0", "false", "no", "off"].includes(raw);
+}
+
 function resolveClaudeCodeCommand(): { command: string; args: string } {
-  if (fs.existsSync(CLAUDE_CODE_VENDOR_BIN)) {
-    return { command: CLAUDE_CODE_VENDOR_BIN, args: "" };
+  if (fs.existsSync(CLAUDE_VENDOR_BIN)) {
+    return { command: CLAUDE_VENDOR_BIN, args: "" };
+  }
+
+  if (autoSetupEnabled()) {
+    console.log(
+      "[nexus-acp-bridge] claude-code vendored install missing — auto-installing " +
+        `@agentclientprotocol/claude-agent-acp@${CLAUDE_AGENT_ACP_VERSION}. ` +
+        "Set NEXUS_ACP_BRIDGE_AUTO_SETUP_CLAUDE=0 to opt out.",
+    );
+    const installed = ensureClaudeAcpVendored({
+      silent: true,
+      log: (msg) => console.log(`[nexus-acp-bridge] ${msg}`),
+    });
+    if (installed) {
+      return { command: installed, args: "" };
+    }
   }
 
   if (!warnedAboutMissingVendor) {
@@ -32,11 +42,11 @@ function resolveClaudeCodeCommand(): { command: string; args: string } {
     console.warn(
       "[nexus-acp-bridge] claude-code vendored install not found. " +
         "Run `bun run bridge:setup-claude` to vendor @agentclientprotocol/claude-agent-acp locally. " +
-        "Falling back to `npx --yes @agentclientprotocol/claude-agent-acp`.",
+        `Falling back to \`npx --yes @agentclientprotocol/claude-agent-acp@${CLAUDE_AGENT_ACP_VERSION}\`.`,
     );
   }
 
-  return { command: "npx", args: "--yes @agentclientprotocol/claude-agent-acp@0.31.0" };
+  return { command: "npx", args: `--yes @agentclientprotocol/claude-agent-acp@${CLAUDE_AGENT_ACP_VERSION}` };
 }
 
 export const BRIDGE_TOOL_PRESETS: Record<string, BridgeToolPreset> = {
