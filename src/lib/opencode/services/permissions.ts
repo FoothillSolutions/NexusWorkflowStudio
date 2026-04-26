@@ -1,5 +1,5 @@
 import type { HttpClient, RequestOptions } from "../client";
-import type { PermissionRequest, PermissionReply } from "../types";
+import type { BridgePermissionResponsePayload, PermissionRequest, PermissionReply } from "../types";
 
 export function createPermissionService(http: HttpClient) {
   return {
@@ -35,6 +35,19 @@ export function createPermissionService(http: HttpClient) {
       return http.post<boolean>(
         `/session/${encodeURIComponent(sessionID)}/permissions/${encodeURIComponent(permissionID)}`,
         { response },
+        opts,
+      );
+    },
+
+    /** POST /session/{sessionID}/permission — Reply to an ACP bridge forwarded permission request. */
+    async respondBridgeSession(
+      sessionID: string,
+      payload: BridgePermissionResponsePayload,
+      opts?: RequestOptions,
+    ): Promise<boolean> {
+      return http.post<boolean>(
+        `/session/${encodeURIComponent(sessionID)}/permission`,
+        payload,
         opts,
       );
     },

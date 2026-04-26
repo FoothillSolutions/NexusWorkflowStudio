@@ -130,6 +130,42 @@ export type PermissionObjectConfig = Record<string, PermissionActionConfig>;
 export type PermissionRuleConfig = PermissionActionConfig | PermissionObjectConfig;
 export type PermissionConfig = Record<string, PermissionRuleConfig> | PermissionActionConfig;
 
+export type BridgePermissionMode = "auto" | "forward";
+
+export interface BridgePermissionOption {
+  name: string;
+  kind: string;
+  optionId: string;
+}
+
+export interface BridgePermissionRequestedEvent {
+  sessionID: string;
+  requestID: string;
+  toolCall: { title: string; kind?: string };
+  options: BridgePermissionOption[];
+}
+
+export interface BridgePermissionResponsePayload {
+  requestID: string;
+  outcome: "selected" | "cancelled";
+  optionId?: string;
+}
+
+export interface BridgeToolCallEventProperties {
+  sessionID: string;
+  messageID: string;
+  callID: string;
+  title: string;
+  kind?: string;
+  rawInput?: unknown;
+  status: "pending" | "running" | "completed" | "failed";
+}
+
+export interface BridgeToolCallUpdatedEventProperties extends BridgeToolCallEventProperties {
+  rawOutput?: unknown;
+  error?: string;
+}
+
 export interface PermissionRequest {
   id: string;
   sessionID: string;
@@ -401,6 +437,7 @@ export interface SessionCreatePayload {
   parentID?: string;
   title?: string;
   permission?: PermissionRuleset;
+  permissionMode?: BridgePermissionMode;
 }
 
 export interface SessionUpdatePayload {
@@ -1004,6 +1041,9 @@ export type OpenCodeEvent =
   | { type: "message.removed"; properties: { sessionID: string; messageID: string } }
   | { type: "message.part.updated"; properties: { part: Part } }
   | { type: "message.part.delta"; properties: { sessionID: string; messageID: string; partID: string; field: string; delta: string } }
+  | { type: "tool.call"; properties: BridgeToolCallEventProperties }
+  | { type: "tool.call.updated"; properties: BridgeToolCallUpdatedEventProperties }
+  | { type: "permission.requested"; properties: BridgePermissionRequestedEvent }
   | { type: "message.part.removed"; properties: { sessionID: string; messageID: string; partID: string } }
   | { type: "session.compacted"; properties: { sessionID: string } }
   | { type: "session.created"; properties: { info: Session } }

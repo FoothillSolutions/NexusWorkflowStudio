@@ -27,6 +27,8 @@ export {
 export type {
   ACPAdapter,
   BridgeConfig,
+  BridgePermissionRequestPayload,
+  BridgePermissionResponsePayload,
   Command,
   ConfigProviders,
   GenerateTextRequest,
@@ -34,8 +36,13 @@ export type {
   MCPStatus,
   McpResource,
   Model,
+  OpenCodeEvent,
+  PermissionMode,
+  PermissionOutcome,
   Project,
   Provider,
+  ToolCallEventProperties,
+  ToolCallUpdatedEventProperties,
   ToolListItem,
 } from "./types";
 

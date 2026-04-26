@@ -5,6 +5,7 @@ import type {
   ACPRequestHandler,
   ACPSessionUpdateHandler,
 } from "../transport/jsonrpc-client";
+import type { OpenCodeEvent } from "../types";
 import { ACPProtocolAdapter } from "../adapters/acp-protocol";
 import { makeBridgeConfig, makeGenerateTextRequest } from "./test-helpers";
 
@@ -21,6 +22,8 @@ class FakeACPClient implements ACPJsonRpcClientLike {
   private readonly requestHandlers = new Map<string, ACPRequestHandler>();
   private nextAcpSessionId = 1;
   sessionNewResult: unknown = null;
+  promptUpdates: unknown[] = [];
+  promptHook: ((sessionId: string) => Promise<void>) | null = null;
 
   requestHandler: ((method: string, params: unknown) => Promise<unknown>) | null = null;
 
@@ -55,6 +58,9 @@ class FakeACPClient implements ACPJsonRpcClientLike {
     if (method === "session/prompt") {
       const sessionId = (params as { sessionId?: string })?.sessionId;
       if (sessionId) {
+        for (const update of this.promptUpdates) {
+          queueMicrotask(() => this.emitSessionUpdate(sessionId, update));
+        }
         queueMicrotask(() => this.emitSessionUpdate(sessionId, {
           sessionUpdate: "agent_message_chunk",
           content: { type: "text", text: "hello " },
@@ -63,6 +69,7 @@ class FakeACPClient implements ACPJsonRpcClientLike {
           sessionUpdate: "agent_message_chunk",
           content: { type: "text", text: "world" },
         }));
+        await this.promptHook?.(sessionId);
       }
       return { stopReason: "end_turn" } as T;
     }
@@ -109,7 +116,7 @@ class FakeACPClient implements ACPJsonRpcClientLike {
     return await handler(params);
   }
 
-  private emitSessionUpdate(sessionId: string, update: unknown): void {
+  emitSessionUpdate(sessionId: string, update: unknown): void {
     const notification = { jsonrpc: "2.0", method: "session/update", params: { sessionId, update } } as const;
     for (const listener of this.notificationListeners) {
       listener(notification);
@@ -272,7 +279,61 @@ describe("ACPProtocolAdapter", () => {
     }
   });
 
-  test("registers fs/read_text_file and session/request_permission handlers", async () => {
+  test("emits tool call events with bridge session and assistant message IDs", async () => {
+    const client = new FakeACPClient();
+    client.promptUpdates = [
+      {
+        sessionUpdate: "tool_call",
+        toolCall: { callId: "call-1", title: "Read file", kind: "read", input: { path: "README.md" } },
+        status: "running",
+      },
+      {
+        sessionUpdate: "tool_call_update",
+        toolCall: { callId: "call-1", title: "Read file", kind: "read", output: { lines: 3 } },
+        status: "completed",
+      },
+    ];
+    const adapter = new ACPProtocolAdapter(makeBridgeConfig({ adapterMode: "acp" }), client);
+    const events: unknown[] = [];
+
+    try {
+      const request = {
+        ...makeGenerateTextRequest(),
+        assistantMessageID: "assistant-123",
+        publishEvent: (event: unknown) => events.push(event),
+      };
+      for await (const _ of adapter.generateText(request)) { /* drain */ }
+
+      expect(events).toContainEqual({
+        type: "tool.call",
+        properties: {
+          sessionID: "session-1",
+          messageID: "assistant-123",
+          callID: "call-1",
+          title: "Read file",
+          kind: "read",
+          rawInput: { path: "README.md" },
+          status: "running",
+        },
+      });
+      expect(events).toContainEqual({
+        type: "tool.call.updated",
+        properties: {
+          sessionID: "session-1",
+          messageID: "assistant-123",
+          callID: "call-1",
+          title: "Read file",
+          kind: "read",
+          status: "completed",
+          rawOutput: { lines: 3 },
+        },
+      });
+    } finally {
+      await adapter.dispose();
+    }
+  });
+
+  test("registers fs/read_text_file and keeps auto permission approval by default", async () => {
     const client = new FakeACPClient();
     const adapter = new ACPProtocolAdapter(
       makeBridgeConfig({ adapterMode: "acp", projectDirs: [process.cwd()] }),
@@ -295,6 +356,92 @@ describe("ACPProtocolAdapter", () => {
         path: `${process.cwd()}/package.json`,
       });
       expect(typeof (readResult as { content?: unknown }).content).toBe("string");
+    } finally {
+      await adapter.dispose();
+    }
+  });
+
+  test("forwards permission requests and resolves selected/cancelled responses", async () => {
+    const client = new FakeACPClient();
+    const adapter = new ACPProtocolAdapter(
+      makeBridgeConfig({ adapterMode: "acp", permissionTimeoutMs: 1_000 }),
+      client,
+    );
+    const events: OpenCodeEvent[] = [];
+
+    client.promptHook = async (sessionId) => {
+      const pending = client.invokeRequestHandler("session/request_permission", {
+        sessionId,
+        toolCall: { title: "Write file", kind: "write" },
+        options: [{ optionId: "allow_once", name: "Allow once", kind: "allow_once" }],
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const requestID = events.find((event) => event.type === "permission.requested")?.properties?.requestID;
+      expect(requestID).toBeString();
+      const resolved = await adapter.respondToPermission({
+        sessionID: "session-1",
+        requestID: requestID as string,
+        outcome: { outcome: "selected", optionId: "allow_once" },
+      });
+      expect(resolved).toBe(true);
+      expect(await pending).toEqual({ outcome: { outcome: "selected", optionId: "allow_once" } });
+
+      const cancelPending = client.invokeRequestHandler("session/request_permission", {
+        sessionId,
+        toolCall: { title: "Run command" },
+        options: [{ optionId: "reject_once", name: "Reject", kind: "reject_once" }],
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const cancelID = events.filter((event) => event.type === "permission.requested").at(-1)?.properties.requestID;
+      expect(cancelID).toBeString();
+      expect(await adapter.respondToPermission({
+        sessionID: "session-1",
+        requestID: cancelID as string,
+        outcome: { outcome: "cancelled" },
+      })).toBe(true);
+      expect(await cancelPending).toEqual({ outcome: { outcome: "cancelled" } });
+    };
+
+    try {
+      const request = {
+        ...makeGenerateTextRequest(),
+        permissionMode: "forward" as const,
+        publishEvent: (event: OpenCodeEvent) => { events.push(event); },
+      };
+      for await (const _ of adapter.generateText(request)) { /* drain */ }
+
+      expect(events[0]).toMatchObject({
+        type: "permission.requested",
+        properties: {
+          sessionID: "session-1",
+          toolCall: { title: "Write file", kind: "write" },
+          options: [{ optionId: "allow_once", name: "Allow once", kind: "allow_once" }],
+        },
+      });
+    } finally {
+      await adapter.dispose();
+    }
+  });
+
+  test("forwarded permissions timeout to cancelled", async () => {
+    const client = new FakeACPClient();
+    const adapter = new ACPProtocolAdapter(
+      makeBridgeConfig({ adapterMode: "acp", permissionTimeoutMs: 5 }),
+      client,
+    );
+    let permissionResult: unknown;
+
+    client.promptHook = async (sessionId) => {
+      permissionResult = await client.invokeRequestHandler("session/request_permission", {
+        sessionId,
+        toolCall: { title: "Dangerous" },
+        options: [{ optionId: "allow_once", name: "Allow", kind: "allow_once" }],
+      });
+    };
+
+    try {
+      for await (const _ of adapter.generateText({ ...makeGenerateTextRequest(), permissionMode: "forward" })) { /* drain */ }
+      expect(permissionResult).toEqual({ outcome: { outcome: "cancelled" } });
     } finally {
       await adapter.dispose();
     }
