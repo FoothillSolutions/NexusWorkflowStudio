@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, Search } from "lucide-react";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { addRecentWorkspace } from "@/lib/workspace/local-history";
 import { BG_APP, TEXT_PRIMARY, TEXT_MUTED, BORDER_DEFAULT } from "@/lib/theme";
@@ -29,6 +29,10 @@ export function WorkspaceDashboard({ workspaceId }: WorkspaceDashboardProps) {
       });
     }
   }, [workspace, workflows.length]);
+
+  const handleResearch = () => {
+    router.push(`/workspace/${workspaceId}/research`);
+  };
 
   const handleNewWorkflow = async () => {
     try {
@@ -70,6 +74,27 @@ export function WorkspaceDashboard({ workspaceId }: WorkspaceDashboardProps) {
       />
 
       <main className="mx-auto max-w-5xl px-6 py-8">
+        <div className="mb-6 rounded-xl border border-cyan-500/30 bg-cyan-500/10 p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="flex items-center gap-2 text-lg font-semibold text-zinc-100">
+                <Search className="h-5 w-5 text-cyan-300" />
+                Workspace Research
+              </h2>
+              <p className="mt-1 text-sm text-zinc-400">
+                Collect notes, use planning templates, synthesize findings, and promote research into Brain.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleResearch}
+              className="rounded-lg bg-cyan-500 px-4 py-2 text-sm font-medium text-zinc-950 transition-colors hover:bg-cyan-400"
+            >
+              Open Research
+            </button>
+          </div>
+        </div>
+
         {workflows.length === 0 ? (
           <EmptyState onCreateWorkflow={handleNewWorkflow} />
         ) : (

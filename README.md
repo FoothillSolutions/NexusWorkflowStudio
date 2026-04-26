@@ -28,6 +28,14 @@ Nexus is a visual workflow editor for designing, composing, and exporting AI wor
 - Export generated files as a ZIP or write them directly into a target folder
 - Include generated `run-<workflow>.sh` and `run-<workflow>.bat` helper scripts with exported workflow artifacts
 
+### 🔎 Workspace Research and Planning
+
+- Open a workspace-native Research surface from every workspace dashboard at `/workspace/[id]/research`
+- Create research spaces from Research Brief, PRD, Implementation Plan, and Decision Log templates
+- Capture tile-based notes, tasks, sources, relationships, syntheses, and promote curated findings into Brain
+- Import/export portable `.nodepad` files and copy/export research as markdown
+- Research editing stays local-first when optional AI connector features are disconnected
+
 ### 📝 Content and Agent Authoring
 
 - Fullscreen editing for prompts and documents
