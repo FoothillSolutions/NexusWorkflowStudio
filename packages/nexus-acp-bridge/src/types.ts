@@ -169,6 +169,9 @@ export type OpenCodeEvent =
   | { type: "message.updated"; properties: { info: Message } }
   | { type: "message.part.delta"; properties: { sessionID: string; messageID: string; partID: string; field: string; delta: string } }
   | { type: "session.updated"; properties: { info: Session } }
+  | { type: "tool.call"; properties: { sessionID?: string; id?: string; callID?: string; name?: string; tool?: string; status?: string; input?: unknown } }
+  | { type: "tool.call.updated"; properties: { sessionID?: string; id?: string; callID?: string; name?: string; tool?: string; status?: string; input?: unknown; output?: unknown; error?: string } }
+  | { type: "permission.requested"; properties: { sessionID?: string; requestId?: string; id?: string; title?: string; description?: string; options?: Array<{ id: string; label: string; description?: string; outcome?: string }> } }
   | { type: "session.idle"; properties: { sessionID: string } }
   | { type: "session.error"; properties: { sessionID?: string; error?: { name: string; data?: { message?: string } } } };
 

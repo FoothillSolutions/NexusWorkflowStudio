@@ -51,6 +51,7 @@ const PromptPayloadSchema = z.object({
 
 const CreateSessionSchema = z.object({
   title: z.string().optional(),
+  permissionMode: z.enum(["auto", "forward"]).optional(),
 }).partial();
 
 const CommandPayloadSchema = z.object({
@@ -457,6 +458,14 @@ export class NexusACPBridgeServer {
         void this.runPromptAsync(sessionId, payload).catch((error) => {
           console.error("[nexus-acp-bridge] async prompt failed:", error);
         });
+        return withCors(json(true), this.config);
+      }
+
+      const sessionPermissionMatch = pathname.match(/^\/session\/([^/]+)\/permission$/);
+      if (request.method === "POST" && sessionPermissionMatch) {
+        const sessionId = decodeURIComponent(sessionPermissionMatch[1] ?? "");
+        this.requireSession(sessionId);
+        await request.json().catch(() => ({}));
         return withCors(json(true), this.config);
       }
 

@@ -22,6 +22,8 @@ import { BrainPanel } from "./brain-panel";
 import SubWorkflowCanvas from "./sub-workflow-canvas";
 import FloatingPromptGen from "./floating-prompt-gen";
 import FloatingWorkflowGen from "./floating-workflow-gen";
+import { SidekickPanel } from "./sidekick/panel";
+import { useSidekickStore } from "@/store/sidekick";
 import { DiffReviewDialog } from "./ai-diff-review";
 import WhatsNewDialog from "./whats-new-dialog";
 import { useWhatsNew } from "@/hooks/use-whats-new";
@@ -195,6 +197,14 @@ export default function WorkflowEditor({
         return;
       }
 
+      // ── Mod+Alt+I → AI Side-kick ───────────────────────────────────
+      if (mod && e.altKey && e.code === "KeyI") {
+        if (isEditingText) return;
+        e.preventDefault();
+        useSidekickStore.getState().togglePanel();
+        return;
+      }
+
       // ── Mod+Alt+P → Preview output ────────────────────────────────
       if (mod && e.altKey && e.code === "KeyP") {
         e.preventDefault();
@@ -271,6 +281,7 @@ export default function WorkflowEditor({
             <PropertiesPanel />
             <FloatingPromptGen />
             <FloatingWorkflowGen />
+            <SidekickPanel />
             <LibraryPanel />
             <BrainPanel />
           </div>

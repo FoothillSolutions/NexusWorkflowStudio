@@ -1,5 +1,5 @@
 import type { HttpClient, RequestOptions } from "../client";
-import type { PermissionRequest, PermissionReply } from "../types";
+import type { PermissionRequest, PermissionReply, SessionPermissionResponsePayload } from "../types";
 
 export function createPermissionService(http: HttpClient) {
   return {
@@ -35,6 +35,19 @@ export function createPermissionService(http: HttpClient) {
       return http.post<boolean>(
         `/session/${encodeURIComponent(sessionID)}/permissions/${encodeURIComponent(permissionID)}`,
         { response },
+        opts,
+      );
+    },
+
+    /** POST /session/{sessionID}/permission — Reply to a forwarded ACP permission request. */
+    async respondToSession(
+      sessionID: string,
+      payload: SessionPermissionResponsePayload,
+      opts?: RequestOptions,
+    ): Promise<boolean> {
+      return http.post<boolean>(
+        `/session/${encodeURIComponent(sessionID)}/permission`,
+        payload,
         opts,
       );
     },

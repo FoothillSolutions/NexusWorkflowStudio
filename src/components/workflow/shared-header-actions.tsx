@@ -27,11 +27,13 @@ import {
   Keyboard,
   Radio,
   Brain,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { TEXT_MUTED } from "@/lib/theme";
 import { useOpenCodeStore } from "@/store/opencode";
 import { useKnowledgeStore } from "@/store/knowledge-store";
+import { useSidekickStore } from "@/store/sidekick";
 import { cn } from "@/lib/utils";
 import ShortcutsDialog from "./shortcuts-dialog";
 import AboutDialog from "./about-dialog";
@@ -133,6 +135,51 @@ export function BrainToggleButton({ className, variant = "default" }: BrainToggl
         </Button>
       </TooltipTrigger>
       <TooltipContent side="bottom">Open Brain</TooltipContent>
+    </Tooltip>
+  );
+}
+
+/* ── AI Side-kick Toggle Button ─────────────────────────────────────────── */
+
+interface SidekickToggleButtonProps {
+  className?: string;
+  variant?: "compact" | "default";
+}
+
+export function SidekickToggleButton({ className, variant = "default" }: SidekickToggleButtonProps) {
+  const panelOpen = useSidekickStore((s) => s.panelOpen);
+  const isCompact = variant === "compact";
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => useSidekickStore.getState().togglePanel()}
+          aria-label="Toggle AI side-kick"
+          aria-pressed={panelOpen}
+          title="AI side-kick"
+          className={cn(
+            chromeButtonClass(isCompact),
+            panelOpen
+              ? "border-violet-500/25 bg-violet-500/10 text-violet-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+              : `${TEXT_MUTED} hover:border-zinc-700/70 hover:bg-zinc-800/80 hover:text-zinc-100`,
+            className,
+          )}
+        >
+          <span
+            className={cn(
+              "flex size-5.5 shrink-0 items-center justify-center transition-colors",
+              panelOpen ? "text-violet-300" : "text-zinc-400 group-hover:text-zinc-200",
+            )}
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+          </span>
+          <span className={cn(isCompact ? "text-xs font-medium" : "")}>Side-kick</span>
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">Toggle AI side-kick</TooltipContent>
     </Tooltip>
   );
 }

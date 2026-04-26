@@ -10,6 +10,7 @@ import {
 import { useSavedWorkflowsStore } from "@/store/library";
 import { useOpenCodeStore } from "@/store/opencode";
 import { useWorkflowGenStore } from "@/store/workflow-gen";
+import { useSidekickStore } from "@/store/sidekick";
 import { useWorkflowStore } from "@/store/workflow";
 import { useCollabStore, createRoomId } from "@/store/collaboration";
 import { buildCollabRoomUrl, buildCollabShareUrl, CollabDoc } from "@/lib/collaboration";
@@ -25,6 +26,7 @@ interface HeaderController {
   getWorkflowJSON: () => WorkflowJSON;
   isOpenCodeConnected: boolean;
   isWorkflowGenOpen: boolean;
+  isSidekickOpen: boolean;
   importDialogOpen: boolean;
   setImportDialogOpen: (open: boolean) => void;
   previewOpen: boolean;
@@ -44,6 +46,7 @@ interface HeaderController {
   handleGenerate: () => void;
   handleView: () => void;
   toggleWorkflowGen: () => void;
+  toggleSidekick: () => void;
   // Collaboration
   collabRoomId: string | null;
   isCollabActive: boolean;
@@ -64,6 +67,7 @@ export function useHeaderController(): HeaderController {
   const openCodeStatus = useOpenCodeStore((state) => state.status);
   const isOpenCodeConnected = openCodeStatus === "connected";
   const isWorkflowGenOpen = useWorkflowGenStore((state) => state.floating);
+  const isSidekickOpen = useSidekickStore((state) => state.panelOpen);
   const collabRoomId = useCollabStore((state) => state.roomId);
   const isCollabActive = collabRoomId !== null;
   const isCollabInitializing = useCollabStore((state) => state.isInitializing);
@@ -141,6 +145,10 @@ export function useHeaderController(): HeaderController {
     store.setFloating(!store.floating);
   }, []);
 
+  const toggleSidekick = useCallback(() => {
+    useSidekickStore.getState().togglePanel();
+  }, []);
+
   useEffect(() => {
     const onOpenImport = () => setImportDialogOpen(true);
     const onOpenPreview = () => handleView();
@@ -150,12 +158,14 @@ export function useHeaderController(): HeaderController {
       const store = useWorkflowGenStore.getState();
       store.setFloating(!store.floating);
     };
+    const onToggleSidekick = () => useSidekickStore.getState().togglePanel();
 
     window.addEventListener("nexus:open-import", onOpenImport);
     window.addEventListener("nexus:open-preview", onOpenPreview);
     window.addEventListener("nexus:generate", onGenerate);
     window.addEventListener("nexus:new-workflow-request", onNewWorkflow);
     window.addEventListener("nexus:open-workflow-gen", onOpenWorkflowGen);
+    window.addEventListener("nexus:toggle-sidekick", onToggleSidekick);
 
     return () => {
       window.removeEventListener("nexus:open-import", onOpenImport);
@@ -163,6 +173,7 @@ export function useHeaderController(): HeaderController {
       window.removeEventListener("nexus:generate", onGenerate);
       window.removeEventListener("nexus:new-workflow-request", onNewWorkflow);
       window.removeEventListener("nexus:open-workflow-gen", onOpenWorkflowGen);
+      window.removeEventListener("nexus:toggle-sidekick", onToggleSidekick);
     };
   }, [handleGenerate, handleView, requestNewWorkflow]);
 
@@ -175,6 +186,7 @@ export function useHeaderController(): HeaderController {
     getWorkflowJSON,
     isOpenCodeConnected,
     isWorkflowGenOpen,
+    isSidekickOpen,
     importDialogOpen,
     setImportDialogOpen,
     previewOpen,
@@ -194,6 +206,7 @@ export function useHeaderController(): HeaderController {
     handleGenerate,
     handleView,
     toggleWorkflowGen,
+    toggleSidekick,
     collabRoomId,
     isCollabActive,
     isCollabInitializing,

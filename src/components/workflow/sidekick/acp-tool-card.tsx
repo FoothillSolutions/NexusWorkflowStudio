@@ -1,0 +1,3 @@
+"use client";
+import type { SidekickMessage } from "@/store/sidekick";
+export function AcpToolCard({ message }: { message: Extract<SidekickMessage, { kind: "acp-tool" }> }) { return <details className="rounded-xl border border-sky-800/70 bg-sky-950/30 p-3 text-xs text-sky-100"><summary className="cursor-pointer font-medium">ACP tool: {message.tool.name} <span className="text-sky-300">{message.tool.status}</span></summary><pre className="mt-2 max-h-40 overflow-auto text-[11px] text-sky-200/80">{JSON.stringify({ input: message.tool.input, output: message.tool.output, error: message.tool.error }, null, 2)}</pre></details>; }

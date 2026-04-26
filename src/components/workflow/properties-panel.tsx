@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { X, Trash2, SlidersHorizontal } from "lucide-react";
 import { useWorkflowStore } from "@/store/workflow";
+import { useSidekickStore } from "@/store/sidekick";
 import { WorkflowNodeType } from "@/types/workflow";
 import {
   TEXT_MUTED,
@@ -57,6 +58,7 @@ export default function PropertiesPanel() {
   const updateSubNodeData = useWorkflowStore((s) => s.updateSubNodeData);
   const setDeleteTarget = useWorkflowStore((s) => s.setDeleteTarget);
   const activeSubWorkflowNodeId = useWorkflowStore((s) => s.activeSubWorkflowNodeId);
+  const sidekickOpen = useSidekickStore((s) => s.panelOpen);
   const { selectedNodeId, nodeData, isSubNode } = useSelectedWorkflowNode();
   const {
     register,
@@ -105,11 +107,16 @@ export default function PropertiesPanel() {
   }
 
   const Icon = registryEntry!.icon;
+  const panelHeight = activeSubWorkflowNodeId
+    ? "calc(100% - 32px)"
+    : sidekickOpen
+      ? "calc(50vh - 24px)"
+      : "calc(100vh - 112px)";
 
   return (
     <div
       className={`${PANEL_SHELL_CLASS} select-text animate-in slide-in-from-top-4 fade-in-0 duration-200`}
-      style={{ width: "min(380px, calc(100vw - 32px))", height: activeSubWorkflowNodeId ? "calc(100% - 32px)" : "calc(100vh - 112px)" }}
+      style={{ width: "min(380px, calc(100vw - 32px))", height: panelHeight }}
     >
       {/* Header */}
       <div className="relative shrink-0 border-b border-zinc-800/80 px-3 py-3">

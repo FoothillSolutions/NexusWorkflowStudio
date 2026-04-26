@@ -366,6 +366,7 @@ The timer starts after the initial refresh on server startup completes. Manual r
 | `Ctrl/Cmd + Alt + E` | Export workflow JSON |
 | `Ctrl/Cmd + Alt + G` | Open generate/export dialog |
 | `Ctrl/Cmd + Alt + A` | AI generate workflow |
+| `Ctrl/Cmd + Alt + I` | Toggle AI side-kick |
 | `Ctrl/Cmd + Alt + P` | Preview generated output |
 | `H` / `V` | Hand tool / Selection tool |
 | `?` | View all shortcuts |

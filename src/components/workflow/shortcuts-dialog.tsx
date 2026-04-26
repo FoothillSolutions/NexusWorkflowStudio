@@ -68,6 +68,7 @@ export default function ShortcutsDialog({ open, onOpenChange }: ShortcutsDialogP
             <Row keys={[MOD, ALT, "O"]} label="Import workflow" />
             <Row keys={[MOD, ALT, "G"]} label="Open generate/export dialog" />
             <Row keys={[MOD, ALT, "A"]} label="AI generate workflow" />
+            <Row keys={[MOD, ALT, "I"]} label="Toggle AI side-kick" />
             <Row keys={[MOD, ALT, "P"]} label="Preview output" />
           </Section>
 
