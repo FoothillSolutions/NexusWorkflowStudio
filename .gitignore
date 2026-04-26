@@ -67,14 +67,16 @@ storage.json
 .dev.log
 .dev.pid
 /run.sh
+/.claude/
 /temp_examples/
 /test-results/
-_workspace*
+_workspace
 /graphify-out
+_workspace*
 
 # Local runtime data stores (Brain / collab)
-.nexus-brain/
-.nexus-collab/
+/.nexus-brain/
+/.nexus-collab/
 
-# nexus-acp-bridge vendored agent installs
-/packages/nexus-acp-bridge/vendor/
+/.adw/config.yaml
+/.adw/templates/.prefs.json

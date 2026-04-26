@@ -141,6 +141,11 @@ export interface PermissionRequest {
 }
 
 export type PermissionReply = "once" | "always" | "reject";
+export interface SessionPermissionResponsePayload {
+  requestId: string;
+  outcome: string;
+  optionId?: string;
+}
 
 // ── Questions ────────────────────────────────────────────────────────────────
 
@@ -401,6 +406,7 @@ export interface SessionCreatePayload {
   parentID?: string;
   title?: string;
   permission?: PermissionRuleset;
+  permissionMode?: "auto" | "forward";
 }
 
 export interface SessionUpdatePayload {
@@ -982,6 +988,9 @@ export type OpenCodeEvent =
   | { type: "lsp.client.diagnostics"; properties: { serverID: string; path: string } }
   | { type: "permission.asked"; properties: PermissionRequest }
   | { type: "permission.replied"; properties: { sessionID: string; requestID: string; reply: PermissionReply } }
+  | { type: "tool.call"; properties: { sessionID?: string; id?: string; callID?: string; name?: string; tool?: string; status?: string; input?: unknown } }
+  | { type: "tool.call.updated"; properties: { sessionID?: string; id?: string; callID?: string; name?: string; tool?: string; status?: string; input?: unknown; output?: unknown; error?: string } }
+  | { type: "permission.requested"; properties: { sessionID?: string; requestId?: string; id?: string; title?: string; description?: string; options?: Array<{ id: string; label: string; description?: string; outcome?: string }> } }
   | { type: "session.status"; properties: { sessionID: string; status: SessionStatusType } }
   | { type: "session.idle"; properties: { sessionID: string } }
   | { type: "question.asked"; properties: QuestionRequest }
