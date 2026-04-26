@@ -165,9 +165,52 @@ export interface MessageWithParts {
   parts: Part[];
 }
 
+export type PermissionMode = "auto" | "forward";
+
+export type PermissionOutcome =
+  | { outcome: "selected"; optionId: string }
+  | { outcome: "cancelled" };
+
+export interface BridgePermissionOption {
+  name: string;
+  kind: string;
+  optionId: string;
+}
+
+export interface BridgePermissionRequestPayload {
+  sessionID: string;
+  requestID: string;
+  toolCall: { title: string; kind?: string };
+  options: BridgePermissionOption[];
+}
+
+export interface BridgePermissionResponsePayload {
+  requestID: string;
+  outcome: PermissionOutcome["outcome"];
+  optionId?: string;
+}
+
+export interface ToolCallEventProperties {
+  sessionID: string;
+  messageID: string;
+  callID: string;
+  title: string;
+  kind?: string;
+  rawInput?: unknown;
+  status: "pending" | "running" | "completed" | "failed";
+}
+
+export interface ToolCallUpdatedEventProperties extends ToolCallEventProperties {
+  rawOutput?: unknown;
+  error?: string;
+}
+
 export type OpenCodeEvent =
   | { type: "message.updated"; properties: { info: Message } }
   | { type: "message.part.delta"; properties: { sessionID: string; messageID: string; partID: string; field: string; delta: string } }
+  | { type: "tool.call"; properties: ToolCallEventProperties }
+  | { type: "tool.call.updated"; properties: ToolCallUpdatedEventProperties }
+  | { type: "permission.requested"; properties: BridgePermissionRequestPayload }
   | { type: "session.updated"; properties: { info: Session } }
   | { type: "session.idle"; properties: { sessionID: string } }
   | { type: "session.error"; properties: { sessionID?: string; error?: { name: string; data?: { message?: string } } } };
@@ -218,6 +261,8 @@ export interface BridgeConfig {
   acpProtocolVersion: number;
   mockStreamDelayMs: number;
   maxFileReadBytes: number;
+  permissionMode: PermissionMode;
+  permissionTimeoutMs: number;
 }
 
 export interface GenerateTextRequest {
@@ -225,6 +270,9 @@ export interface GenerateTextRequest {
   project: Project;
   payload: PromptPayload;
   signal: AbortSignal;
+  assistantMessageID: string;
+  permissionMode: PermissionMode;
+  publishEvent?: (event: OpenCodeEvent) => void;
 }
 
 export interface ACPAdapter {
@@ -235,6 +283,7 @@ export interface ACPAdapter {
   getMcpStatus(input: { project: Project }): Promise<Record<string, MCPStatus>>;
   listResources(input: { project: Project }): Promise<Record<string, McpResource>>;
   generateText(request: GenerateTextRequest): AsyncIterable<string>;
+  respondToPermission?(input: { sessionID: string; requestID: string; outcome: PermissionOutcome }): Promise<boolean>;
   dispose?(): Promise<void> | void;
 }
 
@@ -244,6 +293,7 @@ export interface SessionRecord {
   messages: MessageWithParts[];
   abortController: AbortController | null;
   status: "idle" | "busy";
+  permissionMode: PermissionMode;
 }
 
 export interface ResolvedDirectory {

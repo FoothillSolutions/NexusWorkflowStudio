@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { BRIDGE_TOOL_PRESET_IDS, getBridgeToolPreset } from "./tool-presets";
-import type { BridgeConfig } from "./types";
+import type { BridgeConfig, PermissionMode } from "./types";
 
 const BUNDLED_ENV_FILES = [
   new URL("../.env.defaults", import.meta.url),
@@ -67,12 +67,14 @@ function parseCliArgs(argv: string[]): {
   host: string | null;
   projectDirs: string[];
   autoSetupClaude: boolean | null;
+  permissionMode: string | null;
 } {
   let tool: string | null = null;
   let cors: string | null = null;
   let port: string | null = null;
   let host: string | null = null;
   let autoSetupClaude: boolean | null = null;
+  let permissionMode: string | null = null;
   const projectDirs: string[] = [];
 
   const takeValue = (flagName: string, index: number): { value: string | null; consumed: number } => {
@@ -118,6 +120,13 @@ function parseCliArgs(argv: string[]): {
       continue;
     }
 
+    if (arg === "--permission-mode" || arg.startsWith("--permission-mode=")) {
+      const { value, consumed } = takeValue("--permission-mode", index);
+      permissionMode = value;
+      index += consumed;
+      continue;
+    }
+
     if (arg === "--project-dir" || arg.startsWith("--project-dir=")) {
       const { value, consumed } = takeValue("--project-dir", index);
       if (value) projectDirs.push(value);
@@ -135,7 +144,7 @@ function parseCliArgs(argv: string[]): {
     }
   }
 
-  return { tool, cors, port, host, projectDirs, autoSetupClaude };
+  return { tool, cors, port, host, projectDirs, autoSetupClaude, permissionMode };
 }
 
 const TOOL_ALIASES: Record<string, string> = {
@@ -188,6 +197,11 @@ function readNumber(name: string, fallback: number): number {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function readPermissionMode(name: string, fallback: PermissionMode): PermissionMode {
+  const raw = readEnv(name)?.toLowerCase();
+  return raw === "auto" || raw === "forward" ? raw : fallback;
+}
+
 function readCsv(name: string): string[] {
   const raw = readEnv(name);
   if (!raw) return [];
@@ -226,11 +240,14 @@ export function loadBridgeConfig(argv: string[] = process.argv.slice(2)): Bridge
   if (cliArgs.autoSetupClaude !== null) {
     process.env.NEXUS_ACP_BRIDGE_AUTO_SETUP_CLAUDE = cliArgs.autoSetupClaude ? "1" : "0";
   }
+  if (cliArgs.permissionMode) {
+    process.env.NEXUS_ACP_BRIDGE_PERMISSION_MODE = cliArgs.permissionMode;
+  }
 
   const shellSnapshot: Record<string, string | undefined> = { ...process.env };
   applyBundledEnvDefaults(shellSnapshot);
   const selectedTool = resolveToolAlias(
-    cliArgs.tool ?? shellSnapshot.NEXUS_ACP_BRIDGE_TOOL ?? readEnv("NEXUS_ACP_BRIDGE_TOOL") ?? null,
+    cliArgs.tool ?? shellSnapshot.NEXUS_ACP_BRIDGE_TOOL ?? readEnv("NEXUS_ACP_BRIDGE_TOOL") ?? "claude-code",
   );
   applyToolPreset(selectedTool, shellSnapshot);
 
@@ -252,6 +269,7 @@ export function loadBridgeConfig(argv: string[] = process.argv.slice(2)): Bridge
   const acpProtocol = readEnv("NEXUS_ACP_BRIDGE_ACP_PROTOCOL") === "content-length"
     ? "content-length"
     : "newline";
+  const permissionTimeoutMs = Math.max(1, Math.floor(readNumber("NEXUS_ACP_BRIDGE_PERMISSION_TIMEOUT_MS", 60_000)));
 
   return {
     adapterMode,
@@ -283,6 +301,8 @@ export function loadBridgeConfig(argv: string[] = process.argv.slice(2)): Bridge
     acpProtocolVersion: readNumber("NEXUS_ACP_BRIDGE_ACP_PROTOCOL_VERSION", 1),
     mockStreamDelayMs: readNumber("NEXUS_ACP_BRIDGE_STREAM_DELAY_MS", 12),
     maxFileReadBytes: readNumber("NEXUS_ACP_BRIDGE_MAX_FILE_READ_BYTES", 2 * 1024 * 1024),
+    permissionMode: readPermissionMode("NEXUS_ACP_BRIDGE_PERMISSION_MODE", "auto"),
+    permissionTimeoutMs,
   };
 }
 

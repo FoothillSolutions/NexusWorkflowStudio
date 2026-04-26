@@ -23,6 +23,8 @@ export function makeBridgeConfig(overrides: Partial<BridgeConfig> = {}): BridgeC
     acpProtocolVersion: 1,
     mockStreamDelayMs: 0,
     maxFileReadBytes: 2 * 1024 * 1024,
+    permissionMode: "auto",
+    permissionTimeoutMs: 60_000,
     ...overrides,
   };
 }
@@ -51,6 +53,9 @@ export function makeGenerateTextRequest(): GenerateTextRequest {
       model: { providerID: "acp", modelID: "model" },
     },
     signal: new AbortController().signal,
+    assistantMessageID: "assistant-message-1",
+    permissionMode: "auto",
+    publishEvent: () => {},
   };
 }
 

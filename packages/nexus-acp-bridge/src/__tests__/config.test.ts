@@ -74,6 +74,34 @@ describe("bridge config", () => {
     expect(config.serverIdleTimeoutSeconds).toBe(45);
   });
 
+  test("defaults permission handling to auto with a 60 second timeout", () => {
+    delete process.env.NEXUS_ACP_BRIDGE_PERMISSION_MODE;
+    delete process.env.NEXUS_ACP_BRIDGE_PERMISSION_TIMEOUT_MS;
+
+    const config = loadBridgeConfig([]);
+
+    expect(config.permissionMode).toBe("auto");
+    expect(config.permissionTimeoutMs).toBe(60_000);
+  });
+
+  test("parses permission mode and timeout from env", () => {
+    process.env.NEXUS_ACP_BRIDGE_PERMISSION_MODE = "forward";
+    process.env.NEXUS_ACP_BRIDGE_PERMISSION_TIMEOUT_MS = "1234";
+
+    const config = loadBridgeConfig([]);
+
+    expect(config.permissionMode).toBe("forward");
+    expect(config.permissionTimeoutMs).toBe(1234);
+  });
+
+  test("CLI permission mode overrides env and invalid values fall back to auto", () => {
+    process.env.NEXUS_ACP_BRIDGE_PERMISSION_MODE = "invalid";
+    expect(loadBridgeConfig([]).permissionMode).toBe("auto");
+
+    const config = loadBridgeConfig(["--permission-mode=forward"]);
+    expect(config.permissionMode).toBe("forward");
+  });
+
   test("explicit environment variables override bundled defaults", () => {
     process.env.NEXUS_ACP_BRIDGE_ADAPTER = "stdio";
     process.env.NEXUS_ACP_BRIDGE_AGENT_COMMAND = "custom-agent";

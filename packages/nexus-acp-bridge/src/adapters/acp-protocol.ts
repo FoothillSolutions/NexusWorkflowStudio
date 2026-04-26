@@ -16,6 +16,9 @@ import type {
   GenerateTextRequest,
   HealthInfo,
   MCPStatus,
+  OpenCodeEvent,
+  PermissionMode,
+  PermissionOutcome,
   McpResource,
   Model,
   Project,
@@ -46,6 +49,117 @@ function asArray(value: unknown): unknown[] {
 function isPathInside(root: string, candidate: string): boolean {
   const relative = path.relative(root, candidate);
   return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+}
+
+function pickFirstString(record: Record<string, unknown> | null | undefined, keys: string[]): string | null {
+  if (!record) return null;
+  for (const key of keys) {
+    const value = asString(record[key]);
+    if (value) return value;
+  }
+  return null;
+}
+
+function extractToolRecord(update: Record<string, unknown>): Record<string, unknown> {
+  return asRecord(update.toolCall) ?? asRecord(update.tool_call) ?? asRecord(update.call) ?? asRecord(update.content) ?? update;
+}
+
+function extractCallID(update: Record<string, unknown>): string | null {
+  const tool = extractToolRecord(update);
+  return pickFirstString(tool, ["callId", "callID", "call_id", "id", "toolCallId", "toolCallID"])
+    ?? pickFirstString(update, ["callId", "callID", "call_id", "id", "toolCallId", "toolCallID"]);
+}
+
+function extractTitle(update: Record<string, unknown>): string {
+  const tool = extractToolRecord(update);
+  return pickFirstString(tool, ["title", "name", "tool", "kind"])
+    ?? pickFirstString(update, ["title", "name", "tool", "kind"])
+    ?? "Tool call";
+}
+
+function extractKind(update: Record<string, unknown>): string | undefined {
+  const tool = extractToolRecord(update);
+  return pickFirstString(tool, ["kind", "type", "tool"])
+    ?? pickFirstString(update, ["kind", "tool"])
+    ?? undefined;
+}
+
+function extractRawInput(update: Record<string, unknown>): unknown {
+  const tool = extractToolRecord(update);
+  return tool.input ?? tool.arguments ?? tool.params ?? update.input ?? update.arguments;
+}
+
+function extractRawOutput(update: Record<string, unknown>): unknown {
+  const tool = extractToolRecord(update);
+  return tool.output ?? tool.result ?? tool.content ?? update.output ?? update.result;
+}
+
+function extractError(update: Record<string, unknown>): string | undefined {
+  const tool = extractToolRecord(update);
+  const raw = tool.error ?? update.error;
+  if (typeof raw === "string" && raw.length > 0) return raw;
+  const record = asRecord(raw);
+  return asString(record?.message) ?? undefined;
+}
+
+function normalizeToolStatus(update: Record<string, unknown>): "pending" | "running" | "completed" | "failed" {
+  const tool = extractToolRecord(update);
+  const status = (asString(tool.status) ?? asString(update.status) ?? "").toLowerCase();
+  if (["completed", "complete", "done", "success", "succeeded"].includes(status)) return "completed";
+  if (["failed", "error", "errored", "cancelled", "canceled"].includes(status)) return "failed";
+  if (["running", "in_progress", "started"].includes(status)) return "running";
+  return update.sessionUpdate === "tool_call" ? "running" : "pending";
+}
+
+function toToolCallEvent(update: Record<string, unknown>, sessionID: string, messageID: string): OpenCodeEvent | null {
+  const callID = extractCallID(update);
+  if (!callID) return null;
+  const rawInput = extractRawInput(update);
+  return {
+    type: "tool.call",
+    properties: {
+      sessionID,
+      messageID,
+      callID,
+      title: extractTitle(update),
+      ...(extractKind(update) ? { kind: extractKind(update) } : {}),
+      ...(rawInput !== undefined ? { rawInput } : {}),
+      status: normalizeToolStatus(update),
+    },
+  };
+}
+
+function toToolCallUpdatedEvent(update: Record<string, unknown>, sessionID: string, messageID: string): OpenCodeEvent | null {
+  const callID = extractCallID(update);
+  if (!callID) return null;
+  const rawInput = extractRawInput(update);
+  const rawOutput = extractRawOutput(update);
+  const error = extractError(update);
+  return {
+    type: "tool.call.updated",
+    properties: {
+      sessionID,
+      messageID,
+      callID,
+      title: extractTitle(update),
+      ...(extractKind(update) ? { kind: extractKind(update) } : {}),
+      ...(rawInput !== undefined ? { rawInput } : {}),
+      status: error ? "failed" : normalizeToolStatus(update),
+      ...(rawOutput !== undefined ? { rawOutput } : {}),
+      ...(error ? { error } : {}),
+    },
+  };
+}
+
+function normalizePermissionOptions(options: unknown): Array<{ name: string; kind: string; optionId: string }> {
+  if (!Array.isArray(options)) return [];
+  return options.flatMap((entry) => {
+    const record = asRecord(entry);
+    const optionId = asString(record?.optionId) ?? asString(record?.id);
+    if (!record || !optionId) return [];
+    const kind = asString(record.kind) ?? "option";
+    return [{ optionId, kind, name: asString(record.name) ?? asString(record.label) ?? optionId }];
+  });
 }
 
 function pickAllowOptionId(options: unknown): string | null {
@@ -201,9 +315,20 @@ function extractConfigProvidersFromSession(result: unknown): ConfigProviders | n
   };
 }
 
+interface PendingPermission {
+  sessionID: string;
+  acpSessionId: string;
+  timeout: ReturnType<typeof setTimeout>;
+  resolve: (value: { outcome: PermissionOutcome }) => void;
+}
+
 export class ACPProtocolAdapter implements ACPAdapter {
   private readonly client: ACPJsonRpcClientLike;
   private readonly sessionMap = new Map<string, string>();
+  private readonly acpToNexusSessionMap = new Map<string, string>();
+  private readonly acpPermissionModeMap = new Map<string, PermissionMode>();
+  private readonly activePublishers = new Map<string, (event: OpenCodeEvent) => void>();
+  private readonly pendingPermissions = new Map<string, PendingPermission>();
   private readonly commandDiscoverySessionMap = new Map<string, string>();
   private readonly commandCache = new Map<string, Command[]>();
   private readonly commandReadyResolvers = new Map<string, () => void>();
@@ -247,6 +372,14 @@ export class ACPProtocolAdapter implements ACPAdapter {
   }
 
   async dispose(): Promise<void> {
+    for (const [requestID, pending] of this.pendingPermissions) {
+      clearTimeout(pending.timeout);
+      pending.resolve({ outcome: { outcome: "cancelled" } });
+      this.pendingPermissions.delete(requestID);
+    }
+    this.acpToNexusSessionMap.clear();
+    this.acpPermissionModeMap.clear();
+    this.activePublishers.clear();
     this.commandDiscoverySessionMap.clear();
     this.commandCache.clear();
     this.commandReadyResolvers.clear();
@@ -314,6 +447,8 @@ export class ACPProtocolAdapter implements ACPAdapter {
   async *generateText(request: GenerateTextRequest): AsyncIterable<string> {
     await this.ensureInitialized();
     const acpSessionId = await this.resolveAcpSession(request);
+    this.acpPermissionModeMap.set(acpSessionId, request.permissionMode);
+    if (request.publishEvent) this.activePublishers.set(acpSessionId, request.publishEvent);
 
     const queue = new AsyncQueue<string>();
 
@@ -327,6 +462,18 @@ export class ACPProtocolAdapter implements ACPAdapter {
       // as text content surfaces visible streaming for every agent backend
       // without losing fidelity — the downstream JSON parser ignores
       // non-JSON prose anyway.
+      if (update.sessionUpdate === "tool_call") {
+        const event = toToolCallEvent(update, request.session.id, request.assistantMessageID);
+        if (event) request.publishEvent?.(event);
+        return;
+      }
+
+      if (update.sessionUpdate === "tool_call_update") {
+        const event = toToolCallUpdatedEvent(update, request.session.id, request.assistantMessageID);
+        if (event) request.publishEvent?.(event);
+        return;
+      }
+
       if (
         update.sessionUpdate !== "agent_message_chunk" &&
         update.sessionUpdate !== "agent_thought_chunk"
@@ -379,7 +526,17 @@ export class ACPProtocolAdapter implements ACPAdapter {
     } finally {
       request.signal.removeEventListener("abort", abortHandler);
       unsubscribe();
+      if (request.publishEvent) this.activePublishers.delete(acpSessionId);
     }
+  }
+
+  async respondToPermission(input: { sessionID: string; requestID: string; outcome: PermissionOutcome }): Promise<boolean> {
+    const pending = this.pendingPermissions.get(input.requestID);
+    if (!pending || pending.sessionID !== input.sessionID) return false;
+    this.pendingPermissions.delete(input.requestID);
+    clearTimeout(pending.timeout);
+    pending.resolve({ outcome: input.outcome });
+    return true;
   }
 
   private ensureInitialized(): Promise<void> {
@@ -425,6 +582,7 @@ export class ACPProtocolAdapter implements ACPAdapter {
     }
 
     this.sessionMap.set(request.session.id, acpSessionId);
+    this.acpToNexusSessionMap.set(acpSessionId, request.session.id);
     return acpSessionId;
   }
 
@@ -502,13 +660,52 @@ export class ACPProtocolAdapter implements ACPAdapter {
     return {};
   }
 
-  private async handleRequestPermission(params: unknown): Promise<{ outcome: unknown }> {
+  private async handleRequestPermission(params: unknown): Promise<{ outcome: PermissionOutcome }> {
     const record = asRecord(params);
-    const optionId = pickAllowOptionId(record?.options);
-    if (optionId) {
-      return { outcome: { outcome: "selected", optionId } };
+    if (!record) return { outcome: { outcome: "cancelled" } };
+    const acpSessionId = asString(record.sessionId) ?? asString(record.sessionID);
+    const nexusSessionId = acpSessionId ? this.acpToNexusSessionMap.get(acpSessionId) : null;
+    const mode = acpSessionId ? this.acpPermissionModeMap.get(acpSessionId) : null;
+
+    if (mode !== "forward" || !acpSessionId || !nexusSessionId) {
+      const optionId = pickAllowOptionId(record.options);
+      if (optionId) {
+        return { outcome: { outcome: "selected", optionId } };
+      }
+      return { outcome: { outcome: "cancelled" } };
     }
-    return { outcome: { outcome: "cancelled" } };
+
+    const requestID = `permission_${crypto.randomUUID()}`;
+    const toolRecord = asRecord(record.toolCall) ?? asRecord(record.tool_call) ?? record;
+    const toolCall = {
+      title: extractTitle(toolRecord),
+      ...(extractKind(toolRecord) ? { kind: extractKind(toolRecord) } : {}),
+    };
+    const options = normalizePermissionOptions(record.options);
+    const publisher = this.activePublishers.get(acpSessionId);
+    publisher?.({
+      type: "permission.requested",
+      properties: {
+        sessionID: nexusSessionId,
+        requestID,
+        toolCall,
+        options,
+      },
+    });
+
+    return await new Promise<{ outcome: PermissionOutcome }>((resolve) => {
+      const timeout = setTimeout(() => {
+        this.pendingPermissions.delete(requestID);
+        resolve({ outcome: { outcome: "cancelled" } });
+      }, this.config.permissionTimeoutMs);
+
+      this.pendingPermissions.set(requestID, {
+        sessionID: nexusSessionId,
+        acpSessionId,
+        timeout,
+        resolve,
+      });
+    });
   }
 
   private requirePathInsideProject(requestedPath: string): string {

@@ -11,6 +11,7 @@ import type {
   MessageWithParts,
   OpenCodeEvent,
   Part,
+  PermissionOutcome,
   Project,
   PromptPayload,
   Session,
@@ -49,9 +50,22 @@ const PromptPayloadSchema = z.object({
   parts: z.array(PromptPartSchema).min(1, "At least one prompt part is required"),
 });
 
+const PermissionModeSchema = z.enum(["auto", "forward"]);
+
 const CreateSessionSchema = z.object({
   title: z.string().optional(),
+  permissionMode: PermissionModeSchema.optional(),
 }).partial();
+
+const PermissionResponseSchema = z.object({
+  requestID: z.string().min(1, "requestID is required"),
+  outcome: z.enum(["selected", "cancelled"]),
+  optionId: z.string().optional(),
+}).superRefine((value, ctx) => {
+  if (value.outcome === "selected" && !value.optionId) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["optionId"], message: "optionId is required when outcome is selected" });
+  }
+});
 
 const CommandPayloadSchema = z.object({
   messageID: z.string().optional(),
@@ -418,7 +432,7 @@ export class NexusACPBridgeServer {
       if (request.method === "POST" && pathname === "/session") {
         const payload = await this.readJsonWithSchema(request, CreateSessionSchema);
         const project = await this.resolveProject(new URL(request.url).searchParams);
-        const session = this.createSession(project, payload.title);
+        const session = this.createSession(project, payload.title, payload.permissionMode ?? this.config.permissionMode);
         return withCors(json(session), this.config);
       }
 
@@ -457,6 +471,28 @@ export class NexusACPBridgeServer {
         void this.runPromptAsync(sessionId, payload).catch((error) => {
           console.error("[nexus-acp-bridge] async prompt failed:", error);
         });
+        return withCors(json(true), this.config);
+      }
+
+      const sessionPermissionMatch = pathname.match(/^\/session\/([^/]+)\/permission$/);
+      if (request.method === "POST" && sessionPermissionMatch) {
+        const sessionId = decodeURIComponent(sessionPermissionMatch[1] ?? "");
+        this.requireSession(sessionId);
+        const payload = await this.readJsonWithSchema(request, PermissionResponseSchema);
+        if (!this.adapter.respondToPermission) {
+          throw new HttpBridgeError(400, "Adapter does not support forwarded permission responses");
+        }
+        const outcome: PermissionOutcome = payload.outcome === "selected"
+          ? { outcome: "selected", optionId: payload.optionId as string }
+          : { outcome: "cancelled" };
+        const resolved = await this.adapter.respondToPermission({
+          sessionID: sessionId,
+          requestID: payload.requestID,
+          outcome,
+        });
+        if (!resolved) {
+          throw new HttpBridgeError(404, `Pending permission request not found: ${payload.requestID}`);
+        }
         return withCors(json(true), this.config);
       }
 
@@ -652,7 +688,7 @@ export class NexusACPBridgeServer {
     return candidate;
   }
 
-  private createSession(project: Project, title?: string): Session {
+  private createSession(project: Project, title?: string, permissionMode = this.config.permissionMode): Session {
     const session: Session = {
       id: createId("session"),
       slug: slugify(title ?? project.name ?? "nexus-session"),
@@ -672,6 +708,7 @@ export class NexusACPBridgeServer {
       messages: [],
       abortController: null,
       status: "idle",
+      permissionMode,
     });
 
     return session;
@@ -765,6 +802,9 @@ export class NexusACPBridgeServer {
         project: record.project,
         payload,
         signal: abortController.signal,
+        assistantMessageID: assistantMessageId,
+        permissionMode: record.permissionMode,
+        publishEvent: (event) => this.eventBroker.publish(event, record.session.directory),
       })) {
         if (abortController.signal.aborted) {
           break;

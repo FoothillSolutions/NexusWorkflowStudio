@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { MockACPAdapter } from "../adapters/mock";
 import { NexusACPBridgeServer } from "../server/http-server";
+import type { GenerateTextRequest, PermissionOutcome } from "../types";
 import { makeBridgeConfig } from "./test-helpers";
 
 const activeServers: NexusACPBridgeServer[] = [];
@@ -10,6 +11,29 @@ afterEach(() => {
     activeServers.pop()?.stop();
   }
 });
+
+class EventingAdapter extends MockACPAdapter {
+  permissionCalls: Array<{ sessionID: string; requestID: string; outcome: PermissionOutcome }> = [];
+
+  async *generateText(request: GenerateTextRequest): AsyncIterable<string> {
+    request.publishEvent?.({
+      type: "tool.call",
+      properties: {
+        sessionID: request.session.id,
+        messageID: request.assistantMessageID,
+        callID: "call-server-1",
+        title: "Server tool",
+        status: "running",
+      },
+    });
+    yield "server output";
+  }
+
+  async respondToPermission(input: { sessionID: string; requestID: string; outcome: PermissionOutcome }): Promise<boolean> {
+    this.permissionCalls.push(input);
+    return input.requestID === "pending-1";
+  }
+}
 
 function startTestServer() {
   const config = makeBridgeConfig({ port: 0 });
@@ -82,6 +106,93 @@ describe("NexusACPBridgeServer", () => {
     expect(message.info.role).toBe("assistant");
     expect(message.parts[0]?.type).toBe("text");
     expect(message.parts[0]?.text).toContain("/plan triage production incidents");
+  });
+
+  test("publishes adapter tool events over SSE", async () => {
+    const config = makeBridgeConfig({ port: 0 });
+    const bridge = new NexusACPBridgeServer(config, new EventingAdapter(config));
+    const server = bridge.start();
+    activeServers.push(bridge);
+    const baseUrl = `http://${server.hostname}:${server.port}`;
+
+    const eventResponse = await fetch(`${baseUrl}/event`);
+    const reader = eventResponse.body?.getReader();
+    expect(reader).toBeDefined();
+
+    const sessionResponse = await fetch(`${baseUrl}/session`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title: "SSE" }),
+    });
+    const session = await sessionResponse.json() as { id: string };
+    await fetch(`${baseUrl}/session/${encodeURIComponent(session.id)}/message`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ parts: [{ type: "text", text: "hello" }] }),
+    });
+
+    const decoder = new TextDecoder();
+    let body = "";
+    for (let index = 0; index < 10 && !body.includes("tool.call"); index += 1) {
+      const chunk = await reader!.read();
+      if (chunk.done) break;
+      body += decoder.decode(chunk.value);
+    }
+    await reader!.cancel();
+
+    expect(body).toContain('"type":"tool.call"');
+    expect(body).toContain('"callID":"call-server-1"');
+  });
+
+  test("accepts per-session forward permission mode and validates permission replies", async () => {
+    const config = makeBridgeConfig({ port: 0 });
+    const adapter = new EventingAdapter(config);
+    const bridge = new NexusACPBridgeServer(config, adapter);
+    const server = bridge.start();
+    activeServers.push(bridge);
+    const baseUrl = `http://${server.hostname}:${server.port}`;
+
+    const missing = await fetch(`${baseUrl}/session/missing/permission`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ requestID: "pending-1", outcome: "cancelled" }),
+    });
+    expect(missing.status).toBe(404);
+
+    const sessionResponse = await fetch(`${baseUrl}/session`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title: "Forward", permissionMode: "forward" }),
+    });
+    const session = await sessionResponse.json() as { id: string };
+    expect(sessionResponse.ok).toBe(true);
+
+    const invalid = await fetch(`${baseUrl}/session/${encodeURIComponent(session.id)}/permission`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ requestID: "pending-1", outcome: "selected" }),
+    });
+    expect(invalid.status).toBe(400);
+
+    const valid = await fetch(`${baseUrl}/session/${encodeURIComponent(session.id)}/permission`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ requestID: "pending-1", outcome: "selected", optionId: "allow_once" }),
+    });
+    expect(valid.ok).toBe(true);
+    expect(await valid.json()).toBe(true);
+    expect(adapter.permissionCalls[0]).toEqual({
+      sessionID: session.id,
+      requestID: "pending-1",
+      outcome: { outcome: "selected", optionId: "allow_once" },
+    });
+
+    const cancelled = await fetch(`${baseUrl}/session/${encodeURIComponent(session.id)}/permission`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ requestID: "pending-1", outcome: "cancelled" }),
+    });
+    expect(cancelled.ok).toBe(true);
   });
 
   test("falls back to a random port when the configured port is already in use", async () => {

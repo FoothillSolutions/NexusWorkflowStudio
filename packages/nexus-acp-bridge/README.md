@@ -148,15 +148,16 @@ When `NEXUS_ACP_BRIDGE_ADAPTER=acp`, the bridge:
 2. speaks the real [Agent Client Protocol](https://agentclientprotocol.com) over stdio (JSON-RPC 2.0, newline-framed by default, `Content-Length`-framed on request)
 3. negotiates via `initialize` with `protocolVersion: 1` and advertises `fs.readTextFile` + `fs.writeTextFile` client capabilities
 4. creates an ACP session per bridge session via `session/new`, keyed by the bridge session id
-5. streams agent output from `session/update` notifications with the `agent_message_chunk` variant (text content blocks)
-6. caches slash-command advertisements from `session/update` notifications with the `available_commands_update` variant and exposes them via `GET /command`
-7. sends `session/cancel` when Nexus aborts a prompt
+5. streams agent output from `session/update` notifications with the `agent_message_chunk` and `agent_thought_chunk` variants (text content blocks)
+6. forwards `tool_call` / `tool_call_update` notifications as OpenCode-compatible `tool.call` / `tool.call.updated` SSE events with the bridge `sessionID`, assistant `messageID`, and ACP call id
+7. caches slash-command advertisements from `session/update` notifications with the `available_commands_update` variant and exposes them via `GET /command`
+8. sends `session/cancel` when Nexus aborts a prompt
 
 The bridge responds to agent-initiated requests:
 
 - `fs/read_text_file` — reads files inside configured project roots, honoring optional `line` / `limit` parameters
 - `fs/write_text_file` — writes files inside configured project roots
-- `session/request_permission` — auto-approves with the first `allow_once` / `allow_always` option (or the first option if none are explicitly "allow")
+- `session/request_permission` — defaults to `auto`, which preserves compatibility by selecting the first `allow_once` / `allow_always` option (or the first option if none are explicitly "allow"). Set `NEXUS_ACP_BRIDGE_PERMISSION_MODE=forward` or create a session with `{ "permissionMode": "forward" }` to emit `permission.requested` SSE events instead. Callers resolve forwarded requests with `POST /session/:id/permission` and a body such as `{ "requestID": "permission_...", "outcome": "selected", "optionId": "allow_once" }` or `{ "requestID": "permission_...", "outcome": "cancelled" }`. Unanswered forwarded requests cancel after `NEXUS_ACP_BRIDGE_PERMISSION_TIMEOUT_MS` (default `60000`).
 
 Tools, MCP status, provider metadata, and resources are served locally from the bridge's configured defaults — ACP does not expose discovery endpoints for these.
 Slash commands are the exception: ACP advertises them dynamically through `session/update`, and the bridge normalizes those into an OpenCode-style `GET /command` response. `POST /session/:id/command` is translated into a slash-command prompt like `/plan add tests` before it is forwarded to ACP.
