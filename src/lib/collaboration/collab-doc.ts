@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { useWorkflowStore } from "@/store/workflow";
 import { useCollabStore } from "@/store/collaboration/collab-store";
 import { useAwarenessStore } from "@/store/collaboration/awareness-store";
-import { getOrCreateUserName, getColorForClientId } from "./awareness-names";
+import { getOrCreateUserName, getColorForClientId, saveUserName } from "./awareness-names";
 import { getCollabServerUrl } from "./config";
 import type { WorkflowJSON, WorkflowNode, WorkflowEdge } from "@/types/workflow";
 import { WorkflowNodeType } from "@/types/workflow";
@@ -41,6 +41,16 @@ function cleanEdgeForSync(edge: WorkflowEdge): WorkflowEdge {
 
 // ── Awareness state shape ─────────────────────────────────────────────────
 
+export interface CursorPosition {
+  x: number;
+  y: number;
+}
+
+export interface KickRequest {
+  targetClientId: number;
+  at: number;
+}
+
 interface RemoteAwarenessState {
   user?: {
     name: string;
@@ -48,6 +58,43 @@ interface RemoteAwarenessState {
     colorLight: string;
   };
   selectedNodeId?: string | null;
+  cursor?: CursorPosition | null;
+  kickRequest?: KickRequest | null;
+  lastActiveAt?: number | null;
+}
+
+// How long to wait for initial connection before declaring failure.
+const CONNECT_TIMEOUT_MS = 8000;
+
+const OWNER_TOKEN_STORAGE_PREFIX = "nexus:collab-owner-token:";
+
+function localOwnerTokenKey(roomId: string): string {
+  return `${OWNER_TOKEN_STORAGE_PREFIX}${roomId}`;
+}
+
+function readLocalOwnerToken(roomId: string): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return localStorage.getItem(localOwnerTokenKey(roomId));
+  } catch {
+    return null;
+  }
+}
+
+function writeLocalOwnerToken(roomId: string, token: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(localOwnerTokenKey(roomId), token);
+  } catch {
+    /* quota / private mode — ownership will silently not persist */
+  }
+}
+
+function generateOwnerToken(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `tok-${Math.random().toString(36).slice(2)}-${Date.now().toString(36)}`;
 }
 
 // ── CollabDoc singleton ───────────────────────────────────────────────────
@@ -73,12 +120,41 @@ export class CollabDoc {
   private _lastSyncedEdges: WorkflowEdge[] = [];
   private _lastSyncedName: string = "";
 
+  // Per-id reference cache — lets `_syncNodesToYjs` / `_syncEdgesToYjs` skip
+  // unchanged items by identity, avoiding O(N) JSON.stringify on every drag
+  // frame. React Flow updates only mutated nodes immutably, so ref-eq is a
+  // reliable "nothing changed" signal.
+  private _prevNodeRefs = new Map<string, WorkflowNode>();
+  private _prevEdgeRefs = new Map<string, WorkflowEdge>();
+
   private _yDocs: Y.Map<KnowledgeDoc>;
   private _lastSyncedDocs: KnowledgeDoc[] = [];
   private _brainStoreUnsub: (() => void) | null = null;
 
+  // Room-level metadata (ownerToken etc). Shared via Y.Doc so every peer
+  // sees the same authoritative ownership record on the server.
+  private _yMeta: Y.Map<string>;
+  private _claimOwnershipOnSync = false;
+
+  // Gate Zustand → Y.Doc subscribers until after the initial sync.
+  // Writing local state into the shared doc before the remote snapshot has
+  // loaded causes CRDT merge to concatenate both clients' inserts (e.g. the
+  // workflow name doubling to "AlphaAlpha" on every guest join).
+  private _initialSyncApplied = false;
+
   // Track peers for join/leave toasts
   private _prevPeerNames = new Map<number, string>();
+
+  // Connect-watchdog — clears a stuck "Connecting…" state when the server
+  // never responds (e.g. collab server not running).
+  private _connectTimer: ReturnType<typeof setTimeout> | null = null;
+  private _hasEverConnected = false;
+
+  // Kick tracking — clientIds this session has already asked to kick, so a
+  // single `kickRequest` stays in awareness without being re-broadcast.
+  private _pendingKicks = new Map<number, number>();
+
+  private _isKicked = false;
 
   private constructor() {
     this._ydoc = new Y.Doc();
@@ -86,6 +162,7 @@ export class CollabDoc {
     this._yEdges = this._ydoc.getMap<WorkflowEdge>("edges");
     this._yName = this._ydoc.getText("name");
     this._yDocs = this._ydoc.getMap<KnowledgeDoc>("brain");
+    this._yMeta = this._ydoc.getMap<string>("meta");
   }
 
   static getInstance(): CollabDoc | null {
@@ -99,24 +176,60 @@ export class CollabDoc {
     return CollabDoc._instance;
   }
 
-  start(roomId: string, initialState?: WorkflowJSON): void {
+  start(
+    roomId: string,
+    initialState?: WorkflowJSON,
+    opts: { asOwner?: boolean } = {},
+  ): void {
     if (typeof window === "undefined") return;
+
+    // Idempotency guard — if we're already running, bail out instead of
+    // stacking a second provider + observers + store subscribers on top of
+    // the existing ones (which would leak the originals until tab close).
+    if (this._provider) {
+      if (this._roomId !== roomId) {
+        console.warn(
+          `[collab] start("${roomId}") ignored — already connected to "${this._roomId}". Call destroy() first.`,
+        );
+      }
+      return;
+    }
 
     this._roomId = roomId;
     useCollabStore.getState()._setRoomId(roomId);
     useCollabStore.getState()._setInitializing(true);
+    useCollabStore.getState()._setIsOwner(false);
+
+    // If caller claims ownership, ensure a local owner token exists. We
+    // stamp it onto Y.Doc `meta` once we've synced (so we don't overwrite a
+    // prior owner). Peers who hold the matching localStorage token are
+    // recognized as the owner across reloads.
+    if (opts.asOwner && !readLocalOwnerToken(roomId)) {
+      writeLocalOwnerToken(roomId, generateOwnerToken());
+    }
+    this._claimOwnershipOnSync = !!opts.asOwner;
 
     // Set up self identity
     const selfName = getOrCreateUserName();
     const selfColors = getColorForClientId(this._ydoc.clientID);
-    useAwarenessStore.getState()._setSelf(selfName, selfColors.color, selfColors.colorLight);
+    useAwarenessStore
+      .getState()
+      ._setSelf(this._ydoc.clientID, selfName, selfColors.color, selfColors.colorLight);
 
     this._provider = new HocuspocusProvider({
       url: getCollabServerUrl(),
       name: roomId,
       document: this._ydoc,
       onStatus: ({ status }) => {
-        useCollabStore.getState()._setConnected(status === WebSocketStatus.Connected);
+        const connected = status === WebSocketStatus.Connected;
+        useCollabStore.getState()._setConnected(connected);
+        if (connected) {
+          this._hasEverConnected = true;
+          // As soon as the socket is up we can stop showing "Connecting…".
+          // onSynced will still run and seed state, but the UI should move on.
+          useCollabStore.getState()._setInitializing(false);
+          this._clearConnectTimer();
+        }
       },
       onSynced: ({ state }) => {
         if (state && initialState) {
@@ -128,10 +241,25 @@ export class CollabDoc {
         if (state) {
           useCollabStore.getState()._setConnected(true);
           useCollabStore.getState()._setInitializing(false);
+          this._clearConnectTimer();
+          this._claimOwnershipIfRequested();
+          this._recomputeOwnerStatus();
+
+          // First sync is done — safe to start mirroring local Zustand
+          // state into the Y.Doc. Subsequent syncs (reconnects) are no-ops.
+          if (!this._initialSyncApplied) {
+            this._initialSyncApplied = true;
+            this._registerLocalSubscribers();
+          }
         }
       },
       onDisconnect: () => {
         useCollabStore.getState()._setConnected(false);
+        // If we never got a connection and the watchdog hasn't fired yet,
+        // let it run — otherwise clear initializing so UI unsticks.
+        if (this._hasEverConnected) {
+          useCollabStore.getState()._setInitializing(false);
+        }
       },
       onAwarenessChange: () => {
         this._onAwarenessChange();
@@ -144,14 +272,47 @@ export class CollabDoc {
       colorLight: selfColors.colorLight,
     });
     this._provider.setAwarenessField("selectedNodeId", null);
+    this._provider.setAwarenessField("cursor", null);
+    this._provider.setAwarenessField("kickRequest", null);
+    this._provider.setAwarenessField("lastActiveAt", Date.now());
+
+    // Watchdog — if we still haven't connected after CONNECT_TIMEOUT_MS,
+    // clear the initializing state and surface the problem so the UI stops
+    // showing "Connecting…" forever.
+    this._connectTimer = setTimeout(() => {
+      if (this._hasEverConnected) return;
+      useCollabStore.getState()._setInitializing(false);
+      toast.error("Collaboration server unreachable — retrying in the background");
+    }, CONNECT_TIMEOUT_MS);
 
     // Register observers: Y.Doc changes → Zustand
     this._yNodes.observe(this._onRemoteChange);
     this._yEdges.observe(this._onRemoteChange);
     this._yName.observe(this._onRemoteChange);
     this._yDocs.observe(this._onRemoteBrainChange);
+    this._yMeta.observe(this._onMetaChange);
 
-    // Register subscriber: Zustand changes → Y.Doc
+    // Zustand → Y.Doc subscribers are registered *after* the initial sync
+    // fires (see `_registerLocalSubscribers`). Registering them here would
+    // race the remote snapshot and cause CRDT merge to duplicate local text
+    // inserts into the shared doc.
+    this._initialSyncApplied = false;
+  }
+
+  private _registerLocalSubscribers(): void {
+    if (this._storeUnsub || this._brainStoreUnsub) return;
+
+    // Initialize the "last synced" reference cache from the *post-sync*
+    // Zustand state so the subscriber's equality check doesn't flag an
+    // artificial change on the first tick.
+    const currentWorkflow = useWorkflowStore.getState();
+    this._lastSyncedNodes = currentWorkflow.nodes;
+    this._lastSyncedEdges = currentWorkflow.edges;
+    this._lastSyncedName = currentWorkflow.name;
+
+    const currentKnowledge = useKnowledgeStore.getState();
+    this._lastSyncedDocs = currentKnowledge.docs;
+
     this._storeUnsub = useWorkflowStore.subscribe((state) => {
       if (_isApplyingRemote) return;
 
@@ -172,7 +333,6 @@ export class CollabDoc {
       });
     });
 
-    // Brain: Zustand knowledge store → Y.Doc
     this._brainStoreUnsub = useKnowledgeStore.subscribe((state) => {
       if (_isApplyingRemoteBrain) return;
       if (state.docs === this._lastSyncedDocs) return;
@@ -183,11 +343,18 @@ export class CollabDoc {
         this._syncDocsToYjs(state.docs);
       });
     });
+  }
 
+  private _clearConnectTimer(): void {
+    if (this._connectTimer) {
+      clearTimeout(this._connectTimer);
+      this._connectTimer = null;
+    }
   }
 
   /** Disconnect and clean up everything. */
   destroy(): void {
+    this._clearConnectTimer();
     this._storeUnsub?.();
     this._storeUnsub = null;
 
@@ -198,29 +365,119 @@ export class CollabDoc {
     this._brainStoreUnsub?.();
     this._brainStoreUnsub = null;
     this._yDocs.unobserve(this._onRemoteBrainChange);
+    this._yMeta.unobserve(this._onMetaChange);
 
     if (this._provider) {
       this._provider.destroy();
       this._provider = null;
     }
 
+    this._prevNodeRefs.clear();
+    this._prevEdgeRefs.clear();
+    this._prevPeerNames.clear();
+    this._pendingKicks.clear();
+
     this._ydoc.destroy();
 
     useCollabStore.getState()._setRoomId(null);
     useCollabStore.getState()._setConnected(false);
     useCollabStore.getState()._setInitializing(false);
+    useCollabStore.getState()._setIsOwner(false);
     useCollabStore.getState()._setPeerCount(0);
     useAwarenessStore.getState()._setPeers([]);
+
+    this._claimOwnershipOnSync = false;
+    this._initialSyncApplied = false;
 
     CollabDoc._instance = null;
   }
 
+  // ── Ownership ─────────────────────────────────────────────────────────
+
+  /** True iff the local client is recognized as the room owner. */
+  get isOwner(): boolean {
+    return useCollabStore.getState().isOwner;
+  }
+
+  private _claimOwnershipIfRequested(): void {
+    if (!this._claimOwnershipOnSync || !this._roomId) return;
+    this._claimOwnershipOnSync = false;
+
+    const localToken = readLocalOwnerToken(this._roomId);
+    if (!localToken) return;
+
+    // Only claim if nobody else already owns the room — Y.js merge semantics
+    // would otherwise let two "first movers" overwrite each other.
+    if (!this._yMeta.has("ownerToken")) {
+      this._ydoc.transact(() => {
+        this._yMeta.set("ownerToken", localToken);
+      });
+    }
+  }
+
+  private _recomputeOwnerStatus(): void {
+    if (!this._roomId) {
+      useCollabStore.getState()._setIsOwner(false);
+      return;
+    }
+    const remoteToken = this._yMeta.get("ownerToken");
+    const localToken = readLocalOwnerToken(this._roomId);
+    const isOwner = Boolean(remoteToken && localToken && remoteToken === localToken);
+    if (useCollabStore.getState().isOwner !== isOwner) {
+      useCollabStore.getState()._setIsOwner(isOwner);
+    }
+  }
+
+  private _onMetaChange = (): void => {
+    this._recomputeOwnerStatus();
+  };
+
   /** Update the local user's ephemeral awareness state. */
-  updateAwareness(patch: { selectedNodeId?: string | null }): void {
+  updateAwareness(patch: {
+    selectedNodeId?: string | null;
+    cursor?: CursorPosition | null;
+    lastActiveAt?: number | null;
+  }): void {
     if (!this._provider) return;
     for (const [key, value] of Object.entries(patch)) {
       this._provider.setAwarenessField(key, value);
     }
+  }
+
+  /**
+   * Update the local user's display name. Persists to sessionStorage and
+   * rebroadcasts the `user` awareness field so peers see the new name.
+   */
+  setUserName(name: string): void {
+    if (!this._provider) return;
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    saveUserName(trimmed);
+    const selfColors = getColorForClientId(this._ydoc.clientID);
+    this._provider.setAwarenessField("user", {
+      name: trimmed,
+      color: selfColors.color,
+      colorLight: selfColors.colorLight,
+    });
+    useAwarenessStore
+      .getState()
+      ._setSelf(this._ydoc.clientID, trimmed, selfColors.color, selfColors.colorLight);
+  }
+
+  /**
+   * Ask a remote peer to leave by broadcasting a `kickRequest` via our own
+   * awareness state. The targeted client self-destructs when it observes the
+   * request, since we can't forcibly close their socket from here.
+   */
+  kick(clientId: number): void {
+    if (!this._provider) return;
+    const at = Date.now();
+    this._pendingKicks.set(clientId, at);
+    this._provider.setAwarenessField("kickRequest", { targetClientId: clientId, at });
+  }
+
+  get clientId(): number {
+    return this._ydoc.clientID;
   }
 
   get roomId(): string | null {
@@ -261,38 +518,56 @@ export class CollabDoc {
   // ── Private: sync Zustand → Y.Map ──────────────────────────────────────
 
   private _syncNodesToYjs(nodes: WorkflowNode[]): void {
-    const newIds = new Set(nodes.map((n) => n.id));
+    const newIds = new Set<string>();
+    for (const n of nodes) newIds.add(n.id);
 
     // Remove deleted nodes
     for (const id of this._yNodes.keys()) {
       if (!newIds.has(id)) this._yNodes.delete(id);
     }
 
-    // Upsert changed nodes
+    // Upsert — reference-equal nodes are skipped outright (fast path during
+    // node drags where only the dragged node's ref changes).
+    const nextRefs = new Map<string, WorkflowNode>();
     for (const node of nodes) {
+      const prev = this._prevNodeRefs.get(node.id);
+      if (prev === node) {
+        nextRefs.set(node.id, node);
+        continue;
+      }
       const cleaned = cleanNodeForSync(node);
       const existing = this._yNodes.get(node.id);
-      // Simple JSON comparison for change detection
       if (!existing || JSON.stringify(existing) !== JSON.stringify(cleaned)) {
         this._yNodes.set(node.id, cleaned);
       }
+      nextRefs.set(node.id, node);
     }
+    this._prevNodeRefs = nextRefs;
   }
 
   private _syncEdgesToYjs(edges: WorkflowEdge[]): void {
-    const newIds = new Set(edges.map((e) => e.id));
+    const newIds = new Set<string>();
+    for (const e of edges) newIds.add(e.id);
 
     for (const id of this._yEdges.keys()) {
       if (!newIds.has(id)) this._yEdges.delete(id);
     }
 
+    const nextRefs = new Map<string, WorkflowEdge>();
     for (const edge of edges) {
+      const prev = this._prevEdgeRefs.get(edge.id);
+      if (prev === edge) {
+        nextRefs.set(edge.id, edge);
+        continue;
+      }
       const cleaned = cleanEdgeForSync(edge);
       const existing = this._yEdges.get(edge.id);
       if (!existing || JSON.stringify(existing) !== JSON.stringify(cleaned)) {
         this._yEdges.set(edge.id, cleaned);
       }
+      nextRefs.set(edge.id, edge);
     }
+    this._prevEdgeRefs = nextRefs;
   }
 
   private _syncNameToYjs(name: string): void {
@@ -391,6 +666,30 @@ export class CollabDoc {
 
     const selfId = this._ydoc.clientID;
 
+    // Detect kick requests targeting self — any peer broadcasting
+    // { kickRequest: { targetClientId: selfId } } causes us to disconnect.
+    if (!this._isKicked) {
+      for (const [clientId, state] of allStates) {
+        if (clientId === selfId) continue;
+        const req = state.kickRequest;
+        if (req && req.targetClientId === selfId) {
+          this._isKicked = true;
+          toast.error("You were removed from this collaboration session");
+          // Remove ?room= from URL so a reload doesn't rejoin.
+          if (typeof window !== "undefined") {
+            const url = new URL(window.location.href);
+            if (url.searchParams.has("room")) {
+              url.searchParams.delete("room");
+              window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+            }
+          }
+          // Defer destroy so we don't tear down mid-observer.
+          queueMicrotask(() => this.destroy());
+          return;
+        }
+      }
+    }
+
     const peers = [];
     const currentNames = new Map<number, string>();
 
@@ -405,6 +704,8 @@ export class CollabDoc {
           colorLight: state.user.colorLight ?? colors.colorLight,
         },
         selectedNodeId: state.selectedNodeId ?? null,
+        cursor: state.cursor ?? null,
+        lastActiveAt: state.lastActiveAt ?? null,
       });
       currentNames.set(clientId, state.user.name);
     }

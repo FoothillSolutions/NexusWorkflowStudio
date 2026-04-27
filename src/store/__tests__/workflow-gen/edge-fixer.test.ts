@@ -28,7 +28,7 @@ describe("fixEdgeHandles", () => {
       ],
       [
         "parallel-1",
-        { type: WorkflowNodeType.ParallelAgent, branches: [{ label: "A" }, { label: "B" }] },
+        { type: WorkflowNodeType.ParallelAgent, spawnMode: "fixed" as const, branches: [{ label: "A" }, { label: "B" }] },
       ],
     ]);
 
@@ -52,6 +52,45 @@ describe("fixEdgeHandles", () => {
     expect(fixed[4].sourceHandle).toBe("option-1");
     expect(fixed[5].sourceHandle).toBe("branch-0");
     expect(fixed.every((edge) => edge.type === "deletable")).toBe(true);
+  });
+
+  it("coerces stray dynamic-mode parallel-agent sourceHandles to 'output'", () => {
+    const nodeTypeMap = new Map([
+      [
+        "parallel-d",
+        { type: WorkflowNodeType.ParallelAgent, spawnMode: "dynamic" as const, branches: [] },
+      ],
+    ]);
+
+    const fixed = fixEdgeHandles(
+      [
+        { id: "e1", source: "parallel-d", target: "agent-a", sourceHandle: "branch-0" },
+        { id: "e2", source: "parallel-d", target: "agent-b", sourceHandle: "foo" },
+        { id: "e3", source: "parallel-d", target: "agent-c", sourceHandle: "output" },
+      ],
+      nodeTypeMap,
+    );
+
+    expect(fixed[0].sourceHandle).toBe("output");
+    expect(fixed[1].sourceHandle).toBe("output");
+    expect(fixed[2].sourceHandle).toBe("output");
+    expect(fixed.every((edge) => edge.type === "deletable")).toBe(true);
+  });
+
+  it("preserves fixed-mode parallel-agent branch-0 normalization (regression guard)", () => {
+    const nodeTypeMap = new Map([
+      [
+        "parallel-f",
+        { type: WorkflowNodeType.ParallelAgent, spawnMode: "fixed" as const, branches: [{ label: "A" }] },
+      ],
+    ]);
+
+    const fixed = fixEdgeHandles(
+      [{ id: "e1", source: "parallel-f", target: "agent-a", sourceHandle: "branch-0" }],
+      nodeTypeMap,
+    );
+
+    expect(fixed[0].sourceHandle).toBe("branch-0");
   });
 });
 

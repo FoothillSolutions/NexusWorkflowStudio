@@ -3,6 +3,7 @@ import {
   AGENT_LIKE_NODE_TYPES,
   WorkflowNodeType,
   type NodeType,
+  type ParallelAgentNodeData,
   type WorkflowEdge,
   type WorkflowNode,
 } from "@/types/workflow";
@@ -101,12 +102,29 @@ export function normalizeWorkflowConnection({
     return null;
   }
 
-  if (
-    sourceType === WorkflowNodeType.ParallelAgent
-    && normalizedConnection.sourceHandle?.startsWith("branch-")
-    && targetType !== WorkflowNodeType.Agent
-  ) {
-    return null;
+  if (sourceType === WorkflowNodeType.ParallelAgent) {
+    const sourceNode = nodes.find((node) => node.id === connection.source);
+    const spawnMode = (sourceNode?.data as ParallelAgentNodeData | undefined)?.spawnMode ?? "fixed";
+
+    if (spawnMode === "fixed") {
+      if (
+        normalizedConnection.sourceHandle?.startsWith("branch-")
+        && targetType !== WorkflowNodeType.Agent
+      ) {
+        return null;
+      }
+    } else {
+      if (normalizedConnection.sourceHandle?.startsWith("branch-")) {
+        return null;
+      }
+      if (targetType !== WorkflowNodeType.Agent) {
+        return null;
+      }
+      normalizedConnection = {
+        ...normalizedConnection,
+        sourceHandle: "output",
+      };
+    }
   }
 
   const filteredEdges = edges.filter(

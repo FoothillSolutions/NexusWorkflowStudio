@@ -39,8 +39,10 @@ export function useNodePropertiesForm({
 
   const form = useForm({
     // SAFETY: useForm generic inference conflicts with dynamic node schema selection.
+    // The nodeSchemaMap union now includes a ZodPipe (from z.preprocess on parallelAgentSchema)
+    // whose input type is `unknown`, which does not satisfy zodResolver's FieldValues constraint.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: schema ? (zodResolver(schema) as any) : undefined,
+    resolver: schema ? (zodResolver(schema as any) as any) : undefined,
     defaultValues: nodeData as Record<string, unknown> | undefined,
     mode: "onChange",
   });

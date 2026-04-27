@@ -34,3 +34,14 @@ export function addRecentWorkspace(entry: RecentWorkspaceEntry): void {
     // localStorage may be unavailable
   }
 }
+
+export function removeRecentWorkspace(id: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    const existing = getRecentWorkspaces();
+    const updated = existing.filter((entry) => entry.id !== id);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  } catch {
+    // localStorage may be unavailable
+  }
+}

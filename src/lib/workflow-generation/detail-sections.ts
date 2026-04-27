@@ -1,6 +1,17 @@
 import { WorkflowNodeType, type NodeType, type WorkflowEdge, type WorkflowNode } from "@/types/workflow";
 import { mermaidId } from "@/nodes/shared/mermaid-utils";
-import { NODE_GENERATORS, topologicalOrder } from "./shared";
+import { getDocumentRelativePath } from "@/nodes/document/utils";
+import {
+  buildHandoffPayloadTemplate,
+  resolveHandoffFilePath,
+} from "@/nodes/handoff/generator";
+import type { HandoffNodeData } from "@/nodes/handoff/types";
+import {
+  DEFAULT_GENERATION_TARGET,
+  getGenerationTarget,
+  type GenerationTargetId,
+} from "@/lib/generation-targets";
+import { NODE_GENERATORS, resolveSkillReferenceName, topologicalOrder } from "./shared";
 
 function collectSections(
   nodes: WorkflowNode[],
@@ -71,27 +82,11 @@ export function buildSubAgentDetailsSection(
   edges: WorkflowEdge[],
   allNodes: WorkflowNode[],
   allEdges: WorkflowEdge[],
+  target: GenerationTargetId = DEFAULT_GENERATION_TARGET,
 ): string {
   const order = topologicalOrder(nodes, edges);
   const allNodeById = new Map<string, WorkflowNode>(allNodes.map((node) => [node.id, node]));
-  const skillEdgesByTarget = new Map<string, string[]>();
-
-  for (const edge of allEdges) {
-    if (edge.sourceHandle !== "skill-out") continue;
-
-    if (!skillEdgesByTarget.has(edge.target)) {
-      skillEdgesByTarget.set(edge.target, []);
-    }
-    skillEdgesByTarget.get(edge.target)?.push(edge.source);
-  }
-
-  const topoIndex = new Map<string, number>(order.map((id, index) => [id, index]));
-  for (const [targetId, sourceIds] of skillEdgesByTarget) {
-    skillEdgesByTarget.set(
-      targetId,
-      sourceIds.sort((a, b) => (topoIndex.get(a) ?? 0) - (topoIndex.get(b) ?? 0)),
-    );
-  }
+  const rootDir = getGenerationTarget(target).rootDir;
 
   const sections: string[] = [];
   for (const id of order) {
@@ -103,28 +98,52 @@ export function buildSubAgentDetailsSection(
     const lines: string[] = [
       `#### ${node.id}(Agent: ${agentName})`,
       "",
-      "```",
-      `delegate agent: @${agentName}`,
     ];
 
+    const inputs: string[] = [];
+
+    // Connected skill edges (preserve natural edge order)
+    const skillEdges = allEdges.filter(
+      (edge) => edge.sourceHandle === "skill-out" && edge.target === node.id,
+    );
+    for (const edge of skillEdges) {
+      const skillNode = allNodeById.get(edge.source);
+      if (skillNode?.data.type !== WorkflowNodeType.Skill) continue;
+      const skillData = skillNode.data as import("@/nodes/skill/types").SkillNodeData;
+      const skillName = resolveSkillReferenceName(skillData);
+      if (!skillName) continue;
+      inputs.push(`- \`${skillName}\`: \`${rootDir}/skills/${skillName}/SKILL.md\``);
+    }
+
+    // Connected document edges
+    const docEdges = allEdges.filter(
+      (edge) => edge.sourceHandle === "doc-out" && edge.target === node.id,
+    );
+    for (const edge of docEdges) {
+      const docNode = allNodeById.get(edge.source);
+      if (docNode?.data.type !== WorkflowNodeType.Document) continue;
+      const docData = docNode.data as import("@/nodes/document/types").DocumentNodeData;
+      const relativePath = getDocumentRelativePath(docData);
+      if (!relativePath) continue;
+      const displayLabel = getDocDisplayLabel(relativePath);
+      inputs.push(`- \`${displayLabel}\`: \`${rootDir}/docs/${relativePath}\``);
+    }
+
+    // Positional parameter mappings
     const mappings = (d.parameterMappings ?? [])
       .map((value) => value.trim())
       .filter(Boolean);
     if (mappings.length > 0) {
-      lines.push(`params: ${mappings.join(", ")}`);
+      inputs.push(`- \`params\`: \`${mappings.join(", ")}\``);
     }
 
-    const skillIds = skillEdgesByTarget.get(node.id) ?? [];
-    for (const skillId of skillIds) {
-      const skillNode = allNodeById.get(skillId);
-      if (skillNode?.data.type !== WorkflowNodeType.Skill) continue;
-
-      const skillData = skillNode.data as import("@/nodes/skill/types").SkillNodeData;
-      const skillName = skillData.skillName?.trim() || skillData.name?.trim() || skillId;
-      lines.push(`skill: ${skillName}`);
+    if (inputs.length === 0) {
+      lines.push(`Dispatch \`${agentName}\` using the \`Agent\` tool.`);
+    } else {
+      lines.push(`Dispatch \`${agentName}\` using the \`Agent\` tool with inputs:`);
+      lines.push(...inputs);
     }
 
-    lines.push("```");
     sections.push(lines.join("\n"));
   }
 
@@ -145,48 +164,152 @@ export function buildSwitchDetailsSection(
   return buildGeneratedNodeSection(nodes, edges, WorkflowNodeType.Switch, "### Switch Node Details");
 }
 
+function getDocDisplayLabel(relativePath: string): string {
+  const lastSlash = relativePath.lastIndexOf("/");
+  const fileName = lastSlash >= 0 ? relativePath.slice(lastSlash + 1) : relativePath;
+  const lastDot = fileName.lastIndexOf(".");
+  return lastDot > 0 ? fileName.slice(0, lastDot) : fileName;
+}
+
 export function buildParallelAgentDetailsSection(
   nodes: WorkflowNode[],
   edges: WorkflowEdge[],
+  target: GenerationTargetId = DEFAULT_GENERATION_TARGET,
 ): string {
   const order = topologicalOrder(nodes, edges);
   const nodeById = new Map<string, WorkflowNode>(nodes.map((node) => [node.id, node]));
   const sections: string[] = [];
+  const rootDir = getGenerationTarget(target).rootDir;
 
   for (const id of order) {
     const node = nodeById.get(id);
     if (!node || node.data.type !== WorkflowNodeType.ParallelAgent) continue;
 
     const d = node.data as import("@/types/workflow").ParallelAgentNodeData;
-    const lines: string[] = [`#### ${mermaidId(node.id)}(Parallel Agent)`, ""];
+    const mode: import("@/types/workflow").ParallelAgentSpawnMode = d.spawnMode ?? "fixed";
+
+    if (mode === "fixed") {
+      const lines: string[] = [`#### ${mermaidId(node.id)}(Parallel Agent)`, ""];
+
+      if (d.sharedInstructions?.trim()) {
+        lines.push(`**Shared instructions**: ${d.sharedInstructions.trim()}`, "");
+      }
+
+      lines.push("**Parallel branches:**");
+      for (let index = 0; index < (d.branches ?? []).length; index += 1) {
+        const branch = d.branches[index];
+        const edge = edges.find(
+          (candidate) =>
+            candidate.source === node.id &&
+            candidate.sourceHandle === `branch-${index}`,
+        );
+        const targetNode = edge ? nodeById.get(edge.target) : null;
+        const targetAgentName = targetNode
+          ? ((targetNode.data as { name?: string })?.name || `agent-${targetNode.id}`)
+          : null;
+        const spawnCount = Math.max(1, Number(branch.spawnCount ?? 1));
+        const branchLabel = branch.label || `Branch ${index + 1}`;
+        const dispatchClause = targetAgentName
+          ? `dispatch \`${targetAgentName}\` using the \`Agent\` tool x${spawnCount}`
+          : `(no agent connected — wire this branch to an \`agent\` node)`;
+        lines.push(
+          `- **branch-${index}** (${branchLabel}) → ${dispatchClause}`,
+        );
+        if (branch.instructions?.trim()) {
+          lines.push(`  - Notes: ${branch.instructions.trim()}`);
+        }
+      }
+
+      lines.push(
+        "",
+        "**Execution method**: For each branch, dispatch the connected agent using the `Agent` tool the configured number of times; run the branches in parallel. Follow the per-agent dispatch details under `## Agent Node Details`.",
+      );
+      sections.push(lines.join("\n"));
+      continue;
+    }
+
+    // Dynamic mode — dispatch-style output
+    const spawnMin = Math.max(1, Number(d.spawnMin ?? 1));
+    const spawnMax = Math.max(spawnMin, Number(d.spawnMax ?? spawnMin));
+    const criterion = d.spawnCriterion?.trim() || "<criterion>";
+    const rangePhrase = spawnMin === spawnMax
+      ? `exactly ${spawnMin} times`
+      : `between ${spawnMin} and ${spawnMax} times`;
+
+    const outgoingEdge = edges.find(
+      (candidate) =>
+        candidate.source === node.id &&
+        nodeById.get(candidate.target)?.data.type === WorkflowNodeType.Agent,
+    );
+    const templateTarget = outgoingEdge ? nodeById.get(outgoingEdge.target) : null;
+    const templateId = templateTarget?.id ?? "<agent-not-connected>";
+    const templateConnected = templateTarget !== null && templateTarget !== undefined;
+    const templateAgentName = templateTarget
+      ? ((templateTarget.data as { name?: string })?.name || `agent-${templateTarget.id}`)
+      : templateId;
+
+    const lines: string[] = [`#### ${mermaidId(node.id)}`, ""];
+
+    if (!templateConnected) {
+      lines.push(
+        "<!-- WARNING: no template agent connected to this parallel-agent node -->",
+        "",
+      );
+    }
 
     if (d.sharedInstructions?.trim()) {
       lines.push(`**Shared instructions**: ${d.sharedInstructions.trim()}`, "");
     }
 
-    lines.push("**Parallel branches:**");
-    for (let index = 0; index < (d.branches ?? []).length; index += 1) {
-      const branch = d.branches[index];
-      const edge = edges.find(
-        (candidate) =>
-          candidate.source === node.id &&
-          candidate.sourceHandle === `branch-${index}`,
+    lines.push(
+      `Spawn \`${templateAgentName}\` ${rangePhrase} based on: ${criterion}. For each spawned instance, dispatch it as follows:`,
+      "",
+      `#### ${templateId}(Agent: ${templateAgentName})`,
+      "",
+    );
+
+    // Collect inputs from the template agent's connected skills and documents
+    const inputs: string[] = [];
+    if (templateConnected && templateTarget) {
+      const templateNodeId = templateTarget.id;
+      // Walk edges in their natural order to preserve edge-walk ordering
+      const skillEdges = edges.filter(
+        (edge) =>
+          edge.sourceHandle === "skill-out" &&
+          edge.target === templateNodeId,
       );
-      const targetNode = edge ? nodeById.get(edge.target) : null;
-      const targetLabel = targetNode?.id || "Unconnected";
-      const spawnCount = Math.max(1, Number(branch.spawnCount ?? 1));
-      lines.push(
-        `- **branch-${index}** (${branch.label || `Branch ${index + 1}`}) → spawn **${targetLabel}** x${spawnCount}`,
+      for (const edge of skillEdges) {
+        const skillNode = nodeById.get(edge.source);
+        if (skillNode?.data.type !== WorkflowNodeType.Skill) continue;
+        const skillData = skillNode.data as import("@/nodes/skill/types").SkillNodeData;
+        const skillName = resolveSkillReferenceName(skillData);
+        if (!skillName) continue;
+        inputs.push(`- \`${skillName}\`: \`${rootDir}/skills/${skillName}/SKILL.md\``);
+      }
+
+      const docEdges = edges.filter(
+        (edge) =>
+          edge.sourceHandle === "doc-out" &&
+          edge.target === templateNodeId,
       );
-      if (branch.instructions?.trim()) {
-        lines.push(`  - Notes: ${branch.instructions.trim()}`);
+      for (const edge of docEdges) {
+        const docNode = nodeById.get(edge.source);
+        if (docNode?.data.type !== WorkflowNodeType.Document) continue;
+        const docData = docNode.data as import("@/nodes/document/types").DocumentNodeData;
+        const relativePath = getDocumentRelativePath(docData);
+        if (!relativePath) continue;
+        const displayLabel = getDocDisplayLabel(relativePath);
+        inputs.push(`- \`${displayLabel}\`: \`${rootDir}/docs/${relativePath}\``);
       }
     }
 
-    lines.push(
-      "",
-      "**Execution method**: Spawn the connected downstream agent for each branch handle in parallel using the configured branch counts.",
-    );
+    if (inputs.length === 0) {
+      lines.push(`Dispatch \`${templateAgentName}\` using the \`Agent\` tool.`);
+    } else {
+      lines.push(`Dispatch \`${templateAgentName}\` using the \`Agent\` tool with inputs:`);
+      lines.push(...inputs);
+    }
+
     sections.push(lines.join("\n"));
   }
 
@@ -218,6 +341,67 @@ export function buildSubWorkflowDetailsSection(
   );
 }
 
+export function buildHandoffDetailsSection(
+  nodes: WorkflowNode[],
+  edges: WorkflowEdge[],
+  _target: GenerationTargetId = DEFAULT_GENERATION_TARGET,
+): string {
+  const order = topologicalOrder(nodes, edges);
+  const nodeById = new Map<string, WorkflowNode>(nodes.map((node) => [node.id, node]));
+  const sections: string[] = [];
+
+  for (const id of order) {
+    const node = nodeById.get(id);
+    if (!node || node.data.type !== WorkflowNodeType.Handoff) continue;
+
+    const d = node.data as HandoffNodeData;
+    const mode = d.mode ?? "file";
+
+    const upstreamEdge = edges.find(
+      (edge) => edge.target === node.id && (edge.targetHandle ?? "input") === "input",
+    );
+    const downstreamEdge = edges.find(
+      (edge) => edge.source === node.id && (edge.sourceHandle ?? "output") === "output",
+    );
+
+    const upstreamId = upstreamEdge?.source ?? null;
+    const downstreamId = downstreamEdge?.target ?? null;
+
+    const lines: string[] = [`#### ${node.id} (Handoff — ${mode})`, ""];
+
+    if (!upstreamId || !downstreamId) {
+      lines.push(`<!-- WARNING: handoff ${node.id} is missing an upstream/downstream agent -->`, "");
+    }
+
+    if (mode === "file") {
+      const resolvedPath = resolveHandoffFilePath(node.id, d);
+      const upstreamLabel = upstreamId ?? "<upstream>";
+      const downstreamLabel = downstreamId ?? "<downstream>";
+      lines.push(
+        `- Upstream agent \`${upstreamLabel}\` MUST write the handoff payload to \`${resolvedPath}\` before finishing.`,
+        `- Downstream agent \`${downstreamLabel}\` MUST read \`${resolvedPath}\` at startup before doing anything else.`,
+      );
+    } else {
+      const downstreamLabel = downstreamId ?? "<downstream>";
+      lines.push(
+        `- The handoff payload below is inlined directly into downstream agent \`${downstreamLabel}\`'s system prompt. No file is written.`,
+      );
+    }
+
+    lines.push(
+      "",
+      "**Handoff payload template:**",
+      "```",
+      buildHandoffPayloadTemplate(node.id, d),
+      "```",
+    );
+
+    sections.push(lines.join("\n"));
+  }
+
+  return buildSectionBlock("### Handoff Node Details", sections);
+}
+
 export function buildDetailsSection(
   nodes: WorkflowNode[],
   edges: WorkflowEdge[],
@@ -230,6 +414,7 @@ export function buildDetailsSection(
     WorkflowNodeType.ParallelAgent,
     WorkflowNodeType.Skill,
     WorkflowNodeType.Document,
+    WorkflowNodeType.Handoff,
     WorkflowNodeType.IfElse,
     WorkflowNodeType.Switch,
     WorkflowNodeType.AskUser,

@@ -1,8 +1,18 @@
 import { NextResponse } from "next/server";
 import { CreateWorkspaceSchema } from "@/lib/workspace/schemas";
-import { createWorkspace } from "@/lib/workspace/server";
+import { createWorkspace, listWorkspaces } from "@/lib/workspace/server";
 
 export const dynamic = "force-dynamic";
+
+export async function GET() {
+  try {
+    const workspaces = await listWorkspaces();
+    return NextResponse.json({ workspaces });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to list workspaces";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
 
 export async function POST(request: Request) {
   try {

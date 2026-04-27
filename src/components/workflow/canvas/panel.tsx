@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, type MouseEvent as ReactMouseEvent } from "react";
+import { useCallback, useEffect, useRef, type MouseEvent as ReactMouseEvent } from "react";
 import { useReactFlow } from "@xyflow/react";
 import {
   NON_DELETABLE_NODE_TYPES,
@@ -15,6 +15,8 @@ import { useSubWorkflowHoverOpen } from "../use-subworkflow-hover-open";
 import { CanvasShell } from "@/components/workflow/canvas-shell";
 import { ContextMenu } from "@/components/workflow/context-menu";
 import { CollabSelectionOverlay } from "@/components/workflow/collaboration/collab-selection-overlay";
+import { CollabCursors } from "@/components/workflow/collaboration/collab-cursors";
+import { useCursorBroadcast } from "@/components/workflow/collaboration/use-cursor-broadcast";
 import {
   copyNodesToWorkflowClipboard,
   hasWorkflowClipboardData,
@@ -45,6 +47,9 @@ export default function Canvas() {
 
   const { fitView, getIntersectingNodes } = useReactFlow();
   const { onNodesChange, isDragging } = useDragTracking(storeOnNodesChange);
+
+  const canvasRef = useRef<HTMLDivElement | null>(null);
+  useCursorBroadcast(canvasRef);
 
   const getHoveredSubWorkflowId = useCallback(
     (draggedNode: WorkflowNode) => {
@@ -199,6 +204,7 @@ export default function Canvas() {
 
   return (
     <div
+      ref={canvasRef}
       className={`relative h-full w-full ${activeCanvasMode === "hand" ? "canvas-hand" : "canvas-selection"}`}
       onMouseMove={onCanvasMouseMove}
     >
@@ -228,6 +234,7 @@ export default function Canvas() {
         isDragging={isDragging}
       >
         <CollabSelectionOverlay />
+        <CollabCursors />
       </CanvasShell>
 
       {ctxMenu && (

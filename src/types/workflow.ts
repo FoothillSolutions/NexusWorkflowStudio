@@ -56,6 +56,8 @@ export interface SubAgentNodeData extends BaseNodeData {
   variableMappings: Record<string, string>;
 }
 
+export type ParallelAgentSpawnMode = "fixed" | "dynamic";
+
 export interface ParallelAgentBranch {
   label: string;
   instructions: string;
@@ -64,8 +66,17 @@ export interface ParallelAgentBranch {
 
 export interface ParallelAgentNodeData extends BaseNodeData {
   type: WorkflowNodeType.ParallelAgent;
+  /** Fan-out mode. "fixed" renders one branch-N output handle per entry in `branches`. "dynamic" renders a single output handle feeding one template agent. Defaults to "fixed" for back-compat. */
+  spawnMode: ParallelAgentSpawnMode;
   sharedInstructions: string;
+  /** Used only in fixed mode. Empty/ignored in dynamic mode. */
   branches: ParallelAgentBranch[];
+  /** Dynamic mode only: free-text rule for deriving N at runtime. Required (non-empty) in dynamic mode. Must be empty string in fixed mode. */
+  spawnCriterion: string;
+  /** Dynamic mode only: minimum number of spawned instances. Integer >= 1. In fixed mode, must be 1. */
+  spawnMin: number;
+  /** Dynamic mode only: maximum number of spawned instances. Integer >= spawnMin. In fixed mode, must be 1. */
+  spawnMax: number;
 }
 
 export type SubWorkflowMode = "same-context" | "agent";
@@ -122,6 +133,36 @@ export interface McpToolNodeData extends BaseNodeData {
   paramsText: string;
 }
 
+export type HandoffMode = "file" | "context";
+
+export type HandoffPayloadStyle = "structured" | "freeform";
+
+export type HandoffPayloadSection =
+  | "summary"
+  | "artifacts"
+  | "nextSteps"
+  | "blockers"
+  | "openQuestions"
+  | "filePaths"
+  | "state"
+  | "notes";
+
+export interface HandoffNodeData extends BaseNodeData {
+  type: WorkflowNodeType.Handoff;
+  /** Handoff delivery mode */
+  mode: HandoffMode;
+  /** Only used when mode === "file". Blank means "use the node id". */
+  fileName: string;
+  /** Which payload composition to use. "structured" picks from payloadSections; "freeform" uses payloadPrompt. */
+  payloadStyle: HandoffPayloadStyle;
+  /** Which payload sections to include in the generated handoff (structured mode) */
+  payloadSections: HandoffPayloadSection[];
+  /** Freeform description of what to hand off (freeform mode) */
+  payloadPrompt: string;
+  /** Freeform extra instructions / notes appended to the payload */
+  notes: string;
+}
+
 export interface IfElseBranch {
   label: string;
   condition: string;
@@ -173,6 +214,7 @@ export type WorkflowNodeData =
   | SkillNodeData
   | DocumentNodeData
   | McpToolNodeData
+  | HandoffNodeData
   | IfElseNodeData
   | SwitchNodeData
   | AskUserNodeData

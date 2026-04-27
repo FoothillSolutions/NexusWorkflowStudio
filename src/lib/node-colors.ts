@@ -14,6 +14,7 @@ export const NODE_ACCENT = {
   skill:          "#06b6d4",  // cyan
   document:       "#eab308",  // yellow
   "mcp-tool":     "#14b8a6",  // teal
+  handoff:        "#fb7185",  // rose-400
   "if-else":      "#f59e0b",  // amber
   switch:         "#f97316",  // orange
   "ask-user":     "#ec4899",  // pink

@@ -7,7 +7,6 @@ interface FloatingWorkflowGenStatusPanelProps {
   isError: boolean;
   status: "idle" | "creating-session" | "streaming" | "done" | "error";
   parsedNodeCount: number;
-  tokenCount: number;
   error: string | null;
   streamedText: string;
 }
@@ -21,7 +20,6 @@ export function FloatingWorkflowGenStatusPanel({
   isError,
   status,
   parsedNodeCount,
-  tokenCount,
   error,
   streamedText,
 }: FloatingWorkflowGenStatusPanelProps) {
@@ -65,7 +63,6 @@ export function FloatingWorkflowGenStatusPanel({
             <Workflow size={10} />
             {parsedNodeCount} nodes
           </span>
-          <span>~{tokenCount} tokens</span>
         </div>
       )}
 

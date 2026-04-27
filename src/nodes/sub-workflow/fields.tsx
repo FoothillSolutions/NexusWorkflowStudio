@@ -6,25 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Layers, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NODE_ACCENT } from "@/lib/node-colors";
-import { SubAgentMemory } from "@/nodes/agent/enums";
 import { ColorPicker } from "@/nodes/shared/color-picker";
 import type { FormControl, FormSetValue } from "@/nodes/shared/form-types";
 import { ModelSelect } from "@/nodes/shared/model-select";
+import { MemorySelect } from "@/nodes/shared/memory-select";
 import { ToolsGrid } from "@/nodes/shared/tools-grid";
 import { useTools } from "@/hooks/use-tools";
 import type { SubWorkflowMode } from "./types";
-
-// ── Shared select / option configs ──────────────────────────────────────────
-
-const MEMORY_OPTIONS = [
-  { value: SubAgentMemory.Default, label: "- (default)" },
-  { value: SubAgentMemory.Local, label: "local" },
-  { value: SubAgentMemory.User, label: "user" },
-  { value: SubAgentMemory.Project, label: "project" },
-];
-
-const SELECT_CLASS =
-  "w-full rounded-xl bg-zinc-800/60 border border-zinc-700/60 text-sm text-zinc-100 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-zinc-600";
 
 interface SubWorkflowFieldsProps {
   control: FormControl;
@@ -133,20 +121,13 @@ export function Fields({ control, setValue, nodeId }: SubWorkflowFieldsProps) {
           </div>
 
           {/* Memory */}
-          <div className="space-y-2 opacity-40 pointer-events-none">
-            <div className="flex items-center gap-2">
-              <Label htmlFor="memory">Memory</Label>
-              <span className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider">Coming soon</span>
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="memory">Memory</Label>
             <Controller
               name="memory"
               control={control}
               render={({ field }) => (
-                <select id="memory" className={SELECT_CLASS} value={field.value} onChange={field.onChange} disabled>
-                  {MEMORY_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
+                <MemorySelect value={field.value} onChange={field.onChange} />
               )}
             />
           </div>

@@ -64,4 +64,60 @@ export class CollabObjectStore {
     await atomicWrite(stateKey, state);
     await atomicWrite(this.metadataPath(roomId), JSON.stringify(metadata, null, 2));
   }
+
+  /**
+   * Delete rooms that haven't been modified within `maxAgeMs`. Active rooms
+   * write their Y.Doc to disk on every debounced change, so `updatedAt` is a
+   * reliable liveness signal — anything older than the TTL is idle.
+   *
+   * Returns counts for logging. Swallows individual-room errors so one bad
+   * directory can't halt the sweep.
+   */
+  async pruneOlderThan(maxAgeMs: number): Promise<{ pruned: number; kept: number }> {
+    if (!Number.isFinite(maxAgeMs) || maxAgeMs <= 0) {
+      return { pruned: 0, kept: 0 };
+    }
+
+    const roomsRoot = path.join(this.dataDir, "rooms");
+    let entries: string[];
+    try {
+      entries = await fs.readdir(roomsRoot);
+    } catch {
+      // No rooms dir yet → nothing to prune.
+      return { pruned: 0, kept: 0 };
+    }
+
+    const cutoff = Date.now() - maxAgeMs;
+    let pruned = 0;
+    let kept = 0;
+
+    for (const entry of entries) {
+      const roomPath = path.join(roomsRoot, entry);
+      const metaPath = path.join(roomPath, "metadata.json");
+
+      try {
+        const raw = await fs.readFile(metaPath, "utf8");
+        const meta = JSON.parse(raw) as CollabObjectMetadata;
+        const updatedAt = Date.parse(meta.updatedAt);
+
+        if (!Number.isFinite(updatedAt)) {
+          kept++;
+          continue;
+        }
+
+        if (updatedAt < cutoff) {
+          await fs.rm(roomPath, { recursive: true, force: true });
+          pruned++;
+        } else {
+          kept++;
+        }
+      } catch {
+        // Missing or malformed metadata → leave the directory alone so we
+        // never delete a room we can't verify is idle.
+        kept++;
+      }
+    }
+
+    return { pruned, kept };
+  }
 }

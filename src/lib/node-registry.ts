@@ -23,6 +23,7 @@ import { subWorkflowRegistryEntry, subWorkflowSchema, SubWorkflowNode } from "@/
 import { skillRegistryEntry, skillSchema, SkillNode } from "@/nodes/skill";
 import { documentRegistryEntry, documentSchema, DocumentNode } from "@/nodes/document";
 import { mcpToolRegistryEntry, mcpToolSchema, McpToolNode } from "@/nodes/mcp-tool";
+import { handoffRegistryEntry, handoffSchema, HandoffNode } from "@/nodes/handoff";
 import { ifElseRegistryEntry, ifElseSchema, IfElseNode } from "@/nodes/if-else";
 import { switchRegistryEntry, switchSchema, SwitchNode } from "@/nodes/switch";
 import { askUserRegistryEntry, askUserSchema, AskUserNode } from "@/nodes/ask-user";
@@ -39,6 +40,7 @@ export const NODE_REGISTRY: Record<NodeType, NodeRegistryEntry> = {
   [WorkflowNodeType.Document]: documentRegistryEntry,
   [WorkflowNodeType.SubWorkflow]: subWorkflowRegistryEntry,
   [WorkflowNodeType.McpTool]: mcpToolRegistryEntry,
+  [WorkflowNodeType.Handoff]: handoffRegistryEntry,
   [WorkflowNodeType.IfElse]: ifElseRegistryEntry,
   [WorkflowNodeType.Switch]: switchRegistryEntry,
   [WorkflowNodeType.AskUser]: askUserRegistryEntry,
@@ -56,6 +58,7 @@ export const NODE_TYPE_COMPONENTS: NodeTypes = {
   [WorkflowNodeType.Skill]: SkillNode,
   [WorkflowNodeType.Document]: DocumentNode,
   [WorkflowNodeType.McpTool]: McpToolNode,
+  [WorkflowNodeType.Handoff]: HandoffNode,
   [WorkflowNodeType.IfElse]: IfElseNode,
   [WorkflowNodeType.Switch]: SwitchNode,
   [WorkflowNodeType.AskUser]: AskUserNode,
@@ -73,6 +76,7 @@ export const nodeSchemaMap = {
   [WorkflowNodeType.Skill]: skillSchema,
   [WorkflowNodeType.Document]: documentSchema,
   [WorkflowNodeType.McpTool]: mcpToolSchema,
+  [WorkflowNodeType.Handoff]: handoffSchema,
   [WorkflowNodeType.IfElse]: ifElseSchema,
   [WorkflowNodeType.Switch]: switchSchema,
   [WorkflowNodeType.AskUser]: askUserSchema,
@@ -95,6 +99,7 @@ const CONTROL_FLOW_NODE_ORDER: NodeType[] = [
   WorkflowNodeType.Switch,
   WorkflowNodeType.ParallelAgent,
   WorkflowNodeType.AskUser,
+  WorkflowNodeType.Handoff,
   WorkflowNodeType.End,
 ];
 
