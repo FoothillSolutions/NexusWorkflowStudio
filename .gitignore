@@ -68,6 +68,10 @@ storage.json
 .dev.pid
 /run.sh
 /.claude/
+!/.claude/
+!/.claude/skills/
+!/.claude/skills/nexus-playwright/
+!/.claude/skills/nexus-playwright/SKILL.md
 /temp_examples/
 /test-results/
 _workspace
@@ -78,3 +82,5 @@ _workspace*
 /.nexus-brain/
 /.nexus-collab/
 
+/.adw/config.yaml
+/.adw/templates/.prefs.json
