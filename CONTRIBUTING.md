@@ -117,6 +117,10 @@ After creating the module, register it in:
 
 Use a **hybrid test layout** so tests stay close to the domain they protect without scattering shared store coverage across the repo.
 
+### Browser testing with playwright-cli
+
+For manual or agent-driven browser smoke tests, use the [Playwright Agent Guide](docs/testing/playwright-agent-guide.md). The repository also includes `.claude/skills/nexus-playwright/SKILL.md` with a concise Nexus-specific skill for `playwright-cli` sessions.
+
 ### Recommended structure
 
 - **`src/store/__tests__/`** — keep store tests centralized and grouped by domain barrel:
