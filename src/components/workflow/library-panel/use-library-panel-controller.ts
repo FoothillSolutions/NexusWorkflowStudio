@@ -2,7 +2,12 @@ import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useSavedWorkflowsStore } from "@/store/library";
 import { useWorkflowStore } from "@/store/workflow";
-import type { LibraryItemEntry } from "@/lib/library";
+import type { LibraryItemEntry, SavedWorkflowEntry } from "@/lib/library";
+import {
+  collectSearchableStrings,
+  rankLibrarySearchResults,
+  type LibrarySearchField,
+} from "@/lib/library-search";
 import type { MarketplaceWorkflowEntry } from "@/lib/marketplace/types";
 import { normalizeSubWorkflowContents } from "@/nodes/sub-workflow/constants";
 import type { SubWorkflowNodeData } from "@/nodes/sub-workflow/types";
@@ -146,7 +151,7 @@ export function useLibraryPanelController({
     [getWorkflowJSON],
   );
 
-  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+  const trimmedSearchQuery = searchQuery.trim();
 
   const allItems = useMemo(
     () => [...libraryItems, ...marketplaceItems] as LibraryPanelItem[],
@@ -156,20 +161,18 @@ export function useLibraryPanelController({
   const filteredWorkflows = useMemo(() => {
     if (activeCategory !== "all" && activeCategory !== "workflow") return [];
 
-    return entries.filter(
-      (entry) =>
-        !normalizedSearchQuery || entry.name.toLowerCase().includes(normalizedSearchQuery),
-    );
-  }, [activeCategory, entries, normalizedSearchQuery]);
+    return rankLibrarySearchResults(entries, trimmedSearchQuery, getSavedWorkflowSearchFields);
+  }, [activeCategory, entries, trimmedSearchQuery]);
 
   const filteredMarketplaceWorkflows = useMemo(() => {
     if (activeCategory !== "all" && activeCategory !== "workflow") return [];
 
-    return marketplaceWorkflows.filter(
-      (entry) =>
-        !normalizedSearchQuery || entry.name.toLowerCase().includes(normalizedSearchQuery),
+    return rankLibrarySearchResults(
+      marketplaceWorkflows,
+      trimmedSearchQuery,
+      getMarketplaceWorkflowSearchFields,
     );
-  }, [activeCategory, marketplaceWorkflows, normalizedSearchQuery]);
+  }, [activeCategory, marketplaceWorkflows, trimmedSearchQuery]);
 
   const filteredItems = useMemo(() => {
     let items = allItems;
@@ -178,14 +181,8 @@ export function useLibraryPanelController({
       items = items.filter((item) => item.category === activeCategory);
     }
 
-    if (!normalizedSearchQuery) return items;
-
-    return items.filter(
-      (item) =>
-        item.name.toLowerCase().includes(normalizedSearchQuery) ||
-        item.description?.toLowerCase().includes(normalizedSearchQuery),
-    );
-  }, [activeCategory, allItems, normalizedSearchQuery]);
+    return rankLibrarySearchResults(items, trimmedSearchQuery, getLibraryItemSearchFields);
+  }, [activeCategory, allItems, trimmedSearchQuery]);
 
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = {
@@ -232,5 +229,42 @@ export function useLibraryPanelController({
     requestWorkflowDelete,
     requestLibraryItemDelete,
   };
+}
+
+function getWorkflowContentSearchFields(entry: {
+  name: string;
+  workflow: { name?: string; nodes?: Array<{ data?: unknown }> };
+}): LibrarySearchField[] {
+  return [
+    entry.name,
+    entry.workflow.name,
+    "workflow",
+    ...collectSearchableStrings(entry.workflow.nodes?.map((node) => node.data) ?? []),
+  ];
+}
+
+function getSavedWorkflowSearchFields(entry: SavedWorkflowEntry): LibrarySearchField[] {
+  return getWorkflowContentSearchFields(entry);
+}
+
+function getMarketplaceWorkflowSearchFields(entry: MarketplaceWorkflowEntry): LibrarySearchField[] {
+  return [
+    ...getWorkflowContentSearchFields(entry),
+    entry.description,
+    entry.marketplaceName,
+    entry.pluginName,
+  ];
+}
+
+function getLibraryItemSearchFields(item: LibraryPanelItem): LibrarySearchField[] {
+  return [
+    item.name,
+    item.description,
+    item.category,
+    item.nodeType,
+    "marketplaceName" in item ? item.marketplaceName : undefined,
+    "pluginName" in item ? item.pluginName : undefined,
+    ...collectSearchableStrings(item.nodeData),
+  ];
 }
 
