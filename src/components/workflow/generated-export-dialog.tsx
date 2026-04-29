@@ -38,6 +38,7 @@ import {
 import {
   downloadGeneratedWorkflowZip,
   exportGeneratedWorkflowToDirectory,
+  getGeneratedWorkflowBundleName,
   pickExportDirectory,
   supportsDirectoryExport,
 } from "@/lib/generated-workflow-export";
@@ -98,9 +99,12 @@ export default function GeneratedExportDialog({
     () => getGenerationTarget(target ?? DEFAULT_GENERATION_TARGET),
     [target],
   );
+  const exportBundleName = useMemo(
+    () => getGeneratedWorkflowBundleName(getWorkflow(), target),
+    [getWorkflow, target],
+  );
   const selectedTargetVisuals = TARGET_VISUALS[target ?? DEFAULT_GENERATION_TARGET];
   const SelectedTargetIcon = selectedTargetVisuals.Icon;
-  const isTargetFolderSelected = directoryHandle?.name === selectedTarget.rootDir;
 
   const handlePickDirectory = async () => {
     try {
@@ -148,9 +152,10 @@ export default function GeneratedExportDialog({
         workflow,
         target,
       );
-      const destinationLabel = isTargetFolderSelected
+      const bundleName = getGeneratedWorkflowBundleName(workflow, target);
+      const destinationLabel = directoryHandle.name === bundleName
         ? directoryHandle.name
-        : `${directoryHandle.name}/${selectedTarget.rootDir}`;
+        : `${directoryHandle.name}/${bundleName}`;
       toast.success(
         `Exported ${files.length} ${selectedTarget.label} file${files.length === 1 ? "" : "s"} to ${destinationLabel}.`,
       );
@@ -178,7 +183,7 @@ export default function GeneratedExportDialog({
             <div className="space-y-1">
               <DialogTitle className="text-xl">Generate workflow files</DialogTitle>
               <DialogDescription className={`max-w-2xl leading-relaxed ${TEXT_MUTED}`}>
-                Choose a target format, then export the generated folder directly into a directory.
+                Choose a target format, then export a self-contained bundle that can run against a repository without writing into its agent folders.
               </DialogDescription>
             </div>
           </div>
@@ -192,7 +197,7 @@ export default function GeneratedExportDialog({
                 Generate target
               </div>
               <p className={`mt-1 text-sm ${TEXT_SUBTLE}`}>
-                Each target writes its files into <code className="rounded bg-zinc-950 px-1.5 py-0.5 text-[11px] text-zinc-300">{selectedTarget.rootDir}</code>.
+                Each bundle contains its own <code className="rounded bg-zinc-950 px-1.5 py-0.5 text-[11px] text-zinc-300">{selectedTarget.rootDir}</code> folder next to the generated runner scripts.
               </p>
             </div>
 
@@ -267,8 +272,8 @@ export default function GeneratedExportDialog({
                   Target directory
                 </div>
                 <p className={`mt-1 text-sm leading-relaxed ${TEXT_MUTED}`}>
-                  The export merges into the target folder and only updates existing files of the current workflow.
-                  You can select either the project root or an existing <code className="rounded bg-zinc-900 px-1 py-0.5 text-[11px] text-zinc-300">{selectedTarget.rootDir}</code> folder.
+                  The export writes into <code className="rounded bg-zinc-900 px-1 py-0.5 text-[11px] text-zinc-300">{exportBundleName}</code> under the selected folder.
+                  Keep that bundle outside the repository you want to run against so existing <code className="rounded bg-zinc-900 px-1 py-0.5 text-[11px] text-zinc-300">{selectedTarget.rootDir}</code> setup is not overwritten.
                 </p>
                 {currentProject?.worktree ? (
                   <p className={`mt-3 text-xs ${TEXT_SUBTLE}`}>
@@ -303,14 +308,14 @@ export default function GeneratedExportDialog({
                   </div>
                   <div className={`mt-1 text-xs leading-relaxed ${TEXT_SUBTLE}`}>
                     {directoryHandle
-                      ? isTargetFolderSelected
+                      ? directoryHandle.name === exportBundleName
                         ? `Files will be written directly into ${directoryHandle.name}`
-                        : `Files will be written into ${directoryHandle.name}/${selectedTarget.rootDir}`
-                      : `Choose the root folder where ${selectedTarget.rootDir} should be created or updated.`}
+                        : `Files will be written into ${directoryHandle.name}/${exportBundleName}`
+                      : `Choose a parent folder for the generated bundle.`}
                   </div>
                 </div>
                 <div className="shrink-0 rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-[11px] font-medium text-zinc-300">
-                  <code>{selectedTarget.rootDir}</code>
+                  <code>{exportBundleName}</code>
                 </div>
               </div>
             </div>
@@ -327,7 +332,7 @@ export default function GeneratedExportDialog({
 
         <DialogFooter className="shrink-0 flex-col gap-3 border-t border-zinc-800 px-4 py-4 sm:px-6 sm:flex-row sm:items-center sm:justify-between">
           <p className={`text-xs leading-relaxed ${TEXT_SUBTLE}`}>
-            Export as a ZIP or write directly into <code className="rounded bg-zinc-950 px-1 py-0.5 text-[11px] text-zinc-300">{selectedTarget.rootDir}</code>.
+            Run the exported script from a repo root; the script uses the bundle&apos;s own agent folder and passes the repo through <code className="rounded bg-zinc-950 px-1 py-0.5 text-[11px] text-zinc-300">--add-dir</code>.
           </p>
           <div className="flex flex-col-reverse gap-2 sm:flex-row">
             <Button
@@ -355,5 +360,3 @@ export default function GeneratedExportDialog({
     </Dialog>
   );
 }
-
-

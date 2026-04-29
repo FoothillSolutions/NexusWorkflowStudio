@@ -228,18 +228,21 @@ Nexus also exports helper launchers next to the generated workflow artifacts:
 - `run-<workflow-name>.sh` for Bash-compatible shells
 - `run-<workflow-name>.bat` for Windows Command Prompt
 
-Run them from your repository root so the selected target CLI can receive the current project directory automatically.
+ZIP and folder exports are written as an isolated bundle, for example `my-workflow-opencode-export/`.
+Keep that bundle outside the repository you want to run against. The runner changes into the bundle so it uses the exported `.opencode`, `.claude`, or `.pi` files, then passes your repository root to the target CLI with `--add-dir`.
+
+Run the launcher from your repository root by pointing at the bundle script:
 
 Examples:
 
 ```bash
-bash run-my-workflow.sh
-bash run-my-workflow.sh customer-123
+bash ../my-workflow-opencode-export/run-my-workflow.sh
+bash ../my-workflow-opencode-export/run-my-workflow.sh customer-123
 ```
 
 ```bat
-run-my-workflow.bat
-run-my-workflow.bat customer-123
+..\my-workflow-opencode-export\run-my-workflow.bat
+..\my-workflow-opencode-export\run-my-workflow.bat customer-123
 ```
 
 ## Marketplace

@@ -105,42 +105,31 @@ export async function writeGeneratedFilesToDirectory(
   }
 }
 
-function partitionByRoot(
-  files: GeneratedFile[],
+export function getGeneratedWorkflowBundleName(
+  workflow: WorkflowJSON,
   target: GenerationTargetId,
-): { rootFiles: GeneratedFile[]; targetFiles: GeneratedFile[] } {
-  const prefix = `${getGenerationTarget(target).rootDir}/`;
-  const rootFiles = files.filter((f) => !f.path.startsWith(prefix));
-  const targetFiles = files.filter((f) => f.path.startsWith(prefix));
-  return { rootFiles, targetFiles };
+): string {
+  const workflowName = sanitizeGeneratedName(workflow.name);
+  const targetInfo = getGenerationTarget(target);
+  return `${workflowName}-${targetInfo.id}-export`;
 }
 
-function stripTargetRootFromFiles(
-  files: GeneratedFile[],
-  target: GenerationTargetId,
-): GeneratedFile[] {
-  const targetRootDir = getGenerationTarget(target).rootDir;
-  return files.map((file) => {
-    const prefix = `${targetRootDir}/`;
-    if (!file.path.startsWith(prefix)) return file;
-    return {
-      ...file,
-      path: file.path.slice(prefix.length),
-    };
-  });
+function prefixFiles(files: GeneratedFile[], prefix: string): GeneratedFile[] {
+  return files.map((file) => ({
+    ...file,
+    path: `${prefix}/${file.path}`,
+  }));
 }
 
-async function resolveExportDirectory(
+async function resolveBundleDirectory(
   root: FileSystemDirectoryHandle,
-  target: GenerationTargetId,
+  bundleName: string,
 ): Promise<FileSystemDirectoryHandle> {
-  const targetRootDir = getGenerationTarget(target).rootDir;
-
-  if (root.name === targetRootDir) {
+  if (root.name === bundleName) {
     return root;
   }
 
-  return root.getDirectoryHandle(targetRootDir, { create: true });
+  return root.getDirectoryHandle(bundleName, { create: true });
 }
 
 export async function exportGeneratedWorkflowToDirectory(
@@ -149,10 +138,9 @@ export async function exportGeneratedWorkflowToDirectory(
   target: GenerationTargetId,
 ): Promise<GeneratedFile[]> {
   const files = generateWorkflowFiles(workflow, target);
-  const { rootFiles, targetFiles } = partitionByRoot(files, target);
-  const destination = await resolveExportDirectory(root, target);
-  await writeGeneratedFilesToDirectory(destination, stripTargetRootFromFiles(targetFiles, target));
-  await writeGeneratedFilesToDirectory(root, rootFiles);
+  const bundleName = getGeneratedWorkflowBundleName(workflow, target);
+  const destination = await resolveBundleDirectory(root, bundleName);
+  await writeGeneratedFilesToDirectory(destination, files);
   return files;
 }
 
@@ -162,13 +150,15 @@ export async function downloadGeneratedWorkflowZip(
 ): Promise<GeneratedFile[]> {
   const JSZip = (await import("jszip")).default;
   const files = generateWorkflowFiles(workflow, target);
-  const filesInZip = [
+  const bundleName = getGeneratedWorkflowBundleName(workflow, target);
+  const filesInBundle = [
     ...files,
     {
       path: getWorkflowExportFileName(workflow),
       content: getWorkflowExportContent(workflow),
     },
   ];
+  const filesInZip = prefixFiles(filesInBundle, bundleName);
   const zip = new JSZip();
 
   for (const file of filesInZip) {
@@ -180,12 +170,10 @@ export async function downloadGeneratedWorkflowZip(
   const targetInfo = getGenerationTarget(target);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${sanitizeGeneratedName(workflow.name)}-${targetInfo.id}.zip`;
+  a.download = `${sanitizeGeneratedName(workflow.name)}-${targetInfo.id}-export.zip`;
   a.click();
   URL.revokeObjectURL(url);
 
   return filesInZip;
 }
-
-
 
