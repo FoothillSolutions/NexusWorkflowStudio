@@ -1,6 +1,6 @@
 # Nexus Workflow Studio
 
-Nexus is a visual workflow editor for designing, composing, and exporting AI workflows. You build workflows on a drag-and-drop canvas, connect agents and control-flow nodes, then generate runnable command files for tools such as OpenCode, PI, and Claude Code.
+Nexus is a visual workflow editor for designing, composing, and exporting AI workflows. You build workflows on a drag-and-drop canvas, connect agents and control-flow nodes, then generate runnable command files for tools such as OpenCode and PI or Claude/Cowork plugin packages.
 
 ## Features
 
@@ -24,9 +24,9 @@ Nexus is a visual workflow editor for designing, composing, and exporting AI wor
 - Save reusable node configurations to the library
 - Browse and import pre-built agents, skills, and prompts from remote marketplace library repositories
 - Import and export workflow JSON files
-- Generate runnable workflow artifacts for `OpenCode`, `PI`, and `Claude Code`
+- Generate runnable workflow artifacts for `OpenCode`, `PI`, and Claude/Cowork plugins
 - Export generated files as a ZIP or write them directly into a target folder
-- Include generated `run-<workflow>.sh` and `run-<workflow>.bat` helper scripts with exported workflow artifacts
+- Include generated `run-<workflow>.sh` and `run-<workflow>.bat` helper scripts with OpenCode and PI exports
 
 ### 📝 Content and Agent Authoring
 
@@ -143,19 +143,18 @@ When your canvas is ready, open the generate/export flow from the app and choose
 
 - `OpenCode`
 - `PI`
-- `Claude Code`
+- `Claude/Cowork Plugin`
 
 Nexus generates files based on your workflow name and node connections.
 
 ### Generated output structure
 
-Depending on the selected target, Nexus writes files under one of these root folders:
+For OpenCode and PI, Nexus writes files under the selected target root:
 
 - `.opencode`
 - `.pi`
-- `.claude`
 
-Typical generated files include:
+Typical OpenCode/PI generated files include:
 
 - `commands/<workflow-name>.md`
 - `agents/<agent-name>.md`
@@ -164,6 +163,19 @@ Typical generated files include:
 - `docs/<document-file>`
 - `run-<workflow-name>.sh`
 - `run-<workflow-name>.bat`
+
+For Claude, Nexus exports a Claude/Cowork plugin package named `nexus-<workflow-slug>`:
+
+- `.claude-plugin/plugin.json`
+- `skills/run/SKILL.md`
+- `agents/<agent-name>.md`
+- `skills/<skill-name>/SKILL.md`
+- `skills/<skill-name>/scripts/<script-file>`
+- `docs/<document-file>`
+- `nexus/<workflow-name>.json`
+- `README.md`
+
+Claude ZIP exports place `.claude-plugin/plugin.json` at ZIP root for Cowork custom plugin upload compatibility. Claude folder exports create or update `nexus-<workflow-slug>` unless you select that plugin root directly.
 
 You can also:
 
@@ -191,10 +203,16 @@ my-workflow
 
 ## Run a generated workflow
 
-After exporting the generated files into the target tool's command directory, run the workflow by its generated command name:
+After exporting OpenCode or PI files into the target tool's command directory, run the workflow by its generated command name:
 
 ```text
 /my-workflow [params]
+```
+
+After installing a Claude/Cowork plugin export, invoke the bundled workflow skill with the plugin name:
+
+```text
+/nexus-my-workflow:run [params]
 ```
 
 Examples:
@@ -223,10 +241,12 @@ These positional values can then be passed through agent parameter mappings insi
 
 ### Optional generated runner scripts
 
-Nexus also exports helper launchers next to the generated workflow artifacts:
+OpenCode and PI exports also include helper launchers next to the generated workflow artifacts:
 
 - `run-<workflow-name>.sh` for Bash-compatible shells
 - `run-<workflow-name>.bat` for Windows Command Prompt
+
+Claude/Cowork plugin exports do not include helper runner scripts.
 
 Run them from your repository root so the selected target CLI can receive the current project directory automatically.
 
@@ -320,7 +340,7 @@ The timer starts after the initial refresh on server startup completes. Manual r
 3. Attach `Skill`, `Document`, and `Script` nodes where needed
 4. Save reusable pieces to the library when they can be reused
 5. Generate files for your target environment
-6. Run the generated command using `/<workflow-name> [params]`
+6. Run the generated command using `/<workflow-name> [params]` for OpenCode/PI or `/nexus-<workflow-name>:run [params]` for Claude/Cowork plugins
 
 ## Keyboard shortcuts
 

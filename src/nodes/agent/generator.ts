@@ -4,8 +4,8 @@ import type { WorkflowNodeData } from "@/types/workflow";
 import { NODE_ACCENT } from "@/lib/node-colors";
 import {
   buildGeneratedAgentFilePath,
-  buildGeneratedDocsFilePath,
-  buildGeneratedSkillFilePath,
+  buildGeneratedDocsReferencePath,
+  buildGeneratedSkillReferencePath,
   DEFAULT_GENERATION_TARGET,
   type GenerationTargetId,
 } from "@/lib/generation-targets";
@@ -173,10 +173,10 @@ export function buildAgentFile(
       let resolvedPath = ref;
       if (ref.startsWith("doc:")) {
         const fileName = ref.slice(4);
-        resolvedPath = buildGeneratedDocsFilePath(fileName, target);
+        resolvedPath = buildGeneratedDocsReferencePath(fileName, target);
       } else if (ref.startsWith("skill:")) {
         const skillName = ref.slice(6);
-        resolvedPath = buildGeneratedSkillFilePath(skillName, target);
+        resolvedPath = buildGeneratedSkillReferencePath(skillName, target);
       }
       lines.push(`- \`${varName}\`: \`${resolvedPath}\``);
     }

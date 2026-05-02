@@ -17,10 +17,19 @@ import type { HandoffNodeData } from "@/nodes/handoff/types";
 import {
   buildGeneratedCommandFilePath,
   buildGeneratedSkillScriptFilePath,
+  buildGeneratedSubWorkflowCommandFilePath,
   DEFAULT_GENERATION_TARGET,
   sanitizeGeneratedName,
   type GenerationTargetId,
 } from "@/lib/generation-targets";
+import {
+  buildClaudePluginManifest,
+  buildClaudePluginReadme,
+  buildClaudePluginSkillName,
+  buildClaudePluginWorkflowJson,
+  buildClaudePluginWorkflowJsonPath,
+  buildClaudeWorkflowSkillMarkdown,
+} from "@/lib/claude-plugin-export";
 import { getSkillScriptBaseName, getSkillScriptFileName } from "@/nodes/skill/script-utils";
 import { generateRunScriptFiles } from "@/lib/run-script-generator";
 import {
@@ -280,7 +289,17 @@ function collectAgentFiles(
     if (!innerJSON) continue;
 
     if (subWorkflowData.mode === "agent") {
-      files.push(...generateWorkflowFiles(innerJSON, target));
+      if (target === "claude-code") {
+        const subWorkflowSkillName = buildClaudePluginSkillName(innerJSON.name);
+        const subWorkflowMarkdown = buildCommandMarkdown(innerJSON, target);
+        files.push({
+          path: buildGeneratedSubWorkflowCommandFilePath(subWorkflowSkillName, target),
+          content: buildClaudeWorkflowSkillMarkdown(innerJSON, subWorkflowMarkdown, subWorkflowSkillName),
+        });
+        files.push(...collectAgentFiles(innerJSON.nodes, innerJSON.edges, target));
+      } else {
+        files.push(...generateWorkflowFiles(innerJSON, target));
+      }
 
       const agentFile = generator.getAgentFile?.(
         node.id,
@@ -293,9 +312,15 @@ function collectAgentFiles(
       continue;
     }
 
+    const subWorkflowSkillName = target === "claude-code"
+      ? buildClaudePluginSkillName(mermaidId(node.id))
+      : mermaidId(node.id);
+    const subWorkflowMarkdown = buildCommandMarkdown(innerJSON, target);
     files.push({
-      path: buildGeneratedCommandFilePath(mermaidId(node.id), target),
-      content: buildCommandMarkdown(innerJSON, target),
+      path: buildGeneratedSubWorkflowCommandFilePath(subWorkflowSkillName, target),
+      content: target === "claude-code"
+        ? buildClaudeWorkflowSkillMarkdown(innerJSON, subWorkflowMarkdown, subWorkflowSkillName)
+        : subWorkflowMarkdown,
     });
     files.push(...collectAgentFiles(innerJSON.nodes, innerJSON.edges, target));
   }
@@ -418,7 +443,7 @@ Workflow arguments are **comma-separated and trimmed**. For example \`/workflow 
   const ifElseDetails = buildIfElseDetailsSection(nodes, edges);
   const switchDetails = buildSwitchDetailsSection(nodes, edges);
   const askUserDetails = buildAskUserDetailsSection(nodes, edges);
-  const subWorkflowDetails = buildSubWorkflowDetailsSection(nodes, edges);
+  const subWorkflowDetails = buildSubWorkflowDetailsSection(nodes, edges, target);
   const handoffDetails = buildHandoffDetailsSection(nodes, edges, target);
   const otherDetails = buildDetailsSection(nodes, edges);
 
@@ -448,8 +473,33 @@ export function generateWorkflowFiles(
     content: buildCommandMarkdown(workflow, target),
   };
   const agentFiles = collectAgentFiles(workflow.nodes, workflow.edges, target);
-  const runScripts = generateRunScriptFiles(safeName, target);
-  return [commandFile, ...agentFiles, ...runScripts];
+  const runScripts = target === "claude-code" ? [] : generateRunScriptFiles(safeName, target);
+
+  if (target !== "claude-code") {
+    return [commandFile, ...agentFiles, ...runScripts];
+  }
+
+  const commandMarkdown = buildCommandMarkdown(workflow, target);
+  const claudeCommandFile: GeneratedFile = {
+    path: commandFile.path,
+    content: buildClaudeWorkflowSkillMarkdown(workflow, commandMarkdown),
+  };
+  const packageFiles: GeneratedFile[] = [
+    {
+      path: ".claude-plugin/plugin.json",
+      content: buildClaudePluginManifest(workflow),
+    },
+    {
+      path: "README.md",
+      content: buildClaudePluginReadme(workflow),
+    },
+    {
+      path: buildClaudePluginWorkflowJsonPath(workflow),
+      content: buildClaudePluginWorkflowJson(workflow),
+    },
+  ];
+
+  return [claudeCommandFile, ...agentFiles, ...packageFiles];
 }
 
 export function getCommandMarkdown(workflow: WorkflowJSON): string {

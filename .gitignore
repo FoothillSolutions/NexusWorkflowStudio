@@ -78,3 +78,5 @@ _workspace*
 /.nexus-brain/
 /.nexus-collab/
 
+/.adw/config.yaml
+/.adw/templates/.prefs.json

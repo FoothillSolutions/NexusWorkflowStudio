@@ -3,6 +3,7 @@ import { mermaidId, mermaidLabel } from "@/nodes/shared/mermaid-utils";
 import type { WorkflowNodeData } from "@/types/workflow";
 import {
   buildGeneratedSkillFilePath,
+  buildGeneratedSkillScriptReferencePath,
   DEFAULT_GENERATION_TARGET,
   getGenerationTarget,
   type GenerationTargetId,
@@ -72,13 +73,23 @@ function buildSkillFile(
     lines.push("");
     lines.push("## Run Scripts with Bun");
     lines.push("");
-    lines.push("Run the generated scripts from the repository root:");
-    lines.push("");
-    for (const script of connectedScripts) {
-      lines.push(`- \`bun run ${getGenerationTarget(target).rootDir}/skills/${skillName}/${buildSkillScriptRelativePath(script.fileName)}\``);
+    if (target === "claude-code") {
+      lines.push("Run the generated scripts from the plugin root:");
+      lines.push("");
+      for (const script of connectedScripts) {
+        lines.push(`- \`bun run ${buildGeneratedSkillScriptReferencePath(skillName, script.fileName, target)}\``);
+      }
+      lines.push("");
+      lines.push(`Or change into \`${buildGeneratedSkillScriptReferencePath(skillName, "", target).replace(/\/scripts\/$/, "")}\` and run:`);
+    } else {
+      lines.push("Run the generated scripts from the repository root:");
+      lines.push("");
+      for (const script of connectedScripts) {
+        lines.push(`- \`bun run ${getGenerationTarget(target).rootDir}/skills/${skillName}/${buildSkillScriptRelativePath(script.fileName)}\``);
+      }
+      lines.push("");
+      lines.push(`Or change into \`${getGenerationTarget(target).rootDir}/skills/${skillName}\` and run:`);
     }
-    lines.push("");
-    lines.push(`Or change into \`${getGenerationTarget(target).rootDir}/skills/${skillName}\` and run:`);
     lines.push("");
     for (const script of connectedScripts) {
       lines.push(`- \`bun run ${buildSkillScriptRelativePath(script.fileName)}\``);

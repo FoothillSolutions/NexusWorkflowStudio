@@ -161,7 +161,7 @@ export function Fields({ register, control, setValue, nodeId }: SkillFieldsProps
                   <span className="font-mono text-amber-300">{`{{${script.variableName}}}`}</span>
                 </div>
                 <code className="block overflow-x-auto rounded-md bg-black/30 px-2 py-1.5 text-[11px] text-zinc-300">
-                  {`bun run .claude/skills/${skillFolder}/${script.relativePath}`}
+                  {`bun run .opencode/skills/${skillFolder}/${script.relativePath}`}
                 </code>
               </div>
             ))}

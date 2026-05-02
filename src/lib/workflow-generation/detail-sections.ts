@@ -7,10 +7,12 @@ import {
 } from "@/nodes/handoff/generator";
 import type { HandoffNodeData } from "@/nodes/handoff/types";
 import {
+  buildGeneratedDocsReferencePath,
+  buildGeneratedSkillReferencePath,
   DEFAULT_GENERATION_TARGET,
-  getGenerationTarget,
   type GenerationTargetId,
 } from "@/lib/generation-targets";
+import { buildClaudePluginSkillName } from "@/lib/claude-plugin-export";
 import { NODE_GENERATORS, resolveSkillReferenceName, topologicalOrder } from "./shared";
 
 function collectSections(
@@ -86,8 +88,6 @@ export function buildSubAgentDetailsSection(
 ): string {
   const order = topologicalOrder(nodes, edges);
   const allNodeById = new Map<string, WorkflowNode>(allNodes.map((node) => [node.id, node]));
-  const rootDir = getGenerationTarget(target).rootDir;
-
   const sections: string[] = [];
   for (const id of order) {
     const node = allNodeById.get(id);
@@ -112,7 +112,7 @@ export function buildSubAgentDetailsSection(
       const skillData = skillNode.data as import("@/nodes/skill/types").SkillNodeData;
       const skillName = resolveSkillReferenceName(skillData);
       if (!skillName) continue;
-      inputs.push(`- \`${skillName}\`: \`${rootDir}/skills/${skillName}/SKILL.md\``);
+      inputs.push(`- \`${skillName}\`: \`${buildGeneratedSkillReferencePath(skillName, target)}\``);
     }
 
     // Connected document edges
@@ -126,7 +126,7 @@ export function buildSubAgentDetailsSection(
       const relativePath = getDocumentRelativePath(docData);
       if (!relativePath) continue;
       const displayLabel = getDocDisplayLabel(relativePath);
-      inputs.push(`- \`${displayLabel}\`: \`${rootDir}/docs/${relativePath}\``);
+      inputs.push(`- \`${displayLabel}\`: \`${buildGeneratedDocsReferencePath(relativePath, target)}\``);
     }
 
     // Positional parameter mappings
@@ -179,7 +179,6 @@ export function buildParallelAgentDetailsSection(
   const order = topologicalOrder(nodes, edges);
   const nodeById = new Map<string, WorkflowNode>(nodes.map((node) => [node.id, node]));
   const sections: string[] = [];
-  const rootDir = getGenerationTarget(target).rootDir;
 
   for (const id of order) {
     const node = nodeById.get(id);
@@ -284,7 +283,7 @@ export function buildParallelAgentDetailsSection(
         const skillData = skillNode.data as import("@/nodes/skill/types").SkillNodeData;
         const skillName = resolveSkillReferenceName(skillData);
         if (!skillName) continue;
-        inputs.push(`- \`${skillName}\`: \`${rootDir}/skills/${skillName}/SKILL.md\``);
+        inputs.push(`- \`${skillName}\`: \`${buildGeneratedSkillReferencePath(skillName, target)}\``);
       }
 
       const docEdges = edges.filter(
@@ -299,7 +298,7 @@ export function buildParallelAgentDetailsSection(
         const relativePath = getDocumentRelativePath(docData);
         if (!relativePath) continue;
         const displayLabel = getDocDisplayLabel(relativePath);
-        inputs.push(`- \`${displayLabel}\`: \`${rootDir}/docs/${relativePath}\``);
+        inputs.push(`- \`${displayLabel}\`: \`${buildGeneratedDocsReferencePath(relativePath, target)}\``);
       }
     }
 
@@ -332,13 +331,49 @@ export function buildAskUserDetailsSection(
 export function buildSubWorkflowDetailsSection(
   nodes: WorkflowNode[],
   edges: WorkflowEdge[],
+  target: GenerationTargetId = DEFAULT_GENERATION_TARGET,
 ): string {
-  return buildGeneratedNodeSection(
+  if (target !== "claude-code") {
+    return buildGeneratedNodeSection(
+      nodes,
+      edges,
+      WorkflowNodeType.SubWorkflow,
+      "### Sub-Workflow Node Details",
+    );
+  }
+
+  const sections = collectSections(
     nodes,
     edges,
-    WorkflowNodeType.SubWorkflow,
-    "### Sub-Workflow Node Details",
+    (node) => node.data.type === WorkflowNodeType.SubWorkflow,
+    (node) => {
+      const d = node.data as import("@/nodes/sub-workflow/types").SubWorkflowNodeData;
+      const label = d.label || "Sub Workflow";
+      const slug = buildClaudePluginSkillName(mermaidId(node.id));
+      if (d.mode === "agent") {
+        return [
+          `#### ${slug}(Agent: ${slug})`,
+          "",
+          "```",
+          `delegate agent: @${slug}`,
+          "```",
+        ].join("\n");
+      }
+
+      return [
+        `#### ${slug}`,
+        "",
+        `Run the bundled sub-workflow skill for ${label}:`,
+        "",
+        "```",
+        `Bundled skill path: ${buildGeneratedSkillReferencePath(slug, target)}`,
+        `Installed invocation: /<plugin-name>:${slug}`,
+        "```",
+      ].join("\n");
+    },
   );
+
+  return buildSectionBlock("### Sub-Workflow Node Details", sections);
 }
 
 export function buildHandoffDetailsSection(

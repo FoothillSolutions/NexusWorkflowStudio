@@ -31,6 +31,8 @@ export function generateRunScriptFiles(
   workflowName: string,
   target: GenerationTargetId,
 ): GeneratedFile[] {
+  if (target === "claude-code") return [];
+
   const cli = TARGET_CLI[target];
   return [
     {
