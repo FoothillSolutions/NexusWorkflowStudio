@@ -4,6 +4,7 @@ import {
   sanitizeGeneratedName,
   type GenerationTargetId,
 } from "@/lib/generation-targets";
+import { buildClaudePluginName } from "@/lib/claude-plugin-export";
 import {
   getWorkflowExportContent,
   getWorkflowExportFileName,
@@ -133,8 +134,11 @@ function stripTargetRootFromFiles(
 async function resolveExportDirectory(
   root: FileSystemDirectoryHandle,
   target: GenerationTargetId,
+  workflow: WorkflowJSON,
 ): Promise<FileSystemDirectoryHandle> {
-  const targetRootDir = getGenerationTarget(target).rootDir;
+  const targetRootDir = target === "claude-code"
+    ? buildClaudePluginName(workflow.name)
+    : getGenerationTarget(target).rootDir;
 
   if (root.name === targetRootDir) {
     return root;
@@ -143,14 +147,35 @@ async function resolveExportDirectory(
   return root.getDirectoryHandle(targetRootDir, { create: true });
 }
 
+export function getDirectoryExportDestinationLabel(
+  selectedDirectoryName: string,
+  workflow: Pick<WorkflowJSON, "name">,
+  target: GenerationTargetId,
+): string {
+  const targetRootDir = target === "claude-code"
+    ? buildClaudePluginName(workflow.name)
+    : getGenerationTarget(target).rootDir;
+
+  return selectedDirectoryName === targetRootDir
+    ? selectedDirectoryName
+    : `${selectedDirectoryName}/${targetRootDir}`;
+}
+
 export async function exportGeneratedWorkflowToDirectory(
   root: FileSystemDirectoryHandle,
   workflow: WorkflowJSON,
   target: GenerationTargetId,
 ): Promise<GeneratedFile[]> {
   const files = generateWorkflowFiles(workflow, target);
+
+  if (target === "claude-code") {
+    const destination = await resolveExportDirectory(root, target, workflow);
+    await writeGeneratedFilesToDirectory(destination, files);
+    return files;
+  }
+
   const { rootFiles, targetFiles } = partitionByRoot(files, target);
-  const destination = await resolveExportDirectory(root, target);
+  const destination = await resolveExportDirectory(root, target, workflow);
   await writeGeneratedFilesToDirectory(destination, stripTargetRootFromFiles(targetFiles, target));
   await writeGeneratedFilesToDirectory(root, rootFiles);
   return files;
@@ -162,13 +187,15 @@ export async function downloadGeneratedWorkflowZip(
 ): Promise<GeneratedFile[]> {
   const JSZip = (await import("jszip")).default;
   const files = generateWorkflowFiles(workflow, target);
-  const filesInZip = [
-    ...files,
-    {
-      path: getWorkflowExportFileName(workflow),
-      content: getWorkflowExportContent(workflow),
-    },
-  ];
+  const filesInZip = target === "claude-code"
+    ? files
+    : [
+        ...files,
+        {
+          path: getWorkflowExportFileName(workflow),
+          content: getWorkflowExportContent(workflow),
+        },
+      ];
   const zip = new JSZip();
 
   for (const file of filesInZip) {
@@ -180,7 +207,9 @@ export async function downloadGeneratedWorkflowZip(
   const targetInfo = getGenerationTarget(target);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${sanitizeGeneratedName(workflow.name)}-${targetInfo.id}.zip`;
+  a.download = target === "claude-code"
+    ? `${buildClaudePluginName(workflow.name)}.zip`
+    : `${sanitizeGeneratedName(workflow.name)}-${targetInfo.id}.zip`;
   a.click();
   URL.revokeObjectURL(url);
 

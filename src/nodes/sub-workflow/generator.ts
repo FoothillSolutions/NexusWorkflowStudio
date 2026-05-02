@@ -4,6 +4,7 @@ import type { WorkflowNodeData, WorkflowJSON } from "@/types/workflow";
 import { NODE_ACCENT } from "@/lib/node-colors";
 import {
   buildGeneratedAgentFilePath,
+  buildGeneratedSkillReferencePath,
   DEFAULT_GENERATION_TARGET,
   type GenerationTargetId,
 } from "@/lib/generation-targets";
@@ -18,10 +19,10 @@ import type { SubWorkflowNodeData } from "./types";
 /** Sanitise a human label into a safe kebab-case slug. */
 function toSafeName(raw: string): string {
   return raw
-    .replace(/[^a-z0-9\-_ ]/gi, "")
-    .trim()
-    .replace(/\s+/g, "-")
-    .toLowerCase() || "sub-workflow";
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "") || "sub-workflow";
 }
 
 /**
@@ -98,7 +99,12 @@ function buildSubWorkflowAgentFile(
 
   lines.push("---");
   lines.push("");
-  lines.push(`Call /${workflowSlug}`);
+  if (target === "claude-code") {
+    lines.push(`Run the bundled sub-workflow skill at \`${buildGeneratedSkillReferencePath(workflowSlug, target)}\`.`);
+    lines.push(`After plugin installation it can be invoked as \`/<plugin-name>:${workflowSlug}\`.`);
+  } else {
+    lines.push(`Call /${workflowSlug}`);
+  }
 
   return lines.join("\n");
 }

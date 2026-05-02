@@ -1,7 +1,7 @@
 /**
  * Helpers for generating Claude Code-compatible sub-agent frontmatter.
  *
- * Claude Code's `.claude/agents/*.md` files only accept a fixed set of
+ * Claude Code agent files only accept a fixed set of
  * frontmatter fields, documented at
  * https://code.claude.com/docs/en/sub-agents#supported-frontmatter-fields.
  *

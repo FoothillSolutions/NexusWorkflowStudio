@@ -334,11 +334,11 @@ describe("buildParallelAgentDetailsSection — dynamic mode dispatch format", ()
       "#### agent-analyze(Agent: agent-analyze)",
       "",
       "Dispatch `agent-analyze` using the `Agent` tool with inputs:",
-      "- `lint-check`: `.claude/skills/lint-check/SKILL.md`",
-      "- `doc-build`: `.claude/skills/doc-build/SKILL.md`",
-      "- `test-runner`: `.claude/skills/test-runner/SKILL.md`",
-      "- `api-guide`: `.claude/docs/product/api-guide.md`",
-      "- `quickstart`: `.claude/docs/onboarding/quickstart.md`",
+      "- `lint-check`: `${CLAUDE_PLUGIN_ROOT}/skills/lint-check/SKILL.md`",
+      "- `doc-build`: `${CLAUDE_PLUGIN_ROOT}/skills/doc-build/SKILL.md`",
+      "- `test-runner`: `${CLAUDE_PLUGIN_ROOT}/skills/test-runner/SKILL.md`",
+      "- `api-guide`: `${CLAUDE_PLUGIN_ROOT}/docs/product/api-guide.md`",
+      "- `quickstart`: `${CLAUDE_PLUGIN_ROOT}/docs/onboarding/quickstart.md`",
     ].join("\n");
     expect(output).toBe(expected);
   });

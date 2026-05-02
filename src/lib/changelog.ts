@@ -43,6 +43,7 @@ export const CHANGELOG: ChangelogEntry[] = [
           "Enhanced AI Generate/Edit — now available on Parallel Agent shared instructions and Document nodes, with ⌘/Ctrl+Enter to submit",
           "Parallel Agent now supports a dynamic number of subagents, cloned at runtime from a single template",
           "AI Edit now asks for confirmation before proceeding",
+          "Claude exports now generate Claude/Cowork plugin packages with bundled agents, skills, docs, and Nexus workflow JSON",
           "Enhanced Claude Code generated output",
           "Added validation for generated workflows",
           "Cleared unneeded frontmatter configurations from generated agent files",

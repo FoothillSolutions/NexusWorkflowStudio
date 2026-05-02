@@ -35,9 +35,11 @@ import {
   getGenerationTarget,
   type GenerationTargetId,
 } from "@/lib/generation-targets";
+import { buildClaudePluginName } from "@/lib/claude-plugin-export";
 import {
   downloadGeneratedWorkflowZip,
   exportGeneratedWorkflowToDirectory,
+  getDirectoryExportDestinationLabel,
   pickExportDirectory,
   supportsDirectoryExport,
 } from "@/lib/generated-workflow-export";
@@ -94,13 +96,17 @@ export default function GeneratedExportDialog({
   const [isBusy, setIsBusy] = useState(false);
 
   const supportsFolderExport = supportsDirectoryExport();
+  const workflowForCopy = getWorkflow();
+  const pluginFolderName = buildClaudePluginName(workflowForCopy.name);
+  const isClaudeTarget = target === "claude-code";
   const selectedTarget = useMemo(
     () => getGenerationTarget(target ?? DEFAULT_GENERATION_TARGET),
     [target],
   );
   const selectedTargetVisuals = TARGET_VISUALS[target ?? DEFAULT_GENERATION_TARGET];
   const SelectedTargetIcon = selectedTargetVisuals.Icon;
-  const isTargetFolderSelected = directoryHandle?.name === selectedTarget.rootDir;
+  const selectedTargetFolderName = isClaudeTarget ? pluginFolderName : selectedTarget.rootDir;
+  const isTargetFolderSelected = directoryHandle?.name === selectedTargetFolderName;
 
   const handlePickDirectory = async () => {
     try {
@@ -148,9 +154,11 @@ export default function GeneratedExportDialog({
         workflow,
         target,
       );
-      const destinationLabel = isTargetFolderSelected
-        ? directoryHandle.name
-        : `${directoryHandle.name}/${selectedTarget.rootDir}`;
+      const destinationLabel = getDirectoryExportDestinationLabel(
+        directoryHandle.name,
+        workflow,
+        target,
+      );
       toast.success(
         `Exported ${files.length} ${selectedTarget.label} file${files.length === 1 ? "" : "s"} to ${destinationLabel}.`,
       );
@@ -178,7 +186,7 @@ export default function GeneratedExportDialog({
             <div className="space-y-1">
               <DialogTitle className="text-xl">Generate workflow files</DialogTitle>
               <DialogDescription className={`max-w-2xl leading-relaxed ${TEXT_MUTED}`}>
-                Choose a target format, then export the generated folder directly into a directory.
+                Choose a target format, then export generated workflow artifacts as a ZIP or directly into a folder.
               </DialogDescription>
             </div>
           </div>
@@ -192,7 +200,15 @@ export default function GeneratedExportDialog({
                 Generate target
               </div>
               <p className={`mt-1 text-sm ${TEXT_SUBTLE}`}>
-                Each target writes its files into <code className="rounded bg-zinc-950 px-1.5 py-0.5 text-[11px] text-zinc-300">{selectedTarget.rootDir}</code>.
+                {isClaudeTarget ? (
+                  <>
+                    Claude exports a plugin package named <code className="rounded bg-zinc-950 px-1.5 py-0.5 text-[11px] text-zinc-300">{pluginFolderName}</code>.
+                  </>
+                ) : (
+                  <>
+                    This target writes its files into <code className="rounded bg-zinc-950 px-1.5 py-0.5 text-[11px] text-zinc-300">{selectedTarget.rootDir}</code>.
+                  </>
+                )}
               </p>
             </div>
 
@@ -201,6 +217,7 @@ export default function GeneratedExportDialog({
                 const isSelected = option.id === target;
                 const visuals = TARGET_VISUALS[option.id];
                 const TargetIcon = visuals.Icon;
+                const optionFolderLabel = option.id === "claude-code" ? pluginFolderName : option.rootDir;
                 return (
                   <button
                     key={option.id}
@@ -238,7 +255,7 @@ export default function GeneratedExportDialog({
                           </div>
                         </div>
                         <div className={`inline-flex shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-medium ${visuals.badgeClass}`}>
-                          <code>{option.rootDir}</code>
+                          <code>{optionFolderLabel}</code>
                         </div>
                       </div>
 
@@ -247,7 +264,7 @@ export default function GeneratedExportDialog({
                       </p>
 
                       <div className="flex flex-col gap-2 border-t border-zinc-800/80 pt-3 text-xs sm:flex-row sm:items-center sm:justify-between">
-                        <span className={TEXT_SUBTLE}>Exports into this folder structure</span>
+                        <span className={TEXT_SUBTLE}>{option.id === "claude-code" ? "Exports a plugin package" : "Exports into this folder structure"}</span>
                         <span className={`inline-flex items-center gap-1 font-medium ${isSelected ? "text-emerald-300" : "text-zinc-400 transition-colors group-hover:text-zinc-200"}`}>
                           {isSelected ? "Selected" : "Select"}
                           <ArrowRight className="h-3.5 w-3.5" />
@@ -267,15 +284,23 @@ export default function GeneratedExportDialog({
                   Target directory
                 </div>
                 <p className={`mt-1 text-sm leading-relaxed ${TEXT_MUTED}`}>
-                  The export merges into the target folder and only updates existing files of the current workflow.
-                  You can select either the project root or an existing <code className="rounded bg-zinc-900 px-1 py-0.5 text-[11px] text-zinc-300">{selectedTarget.rootDir}</code> folder.
+                  {isClaudeTarget ? (
+                    <>
+                      The folder export writes a Claude/Cowork plugin package. Select a parent folder to create or update <code className="rounded bg-zinc-900 px-1 py-0.5 text-[11px] text-zinc-300">{pluginFolderName}</code>, or select that plugin root to write directly into it.
+                    </>
+                  ) : (
+                    <>
+                      The export merges into the target folder and only updates existing files of the current workflow.
+                      You can select either the project root or an existing <code className="rounded bg-zinc-900 px-1 py-0.5 text-[11px] text-zinc-300">{selectedTarget.rootDir}</code> folder.
+                    </>
+                  )}
                 </p>
                 {currentProject?.worktree ? (
                   <p className={`mt-3 text-xs ${TEXT_SUBTLE}`}>
                     Current OpenCode project: <span className="text-zinc-300">{truncatePath(currentProject.worktree)}</span>
                   </p>
                 ) : null}
-                {IS_MAC && selectedTarget.rootDir.startsWith(".") ? (
+                {IS_MAC && !isClaudeTarget && selectedTarget.rootDir.startsWith(".") ? (
                   <p className="mt-3 text-xs leading-relaxed text-amber-300/90">
                     {selectedTarget.rootDir} is a hidden folder on macOS Finder, so it may not be visible unless hidden files are shown. Press <kbd className="rounded bg-zinc-900 px-1 py-0.5 text-[11px] text-zinc-200">⌘</kbd> + <kbd className="rounded bg-zinc-900 px-1 py-0.5 text-[11px] text-zinc-200">⇧</kbd> + <kbd className="rounded bg-zinc-900 px-1 py-0.5 text-[11px] text-zinc-200">.</kbd> in Finder to toggle hidden files.
                   </p>
@@ -305,12 +330,14 @@ export default function GeneratedExportDialog({
                     {directoryHandle
                       ? isTargetFolderSelected
                         ? `Files will be written directly into ${directoryHandle.name}`
-                        : `Files will be written into ${directoryHandle.name}/${selectedTarget.rootDir}`
-                      : `Choose the root folder where ${selectedTarget.rootDir} should be created or updated.`}
+                        : `Files will be written into ${directoryHandle.name}/${selectedTargetFolderName}`
+                      : isClaudeTarget
+                        ? `Choose a parent folder for ${pluginFolderName}, or choose that plugin folder directly.`
+                        : `Choose the root folder where ${selectedTarget.rootDir} should be created or updated.`}
                   </div>
                 </div>
                 <div className="shrink-0 rounded-full border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-[11px] font-medium text-zinc-300">
-                  <code>{selectedTarget.rootDir}</code>
+                  <code>{selectedTargetFolderName}</code>
                 </div>
               </div>
             </div>
@@ -327,7 +354,15 @@ export default function GeneratedExportDialog({
 
         <DialogFooter className="shrink-0 flex-col gap-3 border-t border-zinc-800 px-4 py-4 sm:px-6 sm:flex-row sm:items-center sm:justify-between">
           <p className={`text-xs leading-relaxed ${TEXT_SUBTLE}`}>
-            Export as a ZIP or write directly into <code className="rounded bg-zinc-950 px-1 py-0.5 text-[11px] text-zinc-300">{selectedTarget.rootDir}</code>.
+            {isClaudeTarget ? (
+              <>
+                ZIP exports place <code className="rounded bg-zinc-950 px-1 py-0.5 text-[11px] text-zinc-300">.claude-plugin/plugin.json</code> at the ZIP root for Cowork custom plugin upload compatibility.
+              </>
+            ) : (
+              <>
+                Export as a ZIP or write directly into <code className="rounded bg-zinc-950 px-1 py-0.5 text-[11px] text-zinc-300">{selectedTarget.rootDir}</code>.
+              </>
+            )}
           </p>
           <div className="flex flex-col-reverse gap-2 sm:flex-row">
             <Button

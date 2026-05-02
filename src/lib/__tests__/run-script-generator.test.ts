@@ -3,28 +3,37 @@ import { describe, expect, it } from "bun:test";
 import { generateRunScriptFiles } from "../run-script-generator";
 
 describe("run-script-generator", () => {
-  it("pipes the workflow path into claude for generated bash scripts", () => {
-    const files = generateRunScriptFiles("untitled-workflow", "claude-code");
+  it("does not generate helper run scripts for Claude plugin exports", () => {
+    expect(generateRunScriptFiles("untitled-workflow", "claude-code")).toEqual([]);
+  });
+
+  it("pipes the workflow path into opencode for generated bash scripts", () => {
+    const files = generateRunScriptFiles("untitled-workflow", "opencode");
     const bashScript = files.find((file) => file.path === "run-untitled-workflow.sh");
 
     expect(bashScript?.content).toContain(
-      'echo "/untitled-workflow" | claude --add-dir "$REPO_DIR" "$@"',
+      'echo "/untitled-workflow" | opencode --add-dir "$REPO_DIR" "$@"',
     );
     expect(bashScript?.content).not.toContain(
-      'exec claude --add-dir "$REPO_DIR" "/untitled-workflow" "$@"',
+      'exec opencode --add-dir "$REPO_DIR" "/untitled-workflow" "$@"',
     );
   });
 
-  it("keeps batch scripts on positional arguments", () => {
-    const files = generateRunScriptFiles("untitled-workflow", "claude-code");
-    const batchScript = files.find((file) => file.path === "run-untitled-workflow.bat");
+  it("keeps OpenCode and PI batch scripts on positional arguments", () => {
+    const opencodeFiles = generateRunScriptFiles("untitled-workflow", "opencode");
+    const piFiles = generateRunScriptFiles("untitled-workflow", "pi");
+    const opencodeBatchScript = opencodeFiles.find((file) => file.path === "run-untitled-workflow.bat");
+    const piBatchScript = piFiles.find((file) => file.path === "run-untitled-workflow.bat");
 
-    expect(batchScript?.content).toContain(
-      'claude --add-dir "%REPO_DIR%" "/untitled-workflow" %*',
+    expect(opencodeBatchScript?.content).toContain(
+      'opencode --add-dir "%REPO_DIR%" "/untitled-workflow" %*',
+    );
+    expect(piBatchScript?.content).toContain(
+      'pi --add-dir "%REPO_DIR%" "/untitled-workflow" %*',
     );
   });
 
-  it("uses the target CLI for other generated bash scripts", () => {
+  it("uses the target CLI for OpenCode and PI generated bash scripts", () => {
     const opencodeScript = generateRunScriptFiles("demo-workflow", "opencode").find(
       (file) => file.path === "run-demo-workflow.sh",
     );
@@ -40,4 +49,3 @@ describe("run-script-generator", () => {
     );
   });
 });
-
